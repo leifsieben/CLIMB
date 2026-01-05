@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+climb/
+venv/
+env/
+
+# Data files
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# Large model files
+*.bin
+*.pt
+*.pth
+*.ckpt
+pytorch_model.bin
+
+# Tokenizer vocab files (if large)
+vocab.json
+merges.txt
+tokenizer.json
+
+# Data directories
+local_prototyping_data/
+hp_search_trial_*/
+
+# Experiment outputs
+experiments/
+results/
+checkpoints/
+runs/
+logs/
+hp_search*/
+models/
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Optuna database
+optuna_study.db
+
+# Config with secrets (if any)
+secrets.yaml
+.env
