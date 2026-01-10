@@ -100,6 +100,7 @@ class MultiTaskTrainingConfig:
     fp16: bool = True
     gradient_accumulation_steps: int = 1
     max_grad_norm: float = 1.0
+    dataloader_num_workers: int = 0
     early_stopping_patience: int = 10  # Epochs without improvement before stopping
     freeze_encoder: bool = False  # Whether to freeze encoder weights
 
@@ -112,7 +113,7 @@ class MultiTaskConfig:
     Can be loaded from YAML:
         config = MultiTaskConfig.from_yaml("config.yaml")
     """
-    pretrained_model_path: str  # Path to pretrained MLM model
+    pretrained_model_path: Optional[str] = None  # Path to pretrained MLM model (optional)
     tasks: List[TaskConfig] = field(default_factory=list)
     data_sources: List[DataSourceConfig] = field(default_factory=list)
     training: MultiTaskTrainingConfig = field(default_factory=MultiTaskTrainingConfig)
@@ -153,7 +154,7 @@ class MultiTaskConfig:
     def from_dict(cls, config: Dict[str, Any]) -> 'MultiTaskConfig':
         """Create from dictionary"""
         return cls(
-            pretrained_model_path=config['pretrained_model_path'],
+            pretrained_model_path=config.get('pretrained_model_path'),
             tokenizer_path=config.get('tokenizer_path'),
             tasks=[TaskConfig(**t) for t in config.get('tasks', [])],
             data_sources=[DataSourceConfig(**d) for d in config.get('data_sources', [])],
@@ -196,3 +197,118 @@ class ConfigManager:
             data = json.load(f)
         return config_class(**data)
 
+
+@dataclass
+class ComputeBudgetConfig:
+    """Compute budget split between supervised and unsupervised phases."""
+    total_epochs: int = 50
+    supervised_fraction: float = 0.5
+
+    def __post_init__(self):
+        if self.total_epochs <= 0:
+            raise ValueError("total_epochs must be > 0")
+        if not (0.0 <= self.supervised_fraction <= 1.0):
+            raise ValueError("supervised_fraction must be between 0 and 1")
+
+    @property
+    def unsupervised_fraction(self) -> float:
+        """Fraction of budget devoted to MLM pretraining."""
+        return 1.0 - self.supervised_fraction
+
+
+@dataclass
+class MLMTrainingConfig:
+    """Configuration for the MLM (unsupervised) training phase."""
+    batch_size: int = 32
+    learning_rate: float = 5e-5
+    warmup_steps: int = 1000
+    weight_decay: float = 0.0
+    mlm_probability: float = 0.15
+    logging_steps: int = 100
+    save_steps: int = 500
+    eval_steps: int = 0
+    fp16: bool = False
+    gradient_accumulation_steps: int = 1
+    max_grad_norm: float = 1.0
+    save_total_limit: int = 2
+    dataloader_num_workers: int = 0
+    evaluation_strategy: str = "no"
+
+
+@dataclass
+class PretrainingConfig:
+    """High-level configuration for the combined pretraining pipeline."""
+    name: str = "pretraining"
+    output_dir: str = "./experiments/pretraining"
+    tokenizer_path: str = "./tokenizer"
+    model: ModelConfig = field(default_factory=ModelConfig)
+    compute_budget: ComputeBudgetConfig = field(default_factory=ComputeBudgetConfig)
+    mlm_training: MLMTrainingConfig = field(default_factory=MLMTrainingConfig)
+    unsupervised_data: List[str] = field(default_factory=list)
+    tasks: List[Dict[str, Any]] = field(default_factory=list)
+    data_sources: List[Dict[str, Any]] = field(default_factory=list)
+    supervised_training: MultiTaskTrainingConfig = field(default_factory=MultiTaskTrainingConfig)
+    validation_fraction: float = 0.1
+
+    def __post_init__(self):
+        if isinstance(self.model, dict):
+            self.model = ModelConfig(**self.model)
+        if isinstance(self.compute_budget, dict):
+            self.compute_budget = ComputeBudgetConfig(**self.compute_budget)
+        if isinstance(self.mlm_training, dict):
+            self.mlm_training = MLMTrainingConfig(**self.mlm_training)
+
+        if not self.unsupervised_data:
+            self.unsupervised_data = []
+
+        if isinstance(self.supervised_training, dict):
+            self.supervised_training = MultiTaskTrainingConfig(**self.supervised_training)
+
+        if not (0.0 <= self.validation_fraction <= 0.5):
+            raise ValueError("validation_fraction must be between 0 and 0.5")
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> 'PretrainingConfig':
+        if 'tokenizer_path' not in config:
+            raise ValueError("pretraining config must define 'tokenizer_path'")
+
+        return cls(
+            name=config.get('name', 'pretraining'),
+            output_dir=config.get('output_dir', './experiments/pretraining'),
+            tokenizer_path=config['tokenizer_path'],
+            model=config.get('model', {}),
+            compute_budget=config.get('compute_budget', {}),
+            mlm_training=config.get('mlm_training', {}),
+            unsupervised_data=config.get('unsupervised_data', []),
+            tasks=config.get('tasks', []),
+            data_sources=config.get('data_sources', []),
+            supervised_training=config.get('supervised_training', {}),
+            validation_fraction=config.get('validation_fraction', 0.1),
+        )
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> 'PretrainingConfig':
+        import yaml
+        with open(yaml_path) as f:
+            config = yaml.safe_load(f)
+        return cls.from_dict(config)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'name': self.name,
+            'output_dir': self.output_dir,
+            'tokenizer_path': self.tokenizer_path,
+            'model': asdict(self.model),
+            'compute_budget': asdict(self.compute_budget),
+            'mlm_training': asdict(self.mlm_training),
+            'unsupervised_data': self.unsupervised_data,
+            'tasks': self.tasks,
+            'data_sources': self.data_sources,
+            'supervised_training': asdict(self.supervised_training),
+            'validation_fraction': self.validation_fraction,
+        }
+
+    def save_yaml(self, path: str) -> None:
+        import yaml
+        with open(path, 'w') as f:
+            yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
