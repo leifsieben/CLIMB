@@ -11,7 +11,7 @@ This repo supports end‑to‑end tokenizer training, hyperparameter sweeps, pre
    python train_tokenizer.py \
      --input data/unsup_smiles.smi \
      --output tokenizer \
-     --vocab_size 32000 \
+     --vocab_size 1000 \
      --min_frequency 2
    ```
    (If you use the notebook `playing_around_with_the_tokenizer.ipynb`, point it to your SMILES file and export to a directory with `tokenizer.json`.)
@@ -159,8 +159,10 @@ python evaluate_model.py \
   --dataset_name Tox21 \
   --output experiments/moleculenet_evals/Tox21 \
   --tokenizer tokenizer \
-  --freeze_encoder
+  --freeze_encoder \
+  --predictions_csv experiments/moleculenet_evals/Tox21/test_predictions.csv  # optional
 ```
+- If you want a human-readable predictions file (SMILES, prediction, label), pass `--predictions_csv <path>`. If omitted, predictions are saved only as `.npy`.
 
 ---
 

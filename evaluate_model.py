@@ -377,6 +377,7 @@ def evaluate_on_dataset(
     num_epochs: int = 50,
     batch_size: int = 32,
     learning_rate: float = 2e-5,
+    predictions_csv: str = None,
 ):
     """
     Fine-tune pretrained encoder on downstream task and evaluate
@@ -642,6 +643,27 @@ def evaluate_on_dataset(
     np.save(output_path / "test_predictions.npy", preds)
     np.save(output_path / "test_labels.npy", dataset_splits['test']['labels'])
 
+    # Optional human-readable CSV with SMILES/predictions/labels
+    if predictions_csv:
+        smiles = dataset_splits['test'].get('smiles')
+        if smiles is not None and len(smiles) == len(test_labels):
+            csv_data = {"SMILES": smiles}
+            if preds.ndim == 1:
+                csv_data["prediction"] = preds
+                csv_data["label"] = test_labels
+            else:
+                for i in range(preds.shape[1]):
+                    csv_data[f"prediction_{i}"] = preds[:, i]
+                if test_labels.ndim > 1:
+                    for i in range(test_labels.shape[1]):
+                        csv_data[f"label_{i}"] = test_labels[:, i]
+                else:
+                    csv_data["label"] = test_labels
+            pd.DataFrame(csv_data).to_csv(predictions_csv, index=False)
+            logger.info(f"Saved predictions CSV to {predictions_csv}")
+        else:
+            logger.warning("SMILES not available or length mismatch; skipping CSV export")
+
     # Append to central aggregate log (human-readable)
     aggregate_path = output_path.parent / "all_evaluations.txt"
     main_metric = 'roc_auc' if task_type == 'classification' else 'rmse'
@@ -873,6 +895,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=2e-5)
     parser.add_argument("--log_file", help="Log file path")
+    parser.add_argument("--predictions_csv", help="Optional path to save SMILES/predictions/labels CSV")
 
     # Multi-task model options
     parser.add_argument("--multitask_model", action="store_true",
@@ -932,6 +955,7 @@ def main():
             num_epochs=args.num_epochs,
             batch_size=args.batch_size,
             learning_rate=args.learning_rate,
+            predictions_csv=args.predictions_csv,
         )
 
 
