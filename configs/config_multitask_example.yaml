@@ -1,0 +1,120 @@
+# ==============================================================================
+# Multi-Task Training Configuration Example
+# ==============================================================================
+#
+# Usage:
+#   python train_multitask.py --config configs/config_multitask_example.yaml
+#
+# This config demonstrates training on multiple MoleculeNet tasks simultaneously.
+# Each unique SMILES is encoded once, then passed through all task heads.
+# ==============================================================================
+
+# Path to pretrained encoder (from MLM pretraining)
+# Set to null or remove to train from scratch
+pretrained_model_path: ./experiments/model_unsup_100
+
+# Tokenizer path (defaults to pretrained_model_path if not specified)
+tokenizer_path: ./tokenizer
+
+# ==============================================================================
+# Task Definitions
+# ==============================================================================
+# Each task needs:
+#   - name: unique identifier (must match label_mapping in data_sources)
+#   - task_type: regression | binary_classification | multiclass_classification
+#   - metric: evaluation metric (roc_auc, rmse, accuracy, etc.)
+#   - loss_weight: weight in combined loss (default 1.0)
+#   - num_classes: for multiclass only
+
+tasks:
+  # Classification tasks
+  - name: BBBP
+    task_type: binary_classification
+    metric: roc_auc
+    description: Blood-brain barrier penetration
+
+  - name: BACE
+    task_type: binary_classification
+    metric: roc_auc
+    description: Beta-secretase 1 inhibitor
+
+  # Regression tasks
+  - name: ESOL
+    task_type: regression
+    metric: rmse
+    description: Aqueous solubility (log mol/L)
+
+  - name: FreeSolv
+    task_type: regression
+    metric: rmse
+    description: Hydration free energy (kcal/mol)
+
+  - name: Lipophilicity
+    task_type: regression
+    metric: rmse
+    description: Octanol/water partition coefficient
+
+# ==============================================================================
+# Data Sources
+# ==============================================================================
+# Each data source specifies:
+#   - path: path to CSV/pickle file
+#   - SMILES_column: column name for SMILES (default: "SMILES")
+#   - label_mapping: maps CSV column names to task names
+#
+# Data is pooled by unique SMILES. Each molecule appears once with labels
+# from all data sources it appears in. Missing labels are masked (not used
+# in loss computation).
+
+data_sources:
+  - path: data/bbbp.csv
+    SMILES_column: SMILES
+    label_mapping:
+      p_np: BBBP
+
+  - path: data/bace.csv
+    SMILES_column: SMILES
+    label_mapping:
+      Class: BACE
+
+  - path: data/esol.csv
+    SMILES_column: SMILES
+    label_mapping:
+      measured_log_solubility: ESOL
+
+  - path: data/freesolv.csv
+    SMILES_column: SMILES
+    label_mapping:
+      expt: FreeSolv
+
+  - path: data/lipophilicity.csv
+    SMILES_column: SMILES
+    label_mapping:
+      exp: Lipophilicity
+
+# ==============================================================================
+# Model Configuration (only used if training from scratch)
+# ==============================================================================
+model:
+  hidden_size: 768
+  num_hidden_layers: 12
+  num_attention_heads: 12
+  intermediate_size: 3072
+  max_position_embeddings: 512
+  hidden_dropout_prob: 0.1
+  attention_probs_dropout_prob: 0.1
+
+# ==============================================================================
+# Training Configuration
+# ==============================================================================
+training:
+  output_dir: ./experiments/multitask_example
+  num_epochs: 50
+  batch_size: 32
+  learning_rate: 2.0e-5
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  logging_steps: 100
+  save_steps: 1000
+  eval_steps: 500
+  fp16: false  # Set true for GPU training

@@ -8,15 +8,25 @@ Supports:
 - Custom datasets with SMILES + labels
 - Multiple evaluation metrics
 - Fine-tuning with frozen/unfrozen encoder
+- Multi-task model evaluation (from train_multitask.py)
 
 Usage:
-    # Evaluate on MoleculeNet BBBP
+    # Evaluate encoder on MoleculeNet BBBP
     python evaluate_model.py \
         --pretrained_model models/mlm_100 \
         --dataset moleculenet \
         --dataset_name BBBP \
         --output results/bbbp_eval
-    
+
+    # Evaluate multi-task model on specific task
+    python evaluate_model.py \
+        --pretrained_model experiments/multitask/final \
+        --dataset moleculenet \
+        --dataset_name BBBP \
+        --output results/bbbp_eval \
+        --multitask_model \
+        --task_name BBBP
+
     # Evaluate on custom dataset
     python evaluate_model.py \
         --pretrained_model models/mlm_100 \
@@ -48,6 +58,14 @@ from transformers import (
 from utils import setup_logging, get_device
 
 logger = logging.getLogger(__name__)
+
+
+# Optional multi-task imports (only needed for --multitask_model)
+def _import_multitask():
+    """Lazy import multi-task components."""
+    from multitask_model import MultiTaskModel
+    from tasks import TaskRegistry
+    return MultiTaskModel, TaskRegistry
 
 
 # ==============================================================================
@@ -572,6 +590,186 @@ def evaluate_on_dataset(
 
 
 # ==============================================================================
+# Multi-Task Model Evaluation
+# ==============================================================================
+
+def evaluate_multitask_model(
+    model_path: str,
+    dataset_splits: dict,
+    task_name: str,
+    task_type: str,
+    output_dir: str,
+    tokenizer_path: str = None,
+    batch_size: int = 32,
+):
+    """
+    Evaluate a trained MultiTaskModel on a specific task.
+
+    No fine-tuning - just inference with the trained task head.
+
+    Args:
+        model_path: Path to MultiTaskModel checkpoint
+        dataset_splits: Dict with 'test' data
+        task_name: Name of task to evaluate
+        task_type: 'classification' or 'regression'
+        output_dir: Where to save results
+        tokenizer_path: Path to tokenizer
+        batch_size: Batch size for inference
+    """
+    MultiTaskModel, TaskRegistry = _import_multitask()
+
+    logger.info("=" * 80)
+    logger.info("MULTI-TASK MODEL EVALUATION")
+    logger.info("=" * 80)
+    logger.info(f"Model: {model_path}")
+    logger.info(f"Task: {task_name}")
+
+    # Load model
+    model = MultiTaskModel.from_checkpoint(model_path)
+
+    if task_name not in model.task_heads:
+        raise ValueError(
+            f"Task '{task_name}' not in model. Available: {list(model.task_heads.keys())}"
+        )
+
+    # Load tokenizer
+    if tokenizer_path is None:
+        tokenizer_path = model_path
+
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_file=str(Path(tokenizer_path) / "tokenizer.json"),
+        bos_token="<s>",
+        eos_token="</s>",
+        unk_token="<unk>",
+        pad_token="<pad>",
+        mask_token="<mask>",
+    )
+
+    # Tokenize test data
+    test_data = dataset_splits['test']
+    logger.info(f"Tokenizing {len(test_data['smiles'])} test samples...")
+
+    tokenized = tokenizer(
+        test_data['smiles'],
+        truncation=True,
+        max_length=512,
+        padding=True,
+        return_tensors='pt',
+    )
+
+    # Move to device
+    device = get_device()
+    model.to(device)
+    model.eval()
+
+    # Inference
+    logger.info("Running inference...")
+    all_preds = []
+
+    with torch.no_grad():
+        for i in range(0, len(test_data['smiles']), batch_size):
+            batch_input_ids = tokenized['input_ids'][i:i+batch_size].to(device)
+            batch_attention_mask = tokenized['attention_mask'][i:i+batch_size].to(device)
+
+            outputs = model.forward_supervised(
+                input_ids=batch_input_ids,
+                attention_mask=batch_attention_mask,
+            )
+
+            logits = outputs['logits'][task_name]
+
+            if task_type == 'classification':
+                probs = torch.softmax(logits, dim=-1)
+                preds = probs[:, 1].cpu().numpy()  # Prob of positive class
+            else:
+                preds = logits.squeeze(-1).cpu().numpy()
+
+            all_preds.extend(preds)
+
+    preds = np.array(all_preds)
+
+    # Compute metrics
+    if task_type == "classification":
+        metrics = compute_metrics_classification(
+            preds,
+            test_data['labels'],
+            test_data.get('weights'),
+        )
+        baselines = {'roc_auc': 0.5, 'avg_precision': 0.5}
+    else:
+        metrics = compute_metrics_regression(
+            preds,
+            test_data['labels'],
+            test_data.get('weights'),
+        )
+        baselines = {'rmse': None, 'mae': None, 'r2': 0.0}
+
+    # Save results (same format as single-task)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Summary
+    summary_lines = []
+    summary_lines.append("=" * 80)
+    summary_lines.append("MULTI-TASK MODEL EVALUATION RESULTS")
+    summary_lines.append("=" * 80)
+    summary_lines.append("")
+    summary_lines.append(f"Model:          {model_path}")
+    summary_lines.append(f"Task:           {task_name}")
+    summary_lines.append(f"Task Type:      {task_type}")
+    summary_lines.append(f"Test Samples:   {len(test_data['smiles'])}")
+    summary_lines.append("")
+    summary_lines.append("-" * 80)
+    summary_lines.append("TEST SET METRICS")
+    summary_lines.append("-" * 80)
+    summary_lines.append("")
+    summary_lines.append(f"{'Metric':<20} {'Value':>12} {'Random Baseline':>18} {'vs Baseline':>15}")
+    summary_lines.append("-" * 65)
+
+    for metric_name, metric_value in metrics.items():
+        if isinstance(metric_value, (int, float, np.floating)):
+            baseline = baselines.get(metric_name)
+            if baseline is not None:
+                diff = metric_value - baseline
+                comparison = f"+{diff:.4f}" if diff > 0 else f"{diff:.4f}"
+                summary_lines.append(
+                    f"{metric_name:<20} {metric_value:>12.4f} {baseline:>18.4f} {comparison:>15}"
+                )
+            else:
+                summary_lines.append(
+                    f"{metric_name:<20} {metric_value:>12.4f} {'N/A':>18} {'N/A':>15}"
+                )
+
+    summary_lines.append("")
+    summary_lines.append("=" * 80)
+
+    for line in summary_lines:
+        logger.info(line)
+
+    with open(output_path / "results_summary.txt", 'w') as f:
+        f.write("\n".join(summary_lines))
+
+    results = {
+        'model_path': model_path,
+        'task_name': task_name,
+        'task_type': task_type,
+        'metrics': {k: float(v) if isinstance(v, (np.floating, float)) else v
+                   for k, v in metrics.items()},
+        'num_test': len(test_data['smiles']),
+    }
+
+    with open(output_path / "results.json", 'w') as f:
+        json.dump(results, f, indent=2)
+
+    np.save(output_path / "test_predictions.npy", preds)
+    np.save(output_path / "test_labels.npy", test_data['labels'])
+
+    logger.info(f"\nResults saved to: {output_dir}")
+
+    return metrics
+
+
+# ==============================================================================
 # Main Script
 # ==============================================================================
 
@@ -579,18 +777,18 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate pretrained model on downstream tasks")
     parser.add_argument("--pretrained_model", required=True, help="Path to pretrained model")
     parser.add_argument("--dataset", choices=["moleculenet", "custom"], required=True)
-    
+
     # MoleculeNet options
     parser.add_argument("--dataset_name", help="MoleculeNet dataset name (BBBP, Tox21, etc.)")
     parser.add_argument("--split_type", default="scaffold", choices=["scaffold", "random", "stratified"])
-    
+
     # Custom dataset options
     parser.add_argument("--train_data", help="Training data CSV")
     parser.add_argument("--val_data", help="Validation data CSV")
     parser.add_argument("--test_data", help="Test data CSV")
     parser.add_argument("--task_type", choices=["classification", "regression"])
     parser.add_argument("--num_tasks", type=int, default=1)
-    
+
     # Training options
     parser.add_argument("--output", required=True, help="Output directory")
     parser.add_argument("--tokenizer", help="Tokenizer path (if different from model)")
@@ -599,43 +797,65 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=2e-5)
     parser.add_argument("--log_file", help="Log file path")
-    
+
+    # Multi-task model options
+    parser.add_argument("--multitask_model", action="store_true",
+                       help="Evaluate a MultiTaskModel (no fine-tuning, just inference)")
+    parser.add_argument("--task_name", help="Task name for multi-task model evaluation")
+
     args = parser.parse_args()
-    
+
     setup_logging(args.log_file)
-    
+
     # Load dataset
     if args.dataset == "moleculenet":
         if not args.dataset_name:
             raise ValueError("--dataset_name required for MoleculeNet")
-        
+
         loader = MoleculeNetLoader(args.dataset_name, args.split_type)
         dataset_splits, tasks = loader.load()
         task_type = loader.info['task']
         num_tasks = loader.info['num_tasks']
-        
+
     else:  # custom
         if not all([args.train_data, args.test_data, args.task_type]):
             raise ValueError("--train_data, --test_data, --task_type required for custom dataset")
-        
+
         loader = CustomDatasetLoader(args.task_type, args.num_tasks)
         dataset_splits, tasks = loader.load(args.train_data, args.val_data, args.test_data)
         task_type = args.task_type
         num_tasks = args.num_tasks
-    
+
     # Evaluate
-    metrics = evaluate_on_dataset(
-        pretrained_model_path=args.pretrained_model,
-        dataset_splits=dataset_splits,
-        task_type=task_type,
-        num_tasks=num_tasks,
-        output_dir=args.output,
-        tokenizer_path=args.tokenizer,
-        freeze_encoder=args.freeze_encoder,
-        num_epochs=args.num_epochs,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-    )
+    if args.multitask_model:
+        # Evaluate pre-trained MultiTaskModel (no fine-tuning)
+        task_name = args.task_name or args.dataset_name
+        if not task_name:
+            raise ValueError("--task_name required for --multitask_model")
+
+        metrics = evaluate_multitask_model(
+            model_path=args.pretrained_model,
+            dataset_splits=dataset_splits,
+            task_name=task_name,
+            task_type=task_type,
+            output_dir=args.output,
+            tokenizer_path=args.tokenizer,
+            batch_size=args.batch_size,
+        )
+    else:
+        # Standard evaluation: fine-tune encoder on downstream task
+        metrics = evaluate_on_dataset(
+            pretrained_model_path=args.pretrained_model,
+            dataset_splits=dataset_splits,
+            task_type=task_type,
+            num_tasks=num_tasks,
+            output_dir=args.output,
+            tokenizer_path=args.tokenizer,
+            freeze_encoder=args.freeze_encoder,
+            num_epochs=args.num_epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+        )
 
 
 if __name__ == "__main__":

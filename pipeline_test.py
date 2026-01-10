@@ -69,7 +69,7 @@ def main():
     
     # Paths
     hp_output = output_dir / "hp_search"
-    model_output = output_dir / "model_unsup_100"
+    model_output = output_dir / "model_sup_50_unsup_50"
     eval_output = output_dir / "evaluation"
     
     # =========================================================================
@@ -104,7 +104,7 @@ def main():
         logger.info("Skipping hyperparameter search (using existing config)")
     
     # =========================================================================
-    # STEP 2: Train Model (100% Unsupervised)
+    # STEP 2: Train Model (50% Supervised, 50% Unsupervised)
     # =========================================================================
     
     train_cmd = [
@@ -112,8 +112,8 @@ def main():
         "--config", args.config,
         "--tokenizer", args.tokenizer,
         "--unsup_data", args.unsup_data,
-        "--unsup_weight", "1.0",
-        "--sup_weight", "0.0",
+        "--unsup_weight", "0.50",
+        "--sup_weight", "0.50",
         "--output", str(model_output),
         "--task", "mlm",
     ]
