@@ -224,19 +224,30 @@ class CustomDatasetLoader:
 
 class DownstreamDataset(Dataset):
     """Dataset for fine-tuning on downstream tasks"""
-    
-    def __init__(self, tokenized_data, labels, weights=None):
+
+    def __init__(self, tokenized_data, labels, weights=None, task_type='regression'):
         self.data = tokenized_data
         self.labels = labels
         self.weights = weights if weights is not None else np.ones_like(labels)
-    
+        self.task_type = task_type
+
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, idx):
         item = self.data[idx].copy()
-        item['labels'] = torch.tensor(self.labels[idx], dtype=torch.float)
-        # For multi-task with missing values, we'd use weights in loss computation
+        label = self.labels[idx]
+
+        if self.task_type == 'classification':
+            # CrossEntropyLoss expects long tensor of shape (batch_size,)
+            # Squeeze if shape is (1,) and convert to int
+            if hasattr(label, '__len__') and len(label) == 1:
+                label = label[0]
+            item['labels'] = torch.tensor(int(label), dtype=torch.long)
+        else:
+            # Regression: float tensor
+            item['labels'] = torch.tensor(label, dtype=torch.float)
+
         return item
 
 
@@ -377,13 +388,22 @@ def evaluate_on_dataset(
             tokenized,
             split_data['labels'],
             split_data.get('weights'),
+            task_type=task_type,
         )
     
     # Load pretrained model and add classification head
     logger.info("Loading pretrained encoder...")
+
+    # For classification: num_labels=2 for binary (CrossEntropyLoss expects 2 classes)
+    # For regression: num_labels=num_tasks (number of output values)
+    if task_type == "classification":
+        model_num_labels = 2  # Binary classification
+    else:
+        model_num_labels = num_tasks
+
     model = RobertaForSequenceClassification.from_pretrained(
         pretrained_model_path,
-        num_labels=num_tasks,
+        num_labels=model_num_labels,
         problem_type="single_label_classification" if task_type == "classification" else "regression",
         ignore_mismatched_sizes=True,  # Ignore classification head size mismatch
     )
@@ -438,8 +458,10 @@ def evaluate_on_dataset(
     
     # Compute metrics
     if task_type == "classification":
-        # Apply sigmoid for binary classification
-        preds = torch.sigmoid(torch.tensor(test_predictions.predictions)).numpy()
+        # Apply softmax and get probability of class 1 for binary classification
+        logits = torch.tensor(test_predictions.predictions)
+        probs = torch.softmax(logits, dim=-1)
+        preds = probs[:, 1].numpy()  # Probability of positive class
         metrics = compute_metrics_classification(
             preds,
             dataset_splits['test']['labels'],
@@ -453,40 +475,99 @@ def evaluate_on_dataset(
             dataset_splits['test'].get('weights'),
         )
     
-    # Log results
-    logger.info("\n" + "="*80)
-    logger.info("TEST SET RESULTS")
-    logger.info("="*80)
-    for metric_name, metric_value in metrics.items():
-        if isinstance(metric_value, (int, float)):
-            logger.info(f"  {metric_name}: {metric_value:.4f}")
-        else:
-            logger.info(f"  {metric_name}: {metric_value}")
-    
+    # Define random baselines for comparison
+    if task_type == "classification":
+        baselines = {
+            'roc_auc': 0.5,  # Random classifier
+            'avg_precision': 0.5,  # Approximate for balanced data
+        }
+    else:
+        baselines = {
+            'rmse': None,  # Depends on data scale
+            'mae': None,
+            'r2': 0.0,  # Random/mean predictor
+        }
+
     # Save results
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
+    # Build human-readable summary
+    summary_lines = []
+    summary_lines.append("=" * 80)
+    summary_lines.append("EVALUATION RESULTS SUMMARY")
+    summary_lines.append("=" * 80)
+    summary_lines.append("")
+    summary_lines.append(f"Model:          {pretrained_model_path}")
+    summary_lines.append(f"Task Type:      {task_type}")
+    summary_lines.append(f"Num Tasks:      {num_tasks}")
+    summary_lines.append(f"Freeze Encoder: {freeze_encoder}")
+    summary_lines.append(f"Train Samples:  {len(tokenized_splits['train'])}")
+    summary_lines.append(f"Test Samples:   {len(tokenized_splits['test'])}")
+    summary_lines.append("")
+    summary_lines.append("-" * 80)
+    summary_lines.append("TEST SET METRICS")
+    summary_lines.append("-" * 80)
+    summary_lines.append("")
+    summary_lines.append(f"{'Metric':<20} {'Value':>12} {'Random Baseline':>18} {'vs Baseline':>15}")
+    summary_lines.append("-" * 65)
+
+    for metric_name, metric_value in metrics.items():
+        if isinstance(metric_value, (int, float, np.floating)):
+            baseline = baselines.get(metric_name)
+            if baseline is not None:
+                if metric_name == 'rmse' or metric_name == 'mae':
+                    # Lower is better
+                    diff = baseline - metric_value
+                    comparison = f"+{diff:.4f}" if diff > 0 else f"{diff:.4f}"
+                else:
+                    # Higher is better
+                    diff = metric_value - baseline
+                    comparison = f"+{diff:.4f}" if diff > 0 else f"{diff:.4f}"
+                summary_lines.append(f"{metric_name:<20} {metric_value:>12.4f} {baseline:>18.4f} {comparison:>15}")
+            else:
+                summary_lines.append(f"{metric_name:<20} {metric_value:>12.4f} {'N/A':>18} {'N/A':>15}")
+        else:
+            summary_lines.append(f"{metric_name:<20} {str(metric_value)[:12]:>12}")
+
+    summary_lines.append("")
+    summary_lines.append("=" * 80)
+
+    # Log summary
+    for line in summary_lines:
+        logger.info(line)
+
+    # Save summary to TXT file
+    summary_text = "\n".join(summary_lines)
+    with open(output_path / "results_summary.txt", 'w') as f:
+        f.write(summary_text)
+
+    # Save results to JSON
     results = {
         'pretrained_model': pretrained_model_path,
         'task_type': task_type,
         'num_tasks': num_tasks,
         'freeze_encoder': freeze_encoder,
-        'metrics': {k: float(v) if isinstance(v, (np.floating, float)) else v 
+        'metrics': {k: float(v) if isinstance(v, (np.floating, float)) else v
                    for k, v in metrics.items()},
+        'baselines': {k: v for k, v in baselines.items() if v is not None},
         'num_train': len(tokenized_splits['train']),
         'num_test': len(tokenized_splits['test']),
     }
-    
+
     with open(output_path / "results.json", 'w') as f:
         json.dump(results, f, indent=2)
-    
+
     # Save predictions
     np.save(output_path / "test_predictions.npy", preds)
     np.save(output_path / "test_labels.npy", dataset_splits['test']['labels'])
-    
-    logger.info(f"\n✓ Results saved to {output_dir}")
-    
+
+    logger.info(f"\nResults saved to: {output_dir}")
+    logger.info(f"  - results_summary.txt (human-readable)")
+    logger.info(f"  - results.json (machine-readable)")
+    logger.info(f"  - test_predictions.npy")
+    logger.info(f"  - test_labels.npy")
+
     return metrics
 
 
