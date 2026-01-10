@@ -44,11 +44,11 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import pickle
-import json
-import torch
 from pathlib import Path
+import torch
 from torch.utils.data import Dataset, ConcatDataset, Subset
 from transformers import (
     Trainer,
@@ -57,8 +57,9 @@ from transformers import (
     DataCollatorWithPadding,
     PreTrainedTokenizerFast,
 )
-from utils import setup_logging, load_config, get_device
+from utils import setup_logging, load_config, get_device, register_spot_handler
 from model import create_model
+from data import StreamingTokenizedDataset, StreamingMixedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,13 @@ class SupervisedDataset(Dataset):
         item = self.data[idx].copy()
         item['labels'] = torch.tensor(self.labels[idx], dtype=torch.float)
         return item
+
+
+def _resolve_paths(path: str):
+    p = Path(path)
+    if p.is_dir():
+        return sorted(str(x) for x in p.glob("*.pkl"))
+    return [str(p)]
 
 
 # Model creation now handled by model.py
@@ -150,6 +158,60 @@ def create_mixed_dataset(
     return combined
 
 
+def build_dataset_from_args(args):
+    """Return dataset + metadata (streaming flag)."""
+    streaming_mode = False
+    unsup_paths = []
+    sup_paths = []
+
+    if args.unsup_data:
+        if Path(args.unsup_data).is_dir():
+            streaming_mode = True
+            unsup_paths = _resolve_paths(args.unsup_data)
+        else:
+            unsup_paths = []
+    if args.sup_data:
+        if Path(args.sup_data).is_dir():
+            streaming_mode = True
+            sup_paths = _resolve_paths(args.sup_data)
+        else:
+            sup_paths = []
+
+    if streaming_mode:
+        if not unsup_paths and not sup_paths:
+            raise ValueError("Streaming mode enabled but no paths found")
+        fraction = args.unsup_weight / max((args.unsup_weight + args.sup_weight), 1e-8)
+        dataset = StreamingMixedDataset(
+            unsup_paths=unsup_paths,
+            sup_paths=sup_paths,
+            unsup_fraction=fraction,
+            max_samples=args.streaming_max_samples,
+        )
+        return dataset, True, None
+
+    # Fall back to materialized datasets
+    unsup_data = None
+    sup_data = None
+    if args.unsup_data:
+        with open(args.unsup_data, 'rb') as f:
+            unsup_data = pickle.load(f)
+        if not isinstance(unsup_data, dict):
+            unsup_data = {'data': unsup_data}
+    if args.sup_data:
+        with open(args.sup_data, 'rb') as f:
+            sup_data = pickle.load(f)
+        if not isinstance(sup_data, dict):
+            sup_data = {'data': sup_data, 'labels': []}
+
+    dataset = create_mixed_dataset(
+        unsup_data=unsup_data,
+        sup_data=sup_data,
+        unsup_weight=args.unsup_weight,
+        sup_weight=args.sup_weight,
+        task=args.task,
+    )
+    return dataset, False, sup_data
+
 def train(
     model,
     tokenizer,
@@ -157,6 +219,7 @@ def train(
     output_dir: str,
     task: str,
     config: dict,
+    spot_mode: bool = False,
 ):
     """Train model"""
     
@@ -181,6 +244,7 @@ def train(
         logging_dir=f"{output_dir}/logs",
         logging_steps=config['training'].get('logging_steps', 50),
         save_steps=config['training'].get('save_steps', 500),
+        max_steps=config['training'].get('max_steps'),
         save_total_limit=2,
         dataloader_num_workers=0,
         remove_unused_columns=False if task == "mlm" else True,
@@ -201,6 +265,9 @@ def train(
         data_collator=data_collator,
     )
     
+    if spot_mode:
+        register_spot_handler(trainer, output_dir)
+    
     # Train
     logger.info("Starting training...")
     trainer.train()
@@ -216,12 +283,14 @@ def main():
     parser = argparse.ArgumentParser(description="Train chemical language model with flexible data mixing")
     parser.add_argument("--config", required=True, help="Config YAML file")
     parser.add_argument("--tokenizer", required=True, help="Tokenizer directory")
-    parser.add_argument("--unsup_data", help="Unsupervised data pickle")
-    parser.add_argument("--sup_data", help="Supervised data pickle")
+    parser.add_argument("--unsup_data", help="Unsupervised data pickle or directory")
+    parser.add_argument("--sup_data", help="Supervised data pickle or directory")
     parser.add_argument("--unsup_weight", type=float, default=1.0, help="Unsupervised data weight (0.0-1.0)")
     parser.add_argument("--sup_weight", type=float, default=0.0, help="Supervised data weight (0.0-1.0)")
+    parser.add_argument("--streaming_max_samples", type=int, help="Cap number of streamed samples per epoch")
     parser.add_argument("--output", required=True, help="Output directory")
     parser.add_argument("--task", choices=["mlm", "regression"], required=True, help="Training task")
+    parser.add_argument("--spot", action="store_true", help="Enable spot interrupt handler (SIGTERM)")
     parser.add_argument("--log_file", help="Log file path")
     args = parser.parse_args()
     
@@ -271,16 +340,15 @@ def main():
         logger.info(f"Loaded supervised data: {len(sup_data['data'])} samples")
     
     # Create mixed dataset
-    dataset = create_mixed_dataset(
-        unsup_data=unsup_data,
-        sup_data=sup_data,
-        unsup_weight=args.unsup_weight,
-        sup_weight=args.sup_weight,
-        task=args.task,
-    )
+    dataset, streaming, sup_data = build_dataset_from_args(args)
+    if streaming:
+        logger.info("Using streaming dataset (no fixed sample count)")
+        logger.info(f"  Stream max samples: {args.streaming_max_samples or 'unlimited'}")
+    else:
+        logger.info(f"  Samples: {len(dataset)}")
     
     # Create model using model.py
-    if args.task == "regression" and sup_data:
+    if args.task == "regression" and not streaming:
         num_labels = sup_data['labels'].shape[1]
     else:
         num_labels = 1
@@ -293,7 +361,7 @@ def main():
     )
     
     # Train
-    train(model, tokenizer, dataset, args.output, args.task, config)
+    train(model, tokenizer, dataset, args.output, args.task, config, spot_mode=args.spot)
     
     # Save experiment config
     experiment_config = {

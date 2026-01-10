@@ -6,10 +6,13 @@
 """utils.py"""
 
 import logging
+import signal
+import sys
 import yaml
 import torch
 from pathlib import Path
 from typing import Dict, Any
+from transformers import Trainer
 
 
 def setup_logging(log_file: str = None, level: str = "INFO"):
@@ -43,3 +46,17 @@ def get_device():
         except Exception:
             pass
     return "cpu"
+
+
+def register_spot_handler(trainer: Trainer, output_dir: str):
+    """Register a SIGTERM handler that saves a checkpoint for spot instances."""
+    def _handler(signum, frame):
+        logger = logging.getLogger(__name__)
+        logger.warning("Spot interruption detected (SIGTERM). Saving checkpoint before exit.")
+        ckpt_dir = Path(output_dir) / "spot_checkpoint"
+        trainer.save_model(str(ckpt_dir))
+        trainer.save_state()
+        logger.info(f"Checkpoint saved to {ckpt_dir}")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _handler)

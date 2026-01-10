@@ -34,6 +34,7 @@ from transformers import Trainer, TrainingArguments
 
 from multitask_model import MultiTaskModel
 from multitask_data import MultiTaskDataset, MultiTaskCollator
+from utils import register_spot_handler
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,7 @@ def train_multitask(
     batch_size: int = 32,
     learning_rate: float = 2e-5,
     save_encoder: bool = True,
+    spot_mode: bool = False,
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -185,6 +187,8 @@ def train_multitask(
         eval_dataset=val_dataset,
         data_collator=collator,
     )
+    if spot_mode:
+        register_spot_handler(trainer, output_dir)
 
     # Train
     logger.info("Starting training...")

@@ -233,6 +233,8 @@ class MLMTrainingConfig:
     save_total_limit: int = 2
     dataloader_num_workers: int = 0
     evaluation_strategy: str = "no"
+    shuffle: bool = False
+    streaming_max_samples: Optional[int] = None
 
 
 @dataclass

@@ -17,7 +17,7 @@ import logging
 import pickle
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import torch
 from transformers import (
@@ -29,7 +29,10 @@ from transformers import (
 )
 
 from config import PretrainingConfig
-from data import UnsupervisedChemicalDataset
+from data import (
+    StreamingTokenizedDataset,
+    UnsupervisedChemicalDataset,
+)
 from multitask_data import (
     DataSourceSpec,
     create_dataset_from_sources,
@@ -38,9 +41,23 @@ from multitask_data import (
 from multitask_model import MultiTaskModel
 from multitask_trainer import train_multitask
 from tasks import TaskRegistry, TaskSpec, TaskType
-from utils import get_device, setup_logging
+from utils import get_device, register_spot_handler, setup_logging
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_paths(paths: List[str]) -> List[str]:
+    """Expand files and directories into a sorted list of pickle paths."""
+    resolved = []
+    for path in paths:
+        p = Path(path)
+        if p.is_dir():
+            resolved.extend(sorted(str(x) for x in p.glob("*.pkl")))
+        elif p.exists():
+            resolved.append(str(p))
+    if not resolved:
+        raise ValueError("No tokenized files found at the specified locations")
+    return resolved
 
 
 def load_tokenizer(tokenizer_path: str) -> PreTrainedTokenizerFast:
@@ -152,10 +169,11 @@ def allocate_epoch_budget(total_epochs: int, supervised_fraction: float) -> Tupl
 def train_unsupervised_phase(
     model: MultiTaskModel,
     tokenizer: PreTrainedTokenizerFast,
-    dataset: UnsupervisedChemicalDataset,
+    dataset: Union[UnsupervisedChemicalDataset, StreamingTokenizedDataset],
     config: PretrainingConfig,
     epochs: int,
     stage_dir: Path,
+    spot_mode: bool = False,
 ) -> None:
     """Run MLM training for the allocated number of epochs."""
     mlm_cfg = config.mlm_training
@@ -202,6 +220,9 @@ def train_unsupervised_phase(
         tokenizer=tokenizer,
     )
 
+    if spot_mode:
+        register_spot_handler(trainer, stage_dir)
+
     logger.info(f"Starting MLM pretraining for {epochs} epoch(s)")
     trainer.train()
     trainer.save_model(str(stage_dir / "final"))
@@ -216,6 +237,7 @@ def run_supervised_phase(
     task_registry: TaskRegistry,
     epochs: int,
     stage_dir: Path,
+    spot_mode: bool = False,
 ) -> Dict[str, Any]:
     """Run multi-task supervised pretraining."""
     if not config.tasks or not config.data_sources:
@@ -261,6 +283,7 @@ def run_supervised_phase(
         max_grad_norm=training_cfg.max_grad_norm,
         dataloader_num_workers=training_cfg.dataloader_num_workers,
         save_encoder=True,
+        spot_mode=spot_mode,
     )
     return {
         **results,
@@ -284,6 +307,7 @@ def main():
     parser = argparse.ArgumentParser(description="Pretraining pipeline for MLM + supervised mix")
     parser.add_argument("--config", required=True, help="Path to pretraining YAML config")
     parser.add_argument("--log_file", help="Optional log file")
+    parser.add_argument("--spot", action="store_true", help="Handle spot interruptions (save checkpoints)")
     args = parser.parse_args()
 
     setup_logging(args.log_file)
@@ -331,11 +355,30 @@ def main():
         if not config.unsupervised_data:
             raise ValueError("MLM phase enabled but no unsupervised_data paths were provided")
 
-        unsup_samples = aggregate_unsupervised_data(config.unsupervised_data)
-        dataset = UnsupervisedChemicalDataset(unsup_samples)
+        streaming_paths = [path for path in config.unsupervised_data if Path(path).is_dir()]
+        if streaming_paths:
+            dataset = StreamingTokenizedDataset(
+                _resolve_paths(config.unsupervised_data),
+                with_labels=False,
+                shuffle=config.mlm_training.shuffle,
+                max_samples=config.mlm_training.streaming_max_samples,
+            )
+            metadata["mlm_samples"] = config.mlm_training.streaming_max_samples or "streamed"
+        else:
+            unsup_samples = aggregate_unsupervised_data(config.unsupervised_data)
+            dataset = UnsupervisedChemicalDataset(unsup_samples)
+            metadata["mlm_samples"] = len(dataset)
+
         mlm_dir = root_dir / "unsupervised"
-        train_unsupervised_phase(model, tokenizer, dataset, config, mlm_epochs, mlm_dir)
-        metadata["mlm_samples"] = len(dataset)
+        train_unsupervised_phase(
+            model,
+            tokenizer,
+            dataset,
+            config,
+            mlm_epochs,
+            mlm_dir,
+            spot_mode=args.spot,
+        )
         metadata["mlm_output"] = str(mlm_dir)
 
     supervised_results = {}
@@ -348,6 +391,7 @@ def main():
             task_registry=task_registry,
             epochs=supervised_epochs,
             stage_dir=sup_dir,
+            spot_mode=args.spot,
         )
         metadata.update(supervised_results)
         metadata["supervised_output"] = str(sup_dir)
