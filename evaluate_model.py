@@ -108,36 +108,37 @@ class MoleculeNetLoader:
             )
         
         # Load dataset using DeepChem
+        # Use 'raw' featurizer to preserve SMILES - we'll tokenize with our own tokenizer
         logger.info("Loading via DeepChem...")
-        
+
         if self.dataset_name == 'BBBP':
             tasks, datasets, transformers = dc.molnet.load_bbbp(
-                featurizer='RawFeaturizer',
+                featurizer='raw',
                 splitter=self.split_type
             )
         elif self.dataset_name == 'Tox21':
             tasks, datasets, transformers = dc.molnet.load_tox21(
-                featurizer='RawFeaturizer',
+                featurizer='raw',
                 splitter=self.split_type
             )
         elif self.dataset_name == 'ESOL':
             tasks, datasets, transformers = dc.molnet.load_delaney(
-                featurizer='RawFeaturizer',
+                featurizer='raw',
                 splitter=self.split_type
             )
         elif self.dataset_name == 'FreeSolv':
             tasks, datasets, transformers = dc.molnet.load_sampl(
-                featurizer='RawFeaturizer',
+                featurizer='raw',
                 splitter=self.split_type
             )
         elif self.dataset_name == 'Lipophilicity':
             tasks, datasets, transformers = dc.molnet.load_lipo(
-                featurizer='RawFeaturizer',
+                featurizer='raw',
                 splitter=self.split_type
             )
         elif self.dataset_name == 'BACE':
             tasks, datasets, transformers = dc.molnet.load_bace_classification(
-                featurizer='RawFeaturizer',
+                featurizer='raw',
                 splitter=self.split_type
             )
         else:
@@ -397,8 +398,7 @@ def evaluate_on_dataset(
         n_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
         logger.info(f"  Trainable parameters: {n_trainable:,}")
     
-    # Training arguments
-    device = get_device()
+    # Training arguments - let Transformers auto-detect device (CUDA > MPS > CPU)
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=num_epochs,
@@ -413,8 +413,6 @@ def evaluate_on_dataset(
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
-        no_cuda=True,
-        use_mps_device=(device == "mps"),
         dataloader_num_workers=0,
     )
     
