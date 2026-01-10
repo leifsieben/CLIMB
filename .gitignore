@@ -36,6 +36,9 @@ tokenizer.json
 # Data directories
 local_prototyping_data/
 hp_search_trial_*/
+experiments/
+configs/
+.claude/ 
 
 # Experiment outputs
 experiments/

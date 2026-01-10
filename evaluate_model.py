@@ -74,49 +74,44 @@ def _import_multitask():
 
 class MoleculeNetLoader:
     """
-    Load MoleculeNet datasets with standard splits
-    Uses DeepChem for easy access to MoleculeNet
+    Load MoleculeNet datasets with standard splits via DeepChem.
+    Supports the full MoleculeNet suite.
     """
-    
+
     DATASETS = {
-        'BBBP': {'task': 'classification', 'num_tasks': 1, 'metric': 'roc_auc'},
-        'Tox21': {'task': 'classification', 'num_tasks': 12, 'metric': 'roc_auc'},
-        'ESOL': {'task': 'regression', 'num_tasks': 1, 'metric': 'rmse'},
-        'FreeSolv': {'task': 'regression', 'num_tasks': 1, 'metric': 'rmse'},
-        'Lipophilicity': {'task': 'regression', 'num_tasks': 1, 'metric': 'rmse'},
-        'BACE': {'task': 'classification', 'num_tasks': 1, 'metric': 'roc_auc'},
-        'SIDER': {'task': 'classification', 'num_tasks': 27, 'metric': 'roc_auc'},
-        'ClinTox': {'task': 'classification', 'num_tasks': 2, 'metric': 'roc_auc'},
+        # Classification
+        'BBBP': {'task': 'classification', 'metric': 'roc_auc'},
+        'Tox21': {'task': 'classification', 'metric': 'roc_auc'},
+        'ToxCast': {'task': 'classification', 'metric': 'roc_auc'},
+        'SIDER': {'task': 'classification', 'metric': 'roc_auc'},
+        'ClinTox': {'task': 'classification', 'metric': 'roc_auc'},
+        'HIV': {'task': 'classification', 'metric': 'roc_auc'},
+        'BACE': {'task': 'classification', 'metric': 'roc_auc'},
+        'MUV': {'task': 'classification', 'metric': 'roc_auc'},
+        'PCBA': {'task': 'classification', 'metric': 'roc_auc'},
+        # Regression
+        'ESOL': {'task': 'regression', 'metric': 'rmse'},
+        'FreeSolv': {'task': 'regression', 'metric': 'rmse'},
+        'Lipophilicity': {'task': 'regression', 'metric': 'rmse'},
+        'QM7': {'task': 'regression', 'metric': 'rmse'},
+        'QM8': {'task': 'regression', 'metric': 'rmse'},
+        'QM9': {'task': 'regression', 'metric': 'rmse'},
     }
-    
+
     def __init__(self, dataset_name: str, split_type: str = 'scaffold'):
-        """
-        Initialize MoleculeNet loader
-        
-        Args:
-            dataset_name: Name of MoleculeNet dataset (e.g., 'BBBP')
-            split_type: 'scaffold', 'random', or 'stratified'
-        """
         if dataset_name not in self.DATASETS:
             raise ValueError(f"Unknown dataset: {dataset_name}. Available: {list(self.DATASETS.keys())}")
-        
+
         self.dataset_name = dataset_name
         self.split_type = split_type
         self.info = self.DATASETS[dataset_name]
-        
+
         logger.info(f"Loading MoleculeNet dataset: {dataset_name}")
         logger.info(f"  Task: {self.info['task']}")
-        logger.info(f"  Num tasks: {self.info['num_tasks']}")
         logger.info(f"  Split: {split_type}")
-    
-    def load(self):
-        """
-        Load dataset with train/val/test splits
-        
-        Returns:
-            Dictionary with keys: train, val, test
-            Each containing: smiles (list), labels (array), valid_mask (array for missing values)
-        """
+
+    def _load_dataset(self):
+        """Load dataset using DeepChem with raw featurizer."""
         try:
             import deepchem as dc
         except ImportError:
@@ -124,61 +119,66 @@ class MoleculeNetLoader:
                 "DeepChem required for MoleculeNet datasets. "
                 "Install with: pip install deepchem"
             )
-        
-        # Load dataset using DeepChem
-        # Use 'raw' featurizer to preserve SMILES - we'll tokenize with our own tokenizer
-        logger.info("Loading via DeepChem...")
 
-        if self.dataset_name == 'BBBP':
-            tasks, datasets, transformers = dc.molnet.load_bbbp(
-                featurizer='raw',
-                splitter=self.split_type
-            )
-        elif self.dataset_name == 'Tox21':
-            tasks, datasets, transformers = dc.molnet.load_tox21(
-                featurizer='raw',
-                splitter=self.split_type
-            )
-        elif self.dataset_name == 'ESOL':
-            tasks, datasets, transformers = dc.molnet.load_delaney(
-                featurizer='raw',
-                splitter=self.split_type
-            )
-        elif self.dataset_name == 'FreeSolv':
-            tasks, datasets, transformers = dc.molnet.load_sampl(
-                featurizer='raw',
-                splitter=self.split_type
-            )
-        elif self.dataset_name == 'Lipophilicity':
-            tasks, datasets, transformers = dc.molnet.load_lipo(
-                featurizer='raw',
-                splitter=self.split_type
-            )
-        elif self.dataset_name == 'BACE':
-            tasks, datasets, transformers = dc.molnet.load_bace_classification(
-                featurizer='raw',
-                splitter=self.split_type
-            )
-        else:
-            raise NotImplementedError(f"Dataset {self.dataset_name} not yet implemented")
-        
+        name = self.dataset_name
+        splitter = self.split_type
+
+        if name == 'BBBP':
+            return dc.molnet.load_bbbp(featurizer='raw', splitter=splitter)
+        if name == 'Tox21':
+            return dc.molnet.load_tox21(featurizer='raw', splitter=splitter)
+        if name == 'ToxCast':
+            return dc.molnet.load_toxcast(featurizer='raw', splitter=splitter)
+        if name == 'SIDER':
+            return dc.molnet.load_sider(featurizer='raw', splitter=splitter)
+        if name == 'ClinTox':
+            return dc.molnet.load_clintox(featurizer='raw', splitter=splitter)
+        if name == 'HIV':
+            return dc.molnet.load_hiv(featurizer='raw', splitter=splitter)
+        if name == 'BACE':
+            return dc.molnet.load_bace_classification(featurizer='raw', splitter=splitter)
+        if name == 'MUV':
+            return dc.molnet.load_muv(featurizer='raw', splitter=splitter)
+        if name == 'PCBA':
+            return dc.molnet.load_pcba(featurizer='raw', splitter=splitter)
+        if name == 'ESOL':
+            return dc.molnet.load_delaney(featurizer='raw', splitter=splitter)
+        if name == 'FreeSolv':
+            return dc.molnet.load_sampl(featurizer='raw', splitter=splitter)
+        if name == 'Lipophilicity':
+            return dc.molnet.load_lipo(featurizer='raw', splitter=splitter)
+        if name == 'QM7':
+            return dc.molnet.load_qm7(featurizer='raw', splitter=splitter)
+        if name == 'QM8':
+            return dc.molnet.load_qm8(featurizer='raw', splitter=splitter)
+        if name == 'QM9':
+            return dc.molnet.load_qm9(featurizer='raw', splitter=splitter)
+
+        raise NotImplementedError(f"Loader not implemented for {name}")
+
+    def load(self):
+        """Load dataset with train/val/test splits."""
+        tasks, datasets, transformers = self._load_dataset()
         train_dataset, val_dataset, test_dataset = datasets
-        
-        # Extract SMILES and labels
+
+        # Update num_tasks dynamically
+        num_tasks = len(tasks) if isinstance(tasks, (list, tuple)) else 1
+        self.info['num_tasks'] = num_tasks
+
         result = {}
         for split_name, dataset in [('train', train_dataset), ('val', val_dataset), ('test', test_dataset)]:
-            smiles = dataset.ids  # SMILES strings
-            labels = dataset.y    # Labels (may contain NaN for multi-task)
-            weights = dataset.w   # Valid mask (1 if valid, 0 if missing)
-            
+            smiles = dataset.ids
+            labels = dataset.y
+            weights = dataset.w
+
             result[split_name] = {
                 'smiles': list(smiles),
                 'labels': labels,
-                'weights': weights,  # For handling missing values in multi-task
+                'weights': weights,
             }
-            
+
             logger.info(f"  {split_name}: {len(smiles)} molecules")
-        
+
         return result, tasks
 
 
@@ -257,11 +257,13 @@ class DownstreamDataset(Dataset):
         label = self.labels[idx]
 
         if self.task_type == 'classification':
-            # CrossEntropyLoss expects long tensor of shape (batch_size,)
-            # Squeeze if shape is (1,) and convert to int
-            if hasattr(label, '__len__') and len(label) == 1:
-                label = label[0]
-            item['labels'] = torch.tensor(int(label), dtype=torch.long)
+            # Single-task: int label; multi-task: vector of floats (multi-label)
+            if hasattr(label, '__len__') and len(label) > 1:
+                item['labels'] = torch.tensor(label, dtype=torch.float32)
+            else:
+                if hasattr(label, '__len__') and len(label) == 1:
+                    label = label[0]
+                item['labels'] = torch.tensor(int(label), dtype=torch.long)
         else:
             # Regression: float tensor
             item['labels'] = torch.tensor(label, dtype=torch.float)
@@ -288,7 +290,7 @@ def compute_metrics_classification(predictions, labels, weights=None):
         valid_mask = np.ones_like(labels, dtype=bool)
     
     # For each task
-    if len(labels.shape) == 1 or labels.shape[1] == 1:
+    if preds.ndim == 1 or labels.ndim == 1 or (labels.ndim > 1 and labels.shape[1] == 1):
         # Single task
         preds_valid = preds[valid_mask.flatten()]
         labels_valid = labels[valid_mask.flatten()]
@@ -315,19 +317,47 @@ def compute_metrics_classification(predictions, labels, weights=None):
 def compute_metrics_regression(predictions, labels, weights=None):
     """Compute metrics for regression tasks"""
     metrics = {}
-    
-    if weights is not None:
-        valid_mask = weights.astype(bool).flatten()
-        preds = predictions[valid_mask]
-        labels = labels[valid_mask]
+
+    preds = predictions
+    lbls = labels
+    mask = weights.astype(bool) if weights is not None else None
+
+    if preds.ndim == 1 or lbls.ndim == 1:
+        if mask is not None:
+            mask_flat = mask.flatten()
+            preds = preds[mask_flat]
+            lbls = lbls[mask_flat]
     else:
-        preds = predictions
-        labels = labels
-    
-    metrics['rmse'] = np.sqrt(mean_squared_error(labels, preds))
-    metrics['mae'] = np.mean(np.abs(labels - preds))
-    metrics['r2'] = r2_score(labels, preds)
-    
+        # Multi-task regression
+        task_metrics = []
+        for i in range(lbls.shape[1]):
+            task_pred = preds[:, i]
+            task_lbl = lbls[:, i]
+            if mask is not None:
+                task_mask = mask[:, i].astype(bool)
+                if task_mask.sum() == 0:
+                    continue
+                task_pred = task_pred[task_mask]
+                task_lbl = task_lbl[task_mask]
+            task_metrics.append({
+                'rmse': np.sqrt(mean_squared_error(task_lbl, task_pred)),
+                'mae': np.mean(np.abs(task_lbl - task_pred)),
+                'r2': r2_score(task_lbl, task_pred),
+            })
+
+        if task_metrics:
+            metrics['rmse'] = float(np.mean([m['rmse'] for m in task_metrics]))
+            metrics['mae'] = float(np.mean([m['mae'] for m in task_metrics]))
+            metrics['r2'] = float(np.mean([m['r2'] for m in task_metrics]))
+            metrics['rmse_per_task'] = [m['rmse'] for m in task_metrics]
+            metrics['mae_per_task'] = [m['mae'] for m in task_metrics]
+            metrics['r2_per_task'] = [m['r2'] for m in task_metrics]
+        return metrics
+
+    # Single-task or flattened case
+    metrics['rmse'] = np.sqrt(mean_squared_error(lbls, preds))
+    metrics['mae'] = np.mean(np.abs(lbls - preds))
+    metrics['r2'] = r2_score(lbls, preds)
     return metrics
 
 
@@ -341,6 +371,7 @@ def evaluate_on_dataset(
     task_type: str,
     num_tasks: int,
     output_dir: str,
+    dataset_name: str = "",
     tokenizer_path: str = None,
     freeze_encoder: bool = False,
     num_epochs: int = 50,
@@ -412,17 +443,23 @@ def evaluate_on_dataset(
     # Load pretrained model and add classification head
     logger.info("Loading pretrained encoder...")
 
-    # For classification: num_labels=2 for binary (CrossEntropyLoss expects 2 classes)
+    # For classification: num_labels=2 for binary or num_tasks for multi-label
     # For regression: num_labels=num_tasks (number of output values)
     if task_type == "classification":
-        model_num_labels = 2  # Binary classification
+        if num_tasks > 1:
+            model_num_labels = num_tasks
+            problem_type = "multi_label_classification"
+        else:
+            model_num_labels = 2  # Binary classification
+            problem_type = "single_label_classification"
     else:
         model_num_labels = num_tasks
+        problem_type = "regression"
 
     model = RobertaForSequenceClassification.from_pretrained(
         pretrained_model_path,
         num_labels=model_num_labels,
-        problem_type="single_label_classification" if task_type == "classification" else "regression",
+        problem_type=problem_type,
         ignore_mismatched_sizes=True,  # Ignore classification head size mismatch
     )
     
@@ -452,10 +489,20 @@ def evaluate_on_dataset(
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         dataloader_num_workers=0,
+        remove_unused_columns=False,
     )
     
-    # Data collator
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    # Custom collator to support multi-label classification tensors
+    def collate_fn(batch):
+        labels = [b.pop('labels') for b in batch]
+        labels = torch.stack(labels) if torch.is_tensor(labels[0]) else torch.tensor(labels)
+        padded = tokenizer.pad(
+            batch,
+            padding=True,
+            return_tensors="pt",
+        )
+        padded['labels'] = labels
+        return padded
     
     # Trainer
     trainer = Trainer(
@@ -463,7 +510,7 @@ def evaluate_on_dataset(
         args=training_args,
         train_dataset=tokenized_splits['train'],
         eval_dataset=tokenized_splits.get('val'),
-        data_collator=data_collator,
+        data_collator=collate_fn,
     )
     
     # Fine-tune
@@ -473,24 +520,37 @@ def evaluate_on_dataset(
     # Evaluate on test set
     logger.info("Evaluating on test set...")
     test_predictions = trainer.predict(tokenized_splits['test'])
-    
+
     # Compute metrics
+    test_labels = np.asarray(dataset_splits['test']['labels'])
+    test_weights = dataset_splits['test'].get('weights')
+    if test_weights is not None:
+        test_weights = np.asarray(test_weights)
+    # Squeeze trailing singleton task dim for single-task cases
+    if test_labels.ndim == 2 and test_labels.shape[1] == 1:
+        test_labels = test_labels.squeeze(1)
+        if test_weights is not None and test_weights.ndim == 2 and test_weights.shape[1] == 1:
+            test_weights = test_weights.squeeze(1)
+
     if task_type == "classification":
-        # Apply softmax and get probability of class 1 for binary classification
         logits = torch.tensor(test_predictions.predictions)
-        probs = torch.softmax(logits, dim=-1)
-        preds = probs[:, 1].numpy()  # Probability of positive class
+        if num_tasks > 1:
+            probs = torch.sigmoid(logits)
+            preds = probs.numpy()  # [N, num_tasks]
+        else:
+            probs = torch.softmax(logits, dim=-1)
+            preds = probs[:, 1].numpy()  # Probability of positive class
         metrics = compute_metrics_classification(
             preds,
-            dataset_splits['test']['labels'],
-            dataset_splits['test'].get('weights'),
+            test_labels,
+            test_weights,
         )
     else:
         preds = test_predictions.predictions
         metrics = compute_metrics_regression(
             preds,
-            dataset_splits['test']['labels'],
-            dataset_splits['test'].get('weights'),
+            test_labels,
+            test_weights,
         )
     
     # Define random baselines for comparison
@@ -517,6 +577,7 @@ def evaluate_on_dataset(
     summary_lines.append("=" * 80)
     summary_lines.append("")
     summary_lines.append(f"Model:          {pretrained_model_path}")
+    summary_lines.append(f"Dataset:        {dataset_name or 'custom'}")
     summary_lines.append(f"Task Type:      {task_type}")
     summary_lines.append(f"Num Tasks:      {num_tasks}")
     summary_lines.append(f"Freeze Encoder: {freeze_encoder}")
@@ -564,6 +625,7 @@ def evaluate_on_dataset(
     results = {
         'pretrained_model': pretrained_model_path,
         'task_type': task_type,
+        'dataset': dataset_name or 'custom',
         'num_tasks': num_tasks,
         'freeze_encoder': freeze_encoder,
         'metrics': {k: float(v) if isinstance(v, (np.floating, float)) else v
@@ -579,6 +641,20 @@ def evaluate_on_dataset(
     # Save predictions
     np.save(output_path / "test_predictions.npy", preds)
     np.save(output_path / "test_labels.npy", dataset_splits['test']['labels'])
+
+    # Append to central aggregate log (human-readable)
+    aggregate_path = output_path.parent / "all_evaluations.txt"
+    main_metric = 'roc_auc' if task_type == 'classification' else 'rmse'
+    metric_value = metrics.get(main_metric)
+    baseline_value = baselines.get(main_metric) if main_metric in baselines else None
+    with open(aggregate_path, 'a') as agg:
+        agg.write(
+            f"{dataset_name or 'custom'}\t{task_type}\t{main_metric}\t"
+            f"{metric_value if metric_value is not None else 'NA'}\t"
+            f"baseline={baseline_value if baseline_value is not None else 'NA'}\t"
+            f"model={pretrained_model_path}\n"
+        )
+    logger.info(f"Appended aggregate metrics to {aggregate_path}")
 
     logger.info(f"\nResults saved to: {output_dir}")
     logger.info(f"  - results_summary.txt (human-readable)")
@@ -850,6 +926,7 @@ def main():
             task_type=task_type,
             num_tasks=num_tasks,
             output_dir=args.output,
+            dataset_name=args.dataset_name or "custom",
             tokenizer_path=args.tokenizer,
             freeze_encoder=args.freeze_encoder,
             num_epochs=args.num_epochs,
