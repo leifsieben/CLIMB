@@ -37,9 +37,11 @@ logger = logging.getLogger(__name__)
 def iter_smiles(parquet_path: Path, batch_size: int = 100_000) -> Iterable[List[str]]:
     """Stream SMILES strings from a parquet file in batches to limit memory."""
     pf = pq.ParquetFile(parquet_path)
-    # accept either SMILES_canonical or SMILES
     cols = pf.schema.names
-    col = "SMILES_canonical" if "SMILES_canonical" in cols else "SMILES"
+    col_candidates = ["smiles_canon", "SMILES_canonical", "SMILES", "smiles"]
+    col = next((c for c in col_candidates if c in cols), None)
+    if col is None:
+        raise ValueError(f"No SMILES column found in {parquet_path}; columns={cols}")
     for batch in pf.iter_batches(batch_size=batch_size, columns=[col], use_threads=True):
         yield batch.column(0).to_pylist()
 
