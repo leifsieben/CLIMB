@@ -21,6 +21,7 @@ import logging
 import pickle
 from pathlib import Path
 from typing import Iterable, List
+import glob
 
 import pyarrow.parquet as pq
 from transformers import PreTrainedTokenizerFast
@@ -36,7 +37,10 @@ logger = logging.getLogger(__name__)
 def iter_smiles(parquet_path: Path, batch_size: int = 100_000) -> Iterable[List[str]]:
     """Stream SMILES strings from a parquet file in batches to limit memory."""
     pf = pq.ParquetFile(parquet_path)
-    for batch in pf.iter_batches(batch_size=batch_size, columns=["SMILES"], use_threads=True):
+    # accept either SMILES_canonical or SMILES
+    cols = pf.schema.names
+    col = "SMILES_canonical" if "SMILES_canonical" in cols else "SMILES"
+    for batch in pf.iter_batches(batch_size=batch_size, columns=[col], use_threads=True):
         yield batch.column(0).to_pylist()
 
 
@@ -65,7 +69,12 @@ def write_shard(shard_data: List[dict], out_dir: Path, shard_idx: int):
 def main():
     parser = argparse.ArgumentParser(description="Tokenize SMILES into sharded pickles")
     parser.add_argument("--tokenizer", required=True, help="Directory containing tokenizer.json")
-    parser.add_argument("--input", required=True, help="Parquet/CSV/TXT of SMILES; must have SMILES column")
+    parser.add_argument(
+        "--input",
+        required=True,
+        nargs="+",
+        help="Parquet file(s) or glob pattern(s) with SMILES/SMILES_canonical column",
+    )
     parser.add_argument("--output-dir", required=True, help="Destination directory for shards")
     parser.add_argument("--shard-size", type=int, default=250_000, help="Rows per shard (approx)")
     parser.add_argument("--batch-size", type=int, default=100_000, help="Parquet read batch size")
@@ -82,29 +91,39 @@ def main():
         mask_token="<mask>",
     )
 
-    parquet_path = Path(args.input)
+    # expand file list
+    files = []
+    for pat in args.input:
+        files.extend(sorted(glob.glob(pat)))
+    if not files:
+        raise FileNotFoundError(f"No files matched: {args.input}")
+
     out_dir = Path(args.output_dir)
 
     total = 0
     shard_idx = 0
     shard_data: List[dict] = []
 
-    logger.info("Streaming from %s", parquet_path)
-    for smiles_batch in iter_smiles(parquet_path, batch_size=args.batch_size):
+    for fp in files:
+        parquet_path = Path(fp)
+        logger.info("Streaming from %s", parquet_path)
+        for smiles_batch in iter_smiles(parquet_path, batch_size=args.batch_size):
+            if args.limit is not None and total >= args.limit:
+                break
+
+            # Clip batch if we are near the limit
+            if args.limit is not None and total + len(smiles_batch) > args.limit:
+                smiles_batch = smiles_batch[: args.limit - total]
+
+            shard_data.extend(tokenize_batch(smiles_batch, tokenizer, args.max_length))
+            total += len(smiles_batch)
+
+            if len(shard_data) >= args.shard_size:
+                write_shard(shard_data, out_dir, shard_idx)
+                shard_data = []
+                shard_idx += 1
         if args.limit is not None and total >= args.limit:
             break
-
-        # Clip batch if we are near the limit
-        if args.limit is not None and total + len(smiles_batch) > args.limit:
-            smiles_batch = smiles_batch[: args.limit - total]
-
-        shard_data.extend(tokenize_batch(smiles_batch, tokenizer, args.max_length))
-        total += len(smiles_batch)
-
-        if len(shard_data) >= args.shard_size:
-            write_shard(shard_data, out_dir, shard_idx)
-            shard_data = []
-            shard_idx += 1
 
     if shard_data:
         write_shard(shard_data, out_dir, shard_idx)
