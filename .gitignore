@@ -39,6 +39,12 @@ hp_search_trial_*/
 experiments/
 configs/
 .claude/ 
+preparing_datasets/
+raw_data/
+supervised_wide.parquet
+zinc_SMILES
+canonical_sup/
+climb-key.pem
 
 # Experiment outputs
 experiments/

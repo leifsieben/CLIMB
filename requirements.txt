@@ -47,7 +47,7 @@ multidict==6.7.0
 multiprocess==0.70.18
 nest-asyncio==1.6.0
 networkx==3.2.1
-numpy==2.0.2
+numpy==1.23.5
 optuna==4.6.0
 packaging==25.0
 pandas==2.3.3
@@ -61,13 +61,13 @@ protobuf==6.33.2
 psutil==7.2.1
 ptyprocess==0.7.0
 pure_eval==0.2.3
-pyarrow==21.0.0
+pyarrow==14.0.2
 Pygments==2.19.2
 python-dateutil==2.9.0.post0
 pytz==2025.2
 PyYAML==6.0.3
 pyzmq==27.1.0
-rdkit==2025.9.2
+rdkit-pypi==2022.9.5
 regex==2025.11.3
 requests==2.32.5
 safetensors==0.7.0
