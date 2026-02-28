@@ -79,7 +79,7 @@ def objective(trial, tokenizer, train_dataset, eval_dataset, base_config):
         num_hidden_layers=num_layers,
         num_attention_heads=num_heads,
         intermediate_size=hidden_size * 4,
-        max_position_embeddings=512,  # Fixed based on data analysis
+        max_position_embeddings=514,  # allow up to 512 tokens + special positions
         use_flash_attention=base_config.get('model', {}).get('use_flash_attention', True),
         use_gradient_checkpointing=False,  # Disable for HP search (faster)
     )
@@ -182,6 +182,11 @@ def main():
             tokenized_data.extend(d.get('data', []))
         else:
             tokenized_data.extend(d)
+
+    # drop sequences that would exceed position embeddings
+    before = len(tokenized_data)
+    tokenized_data = [x for x in tokenized_data if len(x.get("input_ids", [])) <= 512]
+    logger.info(f"Filtered long sequences: kept {len(tokenized_data):,} / {before:,}")
 
     full_dataset = UnsupervisedDataset(tokenized_data)
     
