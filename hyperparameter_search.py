@@ -140,7 +140,7 @@ def main():
     parser = argparse.ArgumentParser(description="Hyperparameter search")
     parser.add_argument("--config", required=True, help="Base config YAML")
     parser.add_argument("--tokenizer", required=True, help="Tokenizer directory")
-    parser.add_argument("--train_data", required=True, help="Training data pickle")
+    parser.add_argument("--train_data", required=True, help="Training data pickle or directory of pickles")
     parser.add_argument("--eval_data", help="Eval data pickle (optional, will split if not provided)")
     parser.add_argument("--output", required=True, help="Output directory for results")
     parser.add_argument("--n_trials", type=int, default=20, help="Number of Optuna trials")
@@ -165,15 +165,23 @@ def main():
         mask_token="<mask>",
     )
     
-    # Load data
-    with open(args.train_data, 'rb') as f:
-        data = pickle.load(f)
-    
-    # Handle both formats: list or dict with 'data' key
-    if isinstance(data, dict):
-        tokenized_data = data['data']
+    # Load data (single pickle or directory of pickles)
+    train_paths = []
+    p = Path(args.train_data)
+    if p.is_dir():
+        train_paths = sorted(p.glob("*.pkl"))
+        logger.info(f"Loading directory with {len(train_paths)} shard(s): {p}")
     else:
-        tokenized_data = data
+        train_paths = [p]
+
+    tokenized_data = []
+    for path in train_paths:
+        with open(path, 'rb') as f:
+            d = pickle.load(f)
+        if isinstance(d, dict):
+            tokenized_data.extend(d.get('data', []))
+        else:
+            tokenized_data.extend(d)
 
     full_dataset = UnsupervisedDataset(tokenized_data)
     
