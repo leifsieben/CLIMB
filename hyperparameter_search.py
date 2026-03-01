@@ -1,77 +1,143 @@
-# ==============================================================================
-# FILE: hyperparameter_search.py
-# Find optimal hyperparameters using Optuna
-# ==============================================================================
+"""Find optimal hyperparameters for MLM pretraining with Optuna.
 
-"""hyperparameter_search.py
-
-Strategy: Run HP search on unsupervised (MLM) data for generalizability.
-Use found hyperparameters for all subsequent experiments.
-
-Usage:
-    python hyperparameter_search.py \
-        --config config.yaml \
-        --tokenizer tokenizer/ \
-        --train_data data/unsup.pkl \
-        --eval_data data/unsup_eval.pkl \
-        --output hp_search_results/ \
-        --n_trials 20
+Supports tokenized inputs from:
+- Pickle files (`.pkl`) containing a list of records or `{"data": [...]}`
+- Parquet files (`.parquet`) with token columns (e.g. `input_ids`, `attention_mask`)
 """
 
 import argparse
+import json
 import logging
 import pickle
-import json
-import torch
+import shutil
 from pathlib import Path
+from typing import Dict, List
+
+import optuna
+import torch
 from torch.utils.data import Dataset, random_split
 from transformers import (
-    Trainer,
-    TrainingArguments,
     DataCollatorForLanguageModeling,
     PreTrainedTokenizerFast,
+    Trainer,
+    TrainingArguments,
 )
-import optuna
-from utils import setup_logging, load_config, get_device
+
 from model import create_model
+from utils import get_device, load_config, setup_logging
 
 logger = logging.getLogger(__name__)
 
 
 class UnsupervisedDataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data: List[Dict]):
         self.data = data
-    def __len__(self):
+
+    def __len__(self) -> int:
         return len(self.data)
-    def __getitem__(self, idx):
+
+    def __getitem__(self, idx: int) -> Dict:
         return self.data[idx]
 
 
-def objective(trial, tokenizer, train_dataset, eval_dataset, base_config):
-    """Optuna objective function"""
-    
-    # Suggest hyperparameters
+def _load_pickle_records(path: Path) -> List[Dict]:
+    with open(path, "rb") as f:
+        payload = pickle.load(f)
+    if isinstance(payload, dict):
+        return payload.get("data", [])
+    return payload
+
+
+def _load_parquet_records(path: Path) -> List[Dict]:
+    try:
+        import pyarrow.parquet as pq
+    except ImportError as exc:
+        raise ImportError(
+            "pyarrow is required to load parquet tokenized shards. "
+            "Install dependencies from requirements.txt."
+        ) from exc
+
+    parquet_file = pq.ParquetFile(path)
+    available_cols = set(parquet_file.schema.names)
+    candidate_cols = ["input_ids", "attention_mask", "token_type_ids", "labels"]
+    cols = [c for c in candidate_cols if c in available_cols]
+    if "input_ids" not in cols:
+        raise ValueError(f"{path} is missing required column 'input_ids'")
+
+    records: List[Dict] = []
+    for batch in parquet_file.iter_batches(columns=cols, batch_size=10_000):
+        as_dict = batch.to_pydict()
+        row_count = len(as_dict[cols[0]]) if cols else 0
+        for i in range(row_count):
+            row = {col: as_dict[col][i] for col in cols}
+            records.append(row)
+    return records
+
+
+def _load_records(path: Path) -> List[Dict]:
+    suffix = path.suffix.lower()
+    if suffix == ".pkl":
+        return _load_pickle_records(path)
+    if suffix == ".parquet":
+        return _load_parquet_records(path)
+    raise ValueError(f"Unsupported file type for {path}. Expected .pkl or .parquet")
+
+
+def _collect_input_paths(path_str: str) -> List[Path]:
+    path = Path(path_str)
+    if path.is_dir():
+        pkl_paths = sorted(path.glob("*.pkl"))
+        parquet_paths = sorted(path.glob("*.parquet"))
+        paths = pkl_paths + parquet_paths
+        if not paths:
+            raise ValueError(f"No .pkl or .parquet files found in directory: {path}")
+        logger.info("Loading %d shard(s) from %s", len(paths), path)
+        return paths
+    return [path]
+
+
+def _load_tokenized_records(path_str: str) -> List[Dict]:
+    all_records: List[Dict] = []
+    for path in _collect_input_paths(path_str):
+        logger.info("Reading %s", path)
+        all_records.extend(_load_records(path))
+    return all_records
+
+
+def _filter_max_len(records: List[Dict], max_len: int = 512) -> List[Dict]:
+    before = len(records)
+    filtered = [x for x in records if len(x.get("input_ids", [])) <= max_len]
+    logger.info("Filtered long sequences: kept %s / %s", f"{len(filtered):,}", f"{before:,}")
+    return filtered
+
+
+def objective(trial, tokenizer, train_dataset, eval_dataset, base_config, trial_output_root: Path):
     learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
     batch_size = trial.suggest_categorical("batch_size", [8, 16, 32])
     warmup_steps = trial.suggest_int("warmup_steps", 100, 1000)
     hidden_size = trial.suggest_categorical("hidden_size", [128, 256, 512])
     num_layers = trial.suggest_int("num_hidden_layers", 4, 12)
     weight_decay = trial.suggest_float("weight_decay", 1e-3, 1e-1, log=True)
-    
-    # Attention heads: must divide hidden_size evenly
-    # Standard ratios: hidden_size / head_dim, where head_dim is typically 64 or 32
+
     if hidden_size == 128:
-        num_heads = 4  # 128/4 = 32 per head (or 2 heads with 64 each)
+        num_heads = 4
     elif hidden_size == 256:
         num_heads = trial.suggest_categorical("num_attention_heads_256", [4, 8])
-    else:  # 512
+    else:
         num_heads = trial.suggest_categorical("num_attention_heads_512", [8, 16])
-    
-    logger.info(f"\nTrial {trial.number}")
-    logger.info(f"  LR: {learning_rate:.2e}, Batch: {batch_size}, Warmup: {warmup_steps}")
-    logger.info(f"  Hidden: {hidden_size}, Layers: {num_layers}, Heads: {num_heads}, Weight decay: {weight_decay:.2e}")
-    
-    # Create model using model.py
+
+    logger.info(
+        "Trial %s | lr=%.2e bs=%s warmup=%s hidden=%s layers=%s heads=%s wd=%.2e",
+        trial.number,
+        learning_rate,
+        batch_size,
+        warmup_steps,
+        hidden_size,
+        num_layers,
+        num_heads,
+        weight_decay,
+    )
+
     model = create_model(
         vocab_size=len(tokenizer),
         task="mlm",
@@ -79,24 +145,21 @@ def objective(trial, tokenizer, train_dataset, eval_dataset, base_config):
         num_hidden_layers=num_layers,
         num_attention_heads=num_heads,
         intermediate_size=hidden_size * 4,
-        max_position_embeddings=514,  # allow up to 512 tokens + special positions
-        use_flash_attention=base_config.get('model', {}).get('use_flash_attention', True),
-        use_gradient_checkpointing=False,  # Disable for HP search (faster)
+        max_position_embeddings=514,
+        use_flash_attention=base_config.get("model", {}).get("use_flash_attention", True),
+        use_gradient_checkpointing=False,
     )
-    
-    # Data collator
+
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=True,
         mlm_probability=0.15,
     )
-    
-    # Training arguments - let Transformers auto-detect device (CUDA > MPS > CPU)
-    output_dir = f"./hp_search_trial_{trial.number}"
 
+    output_dir = trial_output_root / f"trial_{trial.number}"
     training_args = TrainingArguments(
-        output_dir=output_dir,
-        num_train_epochs=5,  # More epochs for better convergence
+        output_dir=str(output_dir),
+        num_train_epochs=5,
         per_device_train_batch_size=batch_size,
         learning_rate=learning_rate,
         warmup_steps=warmup_steps,
@@ -104,13 +167,12 @@ def objective(trial, tokenizer, train_dataset, eval_dataset, base_config):
         logging_steps=50,
         eval_strategy="steps",
         eval_steps=100,
-        save_steps=10000,  # Don't save during HP search
+        save_steps=10000,
         dataloader_num_workers=0,
         remove_unused_columns=False,
-        report_to="none",  # Disable wandb/tensorboard during HP search
+        report_to="none",
     )
-    
-    # Trainer
+
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -118,21 +180,13 @@ def objective(trial, tokenizer, train_dataset, eval_dataset, base_config):
         eval_dataset=eval_dataset,
         data_collator=data_collator,
     )
-    
-    # Train
+
     trainer.train()
-    
-    # Evaluate
-    metrics = trainer.evaluate()
-    eval_loss = metrics["eval_loss"]
-    
-    logger.info(f"  Trial {trial.number} eval loss: {eval_loss:.4f}")
-    
-    # Cleanup
-    import shutil
-    if Path(output_dir).exists():
+    eval_loss = trainer.evaluate()["eval_loss"]
+    logger.info("Trial %s eval_loss=%.4f", trial.number, eval_loss)
+
+    if output_dir.exists():
         shutil.rmtree(output_dir)
-    
     return eval_loss
 
 
@@ -140,22 +194,27 @@ def main():
     parser = argparse.ArgumentParser(description="Hyperparameter search")
     parser.add_argument("--config", required=True, help="Base config YAML")
     parser.add_argument("--tokenizer", required=True, help="Tokenizer directory")
-    parser.add_argument("--train_data", required=True, help="Training data pickle or directory of pickles")
-    parser.add_argument("--eval_data", help="Eval data pickle (optional, will split if not provided)")
+    parser.add_argument(
+        "--train_data",
+        required=True,
+        help="Training data file or directory (.pkl/.parquet shards supported)",
+    )
+    parser.add_argument(
+        "--eval_data",
+        help="Eval data file or directory (optional; if omitted, train split is used)",
+    )
     parser.add_argument("--output", required=True, help="Output directory for results")
     parser.add_argument("--n_trials", type=int, default=20, help="Number of Optuna trials")
     parser.add_argument("--log_file", help="Log file path")
     args = parser.parse_args()
-    
+
     setup_logging(args.log_file)
     logger.info("Starting hyperparameter search")
-    logger.info(f"  Trials: {args.n_trials}")
-    logger.info(f"  Device: {get_device()}")
-    
-    # Load config
+    logger.info("Trials: %d", args.n_trials)
+    logger.info("Device: %s", get_device())
+
     base_config = load_config(args.config)
-    
-    # Load tokenizer
+
     tokenizer = PreTrainedTokenizerFast(
         tokenizer_file=str(Path(args.tokenizer) / "tokenizer.json"),
         bos_token="<s>",
@@ -164,402 +223,50 @@ def main():
         pad_token="<pad>",
         mask_token="<mask>",
     )
-    
-    # Load data (single pickle or directory of pickles)
-    train_paths = []
-    p = Path(args.train_data)
-    if p.is_dir():
-        train_paths = sorted(p.glob("*.pkl"))
-        logger.info(f"Loading directory with {len(train_paths)} shard(s): {p}")
-    else:
-        train_paths = [p]
 
-    tokenized_data = []
-    for path in train_paths:
-        with open(path, 'rb') as f:
-            d = pickle.load(f)
-        if isinstance(d, dict):
-            tokenized_data.extend(d.get('data', []))
-        else:
-            tokenized_data.extend(d)
+    train_records = _filter_max_len(_load_tokenized_records(args.train_data))
+    full_dataset = UnsupervisedDataset(train_records)
 
-    # drop sequences that would exceed position embeddings
-    before = len(tokenized_data)
-    tokenized_data = [x for x in tokenized_data if len(x.get("input_ids", [])) <= 512]
-    logger.info(f"Filtered long sequences: kept {len(tokenized_data):,} / {before:,}")
-
-    full_dataset = UnsupervisedDataset(tokenized_data)
-    
-    # Split train/eval if eval not provided
     if args.eval_data:
-        with open(args.eval_data, 'rb') as f:
-            eval_data = pickle.load(f)
-        # Handle both formats
-        if isinstance(eval_data, dict):
-            eval_tokenized = eval_data['data']
-        else:
-            eval_tokenized = eval_data
-        eval_dataset = UnsupervisedDataset(eval_tokenized)
+        eval_records = _filter_max_len(_load_tokenized_records(args.eval_data))
+        eval_dataset = UnsupervisedDataset(eval_records)
         train_dataset = full_dataset
     else:
         train_size = int(0.9 * len(full_dataset))
         eval_size = len(full_dataset) - train_size
         train_dataset, eval_dataset = random_split(full_dataset, [train_size, eval_size])
-    
-    logger.info(f"  Train samples: {len(train_dataset)}")
-    logger.info(f"  Eval samples: {len(eval_dataset)}")
-    
-    # Run Optuna optimization
-    study = optuna.create_study(direction="minimize")
-    study.optimize(
-        lambda trial: objective(trial, tokenizer, train_dataset, eval_dataset, base_config),
-        n_trials=args.n_trials,
-    )
-    
-    # Results
-    logger.info("\n" + "="*80)
-    logger.info("HYPERPARAMETER SEARCH COMPLETE")
-    logger.info("="*80)
-    logger.info(f"\nBest trial: {study.best_trial.number}")
-    logger.info(f"Best eval loss: {study.best_value:.4f}")
-    logger.info("\nBest hyperparameters:")
-    for key, value in study.best_params.items():
-        logger.info(f"  {key}: {value}")
-    
-    # Save results
+
+    logger.info("Train samples: %s", f"{len(train_dataset):,}")
+    logger.info("Eval samples: %s", f"{len(eval_dataset):,}")
+
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
-    
-    # Save best params as JSON
+    trial_output_root = output_path / "_trial_tmp"
+    trial_output_root.mkdir(parents=True, exist_ok=True)
+
+    study = optuna.create_study(direction="minimize")
+    study.optimize(
+        lambda trial: objective(
+            trial, tokenizer, train_dataset, eval_dataset, base_config, trial_output_root
+        ),
+        n_trials=args.n_trials,
+    )
+
     best_params_file = output_path / "best_hyperparameters.json"
-    with open(best_params_file, 'w') as f:
+    with open(best_params_file, "w") as f:
         json.dump(study.best_params, f, indent=2)
-    
-    # Save full study
+
     study_file = output_path / "optuna_study.pkl"
-    with open(study_file, 'wb') as f:
+    with open(study_file, "wb") as f:
         pickle.dump(study, f)
-    
-    logger.info(f"\n✓ Results saved to {args.output}")
-    logger.info(f"  Best params: {best_params_file}")
-    logger.info(f"  Full study: {study_file}")
 
+    if trial_output_root.exists():
+        shutil.rmtree(trial_output_root)
 
-if __name__ == "__main__":
-    main()
-
-
-# ==============================================================================
-# FILE: train_model.py
-# Flexible training with support for any mixture of supervised/unsupervised
-# ==============================================================================
-
-"""train_model.py
-
-Flexible training supporting:
-- 100% unsupervised (MLM): --unsup_weight 1.0 --sup_weight 0.0
-- 100% supervised: --unsup_weight 0.0 --sup_weight 1.0
-- Mixed: --unsup_weight 0.5 --sup_weight 0.5
-
-Usage:
-    # 100% Unsupervised (MLM)
-    python train_model.py \
-        --config config.yaml \
-        --tokenizer tokenizer/ \
-        --unsup_data data/unsup.pkl \
-        --unsup_weight 1.0 \
-        --sup_weight 0.0 \
-        --output models/mlm_100 \
-        --task mlm
-    
-    # 50/50 Mixed (MLM on both)
-    python train_model.py \
-        --config config.yaml \
-        --tokenizer tokenizer/ \
-        --unsup_data data/unsup.pkl \
-        --sup_data data/sup.pkl \
-        --unsup_weight 0.5 \
-        --sup_weight 0.5 \
-        --output models/mlm_50_50 \
-        --task mlm
-    
-    # 100% Supervised (Regression)
-    python train_model.py \
-        --config config.yaml \
-        --tokenizer tokenizer/ \
-        --sup_data data/sup.pkl \
-        --unsup_weight 0.0 \
-        --sup_weight 1.0 \
-        --output models/supervised_100 \
-        --task regression
-"""
-
-import argparse
-import logging
-import pickle
-import json
-import torch
-from pathlib import Path
-from torch.utils.data import Dataset, ConcatDataset, Subset
-from transformers import (
-    Trainer,
-    TrainingArguments,
-    DataCollatorForLanguageModeling,
-    DataCollatorWithPadding,
-    PreTrainedTokenizerFast,
-)
-from utils import setup_logging, load_config, get_device
-from model import create_model
-
-logger = logging.getLogger(__name__)
-
-
-# Dataset classes
-class UnsupervisedDataset(Dataset):
-    def __init__(self, data):
-        self.data = data
-    def __len__(self):
-        return len(self.data)
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-
-class SupervisedDataset(Dataset):
-    def __init__(self, data, labels):
-        self.data = data
-        self.labels = labels
-    def __len__(self):
-        return len(self.data)
-    def __getitem__(self, idx):
-        item = self.data[idx].copy()
-        item['labels'] = torch.tensor(self.labels[idx], dtype=torch.float)
-        return item
-
-
-# Model creation now handled by model.py
-
-
-def create_mixed_dataset(
-    unsup_data: dict = None,
-    sup_data: dict = None,
-    unsup_weight: float = 1.0,
-    sup_weight: float = 0.0,
-    task: str = "mlm",
-):
-    """
-    Create mixed dataset from unsupervised and supervised data
-    
-    Args:
-        unsup_data: Dictionary with 'data' key
-        sup_data: Dictionary with 'data' and 'labels' keys
-        unsup_weight: Weight for unsupervised data (0.0 to 1.0)
-        sup_weight: Weight for supervised data (0.0 to 1.0)
-        task: 'mlm' or 'regression'
-    
-    Returns:
-        Combined dataset
-    """
-    
-    if unsup_weight == 0.0 and sup_weight == 0.0:
-        raise ValueError("At least one weight must be > 0")
-    
-    datasets = []
-    
-    # Add unsupervised data
-    if unsup_data and unsup_weight > 0:
-        unsup_dataset = UnsupervisedDataset(unsup_data['data'])
-        n_unsup = int(len(unsup_dataset) * unsup_weight)
-        if n_unsup > 0:
-            datasets.append(Subset(unsup_dataset, range(n_unsup)))
-            logger.info(f"Added {n_unsup} unsupervised samples ({unsup_weight*100:.0f}%)")
-    
-    # Add supervised data
-    if sup_data and sup_weight > 0:
-        if task == "mlm":
-            # For MLM, treat supervised data as unsupervised (ignore labels)
-            sup_dataset = UnsupervisedDataset(sup_data['data'])
-        else:
-            # For regression, use labels
-            sup_dataset = SupervisedDataset(sup_data['data'], sup_data['labels'])
-        
-        n_sup = int(len(sup_dataset) * sup_weight)
-        if n_sup > 0:
-            datasets.append(Subset(sup_dataset, range(n_sup)))
-            logger.info(f"Added {n_sup} supervised samples ({sup_weight*100:.0f}%)")
-    
-    if not datasets:
-        raise ValueError("No data to train on!")
-    
-    # Combine datasets
-    if len(datasets) == 1:
-        combined = datasets[0]
-    else:
-        combined = ConcatDataset(datasets)
-    
-    logger.info(f"Total dataset size: {len(combined)}")
-    
-    return combined
-
-
-def train(
-    model,
-    tokenizer,
-    dataset,
-    output_dir: str,
-    task: str,
-    config: dict,
-):
-    """Train model"""
-    
-    # Data collator
-    if task == "mlm":
-        data_collator = DataCollatorForLanguageModeling(
-            tokenizer=tokenizer,
-            mlm=True,
-            mlm_probability=config['training'].get('mlm_probability', 0.15),
-        )
-    else:
-        data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-    
-    # Training arguments - let Transformers auto-detect device (CUDA > MPS > CPU)
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        num_train_epochs=config['training'].get('num_epochs', 10),
-        per_device_train_batch_size=config['training'].get('batch_size', 16),
-        learning_rate=float(config['training'].get('learning_rate', 5e-5)),
-        warmup_steps=config['training'].get('warmup_steps', 100),
-        weight_decay=float(config['training'].get('weight_decay', 0.01)),
-        logging_dir=f"{output_dir}/logs",
-        logging_steps=config['training'].get('logging_steps', 50),
-        save_steps=config['training'].get('save_steps', 500),
-        save_total_limit=2,
-        dataloader_num_workers=0,
-        remove_unused_columns=False if task == "mlm" else True,
-    )
-    
-    logger.info(f"Training configuration:")
-    logger.info(f"  Device: {get_device()}")
-    logger.info(f"  Samples: {len(dataset)}")
-    logger.info(f"  Epochs: {training_args.num_train_epochs}")
-    logger.info(f"  Batch size: {training_args.per_device_train_batch_size}")
-    logger.info(f"  Learning rate: {training_args.learning_rate}")
-    
-    # Trainer
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=dataset,
-        data_collator=data_collator,
-    )
-    
-    # Train
-    logger.info("Starting training...")
-    trainer.train()
-    
-    # Save
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
-    
-    logger.info(f"✓ Model saved to {output_dir}")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Train chemical language model with flexible data mixing")
-    parser.add_argument("--config", required=True, help="Config YAML file")
-    parser.add_argument("--tokenizer", required=True, help="Tokenizer directory")
-    parser.add_argument("--unsup_data", help="Unsupervised data pickle")
-    parser.add_argument("--sup_data", help="Supervised data pickle")
-    parser.add_argument("--unsup_weight", type=float, default=1.0, help="Unsupervised data weight (0.0-1.0)")
-    parser.add_argument("--sup_weight", type=float, default=0.0, help="Supervised data weight (0.0-1.0)")
-    parser.add_argument("--output", required=True, help="Output directory")
-    parser.add_argument("--task", choices=["mlm", "regression"], required=True, help="Training task")
-    parser.add_argument("--log_file", help="Log file path")
-    args = parser.parse_args()
-    
-    setup_logging(args.log_file)
-    
-    logger.info("="*80)
-    logger.info("CHEMICAL LANGUAGE MODEL TRAINING")
-    logger.info("="*80)
-    logger.info(f"Task: {args.task}")
-    logger.info(f"Unsupervised weight: {args.unsup_weight}")
-    logger.info(f"Supervised weight: {args.sup_weight}")
-    
-    # Validate inputs
-    if args.unsup_weight == 0.0 and not args.sup_data:
-        raise ValueError("Need supervised data if unsup_weight=0.0")
-    if args.sup_weight == 0.0 and not args.unsup_data:
-        raise ValueError("Need unsupervised data if sup_weight=0.0")
-    
-    # Load config
-    config = load_config(args.config)
-    
-    # Load tokenizer
-    tokenizer = PreTrainedTokenizerFast(
-        tokenizer_file=str(Path(args.tokenizer) / "tokenizer.json"),
-        bos_token="<s>",
-        eos_token="</s>",
-        unk_token="<unk>",
-        pad_token="<pad>",
-        mask_token="<mask>",
-    )
-    
-    # Load data
-    unsup_data = None
-    sup_data = None
-    
-    if args.unsup_data:
-        with open(args.unsup_data, 'rb') as f:
-            unsup_data = pickle.load(f)
-        logger.info(f"Loaded unsupervised data: {len(unsup_data['data'])} samples")
-    
-    if args.sup_data:
-        with open(args.sup_data, 'rb') as f:
-            sup_data = pickle.load(f)
-        logger.info(f"Loaded supervised data: {len(sup_data['data'])} samples")
-    
-    # Create mixed dataset
-    dataset = create_mixed_dataset(
-        unsup_data=unsup_data,
-        sup_data=sup_data,
-        unsup_weight=args.unsup_weight,
-        sup_weight=args.sup_weight,
-        task=args.task,
-    )
-    
-    # Create model using model.py
-    if args.task == "regression" and sup_data:
-        num_labels = sup_data['labels'].shape[1]
-    else:
-        num_labels = 1
-    
-    model = create_model(
-        vocab_size=len(tokenizer),
-        task=args.task,
-        num_labels=num_labels,
-        **config['model']  # Unpack all model config from YAML
-    )
-    
-    # Train
-    train(model, tokenizer, dataset, args.output, args.task, config)
-    
-    # Save experiment config
-    experiment_config = {
-        'task': args.task,
-        'unsup_weight': args.unsup_weight,
-        'sup_weight': args.sup_weight,
-        'model_config': config['model'],
-        'training_config': config['training'],
-    }
-    
-    config_file = Path(args.output) / "experiment_config.json"
-    with open(config_file, 'w') as f:
-        json.dump(experiment_config, f, indent=2)
-    
-    logger.info(f"✓ Experiment config saved to {config_file}")
-    logger.info("\n" + "="*80)
-    logger.info("TRAINING COMPLETE")
-    logger.info("="*80)
+    logger.info("Best trial: %s", study.best_trial.number)
+    logger.info("Best eval loss: %.4f", study.best_value)
+    logger.info("Best hyperparameters: %s", study.best_params)
+    logger.info("Results saved to %s", output_path)
 
 
 if __name__ == "__main__":

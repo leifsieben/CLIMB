@@ -46,6 +46,7 @@ zinc_SMILES
 canonical_sup/
 climb-key.pem
 AWSCLIV2.pkg
+*.pem
 
 # Experiment outputs
 experiments/

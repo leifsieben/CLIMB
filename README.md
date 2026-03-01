@@ -4,6 +4,46 @@ This repo supports end‑to‑end tokenizer training, hyperparameter sweeps, pre
 
 ---
 
+## Current Data Sources, Processing, and Storage (AWS)
+
+### A) Dataset sources and how they are used
+- Unsupervised pretraining corpus: filtered PubChem tokenized shards stored in S3 at `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`.
+- Tokenizer artifact used for current runs: `s3://climb-s3-bucket/tokenizer_10M/` (contains `tokenizer.json`).
+- Downstream evaluation datasets: MoleculeNet tasks loaded via DeepChem in `evaluate_model.py` (e.g., BBBP, Tox21, ESOL, FreeSolv, Lipophilicity).
+- Multi-task supervised pretraining inputs: user-provided CSV files referenced by `configs/config_multitask_example.yaml` (`data/bbbp.csv`, `data/bace.csv`, etc.).
+
+Processing path used in this repo:
+1. Build or load tokenizer (`train_tokenizer.py` or prebuilt tokenizer from S3).
+2. Tokenize raw SMILES (single-file flow with `tokenize_dataset.py`, or sharded flow with `tokenizing_datasets.py`).
+3. Run MLM hyperparameter search (`hyperparameter_search.py`) on tokenized shards.
+4. Run pretraining (`train_model.py` / `pretrain_pipeline.py`), then evaluate (`evaluate_model.py` / `evaluate_all_moleculenet.sh`).
+
+### B) Current S3 structure and access
+Known active paths:
+- `s3://climb-s3-bucket/tokenizer_10M/`
+- `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
+
+Inspect available prefixes:
+```bash
+aws s3 ls s3://climb-s3-bucket/
+aws s3 ls s3://climb-s3-bucket/ --recursive | grep tokenizer.json
+```
+
+Download artifacts to EC2:
+```bash
+mkdir -p ~/artifacts/tokenizer_10M ~/data/pubchem_filtered
+aws s3 sync s3://climb-s3-bucket/tokenizer_10M ~/artifacts/tokenizer_10M
+aws s3 sync s3://climb-s3-bucket/tokenized_sources/pubchem_filtered ~/data/pubchem_filtered
+```
+
+### C) README status / outdated items now corrected
+- Hyperparameter sweep entrypoint is `hyperparameter_search.py` (not `run_hyperopt.py`).
+- Sweep now supports both `.pkl` and `.parquet` tokenized inputs.
+- Current tokenizer location is documented as `s3://climb-s3-bucket/tokenizer_10M/`.
+- AWS examples now align with the currently used S3 prefixes.
+
+---
+
 ## 1) Train a tokenizer (BPE) and store/reuse it
 1. Prepare raw SMILES text (one per line) or a CSV with a `SMILES` column.
 2. Train the tokenizer (example command; adjust paths):
@@ -24,7 +64,7 @@ This repo supports end‑to‑end tokenizer training, hyperparameter sweeps, pre
 
 ## 2) Hyperparameter sweep (MLM)
 Goal: minimize MLM eval loss on a held‑out split, then fix the best hyperparameters for future runs.
-1. Prepare tokenized unsupervised data (pickle list/dict with `input_ids`, `attention_mask`):
+1. Prepare tokenized unsupervised data (`.pkl` or `.parquet`) with `input_ids` + `attention_mask`:
    ```bash
    python tokenize_dataset.py \
      --tokenizer tokenizer \
@@ -35,8 +75,8 @@ Goal: minimize MLM eval loss on a held‑out split, then fix the best hyperparam
    ```bash
    python hyperparameter_search.py \
      --config experiments/config.yaml \
-     --tokenizer tokenizer \
-     --train_data data/unsup.pkl \
+     --tokenizer ~/artifacts/tokenizer_10M \
+     --train_data ~/data/pubchem_filtered \
      --output hp_search_results \
      --n_trials 20
    ```
@@ -168,6 +208,7 @@ python evaluate_model.py \
 
 ## Key scripts
 - `train_tokenizer.py` / `tokenize_dataset.py`: tokenizer training, data tokenization.
+- `tokenizing_datasets.py`: shard large parquet/CSV/text SMILES inputs into tokenized pickle shards.
 - `train_model.py`: flexible MLM/supervised mix (streaming-aware, spot-aware).
 - `pretrain_pipeline.py`: orchestrates MLM + supervised with compute budgets.
 - `train_multitask.py`: pooled multi-task supervised pretraining (masked losses).
