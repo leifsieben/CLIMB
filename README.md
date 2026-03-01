@@ -214,3 +214,137 @@ python evaluate_model.py \
 - `train_multitask.py`: pooled multi-task supervised pretraining (masked losses).
 - `hyperparameter_search.py`: Optuna sweep for MLM.
 - `evaluate_model.py`, `evaluate_all_moleculenet.sh`: downstream evaluation.
+
+---
+
+## Methodology Draft (Data, Tokenization, and Optimization)
+
+This section is a first-draft, paper-oriented description of the current CLIMB methodology as implemented in this repository and current AWS storage.
+
+### 1) Data provenance
+
+Unsupervised pretraining source:
+- PubChem-124M molecular strings dataset (SMILES/SELFIES/InChI/IUPAC):
+  - [PubChem-124M-SMILES-SELFIES-InChI-IUPAC](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC)
+- In our current pipeline, filtered/tokenized unsupervised shards are stored in:
+  - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/` (parquet source shards)
+  - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/` (training-ready tokenized pickle shards; generated for this workflow)
+
+Supervised/downstream sources:
+- Graphium benchmark dataset collection (MoleculeNet-oriented):
+  - [Graphium datasets documentation](https://graphium-docs.datamol.io/stable/datasets.html)
+- In code, downstream evaluation and task definitions are aligned with MoleculeNet tasks (e.g., BBBP, Tox21, ESOL, FreeSolv, Lipophilicity) via `evaluate_model.py` and multi-task configs.
+
+Tokenizer artifact used across current runs:
+- `s3://climb-s3-bucket/tokenizer_10M/` (contains `tokenizer.json`).
+
+### 2) Data preparation and normalization workflow
+
+Current operational workflow:
+1. Retrieve source artifacts from S3 (tokenizer + unsupervised shards).
+2. Convert unsupervised parquet shards into training-ready tokenized shards compatible with CLIMB training scripts.
+3. Use these tokenized shards consistently for hyperparameter optimization and unsupervised pretraining.
+4. Use supervised datasets for downstream evaluation/multi-task phases.
+
+Practical storage pattern:
+- Raw/filtered unsupervised source shards: parquet.
+- Model-training ingest format: pickled dictionaries with key `data`, where each element has:
+  - `input_ids`
+  - `attention_mask`
+
+This format is consumed by:
+- `hyperparameter_search.py`
+- `train_model.py`
+- streaming dataset loaders in `data.py`
+
+### 3) Tokenizer training and reuse policy
+
+Tokenizer training script:
+- `train_tokenizer.py` (BPE tokenizer training from SMILES text/CSV inputs).
+
+Tokenizer reuse in current experiments:
+- A pre-trained tokenizer artifact is loaded from `tokenizer_10M`.
+- The same tokenizer is used consistently across:
+  - hyperparameter search,
+  - unsupervised pretraining,
+  - supervised/multi-task training,
+  - downstream evaluation.
+
+Rationale:
+- Holding tokenizer fixed prevents vocabulary/segmentation changes from confounding hyperparameter comparisons or downstream model comparisons.
+
+### 4) Tokenization procedure for unsupervised corpus
+
+Sharded tokenization pipeline:
+- `tokenizing_datasets.py` streams parquet in batches, selects a SMILES column, tokenizes with `PreTrainedTokenizerFast`, and writes shard files.
+- Default sequence handling:
+  - truncation enabled,
+  - max length typically 512 tokens,
+  - no fixed padding during shard creation (padding performed by collators at training time).
+
+Resulting shard content:
+- `{"data": [{"input_ids": [...], "attention_mask": [...]}, ...]}`
+
+Why sharding:
+- Keeps memory usage bounded.
+- Improves I/O reliability on cloud instances.
+- Enables streaming or capped-sample experiments.
+
+### 5) Hyperparameter optimization protocol (Optuna)
+
+Optimization script:
+- `hyperparameter_search.py`
+
+Objective:
+- Minimize MLM validation loss (`eval_loss`) on unsupervised tokenized data.
+
+Search space (current implementation):
+- `learning_rate` (log-uniform)
+- `batch_size` (categorical)
+- `warmup_steps`
+- `hidden_size`
+- `num_hidden_layers`
+- `num_attention_heads` (conditional on hidden size)
+- `weight_decay`
+
+Training/evaluation behavior in each trial:
+- Uses masked language modeling objective.
+- Trains for fixed epochs per trial.
+- Evaluates on held-out split (or optional explicit eval set).
+- Stores best trial parameters in JSON and full study object for reproducibility.
+
+Resource-aware safeguards:
+- Hyperparameter search supports bounded loading via:
+  - `--max_samples`
+  - `--max_train_shards`
+  - `--max_eval_samples`
+  - `--max_eval_shards`
+- This prevents loading the full corpus into RAM on smaller GPU instances.
+
+### 6) Transfer of optimized settings to all experiments
+
+Protocol used for comparability:
+1. Run Optuna on unsupervised corpus (MLM).
+2. Select best trial by minimum validation loss.
+3. Freeze these hyperparameters as the default training recipe.
+4. Reuse the same hyperparameter set across all subsequent experiments (unsupervised, supervised, and mixed) unless an experiment explicitly studies ablations.
+
+This enforces a consistent optimization baseline and avoids per-task overfitting of training settings.
+
+### 7) Reproducibility and artifact management
+
+Artifact locations:
+- Tokenizer: `s3://climb-s3-bucket/tokenizer_10M/`
+- Unsupervised tokenized shards: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`
+- Hyperparameter outputs (typical local path): `hp_search_results/` with:
+  - `best_hyperparameters.json`
+  - `optuna_study.pkl`
+
+Suggested reporting fields for paper appendix:
+- exact S3 prefixes used,
+- code commit hash,
+- config file path(s),
+- tokenizer identifier/path,
+- sample/shard caps used during HP search,
+- number of trials and selected trial ID,
+- final selected hyperparameters.
