@@ -11,7 +11,7 @@ import logging
 import pickle
 import shutil
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import optuna
 import torch
@@ -40,15 +40,19 @@ class UnsupervisedDataset(Dataset):
         return self.data[idx]
 
 
-def _load_pickle_records(path: Path) -> List[Dict]:
+def _load_pickle_records(path: Path, max_records: Optional[int] = None) -> List[Dict]:
     with open(path, "rb") as f:
         payload = pickle.load(f)
     if isinstance(payload, dict):
-        return payload.get("data", [])
-    return payload
+        records = payload.get("data", [])
+    else:
+        records = payload
+    if max_records is not None:
+        return records[:max_records]
+    return records
 
 
-def _load_parquet_records(path: Path) -> List[Dict]:
+def _load_parquet_records(path: Path, max_records: Optional[int] = None) -> List[Dict]:
     try:
         import pyarrow.parquet as pq
     except ImportError as exc:
@@ -71,19 +75,21 @@ def _load_parquet_records(path: Path) -> List[Dict]:
         for i in range(row_count):
             row = {col: as_dict[col][i] for col in cols}
             records.append(row)
+            if max_records is not None and len(records) >= max_records:
+                return records
     return records
 
 
-def _load_records(path: Path) -> List[Dict]:
+def _load_records(path: Path, max_records: Optional[int] = None) -> List[Dict]:
     suffix = path.suffix.lower()
     if suffix == ".pkl":
-        return _load_pickle_records(path)
+        return _load_pickle_records(path, max_records=max_records)
     if suffix == ".parquet":
-        return _load_parquet_records(path)
+        return _load_parquet_records(path, max_records=max_records)
     raise ValueError(f"Unsupported file type for {path}. Expected .pkl or .parquet")
 
 
-def _collect_input_paths(path_str: str) -> List[Path]:
+def _collect_input_paths(path_str: str, max_shards: Optional[int] = None) -> List[Path]:
     path = Path(path_str)
     if path.is_dir():
         pkl_paths = sorted(path.glob("*.pkl"))
@@ -91,16 +97,31 @@ def _collect_input_paths(path_str: str) -> List[Path]:
         paths = pkl_paths + parquet_paths
         if not paths:
             raise ValueError(f"No .pkl or .parquet files found in directory: {path}")
+        if max_shards is not None:
+            paths = paths[:max_shards]
         logger.info("Loading %d shard(s) from %s", len(paths), path)
         return paths
     return [path]
 
 
-def _load_tokenized_records(path_str: str) -> List[Dict]:
+def _load_tokenized_records(
+    path_str: str,
+    max_samples: Optional[int] = None,
+    max_shards: Optional[int] = None,
+) -> List[Dict]:
     all_records: List[Dict] = []
-    for path in _collect_input_paths(path_str):
+    for path in _collect_input_paths(path_str, max_shards=max_shards):
         logger.info("Reading %s", path)
-        all_records.extend(_load_records(path))
+        remaining = None
+        if max_samples is not None:
+            remaining = max(0, max_samples - len(all_records))
+            if remaining == 0:
+                break
+        all_records.extend(_load_records(path, max_records=remaining))
+        if max_samples is not None and len(all_records) >= max_samples:
+            break
+    if max_samples is not None and len(all_records) > max_samples:
+        all_records = all_records[:max_samples]
     return all_records
 
 
@@ -205,6 +226,30 @@ def main():
     )
     parser.add_argument("--output", required=True, help="Output directory for results")
     parser.add_argument("--n_trials", type=int, default=20, help="Number of Optuna trials")
+    parser.add_argument(
+        "--max_samples",
+        type=int,
+        default=None,
+        help="Optional cap on loaded train samples to keep memory bounded",
+    )
+    parser.add_argument(
+        "--max_train_shards",
+        type=int,
+        default=None,
+        help="Optional cap on number of train shards loaded (directory input only)",
+    )
+    parser.add_argument(
+        "--max_eval_samples",
+        type=int,
+        default=None,
+        help="Optional cap on loaded eval samples to keep memory bounded",
+    )
+    parser.add_argument(
+        "--max_eval_shards",
+        type=int,
+        default=None,
+        help="Optional cap on number of eval shards loaded (directory input only)",
+    )
     parser.add_argument("--log_file", help="Log file path")
     args = parser.parse_args()
 
@@ -224,11 +269,23 @@ def main():
         mask_token="<mask>",
     )
 
-    train_records = _filter_max_len(_load_tokenized_records(args.train_data))
+    train_records = _filter_max_len(
+        _load_tokenized_records(
+            args.train_data,
+            max_samples=args.max_samples,
+            max_shards=args.max_train_shards,
+        )
+    )
     full_dataset = UnsupervisedDataset(train_records)
 
     if args.eval_data:
-        eval_records = _filter_max_len(_load_tokenized_records(args.eval_data))
+        eval_records = _filter_max_len(
+            _load_tokenized_records(
+                args.eval_data,
+                max_samples=args.max_eval_samples,
+                max_shards=args.max_eval_shards,
+            )
+        )
         eval_dataset = UnsupervisedDataset(eval_records)
         train_dataset = full_dataset
     else:
