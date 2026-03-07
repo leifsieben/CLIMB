@@ -10,6 +10,7 @@ import json
 import logging
 import pickle
 import shutil
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -20,6 +21,7 @@ from transformers import (
     DataCollatorForLanguageModeling,
     PreTrainedTokenizerFast,
     Trainer,
+    TrainerCallback,
     TrainingArguments,
 )
 
@@ -38,6 +40,42 @@ class UnsupervisedDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict:
         return self.data[idx]
+
+
+class OptunaPruningCallback(TrainerCallback):
+    """Report eval metrics to Optuna and prune unpromising trials."""
+
+    def __init__(self, trial: optuna.Trial):
+        self.trial = trial
+
+    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+        if not metrics or "eval_loss" not in metrics:
+            return
+        eval_loss = float(metrics["eval_loss"])
+        step = int(state.global_step)
+        self.trial.report(eval_loss, step=step)
+        if self.trial.should_prune():
+            raise optuna.TrialPruned(f"Pruned at step={step}, eval_loss={eval_loss:.5f}")
+
+
+class HeartbeatCallback(TrainerCallback):
+    """Emit periodic heartbeat logs so long runs are visibly alive."""
+
+    def __init__(self, trial_number: int, heartbeat_seconds: int):
+        self.trial_number = trial_number
+        self.heartbeat_seconds = heartbeat_seconds
+        self._last_heartbeat = 0.0
+
+    def on_step_end(self, args, state, control, **kwargs):
+        now = time.time()
+        if now - self._last_heartbeat >= self.heartbeat_seconds:
+            self._last_heartbeat = now
+            logger.info(
+                "Heartbeat | trial=%s step=%s epoch=%.4f",
+                self.trial_number,
+                state.global_step,
+                0.0 if state.epoch is None else state.epoch,
+            )
 
 
 def _load_pickle_records(path: Path, max_records: Optional[int] = None) -> List[Dict]:
@@ -132,7 +170,79 @@ def _filter_max_len(records: List[Dict], max_len: int = 512) -> List[Dict]:
     return filtered
 
 
-def objective(trial, tokenizer, train_dataset, eval_dataset, base_config, trial_output_root: Path):
+def _build_pruner(args) -> optuna.pruners.BasePruner:
+    if args.pruner == "median":
+        return optuna.pruners.MedianPruner(
+            n_startup_trials=args.pruner_startup_trials,
+            n_warmup_steps=args.pruner_warmup_steps,
+            interval_steps=args.pruner_interval_steps,
+        )
+    if args.pruner == "successive_halving":
+        return optuna.pruners.SuccessiveHalvingPruner(
+            min_resource=args.sh_min_resource,
+            reduction_factor=args.sh_reduction_factor,
+            min_early_stopping_rate=args.sh_min_early_stopping_rate,
+        )
+    if args.pruner == "hyperband":
+        return optuna.pruners.HyperbandPruner(
+            min_resource=args.hb_min_resource,
+            max_resource=args.hb_max_resource,
+            reduction_factor=args.hb_reduction_factor,
+        )
+    return optuna.pruners.NopPruner()
+
+
+def _write_study_snapshot(study: optuna.Study, output_path: Path, storage_url: str):
+    try:
+        best_trial = study.best_trial
+        best_value = study.best_value
+        best_params = study.best_params
+    except ValueError:
+        best_trial = None
+        best_value = None
+        best_params = {}
+
+    snapshot = {
+        "study_name": study.study_name,
+        "direction": study.direction.name,
+        "best_trial": None if best_trial is None else best_trial.number,
+        "best_value": best_value,
+        "best_params": best_params,
+        "n_trials_total": len(study.trials),
+        "n_trials_complete": len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]),
+        "n_trials_pruned": len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]),
+        "n_trials_failed": len([t for t in study.trials if t.state == optuna.trial.TrialState.FAIL]),
+        "storage": storage_url,
+        "updated_at_unix": int(time.time()),
+    }
+    with open(output_path / "study_snapshot.json", "w") as f:
+        json.dump(snapshot, f, indent=2)
+
+
+def _make_trial_callback(output_path: Path, storage_url: str):
+    def _callback(study: optuna.Study, trial: optuna.FrozenTrial):
+        logger.info("Trial %s finished with state=%s value=%s", trial.number, trial.state.name, trial.value)
+        _write_study_snapshot(study, output_path, storage_url)
+        try:
+            best_params = study.best_params
+        except ValueError:
+            best_params = None
+        if best_params is not None:
+            with open(output_path / "best_hyperparameters.json", "w") as f:
+                json.dump(best_params, f, indent=2)
+
+    return _callback
+
+
+def objective(
+    trial,
+    tokenizer,
+    train_dataset,
+    eval_dataset,
+    base_config,
+    trial_output_root: Path,
+    args,
+):
     learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
     batch_size = trial.suggest_categorical("batch_size", [8, 16, 32])
     warmup_steps = trial.suggest_int("warmup_steps", 100, 1000)
@@ -185,14 +295,24 @@ def objective(trial, tokenizer, train_dataset, eval_dataset, base_config, trial_
         learning_rate=learning_rate,
         warmup_steps=warmup_steps,
         weight_decay=weight_decay,
-        logging_steps=50,
+        logging_steps=args.logging_steps,
         eval_strategy="steps",
-        eval_steps=100,
-        save_steps=10000,
-        dataloader_num_workers=0,
+        eval_steps=args.eval_steps,
+        save_steps=args.save_steps,
+        save_total_limit=1,
+        dataloader_num_workers=args.dataloader_num_workers,
+        dataloader_pin_memory=args.dataloader_pin_memory,
+        dataloader_persistent_workers=args.dataloader_num_workers > 0,
         remove_unused_columns=False,
         report_to="none",
+        bf16=args.bf16,
+        fp16=args.fp16,
     )
+
+    callbacks = [
+        HeartbeatCallback(trial.number, args.heartbeat_seconds),
+        OptunaPruningCallback(trial),
+    ]
 
     trainer = Trainer(
         model=model,
@@ -200,13 +320,19 @@ def objective(trial, tokenizer, train_dataset, eval_dataset, base_config, trial_
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=data_collator,
+        callbacks=callbacks,
     )
 
-    trainer.train()
+    try:
+        trainer.train()
+    except optuna.TrialPruned:
+        logger.info("Trial %s pruned", trial.number)
+        raise
+
     eval_loss = trainer.evaluate()["eval_loss"]
     logger.info("Trial %s eval_loss=%.4f", trial.number, eval_loss)
 
-    if output_dir.exists():
+    if output_dir.exists() and not args.keep_trial_artifacts:
         shutil.rmtree(output_dir)
     return eval_loss
 
@@ -225,7 +351,8 @@ def main():
         help="Eval data file or directory (optional; if omitted, train split is used)",
     )
     parser.add_argument("--output", required=True, help="Output directory for results")
-    parser.add_argument("--n_trials", type=int, default=20, help="Number of Optuna trials")
+    parser.add_argument("--n_trials", type=int, default=20, help="Number of Optuna trials for this worker")
+
     parser.add_argument(
         "--max_samples",
         type=int,
@@ -250,13 +377,77 @@ def main():
         default=None,
         help="Optional cap on number of eval shards loaded (directory input only)",
     )
+
     parser.add_argument("--log_file", help="Log file path")
+    parser.add_argument("--study_name", default="mlm_hpo", help="Optuna study name")
+    parser.add_argument(
+        "--storage",
+        default=None,
+        help="Optuna storage URL. Default uses sqlite in output directory.",
+    )
+    parser.add_argument(
+        "--load_if_exists",
+        action="store_true",
+        help="Resume existing study if present",
+    )
+    parser.add_argument(
+        "--no_load_if_exists",
+        action="store_false",
+        dest="load_if_exists",
+        help="Do not resume even if study exists",
+    )
+    parser.set_defaults(load_if_exists=True)
+    parser.add_argument(
+        "--worker_id",
+        default="worker-0",
+        help="Worker id for logs when multiple workers share one study",
+    )
+
+    parser.add_argument("--logging_steps", type=int, default=25)
+    parser.add_argument("--eval_steps", type=int, default=100)
+    parser.add_argument("--save_steps", type=int, default=1000)
+    parser.add_argument("--heartbeat_seconds", type=int, default=120)
+
+    parser.add_argument("--dataloader_num_workers", type=int, default=4)
+    parser.add_argument("--dataloader_pin_memory", action="store_true")
+    parser.add_argument("--no_dataloader_pin_memory", action="store_false", dest="dataloader_pin_memory")
+    parser.set_defaults(dataloader_pin_memory=True)
+
+    parser.add_argument("--keep_trial_artifacts", action="store_true")
+    parser.add_argument("--bf16", action="store_true", help="Enable bf16 mixed precision")
+    parser.add_argument("--fp16", action="store_true", help="Enable fp16 mixed precision")
+
+    parser.add_argument(
+        "--pruner",
+        choices=["none", "median", "successive_halving", "hyperband"],
+        default="hyperband",
+    )
+    parser.add_argument("--pruner_startup_trials", type=int, default=8)
+    parser.add_argument("--pruner_warmup_steps", type=int, default=100)
+    parser.add_argument("--pruner_interval_steps", type=int, default=50)
+    parser.add_argument("--sh_min_resource", type=int, default=100)
+    parser.add_argument("--sh_reduction_factor", type=int, default=3)
+    parser.add_argument("--sh_min_early_stopping_rate", type=int, default=0)
+    parser.add_argument("--hb_min_resource", type=int, default=100)
+    parser.add_argument("--hb_max_resource", type=int, default=5000)
+    parser.add_argument("--hb_reduction_factor", type=int, default=3)
+
     args = parser.parse_args()
+    if args.bf16 and args.fp16:
+        raise ValueError("Choose only one precision mode: --bf16 or --fp16")
 
     setup_logging(args.log_file)
-    logger.info("Starting hyperparameter search")
-    logger.info("Trials: %d", args.n_trials)
+    logger.info("Starting hyperparameter search | worker=%s", args.worker_id)
+    logger.info("Trials requested for this worker: %d", args.n_trials)
     logger.info("Device: %s", get_device())
+
+    output_path = Path(args.output)
+    output_path.mkdir(parents=True, exist_ok=True)
+    trial_output_root = output_path / "_trial_tmp"
+    trial_output_root.mkdir(parents=True, exist_ok=True)
+
+    storage_url = args.storage or f"sqlite:///{(output_path / 'optuna_study.db').resolve()}"
+    logger.info("Optuna storage: %s", storage_url)
 
     base_config = load_config(args.config)
 
@@ -296,33 +487,73 @@ def main():
     logger.info("Train samples: %s", f"{len(train_dataset):,}")
     logger.info("Eval samples: %s", f"{len(eval_dataset):,}")
 
-    output_path = Path(args.output)
-    output_path.mkdir(parents=True, exist_ok=True)
-    trial_output_root = output_path / "_trial_tmp"
-    trial_output_root.mkdir(parents=True, exist_ok=True)
-
-    study = optuna.create_study(direction="minimize")
-    study.optimize(
-        lambda trial: objective(
-            trial, tokenizer, train_dataset, eval_dataset, base_config, trial_output_root
-        ),
-        n_trials=args.n_trials,
+    pruner = _build_pruner(args)
+    study = optuna.create_study(
+        study_name=args.study_name,
+        storage=storage_url,
+        load_if_exists=args.load_if_exists,
+        direction="minimize",
+        pruner=pruner,
     )
 
-    best_params_file = output_path / "best_hyperparameters.json"
-    with open(best_params_file, "w") as f:
-        json.dump(study.best_params, f, indent=2)
+    trial_callback = _make_trial_callback(output_path, storage_url)
+    _write_study_snapshot(study, output_path, storage_url)
 
-    study_file = output_path / "optuna_study.pkl"
-    with open(study_file, "wb") as f:
-        pickle.dump(study, f)
+    try:
+        study.optimize(
+            lambda trial: objective(
+                trial,
+                tokenizer,
+                train_dataset,
+                eval_dataset,
+                base_config,
+                trial_output_root,
+                args,
+            ),
+            n_trials=args.n_trials,
+            callbacks=[trial_callback],
+            gc_after_trial=True,
+            show_progress_bar=False,
+        )
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user; study state remains in persistent storage.")
 
-    if trial_output_root.exists():
+    try:
+        best_trial = study.best_trial
+        best_value = study.best_value
+        best_params = study.best_params
+    except ValueError:
+        best_trial = None
+        best_value = None
+        best_params = {}
+
+    if best_trial is not None:
+        with open(output_path / "best_hyperparameters.json", "w") as f:
+            json.dump(best_params, f, indent=2)
+
+    with open(output_path / "study_summary.json", "w") as f:
+        json.dump(
+            {
+                "study_name": study.study_name,
+                "best_trial": None if best_trial is None else best_trial.number,
+                "best_value": best_value,
+                "best_params": best_params,
+                "trials": len(study.trials),
+                "storage": storage_url,
+            },
+            f,
+            indent=2,
+        )
+
+    if trial_output_root.exists() and not args.keep_trial_artifacts:
         shutil.rmtree(trial_output_root)
 
-    logger.info("Best trial: %s", study.best_trial.number)
-    logger.info("Best eval loss: %.4f", study.best_value)
-    logger.info("Best hyperparameters: %s", study.best_params)
+    if best_trial is None:
+        logger.info("No completed trial yet. Check study storage for pruned/failed trial details.")
+    else:
+        logger.info("Best trial: %s", best_trial.number)
+        logger.info("Best eval loss: %.4f", best_value)
+        logger.info("Best hyperparameters: %s", best_params)
     logger.info("Results saved to %s", output_path)
 
 

@@ -78,11 +78,36 @@ Goal: minimize MLM eval loss on a held‑out split, then fix the best hyperparam
      --tokenizer ~/artifacts/tokenizer_10M \
      --train_data ~/data/pubchem_filtered \
      --output hp_search_results \
-     --n_trials 20
+     --n_trials 20 \
+     --study_name mlm_hpo_wide \
+     --load_if_exists \
+     --pruner hyperband \
+     --dataloader_num_workers 4 \
+     --log_file hp_search_results/logs/worker0.log
    ```
    - The sweep searches lr, batch_size, warmup_steps, hidden size/layers/heads, weight_decay.
    - Optimizes `eval_loss` on MLM.
-   - Best params saved to `hp_search_results/best_hyperparameters.json`.
+   - Uses persistent Optuna storage at `hp_search_results/optuna_study.db` by default.
+   - Best params are snapshotted during search to `hp_search_results/best_hyperparameters.json`.
+   - Study state snapshots are written to `hp_search_results/study_snapshot.json`.
+3. Multi-GPU parallel workers (single host with shared storage):
+   ```bash
+   scripts/run_hpo_workers.sh \
+     0,1,2,3 \
+     configs/config_hyperopt_unsup.yaml \
+     ~/artifacts/tokenizer_10M \
+     ~/data/pubchem_filtered \
+     hp_search_results \
+     40 \
+     --study_name mlm_hpo_wide \
+     --load_if_exists \
+     --pruner hyperband \
+     --bf16
+   ```
+4. Optional periodic backup to S3:
+   ```bash
+   scripts/backup_hpo_to_s3.sh hp_search_results s3://climb-s3-bucket/hpo_backups/mlm_hpo_wide
+   ```
 3. Use the best params in future configs/runs (copy them into your model/training config).
 
 ---
@@ -338,7 +363,8 @@ Artifact locations:
 - Unsupervised tokenized shards: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`
 - Hyperparameter outputs (typical local path): `hp_search_results/` with:
   - `best_hyperparameters.json`
-  - `optuna_study.pkl`
+  - `optuna_study.db`
+  - `study_snapshot.json`
 
 Suggested reporting fields for paper appendix:
 - exact S3 prefixes used,
