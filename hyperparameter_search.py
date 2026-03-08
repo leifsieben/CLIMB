@@ -220,7 +220,7 @@ def _write_study_snapshot(study: optuna.Study, output_path: Path, storage_url: s
 
 
 def _make_trial_callback(output_path: Path, storage_url: str):
-    def _callback(study: optuna.Study, trial: optuna.FrozenTrial):
+    def _callback(study: optuna.Study, trial: optuna.trial.FrozenTrial):
         logger.info("Trial %s finished with state=%s value=%s", trial.number, trial.state.name, trial.value)
         _write_study_snapshot(study, output_path, storage_url)
         try:
