@@ -88,8 +88,12 @@ class TokenBudgetTrainer(Trainer):
         super().__init__(*args, **kwargs)
         self.token_budget_tracker = token_budget_tracker
 
-    def training_step(self, model, inputs):
-        loss = super().training_step(model, inputs)
+    def training_step(self, model, inputs, num_items_in_batch=None):
+        try:
+            loss = super().training_step(model, inputs, num_items_in_batch=num_items_in_batch)
+        except TypeError:
+            # Backward compat with older Transformers that don't pass num_items_in_batch.
+            loss = super().training_step(model, inputs)
         if self.token_budget_tracker is not None:
             self.token_budget_tracker.update(inputs)
         return loss
