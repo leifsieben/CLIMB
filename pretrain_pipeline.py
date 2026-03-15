@@ -464,6 +464,7 @@ def run_supervised_families(
             gradient_accumulation_steps=config.supervised_training.gradient_accumulation_steps,
             max_grad_norm=config.supervised_training.max_grad_norm,
             dataloader_num_workers=config.supervised_training.dataloader_num_workers,
+            max_steps=max_steps,
             save_encoder=True,
             spot_mode=spot_mode,
             token_budget=family_budget,

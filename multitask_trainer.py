@@ -164,9 +164,25 @@ def train_multitask(
     logger.info("MULTI-TASK TRAINING")
     logger.info("=" * 80)
     logger.info(f"Tasks: {list(model.task_heads.keys())}")
-    logger.info(f"Training samples: {len(train_dataset)}")
+    def _safe_len(ds: Optional[Dataset]) -> Optional[int]:
+        if ds is None:
+            return None
+        try:
+            return len(ds)
+        except TypeError:
+            return None
+
+    train_len = _safe_len(train_dataset)
+    val_len = _safe_len(val_dataset)
+    if train_len is None:
+        logger.info("Training samples: streamed/unknown")
+    else:
+        logger.info(f"Training samples: {train_len}")
     if val_dataset:
-        logger.info(f"Validation samples: {len(val_dataset)}")
+        if val_len is None:
+            logger.info("Validation samples: streamed/unknown")
+        else:
+            logger.info(f"Validation samples: {val_len}")
     logger.info(f"Epochs: {num_epochs}")
     logger.info(f"Batch size: {batch_size}")
     logger.info(f"Learning rate: {learning_rate}")
@@ -219,7 +235,7 @@ def train_multitask(
     # Save training results
     results = {
         'train_loss': train_result.training_loss,
-        'train_samples': len(train_dataset),
+        'train_samples': train_len if train_len is not None else "streamed",
         'num_epochs': num_epochs,
         'global_step': train_result.global_step,
     }
