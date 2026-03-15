@@ -48,10 +48,10 @@ import json
 import logging
 import pickle
 from pathlib import Path
+import math
 import torch
 from torch.utils.data import Dataset, ConcatDataset, Subset
 from transformers import (
-    Trainer,
     TrainingArguments,
     DataCollatorForLanguageModeling,
     DataCollatorWithPadding,
@@ -60,6 +60,7 @@ from transformers import (
 from utils import setup_logging, load_config, get_device, register_spot_handler
 from model import create_model
 from data import StreamingTokenizedDataset, StreamingMixedDataset
+from token_budget import TokenBudgetCallback, TokenBudgetTracker, TokenBudgetTrainer
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,11 @@ def train(
     task: str,
     config: dict,
     spot_mode: bool = False,
+    token_budget: int = None,
+    metrics_path: str = None,
+    run_id: str = "run",
+    phase: str = "train",
+    max_steps: int = None,
 ):
     """Train model"""
     
@@ -244,7 +250,7 @@ def train(
         logging_dir=f"{output_dir}/logs",
         logging_steps=config['training'].get('logging_steps', 50),
         save_steps=config['training'].get('save_steps', 500),
-        max_steps=config['training'].get('max_steps'),
+        max_steps=max_steps or config['training'].get('max_steps'),
         save_total_limit=2,
         dataloader_num_workers=0,
         remove_unused_columns=False if task == "mlm" else True,
@@ -258,11 +264,18 @@ def train(
     logger.info(f"  Learning rate: {training_args.learning_rate}")
     
     # Trainer
-    trainer = Trainer(
+    token_tracker = TokenBudgetTracker(token_budget) if token_budget else None
+    callbacks = []
+    if token_tracker:
+        callbacks.append(TokenBudgetCallback(token_tracker, metrics_path, run_id, phase))
+
+    trainer = TokenBudgetTrainer(
         model=model,
         args=training_args,
         train_dataset=dataset,
         data_collator=data_collator,
+        callbacks=callbacks,
+        token_budget_tracker=token_tracker,
     )
     
     if spot_mode:
@@ -292,6 +305,9 @@ def main():
     parser.add_argument("--task", choices=["mlm", "regression"], required=True, help="Training task")
     parser.add_argument("--spot", action="store_true", help="Enable spot interrupt handler (SIGTERM)")
     parser.add_argument("--log_file", help="Log file path")
+    parser.add_argument("--token_budget", type=int, help="Stop training after this many tokens")
+    parser.add_argument("--metrics_path", help="JSONL metrics output path")
+    parser.add_argument("--run_id", default=None, help="Run identifier for metrics")
     args = parser.parse_args()
     
     setup_logging(args.log_file)
@@ -360,8 +376,35 @@ def main():
         **config['model']  # Unpack all model config from YAML
     )
     
+    # Token budget + max_steps estimate (only needed for streaming)
+    metrics_path = args.metrics_path or str(Path(args.output) / "metrics.jsonl")
+    run_id = args.run_id or Path(args.output).name
+    max_steps = None
+    if args.token_budget:
+        tokens_per_step = config['training'].get('tokens_per_step_estimate')
+        if tokens_per_step is None:
+            max_len = config['model'].get('max_position_embeddings', 512)
+            tokens_per_step = int(max_len * config['training'].get('batch_size', 16) * 0.5)
+        max_steps = int(math.ceil(args.token_budget / max(tokens_per_step, 1)))
+        logger.info(f"Token budget set: {args.token_budget} tokens (max_steps ~ {max_steps})")
+    elif streaming and not config['training'].get('max_steps'):
+        raise ValueError("Streaming training requires --token_budget or training.max_steps")
+
     # Train
-    train(model, tokenizer, dataset, args.output, args.task, config, spot_mode=args.spot)
+    train(
+        model,
+        tokenizer,
+        dataset,
+        args.output,
+        args.task,
+        config,
+        spot_mode=args.spot,
+        token_budget=args.token_budget,
+        metrics_path=metrics_path,
+        run_id=run_id,
+        phase=args.task,
+        max_steps=max_steps,
+    )
     
     # Save experiment config
     experiment_config = {

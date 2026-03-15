@@ -30,16 +30,18 @@ from dataclasses import dataclass
 
 import torch
 from torch.utils.data import Dataset
-from transformers import Trainer, TrainingArguments
+from transformers import TrainingArguments
 
 from multitask_model import MultiTaskModel
 from multitask_data import MultiTaskDataset, MultiTaskCollator
 from utils import register_spot_handler
+from token_budget import TokenBudgetCallback, TokenBudgetTracker
+from token_budget import TokenBudgetTrainer
 
 logger = logging.getLogger(__name__)
 
 
-class MultiTaskTrainer(Trainer):
+class MultiTaskTrainer(TokenBudgetTrainer):
     """
     HuggingFace Trainer adapted for multi-task learning.
 
@@ -132,6 +134,10 @@ def train_multitask(
     learning_rate: float = 2e-5,
     save_encoder: bool = True,
     spot_mode: bool = False,
+    token_budget: Optional[int] = None,
+    metrics_path: Optional[str] = None,
+    run_id: str = "run",
+    phase: str = "supervised",
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -180,12 +186,19 @@ def train_multitask(
     collator = MultiTaskCollator()
 
     # Trainer
+    token_tracker = TokenBudgetTracker(token_budget) if token_budget else None
+    callbacks = []
+    if token_tracker:
+        callbacks.append(TokenBudgetCallback(token_tracker, metrics_path, run_id, phase))
+
     trainer = MultiTaskTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=collator,
+        callbacks=callbacks,
+        token_budget_tracker=token_tracker,
     )
     if spot_mode:
         register_spot_handler(trainer, output_dir)

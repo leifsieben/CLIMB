@@ -103,6 +103,7 @@ class MultiTaskTrainingConfig:
     dataloader_num_workers: int = 0
     early_stopping_patience: int = 10  # Epochs without improvement before stopping
     freeze_encoder: bool = False  # Whether to freeze encoder weights
+    tokens_per_step_estimate: Optional[int] = None
 
 
 @dataclass
@@ -203,6 +204,7 @@ class ComputeBudgetConfig:
     """Compute budget split between supervised and unsupervised phases."""
     total_epochs: int = 50
     supervised_fraction: float = 0.5
+    total_tokens: Optional[int] = None
 
     def __post_init__(self):
         if self.total_epochs <= 0:
@@ -235,6 +237,7 @@ class MLMTrainingConfig:
     evaluation_strategy: str = "no"
     shuffle: bool = False
     streaming_max_samples: Optional[int] = None
+    tokens_per_step_estimate: Optional[int] = None
 
 
 @dataclass
@@ -249,6 +252,8 @@ class PretrainingConfig:
     unsupervised_data: List[str] = field(default_factory=list)
     tasks: List[Dict[str, Any]] = field(default_factory=list)
     data_sources: List[Dict[str, Any]] = field(default_factory=list)
+    supervised_parquet_path: Optional[str] = None
+    supervised_families: List[Dict[str, Any]] = field(default_factory=list)
     supervised_training: MultiTaskTrainingConfig = field(default_factory=MultiTaskTrainingConfig)
     validation_fraction: float = 0.1
 
@@ -284,6 +289,8 @@ class PretrainingConfig:
             unsupervised_data=config.get('unsupervised_data', []),
             tasks=config.get('tasks', []),
             data_sources=config.get('data_sources', []),
+            supervised_parquet_path=config.get('supervised_parquet_path'),
+            supervised_families=config.get('supervised_families', []),
             supervised_training=config.get('supervised_training', {}),
             validation_fraction=config.get('validation_fraction', 0.1),
         )
@@ -306,6 +313,8 @@ class PretrainingConfig:
             'unsupervised_data': self.unsupervised_data,
             'tasks': self.tasks,
             'data_sources': self.data_sources,
+            'supervised_parquet_path': self.supervised_parquet_path,
+            'supervised_families': self.supervised_families,
             'supervised_training': asdict(self.supervised_training),
             'validation_fraction': self.validation_fraction,
         }

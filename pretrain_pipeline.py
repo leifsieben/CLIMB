@@ -15,16 +15,16 @@ import argparse
 import json
 import logging
 import pickle
+import math
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Optional
 
 import torch
 from transformers import (
     DataCollatorForLanguageModeling,
     PreTrainedTokenizerFast,
     RobertaConfig,
-    Trainer,
     TrainingArguments,
 )
 
@@ -42,6 +42,16 @@ from multitask_model import MultiTaskModel
 from multitask_trainer import train_multitask
 from tasks import TaskRegistry, TaskSpec, TaskType
 from utils import get_device, register_spot_handler, setup_logging
+from token_budget import TokenBudgetCallback, TokenBudgetTracker, TokenBudgetTrainer
+from supervised_streaming import (
+    DEFAULT_FAMILIES,
+    SupervisedFamily,
+    build_task_registry_for_family,
+    count_non_nan_labels,
+    estimate_avg_tokens_from_parquet,
+    resolve_family_specs,
+    StreamingSupervisedFamilyDataset,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +111,38 @@ def aggregate_unsupervised_data(paths: List[str]) -> List[Dict[str, Any]]:
         logger.info(f"Loaded {len(samples)} MLM samples from {path}")
         data.extend(samples)
     return data
+
+
+def estimate_avg_tokens_from_tokenized_paths(paths: List[str], sample_size: int = 2000) -> float:
+    """Estimate average token length from tokenized pickle shards."""
+    seen = 0
+    lengths: List[int] = []
+    for path in paths:
+        samples = load_tokenized_samples(path)
+        for item in samples:
+            input_ids = item.get("input_ids")
+            if input_ids is None:
+                continue
+            lengths.append(len(input_ids))
+            seen += 1
+            if seen >= sample_size:
+                break
+        if seen >= sample_size:
+            break
+    if not lengths:
+        return 512.0
+    return float(sum(lengths) / len(lengths))
+
+
+def compute_max_steps(
+    token_budget: int,
+    batch_size: int,
+    avg_tokens_per_sample: float,
+    safety_factor: float = 0.8,
+) -> int:
+    """Compute max_steps so token budget is the limiting factor."""
+    tokens_per_step = max(1, int(avg_tokens_per_sample * batch_size * safety_factor))
+    return int(math.ceil(token_budget / tokens_per_step))
 
 
 def build_task_registry(task_configs: List[Dict[str, Any]]) -> TaskRegistry:
@@ -174,6 +216,11 @@ def train_unsupervised_phase(
     epochs: int,
     stage_dir: Path,
     spot_mode: bool = False,
+    token_budget: int = None,
+    metrics_path: str = None,
+    run_id: str = "run",
+    phase: str = "unsupervised",
+    max_steps: int = None,
 ) -> None:
     """Run MLM training for the allocated number of epochs."""
     mlm_cfg = config.mlm_training
@@ -210,14 +257,22 @@ def train_unsupervised_phase(
         fp16=mlm_cfg.fp16 and torch.cuda.is_available(),
         report_to=[],
         remove_unused_columns=False,
+        max_steps=max_steps,
     )
 
-    trainer = Trainer(
+    token_tracker = TokenBudgetTracker(token_budget) if token_budget else None
+    callbacks = []
+    if token_tracker:
+        callbacks.append(TokenBudgetCallback(token_tracker, metrics_path, run_id, phase))
+
+    trainer = TokenBudgetTrainer(
         model=model,
         args=training_args,
         train_dataset=dataset,
         data_collator=collator,
         tokenizer=tokenizer,
+        callbacks=callbacks,
+        token_budget_tracker=token_tracker,
     )
 
     if spot_mode:
@@ -293,6 +348,147 @@ def run_supervised_phase(
     }
 
 
+def run_supervised_families(
+    encoder: torch.nn.Module,
+    tokenizer: PreTrainedTokenizerFast,
+    config: PretrainingConfig,
+    stage_dir: Path,
+    token_budget: Optional[int],
+    run_id: str,
+    metrics_path: str,
+    spot_mode: bool = False,
+) -> Dict[str, Any]:
+    """Run supervised training sequentially by dataset family."""
+    if not config.supervised_parquet_path:
+        raise ValueError("supervised_parquet_path must be set for sequential family training")
+
+    smiles_col, family_specs = resolve_family_specs(
+        config.supervised_parquet_path,
+        config.supervised_families or DEFAULT_FAMILIES,
+    )
+
+    families: List[SupervisedFamily] = []
+    for spec in family_specs:
+        columns = spec["columns"]
+        if not columns:
+            logger.warning("Skipping family %s (no columns found)", spec["name"])
+            continue
+        label_count = count_non_nan_labels(config.supervised_parquet_path, columns)
+        families.append(
+            SupervisedFamily(
+                name=spec["name"],
+                prefix=spec["prefix"],
+                columns=columns,
+                label_count=label_count,
+            )
+        )
+
+    total_labels = sum(f.label_count for f in families) or 0
+    if token_budget is not None and total_labels == 0:
+        raise ValueError("No supervised labels found; cannot allocate token budget")
+
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    results: Dict[str, Any] = {
+        "families": [],
+        "total_label_count": total_labels,
+        "smiles_column": smiles_col,
+    }
+
+    allocated = 0
+    for idx, family in enumerate(families):
+        if token_budget is None:
+            family_budget = None
+        elif idx == len(families) - 1:
+            family_budget = max(0, token_budget - allocated)
+        else:
+            family_budget = int(token_budget * (family.label_count / total_labels))
+            allocated += family_budget
+
+        logger.info(
+            "Family %s: %d label values, token_budget=%s",
+            family.name,
+            family.label_count,
+            family_budget if family_budget is not None else "none",
+        )
+
+        task_registry = build_task_registry_for_family(family.columns)
+        family_model = MultiTaskModel(
+            encoder=encoder,
+            task_registry=task_registry,
+            include_mlm_head=False,
+        )
+
+        dataset = StreamingSupervisedFamilyDataset(
+            parquet_path=config.supervised_parquet_path,
+            smiles_col=smiles_col,
+            label_columns=family.columns,
+            tokenizer=tokenizer,
+            max_length=config.model.max_position_embeddings,
+        )
+
+        avg_len = estimate_avg_tokens_from_parquet(
+            config.supervised_parquet_path,
+            smiles_col=smiles_col,
+            tokenizer=tokenizer,
+            max_length=config.model.max_position_embeddings,
+        )
+        max_steps = None
+        if family_budget:
+            tokens_per_step = config.supervised_training.tokens_per_step_estimate
+            if tokens_per_step is not None:
+                max_steps = int(math.ceil(family_budget / max(tokens_per_step, 1)))
+            else:
+                max_steps = compute_max_steps(
+                    family_budget,
+                    batch_size=config.supervised_training.batch_size,
+                    avg_tokens_per_sample=avg_len,
+                )
+
+        family_dir = stage_dir / family.name
+        family_dir.mkdir(parents=True, exist_ok=True)
+
+        train_results = train_multitask(
+            model=family_model,
+            train_dataset=dataset,
+            val_dataset=None,
+            output_dir=str(family_dir),
+            num_epochs=config.supervised_training.num_epochs,
+            batch_size=config.supervised_training.batch_size,
+            learning_rate=config.supervised_training.learning_rate,
+            warmup_ratio=config.supervised_training.warmup_ratio,
+            weight_decay=config.supervised_training.weight_decay,
+            logging_steps=config.supervised_training.logging_steps,
+            save_steps=config.supervised_training.save_steps,
+            eval_steps=0,
+            fp16=config.supervised_training.fp16,
+            gradient_accumulation_steps=config.supervised_training.gradient_accumulation_steps,
+            max_grad_norm=config.supervised_training.max_grad_norm,
+            dataloader_num_workers=config.supervised_training.dataloader_num_workers,
+            save_encoder=True,
+            spot_mode=spot_mode,
+            token_budget=family_budget,
+            metrics_path=metrics_path,
+            run_id=run_id,
+            phase=f"supervised_{family.name}",
+            max_steps=max_steps,
+        )
+
+        encoder = family_model.get_encoder()
+        results["families"].append(
+            {
+                "name": family.name,
+                "columns": len(family.columns),
+                "label_count": family.label_count,
+                "token_budget": family_budget,
+                "avg_token_length": avg_len,
+                "max_steps": max_steps,
+                **train_results,
+            }
+        )
+
+    return results
+
+
 def save_metadata(config: PretrainingConfig, metadata: Dict[str, Any], path: Path) -> None:
     """Persist metadata for reproducibility."""
     payload = {
@@ -322,12 +518,14 @@ def main():
     logger.info(f"Config: {args.config}")
     logger.info(f"Output: {root_dir}")
     logger.info(f"Compute budget: {config.compute_budget.total_epochs} epoch(s)")
+    if config.compute_budget.total_tokens:
+        logger.info(f"Token budget: {config.compute_budget.total_tokens} tokens")
     logger.info(f"Device: {get_device()}")
 
     tokenizer = load_tokenizer(config.tokenizer_path)
     logger.info(f"Loaded tokenizer (vocab size={len(tokenizer)})")
 
-    task_registry = build_task_registry(config.tasks)
+    task_registry = build_task_registry(config.tasks) if config.tasks else TaskRegistry()
 
     model_cfg = asdict(config.model)
     model_cfg["vocab_size"] = len(tokenizer)
@@ -344,11 +542,24 @@ def main():
     )
     logger.info(f"MLM epochs: {mlm_epochs}, supervised epochs: {supervised_epochs}")
 
+    run_id = config.name
+    metrics_path = str(root_dir / "metrics.jsonl")
+    token_budget_total = config.compute_budget.total_tokens
+    supervised_token_budget = None
+    mlm_token_budget = None
+    if token_budget_total:
+        supervised_token_budget = int(token_budget_total * config.compute_budget.supervised_fraction)
+        mlm_token_budget = max(0, token_budget_total - supervised_token_budget)
+
     metadata = {
         "mlm_epochs": mlm_epochs,
         "supervised_epochs": supervised_epochs,
         "compute_budget": asdict(config.compute_budget),
         "device": get_device(),
+        "run_id": run_id,
+        "token_budget_total": token_budget_total,
+        "token_budget_unsupervised": mlm_token_budget,
+        "token_budget_supervised": supervised_token_budget,
     }
 
     if mlm_epochs > 0:
@@ -369,30 +580,66 @@ def main():
             dataset = UnsupervisedChemicalDataset(unsup_samples)
             metadata["mlm_samples"] = len(dataset)
 
+        max_steps = None
+        if mlm_token_budget:
+            avg_len = estimate_avg_tokens_from_tokenized_paths(
+                _resolve_paths(config.unsupervised_data)
+            )
+            tokens_per_step = config.mlm_training.tokens_per_step_estimate
+            if tokens_per_step is not None:
+                max_steps = int(math.ceil(mlm_token_budget / max(tokens_per_step, 1)))
+            else:
+                max_steps = compute_max_steps(
+                    mlm_token_budget,
+                    batch_size=config.mlm_training.batch_size,
+                    avg_tokens_per_sample=avg_len,
+                )
+            metadata["mlm_avg_token_length"] = avg_len
+            metadata["mlm_max_steps"] = max_steps
+        elif streaming_paths:
+            raise ValueError("Streaming MLM requires compute_budget.total_tokens for max_steps")
+
         mlm_dir = root_dir / "unsupervised"
         train_unsupervised_phase(
             model,
             tokenizer,
             dataset,
             config,
-            mlm_epochs,
+            1 if max_steps else mlm_epochs,
             mlm_dir,
             spot_mode=args.spot,
+            token_budget=mlm_token_budget,
+            metrics_path=metrics_path,
+            run_id=run_id,
+            phase="unsupervised",
+            max_steps=max_steps,
         )
         metadata["mlm_output"] = str(mlm_dir)
 
     supervised_results = {}
     sup_dir = root_dir / "supervised"
     if supervised_epochs > 0:
-        supervised_results = run_supervised_phase(
-            model=model,
-            tokenizer=tokenizer,
-            config=config,
-            task_registry=task_registry,
-            epochs=supervised_epochs,
-            stage_dir=sup_dir,
-            spot_mode=args.spot,
-        )
+        if config.supervised_parquet_path:
+            supervised_results = run_supervised_families(
+                encoder=model.get_encoder(),
+                tokenizer=tokenizer,
+                config=config,
+                stage_dir=sup_dir,
+                token_budget=supervised_token_budget,
+                run_id=run_id,
+                metrics_path=metrics_path,
+                spot_mode=args.spot,
+            )
+        else:
+            supervised_results = run_supervised_phase(
+                model=model,
+                tokenizer=tokenizer,
+                config=config,
+                task_registry=task_registry,
+                epochs=supervised_epochs,
+                stage_dir=sup_dir,
+                spot_mode=args.spot,
+            )
         metadata.update(supervised_results)
         metadata["supervised_output"] = str(sup_dir)
 
