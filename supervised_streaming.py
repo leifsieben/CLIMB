@@ -196,14 +196,18 @@ class StreamingSupervisedFamilyDataset(IterableDataset):
             n = encoded["input_ids"].shape[0]
             values: Dict[str, np.ndarray] = {}
             masks: Dict[str, np.ndarray] = {}
+            row_has_label = np.zeros(n, dtype=bool)
             for col in self.label_columns:
                 arr = batch.column(col).to_numpy(zero_copy_only=False)
                 vals = np.asarray(arr, dtype=np.float32)[valid_idx]
                 mask = ~np.isnan(vals)
                 values[col] = vals
                 masks[col] = mask
+                row_has_label |= mask
 
             for i in range(n):
+                if not row_has_label[i]:
+                    continue
                 labels = {col: torch.tensor(values[col][i], dtype=torch.float32) for col in self.label_columns}
                 label_masks = {col: torch.tensor(masks[col][i], dtype=torch.float32) for col in self.label_columns}
                 yield {
