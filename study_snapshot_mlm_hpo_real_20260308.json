@@ -1,0 +1,21 @@
+{
+  "study_name": "mlm_hpo_real_20260308",
+  "direction": "MINIMIZE",
+  "best_trial": 119,
+  "best_value": 0.3392135202884674,
+  "best_params": {
+    "learning_rate": 0.00040044103983687346,
+    "batch_size": 32,
+    "warmup_steps": 184,
+    "hidden_size": 256,
+    "num_hidden_layers": 10,
+    "weight_decay": 0.0017941288241116056,
+    "num_attention_heads_256": 8
+  },
+  "n_trials_total": 120,
+  "n_trials_complete": 19,
+  "n_trials_pruned": 101,
+  "n_trials_failed": 0,
+  "storage": "sqlite:////home/ec2-user/artifacts/hpo_real_20260308/optuna_study.db",
+  "updated_at_unix": 1773487170
+}
