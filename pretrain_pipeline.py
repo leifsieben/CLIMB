@@ -471,7 +471,6 @@ def run_supervised_families(
             metrics_path=metrics_path,
             run_id=run_id,
             phase=f"supervised_{family.name}",
-            max_steps=max_steps,
         )
 
         encoder = family_model.get_encoder()
