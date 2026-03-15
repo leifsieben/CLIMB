@@ -41,7 +41,7 @@ mlm_training:
   gradient_accumulation_steps: 1
   max_grad_norm: 1.0
   save_total_limit: 2
-  dataloader_num_workers: 0
+  dataloader_num_workers: 8
   evaluation_strategy: no
 
 unsupervised_data:
@@ -83,5 +83,7 @@ supervised_training:
   fp16: false
   gradient_accumulation_steps: 1
   max_grad_norm: 1.0
+  dataloader_num_workers: 8
+  streaming_batch_rows: 16384
 
 validation_fraction: 0.1

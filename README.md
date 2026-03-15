@@ -134,6 +134,19 @@ Use directories of tokenized shards (`*.pkl`) instead of one huge pickle:
 - Add `--spot` to `train_model.py` / `pretrain_pipeline.py` / multi‑task training to register a SIGTERM handler that checkpoints to `<output>/spot_checkpoint/` before exit.
 - Resume from the saved checkpoint by passing it as the pretrained model path.
 
+### Performance notes for supervised streaming
+The supervised family streaming pipeline is CPU‑bound (parquet scan + tokenization + label masking). To keep the GPU fed:
+- Increase `supervised_training.batch_size` (try 64 or 128 on A10G).
+- Increase `supervised_training.dataloader_num_workers` (8–16 on g5.4xlarge).
+- Increase `supervised_training.streaming_batch_rows` (e.g., 16384 or 32768).
+
+If throughput is still low, the next step is pre‑tokenizing supervised SMILES (store `input_ids` + `attention_mask` alongside labels) to remove per‑step tokenization.
+
+### Token budget guidance
+For ramp experiments, 50B tokens is not required. Start with **10B total tokens** and run ramps at:
+- 10/25/50/75/100% of 10B → 1B, 2.5B, 5B, 7.5B, 10B
+Scale up only if the loss‑vs‑tokens curve is still improving.
+
 ---
 
 ## 4) Unsupervised pre-train run (MLM)

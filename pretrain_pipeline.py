@@ -424,6 +424,7 @@ def run_supervised_families(
             label_columns=family.columns,
             tokenizer=tokenizer,
             max_length=config.model.max_position_embeddings,
+            batch_rows=config.supervised_training.streaming_batch_rows,
         )
 
         avg_len = estimate_avg_tokens_from_parquet(

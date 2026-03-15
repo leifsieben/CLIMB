@@ -101,6 +101,7 @@ class MultiTaskTrainingConfig:
     gradient_accumulation_steps: int = 1
     max_grad_norm: float = 1.0
     dataloader_num_workers: int = 0
+    streaming_batch_rows: int = 4096
     early_stopping_patience: int = 10  # Epochs without improvement before stopping
     freeze_encoder: bool = False  # Whether to freeze encoder weights
     tokens_per_step_estimate: Optional[int] = None
