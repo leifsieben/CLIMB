@@ -54,6 +54,16 @@ def detect_smiles_column(columns: List[str]) -> str:
     raise ValueError(f"No SMILES column found. Tried: {candidates}")
 
 
+def has_tokenized_columns(columns: List[str]) -> bool:
+    return "input_ids" in columns and "attention_mask" in columns
+
+
+def parquet_has_tokenized_columns(parquet_path: str) -> bool:
+    _require_pyarrow()
+    schema = pq.ParquetFile(parquet_path).schema
+    return has_tokenized_columns(schema.names)
+
+
 def resolve_family_specs(
     parquet_path: str,
     families: Optional[List[Dict[str, str]]] = None,
@@ -65,7 +75,12 @@ def resolve_family_specs(
 
     schema = pq.ParquetFile(path).schema
     columns = schema.names
-    smiles_col = detect_smiles_column(columns)
+    smiles_col = None
+    try:
+        smiles_col = detect_smiles_column(columns)
+    except ValueError:
+        if not has_tokenized_columns(columns):
+            raise
 
     family_cfgs = families or DEFAULT_FAMILIES
     resolved = []
@@ -107,34 +122,52 @@ def count_non_nan_labels(parquet_path: str, columns: List[str], batch_rows: int 
 
 def estimate_avg_tokens_from_parquet(
     parquet_path: str,
-    smiles_col: str,
+    smiles_col: Optional[str],
     tokenizer,
     sample_size: int = 2000,
     max_length: int = 512,
+    input_ids_col: Optional[str] = None,
 ) -> float:
     _require_pyarrow()
     pf = pq.ParquetFile(parquet_path)
     seen = 0
     lengths: List[int] = []
-    for batch in pf.iter_batches(columns=[smiles_col], batch_size=10_000):
-        smiles_all = batch.column(smiles_col).to_pylist()
-        smiles = [s for s in smiles_all if s]
-        if not smiles:
-            continue
-        if seen + len(smiles) > sample_size:
-            smiles = smiles[: max(sample_size - seen, 0)]
-        encoded = tokenizer(
-            smiles,
-            truncation=True,
-            max_length=max_length,
-            padding=False,
-            return_tensors=None,
-        )
-        input_ids = encoded["input_ids"]
-        lengths.extend(len(x) for x in input_ids)
-        seen += len(smiles)
-        if seen >= sample_size:
-            break
+    if input_ids_col:
+        for batch in pf.iter_batches(columns=[input_ids_col], batch_size=10_000):
+            arr = batch.column(input_ids_col)
+            lens = pc.list_value_length(arr)
+            lens_list = lens.to_pylist()
+            for ln in lens_list:
+                if ln is None:
+                    continue
+                lengths.append(int(ln))
+                seen += 1
+                if seen >= sample_size:
+                    break
+            if seen >= sample_size:
+                break
+    else:
+        if smiles_col is None:
+            return float(max_length)
+        for batch in pf.iter_batches(columns=[smiles_col], batch_size=10_000):
+            smiles_all = batch.column(smiles_col).to_pylist()
+            smiles = [s for s in smiles_all if s]
+            if not smiles:
+                continue
+            if seen + len(smiles) > sample_size:
+                smiles = smiles[: max(sample_size - seen, 0)]
+            encoded = tokenizer(
+                smiles,
+                truncation=True,
+                max_length=max_length,
+                padding=False,
+                return_tensors=None,
+            )
+            input_ids = encoded["input_ids"]
+            lengths.extend(len(x) for x in input_ids)
+            seen += len(smiles)
+            if seen >= sample_size:
+                break
     if not lengths:
         return float(max_length)
     return float(np.mean(lengths))
@@ -161,11 +194,13 @@ class StreamingSupervisedFamilyDataset(IterableDataset):
     def __init__(
         self,
         parquet_path: str,
-        smiles_col: str,
+        smiles_col: Optional[str],
         label_columns: List[str],
         tokenizer,
         max_length: int = 512,
         batch_rows: int = 4096,
+        input_ids_col: Optional[str] = None,
+        attention_mask_col: Optional[str] = None,
     ) -> None:
         _require_pyarrow()
         if not label_columns:
@@ -176,24 +211,43 @@ class StreamingSupervisedFamilyDataset(IterableDataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.batch_rows = batch_rows
+        self.input_ids_col = input_ids_col
+        self.attention_mask_col = attention_mask_col
 
     def __iter__(self) -> Iterable[Dict[str, object]]:
         dataset = ds.dataset(self.parquet_path, format="parquet")
-        columns = [self.smiles_col] + self.label_columns
+        tokenized = self.input_ids_col is not None and self.attention_mask_col is not None
+        if tokenized:
+            columns = [self.input_ids_col, self.attention_mask_col] + self.label_columns
+        else:
+            if self.smiles_col is None:
+                raise ValueError("smiles_col is required when input_ids/attention_mask are not provided")
+            columns = [self.smiles_col] + self.label_columns
         for batch in dataset.to_batches(columns=columns, batch_size=self.batch_rows):
-            smiles_all = batch.column(self.smiles_col).to_pylist()
-            valid_idx = [i for i, s in enumerate(smiles_all) if s]
-            if not valid_idx:
-                continue
-            smiles = [smiles_all[i] for i in valid_idx]
-            encoded = self.tokenizer(
-                smiles,
-                truncation=True,
-                max_length=self.max_length,
-                padding="max_length",
-                return_tensors="pt",
-            )
-            n = encoded["input_ids"].shape[0]
+            if tokenized:
+                ids_all = batch.column(self.input_ids_col).to_pylist()
+                mask_all = batch.column(self.attention_mask_col).to_pylist()
+                valid_idx = [i for i, ids in enumerate(ids_all) if ids]
+                if not valid_idx:
+                    continue
+                input_ids = torch.tensor([ids_all[i] for i in valid_idx], dtype=torch.long)
+                attention_mask = torch.tensor([mask_all[i] for i in valid_idx], dtype=torch.long)
+            else:
+                smiles_all = batch.column(self.smiles_col).to_pylist()
+                valid_idx = [i for i, s in enumerate(smiles_all) if s]
+                if not valid_idx:
+                    continue
+                smiles = [smiles_all[i] for i in valid_idx]
+                encoded = self.tokenizer(
+                    smiles,
+                    truncation=True,
+                    max_length=self.max_length,
+                    padding="max_length",
+                    return_tensors="pt",
+                )
+                input_ids = encoded["input_ids"]
+                attention_mask = encoded["attention_mask"]
+            n = input_ids.shape[0]
             values: Dict[str, np.ndarray] = {}
             masks: Dict[str, np.ndarray] = {}
             row_has_label = np.zeros(n, dtype=bool)
@@ -211,8 +265,8 @@ class StreamingSupervisedFamilyDataset(IterableDataset):
                 labels = {col: torch.tensor(values[col][i], dtype=torch.float32) for col in self.label_columns}
                 label_masks = {col: torch.tensor(masks[col][i], dtype=torch.float32) for col in self.label_columns}
                 yield {
-                    "input_ids": encoded["input_ids"][i],
-                    "attention_mask": encoded["attention_mask"][i],
+                    "input_ids": input_ids[i],
+                    "attention_mask": attention_mask[i],
                     "labels": labels,
                     "label_masks": label_masks,
                 }

@@ -200,6 +200,25 @@ Use `train_multitask.py` (pooled multi-task, masked losses).
    ```
    - Encoder runs once; only heads with labels for a molecule contribute to loss.
 
+### Pre-tokenize supervised parquet (CPU pre-processing)
+For large supervised runs, pre-tokenize SMILES into a tokenized parquet to remove per-step tokenization cost:
+```bash
+python tokenize_supervised_parquet.py \
+  --tokenizer /path/to/tokenizer_10M \
+  --input /path/to/all_datasets_fused_standardized.parquet \
+  --output-dir /path/to/supervised_tokenized_parquet \
+  --max-length 512 \
+  --batch-rows 4096 \
+  --shard-rows 200000 \
+  --drop-smiles
+```
+Then point `pretrain_pipeline.py` at the tokenized output:
+```yaml
+supervised_parquet_path: /path/to/all_datasets_fused_standardized.parquet
+supervised_tokenized_parquet_path: /path/to/supervised_tokenized_parquet
+```
+When `supervised_tokenized_parquet_path` is set, the pipeline uses `input_ids` + `attention_mask` columns directly and skips SMILES tokenization.
+
 ---
 
 ## 6) Combined run (MLM + supervised)

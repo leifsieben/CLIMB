@@ -254,6 +254,7 @@ class PretrainingConfig:
     tasks: List[Dict[str, Any]] = field(default_factory=list)
     data_sources: List[Dict[str, Any]] = field(default_factory=list)
     supervised_parquet_path: Optional[str] = None
+    supervised_tokenized_parquet_path: Optional[str] = None
     supervised_families: List[Dict[str, Any]] = field(default_factory=list)
     supervised_training: MultiTaskTrainingConfig = field(default_factory=MultiTaskTrainingConfig)
     validation_fraction: float = 0.1
@@ -291,6 +292,7 @@ class PretrainingConfig:
             tasks=config.get('tasks', []),
             data_sources=config.get('data_sources', []),
             supervised_parquet_path=config.get('supervised_parquet_path'),
+            supervised_tokenized_parquet_path=config.get('supervised_tokenized_parquet_path'),
             supervised_families=config.get('supervised_families', []),
             supervised_training=config.get('supervised_training', {}),
             validation_fraction=config.get('validation_fraction', 0.1),
@@ -315,6 +317,7 @@ class PretrainingConfig:
             'tasks': self.tasks,
             'data_sources': self.data_sources,
             'supervised_parquet_path': self.supervised_parquet_path,
+            'supervised_tokenized_parquet_path': self.supervised_tokenized_parquet_path,
             'supervised_families': self.supervised_families,
             'supervised_training': asdict(self.supervised_training),
             'validation_fraction': self.validation_fraction,

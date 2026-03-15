@@ -49,6 +49,7 @@ from supervised_streaming import (
     build_task_registry_for_family,
     count_non_nan_labels,
     estimate_avg_tokens_from_parquet,
+    parquet_has_tokenized_columns,
     resolve_family_specs,
     StreamingSupervisedFamilyDataset,
 )
@@ -359,11 +360,13 @@ def run_supervised_families(
     spot_mode: bool = False,
 ) -> Dict[str, Any]:
     """Run supervised training sequentially by dataset family."""
-    if not config.supervised_parquet_path:
+    parquet_path = config.supervised_tokenized_parquet_path or config.supervised_parquet_path
+    if not parquet_path:
         raise ValueError("supervised_parquet_path must be set for sequential family training")
 
+    tokenized = parquet_has_tokenized_columns(parquet_path)
     smiles_col, family_specs = resolve_family_specs(
-        config.supervised_parquet_path,
+        parquet_path,
         config.supervised_families or DEFAULT_FAMILIES,
     )
 
@@ -373,7 +376,7 @@ def run_supervised_families(
         if not columns:
             logger.warning("Skipping family %s (no columns found)", spec["name"])
             continue
-        label_count = count_non_nan_labels(config.supervised_parquet_path, columns)
+        label_count = count_non_nan_labels(parquet_path, columns)
         families.append(
             SupervisedFamily(
                 name=spec["name"],
@@ -419,19 +422,22 @@ def run_supervised_families(
         )
 
         dataset = StreamingSupervisedFamilyDataset(
-            parquet_path=config.supervised_parquet_path,
+            parquet_path=parquet_path,
             smiles_col=smiles_col,
             label_columns=family.columns,
-            tokenizer=tokenizer,
+            tokenizer=None if tokenized else tokenizer,
             max_length=config.model.max_position_embeddings,
             batch_rows=config.supervised_training.streaming_batch_rows,
+            input_ids_col="input_ids" if tokenized else None,
+            attention_mask_col="attention_mask" if tokenized else None,
         )
 
         avg_len = estimate_avg_tokens_from_parquet(
-            config.supervised_parquet_path,
+            parquet_path,
             smiles_col=smiles_col,
             tokenizer=tokenizer,
             max_length=config.model.max_position_embeddings,
+            input_ids_col="input_ids" if tokenized else None,
         )
         max_steps = None
         if family_budget:
