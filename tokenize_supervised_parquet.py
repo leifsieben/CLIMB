@@ -82,7 +82,7 @@ def main() -> None:
             if args.limit is not None and total_rows >= args.limit:
                 break
 
-            table = batch.to_table()
+            table = pa.Table.from_batches([batch])
             smiles = table[smiles_col].to_pylist()
             if args.limit is not None and total_rows + len(smiles) > args.limit:
                 keep = args.limit - total_rows
