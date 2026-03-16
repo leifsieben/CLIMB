@@ -308,6 +308,13 @@ class MultiTaskModel(nn.Module):
         result = {}
         total_loss = None
 
+        # When used with the HF MLM collator, masked labels arrive as `labels`.
+        # Map them to `mlm_labels` if no supervised labels are provided.
+        if mlm_labels is None and labels is not None and not isinstance(labels, dict):
+            mlm_labels = labels
+            labels = None
+            label_masks = None
+
         # Supervised forward
         if labels is not None:
             sup_out = self.forward_supervised(
