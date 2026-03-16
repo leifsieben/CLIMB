@@ -1,11 +1,22 @@
 """data.py"""
 
 import random
-import torch
-from torch.utils.data import Dataset, ConcatDataset, IterableDataset
-from typing import List, Optional, Tuple
 import pickle
 from pathlib import Path
+from typing import List, Optional, Tuple
+
+import torch
+from torch.utils.data import Dataset, ConcatDataset, IterableDataset
+
+try:
+    import pyarrow.dataset as ds
+    import pyarrow.parquet as pq
+except Exception as exc:  # pragma: no cover - handled at runtime
+    ds = None
+    pq = None
+    _pyarrow_import_error = exc
+else:
+    _pyarrow_import_error = None
 
 
 class UnsupervisedChemicalDataset(Dataset):
@@ -97,7 +108,10 @@ class MixedDataset(ConcatDataset):
 def _expand_paths(path):
     p = Path(path)
     if p.is_dir():
-        return sorted(str(x) for x in p.glob("*.pkl"))
+        paths = []
+        paths.extend(sorted(str(x) for x in p.glob("*.pkl")))
+        paths.extend(sorted(str(x) for x in p.glob("*.parquet")))
+        return paths
     return [str(p)]
 
 
@@ -121,6 +135,33 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
         self.max_samples = max_samples
 
     def _load_file(self, path):
+        if path.endswith(".parquet"):
+            if ds is None:
+                raise ImportError(
+                    "pyarrow is required to stream parquet tokenized data. "
+                    f"Import error: {_pyarrow_import_error}"
+                )
+            dataset = ds.dataset(path, format="parquet")
+            columns = dataset.schema.names
+            if "input_ids" not in columns or "attention_mask" not in columns:
+                raise ValueError(f"Parquet missing input_ids/attention_mask: {path}")
+            want_labels = self.with_labels
+            for batch in dataset.to_batches(columns=columns, batch_size=10_000):
+                ids_all = batch.column(batch.schema.get_field_index("input_ids")).to_pylist()
+                mask_all = batch.column(batch.schema.get_field_index("attention_mask")).to_pylist()
+                labels_all = None
+                if want_labels:
+                    if "labels" not in columns:
+                        raise ValueError("Requested labels but no labels column in parquet")
+                    labels_all = batch.column(batch.schema.get_field_index("labels")).to_pylist()
+
+                for i, ids in enumerate(ids_all):
+                    item = {"input_ids": ids, "attention_mask": mask_all[i]}
+                    if want_labels:
+                        item["labels"] = torch.tensor(labels_all[i], dtype=torch.float32)
+                    yield item
+            return
+
         with open(path, 'rb') as f:
             obj = pickle.load(f)
 

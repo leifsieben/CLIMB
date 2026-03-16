@@ -64,6 +64,7 @@ def _resolve_paths(paths: List[str]) -> List[str]:
         p = Path(path)
         if p.is_dir():
             resolved.extend(sorted(str(x) for x in p.glob("*.pkl")))
+            resolved.extend(sorted(str(x) for x in p.glob("*.parquet")))
         elif p.exists():
             resolved.append(str(p))
     if not resolved:
@@ -115,19 +116,41 @@ def aggregate_unsupervised_data(paths: List[str]) -> List[Dict[str, Any]]:
 
 
 def estimate_avg_tokens_from_tokenized_paths(paths: List[str], sample_size: int = 2000) -> float:
-    """Estimate average token length from tokenized pickle shards."""
+    """Estimate average token length from tokenized shards (pickle or parquet)."""
     seen = 0
     lengths: List[int] = []
     for path in paths:
-        samples = load_tokenized_samples(path)
-        for item in samples:
-            input_ids = item.get("input_ids")
-            if input_ids is None:
-                continue
-            lengths.append(len(input_ids))
-            seen += 1
-            if seen >= sample_size:
-                break
+        if path.endswith(".parquet"):
+            try:
+                import pyarrow.parquet as pq
+                import pyarrow.compute as pc
+            except Exception as exc:
+                raise ImportError(
+                    "pyarrow is required to estimate token lengths from parquet. "
+                    f"Import error: {exc}"
+                )
+            pf = pq.ParquetFile(path)
+            for batch in pf.iter_batches(columns=["input_ids"], batch_size=10_000):
+                lens = pc.list_value_length(batch.column(0)).to_pylist()
+                for ln in lens:
+                    if ln is None:
+                        continue
+                    lengths.append(int(ln))
+                    seen += 1
+                    if seen >= sample_size:
+                        break
+                if seen >= sample_size:
+                    break
+        else:
+            samples = load_tokenized_samples(path)
+            for item in samples:
+                input_ids = item.get("input_ids")
+                if input_ids is None:
+                    continue
+                lengths.append(len(input_ids))
+                seen += 1
+                if seen >= sample_size:
+                    break
         if seen >= sample_size:
             break
     if not lengths:
