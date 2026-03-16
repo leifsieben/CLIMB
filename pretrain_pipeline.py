@@ -120,17 +120,19 @@ def estimate_avg_tokens_from_tokenized_paths(paths: List[str], sample_size: int 
     seen = 0
     lengths: List[int] = []
     for path in paths:
-        if path.endswith(".parquet"):
+        if path.endswith(".parquet") or Path(path).is_dir():
             try:
-                import pyarrow.parquet as pq
+                import pyarrow.dataset as ds
                 import pyarrow.compute as pc
             except Exception as exc:
                 raise ImportError(
                     "pyarrow is required to estimate token lengths from parquet. "
                     f"Import error: {exc}"
                 )
-            pf = pq.ParquetFile(path)
-            for batch in pf.iter_batches(columns=["input_ids"], batch_size=10_000):
+            dataset = ds.dataset(path, format="parquet")
+            if "input_ids" not in dataset.schema.names:
+                raise ValueError(f"Parquet missing input_ids column: {path}")
+            for batch in dataset.to_batches(columns=["input_ids"], batch_size=10_000):
                 lens = pc.list_value_length(batch.column(0)).to_pylist()
                 for ln in lens:
                     if ln is None:

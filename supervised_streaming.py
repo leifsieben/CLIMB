@@ -60,7 +60,11 @@ def has_tokenized_columns(columns: List[str]) -> bool:
 
 def parquet_has_tokenized_columns(parquet_path: str) -> bool:
     _require_pyarrow()
-    schema = pq.ParquetFile(parquet_path).schema
+    path = Path(parquet_path)
+    if path.is_dir():
+        schema = ds.dataset(parquet_path, format="parquet").schema
+    else:
+        schema = pq.ParquetFile(parquet_path).schema
     return has_tokenized_columns(schema.names)
 
 
@@ -73,7 +77,10 @@ def resolve_family_specs(
     if not path.exists():
         raise FileNotFoundError(path)
 
-    schema = pq.ParquetFile(path).schema
+    if path.is_dir():
+        schema = ds.dataset(parquet_path, format="parquet").schema
+    else:
+        schema = pq.ParquetFile(path).schema
     columns = schema.names
     smiles_col = None
     try:
