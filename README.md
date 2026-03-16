@@ -147,6 +147,11 @@ For ramp experiments, 50B tokens is not required. Start with **10B total tokens*
 - 10/25/50/75/100% of 10B → 1B, 2.5B, 5B, 7.5B, 10B
 Scale up only if the loss‑vs‑tokens curve is still improving.
 
+**Comparability note:** the ramp experiments are **token‑budgeted**, not dataset‑fraction‑limited.  
+Each run stops after a target number of tokens are seen, even though the full dataset is streamed.
+
+**Planned Stage 2:** run a second series where we use random **data‑subset fractions** (10/25/50/75/100%) **while keeping the same compute budget**. This isolates data‑coverage effects from compute‑budget effects.
+
 ---
 
 ## 4) Unsupervised pre-train run (MLM)
