@@ -16,6 +16,7 @@ import json
 import logging
 import pickle
 import math
+import inspect
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union, Optional
@@ -293,7 +294,7 @@ def train_unsupervised_phase(
     )
 
     # Transformers >=4.57 renamed evaluation_strategy -> eval_strategy.
-    args_params = TrainingArguments.__init__.__signature__.parameters
+    args_params = inspect.signature(TrainingArguments.__init__).parameters
     if "evaluation_strategy" in args_params:
         training_kwargs["evaluation_strategy"] = evaluation_strategy
     else:
