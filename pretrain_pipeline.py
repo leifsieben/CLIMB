@@ -271,7 +271,7 @@ def train_unsupervised_phase(
         evaluation_strategy = "no"
         eval_steps = None
 
-    training_args = TrainingArguments(
+    training_kwargs = dict(
         output_dir=str(stage_dir),
         num_train_epochs=epochs,
         per_device_train_batch_size=mlm_cfg.batch_size,
@@ -281,7 +281,6 @@ def train_unsupervised_phase(
         logging_steps=mlm_cfg.logging_steps,
         save_steps=mlm_cfg.save_steps,
         eval_steps=eval_steps,
-        evaluation_strategy=evaluation_strategy,
         save_total_limit=mlm_cfg.save_total_limit,
         logging_dir=str(stage_dir / "logs"),
         dataloader_num_workers=mlm_cfg.dataloader_num_workers,
@@ -292,6 +291,15 @@ def train_unsupervised_phase(
         remove_unused_columns=False,
         max_steps=max_steps,
     )
+
+    # Transformers >=4.57 renamed evaluation_strategy -> eval_strategy.
+    args_params = TrainingArguments.__init__.__signature__.parameters
+    if "evaluation_strategy" in args_params:
+        training_kwargs["evaluation_strategy"] = evaluation_strategy
+    else:
+        training_kwargs["eval_strategy"] = evaluation_strategy
+
+    training_args = TrainingArguments(**training_kwargs)
 
     token_tracker = TokenBudgetTracker(token_budget) if token_budget else None
     callbacks = []
