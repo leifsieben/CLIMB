@@ -129,7 +129,14 @@ def estimate_avg_tokens_from_tokenized_paths(paths: List[str], sample_size: int 
                     "pyarrow is required to estimate token lengths from parquet. "
                     f"Import error: {exc}"
                 )
-            dataset = ds.dataset(path, format="parquet")
+            p = Path(path)
+            if p.is_dir():
+                files = sorted(str(x) for x in p.glob("*.parquet"))
+                if not files:
+                    raise FileNotFoundError(f"No parquet files found in {path}")
+                dataset = ds.dataset(files, format="parquet")
+            else:
+                dataset = ds.dataset(path, format="parquet")
             if "input_ids" not in dataset.schema.names:
                 raise ValueError(f"Parquet missing input_ids column: {path}")
             for batch in dataset.to_batches(columns=["input_ids"], batch_size=10_000):

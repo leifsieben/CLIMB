@@ -58,14 +58,20 @@ def has_tokenized_columns(columns: List[str]) -> bool:
     return "input_ids" in columns and "attention_mask" in columns
 
 
-def parquet_has_tokenized_columns(parquet_path: str) -> bool:
+def _parquet_dataset(parquet_path: str) -> ds.Dataset:
     _require_pyarrow()
     path = Path(parquet_path)
     if path.is_dir():
-        schema = ds.dataset(parquet_path, format="parquet").schema
-    else:
-        schema = pq.ParquetFile(parquet_path).schema
-    return has_tokenized_columns(schema.names)
+        files = sorted(str(p) for p in path.glob("*.parquet"))
+        if not files:
+            raise FileNotFoundError(f"No parquet files found in {parquet_path}")
+        return ds.dataset(files, format="parquet")
+    return ds.dataset(parquet_path, format="parquet")
+
+
+def parquet_has_tokenized_columns(parquet_path: str) -> bool:
+    dataset = _parquet_dataset(parquet_path)
+    return has_tokenized_columns(dataset.schema.names)
 
 
 def resolve_family_specs(
@@ -77,11 +83,8 @@ def resolve_family_specs(
     if not path.exists():
         raise FileNotFoundError(path)
 
-    if path.is_dir():
-        schema = ds.dataset(parquet_path, format="parquet").schema
-    else:
-        schema = pq.ParquetFile(path).schema
-    columns = schema.names
+    dataset = _parquet_dataset(parquet_path)
+    columns = dataset.schema.names
     smiles_col = None
     try:
         smiles_col = detect_smiles_column(columns)
@@ -115,7 +118,7 @@ def count_non_nan_labels(parquet_path: str, columns: List[str], batch_rows: int 
     _require_pyarrow()
     if not columns:
         return 0
-    dataset = ds.dataset(parquet_path, format="parquet")
+    dataset = _parquet_dataset(parquet_path)
     total = 0
     for batch in dataset.to_batches(columns=columns, batch_size=batch_rows):
         for col in columns:
@@ -136,11 +139,11 @@ def estimate_avg_tokens_from_parquet(
     input_ids_col: Optional[str] = None,
 ) -> float:
     _require_pyarrow()
-    pf = pq.ParquetFile(parquet_path)
+    dataset = _parquet_dataset(parquet_path)
     seen = 0
     lengths: List[int] = []
     if input_ids_col:
-        for batch in pf.iter_batches(columns=[input_ids_col], batch_size=10_000):
+        for batch in dataset.to_batches(columns=[input_ids_col], batch_size=10_000):
             arr = batch.column(input_ids_col)
             lens = pc.list_value_length(arr)
             lens_list = lens.to_pylist()
@@ -156,7 +159,7 @@ def estimate_avg_tokens_from_parquet(
     else:
         if smiles_col is None:
             return float(max_length)
-        for batch in pf.iter_batches(columns=[smiles_col], batch_size=10_000):
+        for batch in dataset.to_batches(columns=[smiles_col], batch_size=10_000):
             smiles_all = batch.column(smiles_col).to_pylist()
             smiles = [s for s in smiles_all if s]
             if not smiles:
