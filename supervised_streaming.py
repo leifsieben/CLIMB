@@ -225,7 +225,7 @@ class StreamingSupervisedFamilyDataset(IterableDataset):
         self.attention_mask_col = attention_mask_col
 
     def __iter__(self) -> Iterable[Dict[str, object]]:
-        dataset = ds.dataset(self.parquet_path, format="parquet")
+        dataset = _parquet_dataset(self.parquet_path)
         tokenized = self.input_ids_col is not None and self.attention_mask_col is not None
         if tokenized:
             columns = [self.input_ids_col, self.attention_mask_col] + self.label_columns
