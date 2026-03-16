@@ -649,7 +649,7 @@ def main():
     supervised_results = {}
     sup_dir = root_dir / "supervised"
     if supervised_epochs > 0:
-        if config.supervised_parquet_path:
+        if config.supervised_parquet_path or config.supervised_tokenized_parquet_path:
             supervised_results = run_supervised_families(
                 encoder=model.get_encoder(),
                 tokenizer=tokenizer,
