@@ -6,12 +6,13 @@
 """utils.py"""
 
 import logging
+import os
 import signal
 import sys
 import yaml
 import torch
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from transformers import Trainer
 
 
@@ -60,3 +61,45 @@ def register_spot_handler(trainer: Trainer, output_dir: str):
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, _handler)
+
+
+def find_latest_checkpoint(output_dir: str) -> Optional[str]:
+    """Return the most recent recoverable checkpoint inside an output directory."""
+    root = Path(output_dir)
+    if not root.exists():
+        return None
+
+    spot_ckpt = root / "spot_checkpoint"
+    if (spot_ckpt / "trainer_state.json").exists() or (spot_ckpt / "model.safetensors").exists():
+        return str(spot_ckpt)
+
+    checkpoints = []
+    for child in root.iterdir():
+        if not child.is_dir() or not child.name.startswith("checkpoint-"):
+            continue
+        try:
+            step = int(child.name.split("-", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        checkpoints.append((step, child))
+
+    if not checkpoints:
+        return None
+    checkpoints.sort(key=lambda item: item[0])
+    return str(checkpoints[-1][1])
+
+
+def git_commit_sha(default: str = "unknown") -> str:
+    """Best-effort current git commit SHA for reproducibility."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() or default
+    except Exception:
+        return os.environ.get("GIT_COMMIT_SHA", default)

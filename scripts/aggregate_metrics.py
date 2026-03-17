@@ -44,6 +44,8 @@ def main() -> None:
         "loss",
         "learning_rate",
         "epoch",
+        "token_budget",
+        "elapsed_seconds",
         "timestamp",
         "metrics_path",
     ]

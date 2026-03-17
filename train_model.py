@@ -61,6 +61,7 @@ from utils import setup_logging, load_config, get_device, register_spot_handler
 from model import create_model
 from data import StreamingTokenizedDataset, StreamingMixedDataset
 from token_budget import TokenBudgetCallback, TokenBudgetTracker, TokenBudgetTrainer
+from storage_utils import materialize_path, materialize_tokenizer_dir
 
 logger = logging.getLogger(__name__)
 
@@ -194,12 +195,12 @@ def build_dataset_from_args(args):
     unsup_data = None
     sup_data = None
     if args.unsup_data:
-        with open(args.unsup_data, 'rb') as f:
+        with open(materialize_path(args.unsup_data), 'rb') as f:
             unsup_data = pickle.load(f)
         if not isinstance(unsup_data, dict):
             unsup_data = {'data': unsup_data}
     if args.sup_data:
-        with open(args.sup_data, 'rb') as f:
+        with open(materialize_path(args.sup_data), 'rb') as f:
             sup_data = pickle.load(f)
         if not isinstance(sup_data, dict):
             sup_data = {'data': sup_data, 'labels': []}
@@ -329,8 +330,9 @@ def main():
     config = load_config(args.config)
     
     # Load tokenizer
+    tokenizer_dir = materialize_tokenizer_dir(args.tokenizer)
     tokenizer = PreTrainedTokenizerFast(
-        tokenizer_file=str(Path(args.tokenizer) / "tokenizer.json"),
+        tokenizer_file=str(Path(tokenizer_dir) / "tokenizer.json"),
         bos_token="<s>",
         eos_token="</s>",
         unk_token="<unk>",
@@ -343,7 +345,7 @@ def main():
     sup_data = None
     
     if args.unsup_data:
-        with open(args.unsup_data, 'rb') as f:
+        with open(materialize_path(args.unsup_data), 'rb') as f:
             unsup_data = pickle.load(f)
         # Handle both formats: list or dict with 'data' key
         if not isinstance(unsup_data, dict):
@@ -351,7 +353,7 @@ def main():
         logger.info(f"Loaded unsupervised data: {len(unsup_data['data'])} samples")
     
     if args.sup_data:
-        with open(args.sup_data, 'rb') as f:
+        with open(materialize_path(args.sup_data), 'rb') as f:
             sup_data = pickle.load(f)
         logger.info(f"Loaded supervised data: {len(sup_data['data'])} samples")
     

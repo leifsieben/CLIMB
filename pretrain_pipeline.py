@@ -43,6 +43,7 @@ from multitask_model import MultiTaskModel
 from multitask_trainer import train_multitask
 from tasks import TaskRegistry, TaskSpec, TaskType
 from utils import get_device, register_spot_handler, setup_logging
+from utils import find_latest_checkpoint, git_commit_sha
 from token_budget import TokenBudgetCallback, TokenBudgetTracker, TokenBudgetTrainer
 from supervised_streaming import (
     DEFAULT_FAMILIES,
@@ -54,20 +55,14 @@ from supervised_streaming import (
     resolve_family_specs,
     StreamingSupervisedFamilyDataset,
 )
+from storage_utils import is_s3_uri, list_data_files, materialize_path, materialize_tokenizer_dir, parquet_dataset
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_paths(paths: List[str]) -> List[str]:
     """Expand files and directories into a sorted list of pickle paths."""
-    resolved = []
-    for path in paths:
-        p = Path(path)
-        if p.is_dir():
-            resolved.extend(sorted(str(x) for x in p.glob("*.pkl")))
-            resolved.extend(sorted(str(x) for x in p.glob("*.parquet")))
-        elif p.exists():
-            resolved.append(str(p))
+    resolved = list_data_files(paths)
     if not resolved:
         raise ValueError("No tokenized files found at the specified locations")
     return resolved
@@ -75,7 +70,8 @@ def _resolve_paths(paths: List[str]) -> List[str]:
 
 def load_tokenizer(tokenizer_path: str) -> PreTrainedTokenizerFast:
     """Load a pretrained tokenizer directory."""
-    tokenizer_file = Path(tokenizer_path) / "tokenizer.json"
+    tokenizer_dir = Path(materialize_tokenizer_dir(tokenizer_path))
+    tokenizer_file = tokenizer_dir / "tokenizer.json"
     return PreTrainedTokenizerFast(
         tokenizer_file=str(tokenizer_file),
         bos_token="<s>",
@@ -88,7 +84,7 @@ def load_tokenizer(tokenizer_path: str) -> PreTrainedTokenizerFast:
 
 def load_tokenized_samples(path: str) -> List[Dict[str, Any]]:
     """Load a pickle containing tokenized SMILES."""
-    with open(path, "rb") as f:
+    with open(materialize_path(path), "rb") as f:
         obj = pickle.load(f)
 
     if isinstance(obj, dict):
@@ -123,21 +119,13 @@ def estimate_avg_tokens_from_tokenized_paths(paths: List[str], sample_size: int 
     for path in paths:
         if path.endswith(".parquet") or Path(path).is_dir():
             try:
-                import pyarrow.dataset as ds
                 import pyarrow.compute as pc
             except Exception as exc:
                 raise ImportError(
                     "pyarrow is required to estimate token lengths from parquet. "
                     f"Import error: {exc}"
                 )
-            p = Path(path)
-            if p.is_dir():
-                files = sorted(str(x) for x in p.glob("*.parquet"))
-                if not files:
-                    raise FileNotFoundError(f"No parquet files found in {path}")
-                dataset = ds.dataset(files, format="parquet")
-            else:
-                dataset = ds.dataset(path, format="parquet")
+            dataset = parquet_dataset(path)
             if "input_ids" not in dataset.schema.names:
                 raise ValueError(f"Parquet missing input_ids column: {path}")
             for batch in dataset.to_batches(columns=["input_ids"], batch_size=10_000):
@@ -255,7 +243,9 @@ def train_unsupervised_phase(
     run_id: str = "run",
     phase: str = "unsupervised",
     max_steps: int = None,
-) -> None:
+    resume_from_checkpoint: Optional[str] = None,
+    auto_resume: bool = True,
+) -> Dict[str, Any]:
     """Run MLM training for the allocated number of epochs."""
     mlm_cfg = config.mlm_training
 
@@ -302,7 +292,11 @@ def train_unsupervised_phase(
 
     training_args = TrainingArguments(**training_kwargs)
 
-    token_tracker = TokenBudgetTracker(token_budget) if token_budget else None
+    resolved_resume = resume_from_checkpoint
+    if resolved_resume is None and auto_resume:
+        resolved_resume = find_latest_checkpoint(str(stage_dir))
+
+    token_tracker = TokenBudgetTracker(token_budget) if (token_budget is not None or metrics_path) else None
     callbacks = []
     if token_tracker:
         callbacks.append(TokenBudgetCallback(token_tracker, metrics_path, run_id, phase))
@@ -321,10 +315,17 @@ def train_unsupervised_phase(
         register_spot_handler(trainer, stage_dir)
 
     logger.info(f"Starting MLM pretraining for {epochs} epoch(s)")
-    trainer.train()
+    if resolved_resume:
+        logger.info("Resuming MLM from checkpoint: %s", resolved_resume)
+    trainer.train(resume_from_checkpoint=resolved_resume)
     trainer.save_model(str(stage_dir / "final"))
     model.save_encoder(str(stage_dir / "encoder"))
     logger.info(f"MLM checkpoint saved to {stage_dir}")
+    return {
+        "tokens_seen": token_tracker.tokens_seen if token_tracker else None,
+        "global_step": trainer.state.global_step,
+        "resume_from_checkpoint": resolved_resume,
+    }
 
 
 def run_supervised_phase(
@@ -335,6 +336,10 @@ def run_supervised_phase(
     epochs: int,
     stage_dir: Path,
     spot_mode: bool = False,
+    metrics_path: Optional[str] = None,
+    run_id: str = "run",
+    resume_from_checkpoint: Optional[str] = None,
+    auto_resume: bool = True,
 ) -> Dict[str, Any]:
     """Run multi-task supervised pretraining."""
     if not config.tasks or not config.data_sources:
@@ -381,6 +386,11 @@ def run_supervised_phase(
         dataloader_num_workers=training_cfg.dataloader_num_workers,
         save_encoder=True,
         spot_mode=spot_mode,
+        metrics_path=metrics_path,
+        run_id=run_id,
+        phase="supervised",
+        resume_from_checkpoint=resume_from_checkpoint,
+        auto_resume=auto_resume,
     )
     return {
         **results,
@@ -399,6 +409,7 @@ def run_supervised_families(
     run_id: str,
     metrics_path: str,
     spot_mode: bool = False,
+    auto_resume: bool = True,
 ) -> Dict[str, Any]:
     """Run supervised training sequentially by dataset family."""
     parquet_path = config.supervised_tokenized_parquet_path or config.supervised_parquet_path
@@ -519,6 +530,7 @@ def run_supervised_families(
             metrics_path=metrics_path,
             run_id=run_id,
             phase=f"supervised_{family.name}",
+            auto_resume=auto_resume,
         )
 
         encoder = family_model.get_encoder()
@@ -533,6 +545,15 @@ def run_supervised_families(
                 **train_results,
             }
         )
+
+    if families:
+        final_model = MultiTaskModel(
+            encoder=encoder,
+            task_registry=build_task_registry_for_family(families[-1].columns),
+            include_mlm_head=False,
+        )
+        final_model.save_encoder(str(stage_dir / "encoder"))
+        results["final_encoder"] = str(stage_dir / "encoder")
 
     return results
 
@@ -552,6 +573,7 @@ def main():
     parser.add_argument("--config", required=True, help="Path to pretraining YAML config")
     parser.add_argument("--log_file", help="Optional log file")
     parser.add_argument("--spot", action="store_true", help="Handle spot interruptions (save checkpoints)")
+    parser.add_argument("--resume", action="store_true", help="Resume from the latest checkpoint in each stage")
     args = parser.parse_args()
 
     setup_logging(args.log_file)
@@ -608,19 +630,32 @@ def main():
         "token_budget_total": token_budget_total,
         "token_budget_unsupervised": mlm_token_budget,
         "token_budget_supervised": supervised_token_budget,
+        "git_commit_sha": git_commit_sha(),
+        "run_metadata": config.run_metadata,
+        "backup_s3_uri": config.backup_s3_uri,
+        "unsupervised_subset_fraction": config.unsupervised_subset_fraction,
+        "unsupervised_subset_seed": config.unsupervised_subset_seed,
+        "metrics_path": metrics_path,
     }
 
     if mlm_epochs > 0:
         if not config.unsupervised_data:
             raise ValueError("MLM phase enabled but no unsupervised_data paths were provided")
 
-        streaming_paths = [path for path in config.unsupervised_data if Path(path).is_dir()]
-        if streaming_paths:
+        resolved_unsup_paths = _resolve_paths(config.unsupervised_data)
+        streaming_mode = (
+            len(resolved_unsup_paths) > 1
+            or any(is_s3_uri(path) or path.endswith(".parquet") for path in resolved_unsup_paths)
+            or any((not is_s3_uri(path)) and Path(path).is_dir() for path in config.unsupervised_data)
+        )
+        if streaming_mode:
             dataset = StreamingTokenizedDataset(
-                _resolve_paths(config.unsupervised_data),
+                resolved_unsup_paths,
                 with_labels=False,
                 shuffle=config.mlm_training.shuffle,
                 max_samples=config.mlm_training.streaming_max_samples,
+                subset_fraction=config.unsupervised_subset_fraction,
+                subset_seed=config.unsupervised_subset_seed,
             )
             metadata["mlm_samples"] = config.mlm_training.streaming_max_samples or "streamed"
         else:
@@ -631,7 +666,7 @@ def main():
         max_steps = None
         if mlm_token_budget:
             avg_len = estimate_avg_tokens_from_tokenized_paths(
-                _resolve_paths(config.unsupervised_data)
+                resolved_unsup_paths
             )
             tokens_per_step = config.mlm_training.tokens_per_step_estimate
             if tokens_per_step is not None:
@@ -644,11 +679,11 @@ def main():
                 )
             metadata["mlm_avg_token_length"] = avg_len
             metadata["mlm_max_steps"] = max_steps
-        elif streaming_paths:
+        elif streaming_mode:
             raise ValueError("Streaming MLM requires compute_budget.total_tokens for max_steps")
 
         mlm_dir = root_dir / "unsupervised"
-        train_unsupervised_phase(
+        mlm_results = train_unsupervised_phase(
             model,
             tokenizer,
             dataset,
@@ -661,7 +696,9 @@ def main():
             run_id=run_id,
             phase="unsupervised",
             max_steps=max_steps,
+            auto_resume=args.resume,
         )
+        metadata["mlm_training_results"] = mlm_results
         metadata["mlm_output"] = str(mlm_dir)
 
     supervised_results = {}
@@ -677,6 +714,7 @@ def main():
                 run_id=run_id,
                 metrics_path=metrics_path,
                 spot_mode=args.spot,
+                auto_resume=args.resume,
             )
         else:
             supervised_results = run_supervised_phase(
@@ -687,6 +725,9 @@ def main():
                 epochs=supervised_epochs,
                 stage_dir=sup_dir,
                 spot_mode=args.spot,
+                metrics_path=metrics_path,
+                run_id=run_id,
+                auto_resume=args.resume,
             )
         metadata.update(supervised_results)
         metadata["supervised_output"] = str(sup_dir)

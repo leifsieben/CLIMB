@@ -1,7 +1,9 @@
 """data.py"""
 
+import hashlib
 import random
 import pickle
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -10,13 +12,13 @@ from torch.utils.data import Dataset, ConcatDataset, IterableDataset
 
 try:
     import pyarrow.dataset as ds
-    import pyarrow.parquet as pq
 except Exception as exc:  # pragma: no cover - handled at runtime
     ds = None
-    pq = None
     _pyarrow_import_error = exc
 else:
     _pyarrow_import_error = None
+
+from storage_utils import is_s3_uri, list_data_files, materialize_path, parquet_dataset
 
 
 class UnsupervisedChemicalDataset(Dataset):
@@ -106,13 +108,17 @@ class MixedDataset(ConcatDataset):
 
 
 def _expand_paths(path):
-    p = Path(path)
-    if p.is_dir():
-        paths = []
-        paths.extend(sorted(str(x) for x in p.glob("*.pkl")))
-        paths.extend(sorted(str(x) for x in p.glob("*.parquet")))
-        return paths
-    return [str(p)]
+    return list_data_files(path)
+
+
+def _stable_fraction_membership(key: str, fraction: Optional[float], seed: int) -> bool:
+    if fraction is None or fraction >= 1.0:
+        return True
+    if fraction <= 0:
+        return False
+    digest = hashlib.sha1(f"{seed}:{key}".encode("utf-8")).digest()
+    value = int.from_bytes(digest[:8], byteorder="big", signed=False) / float(2**64)
+    return value < fraction
 
 
 class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
@@ -124,6 +130,10 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
         with_labels: bool = False,
         shuffle: bool = False,
         max_samples: Optional[int] = None,
+        subset_fraction: Optional[float] = None,
+        subset_seed: int = 0,
+        cache_remote_files: bool = True,
+        prefetch_files: int = 2,
     ):
         self.paths = []
         for path in paths:
@@ -133,6 +143,10 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
         self.with_labels = with_labels
         self.shuffle = shuffle
         self.max_samples = max_samples
+        self.subset_fraction = subset_fraction
+        self.subset_seed = subset_seed
+        self.cache_remote_files = cache_remote_files
+        self.prefetch_files = max(prefetch_files, 0)
 
     def _load_file(self, path):
         if path.endswith(".parquet"):
@@ -141,12 +155,13 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
                     "pyarrow is required to stream parquet tokenized data. "
                     f"Import error: {_pyarrow_import_error}"
                 )
-            dataset = ds.dataset(path, format="parquet")
+            dataset_path = materialize_path(path) if self.cache_remote_files and is_s3_uri(path) else path
+            dataset = parquet_dataset(dataset_path) if is_s3_uri(dataset_path) else ds.dataset(dataset_path, format="parquet")
             columns = dataset.schema.names
             if "input_ids" not in columns or "attention_mask" not in columns:
                 raise ValueError(f"Parquet missing input_ids/attention_mask: {path}")
             want_labels = self.with_labels
-            for batch in dataset.to_batches(columns=columns, batch_size=10_000):
+            for batch_idx, batch in enumerate(dataset.to_batches(columns=columns, batch_size=10_000)):
                 ids_all = batch.column(batch.schema.get_field_index("input_ids")).to_pylist()
                 mask_all = batch.column(batch.schema.get_field_index("attention_mask")).to_pylist()
                 labels_all = None
@@ -156,13 +171,17 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
                     labels_all = batch.column(batch.schema.get_field_index("labels")).to_pylist()
 
                 for i, ids in enumerate(ids_all):
+                    sample_key = f"{path}:{batch_idx}:{i}"
+                    if not _stable_fraction_membership(sample_key, self.subset_fraction, self.subset_seed):
+                        continue
                     item = {"input_ids": ids, "attention_mask": mask_all[i]}
                     if want_labels:
                         item["labels"] = torch.tensor(labels_all[i], dtype=torch.float32)
                     yield item
             return
 
-        with open(path, 'rb') as f:
+        local_path = materialize_path(path) if self.cache_remote_files and is_s3_uri(path) else path
+        with open(local_path, 'rb') as f:
             obj = pickle.load(f)
 
         if isinstance(obj, dict):
@@ -176,6 +195,9 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
             raise ValueError("Requested labels but none found in pickle")
 
         for idx, sample in enumerate(tokenized):
+            sample_key = f"{path}:{idx}"
+            if not _stable_fraction_membership(sample_key, self.subset_fraction, self.subset_seed):
+                continue
             item = sample.copy()
             if self.with_labels:
                 item['labels'] = torch.tensor(labels[idx], dtype=torch.float32)
@@ -183,14 +205,29 @@ class StreamingTokenizedDataset(torch.utils.data.IterableDataset):
 
     def _iter_paths(self, paths):
         if self.shuffle:
-            random.shuffle(paths)
+            rng = random.Random(self.subset_seed)
+            rng.shuffle(paths)
         total = 0
-        for path in paths:
-            for item in self._load_file(path):
-                yield item
-                total += 1
-                if self.max_samples and total >= self.max_samples:
+        with ThreadPoolExecutor(max_workers=max(self.prefetch_files, 1)) as executor:
+            futures = {}
+
+            def _schedule(target_path):
+                if not self.cache_remote_files or not is_s3_uri(target_path):
                     return
+                if target_path in futures:
+                    return
+                futures[target_path] = executor.submit(materialize_path, target_path)
+
+            for idx, path in enumerate(paths):
+                for offset in range(1, self.prefetch_files + 1):
+                    nxt = idx + offset
+                    if nxt < len(paths):
+                        _schedule(paths[nxt])
+                for item in self._load_file(path):
+                    yield item
+                    total += 1
+                    if self.max_samples and total >= self.max_samples:
+                        return
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()

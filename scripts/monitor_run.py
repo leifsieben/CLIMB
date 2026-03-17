@@ -6,8 +6,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import List, Dict
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from utils import find_latest_checkpoint
 
 
 def load_last_records(path: Path, n: int = 20) -> List[Dict]:
@@ -91,6 +98,11 @@ def main() -> None:
         except Exception:
             backup_status = "unreadable"
 
+    current_checkpoint = find_latest_checkpoint(str(run_dir)) or "none"
+    eval_dir = run_dir / "moleculenet"
+    eval_count = len(list(eval_dir.glob("*/results.json"))) if eval_dir.exists() else 0
+    suite_done = (eval_dir / "suite_summary.json").exists()
+
     print(f"run_id={run_id} phase={phase}")
     print(f"tokens_seen={tokens_seen} loss={loss}")
     if token_budget:
@@ -98,6 +110,9 @@ def main() -> None:
         print(f"token_budget={token_budget} ({pct:.2f}%) eta={eta}")
     else:
         print("token_budget=unknown")
+    print(f"current_checkpoint={current_checkpoint}")
+    print(f"evaluation_progress={eval_count}")
+    print(f"evaluation_complete={suite_done}")
     print(f"backup_status={backup_status}")
 
 

@@ -61,6 +61,7 @@ from multitask_data import (
 )
 from multitask_trainer import train_multitask
 from utils import setup_logging
+from storage_utils import materialize_tokenizer_dir
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ def build_data_sources(config: dict) -> list:
 
 def load_tokenizer(path: str) -> PreTrainedTokenizerFast:
     """Load tokenizer from directory."""
-    tokenizer_file = Path(path) / "tokenizer.json"
+    tokenizer_file = Path(materialize_tokenizer_dir(path)) / "tokenizer.json"
     return PreTrainedTokenizerFast(
         tokenizer_file=str(tokenizer_file),
         bos_token="<s>",

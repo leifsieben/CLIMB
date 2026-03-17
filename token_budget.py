@@ -34,11 +34,20 @@ class TokenBudgetTracker:
     """Track tokens seen across training steps."""
     token_budget: Optional[int]
     tokens_seen: int = 0
+    start_time: Optional[float] = None
 
     def update(self, inputs: Dict[str, Any]) -> int:
         tokens = _count_tokens_from_inputs(inputs)
+        if self.start_time is None:
+            self.start_time = time.time()
         self.tokens_seen += tokens
         return tokens
+
+    @property
+    def elapsed_seconds(self) -> float:
+        if self.start_time is None:
+            return 0.0
+        return max(0.0, time.time() - self.start_time)
 
 
 class TokenBudgetCallback(TrainerCallback):
@@ -76,6 +85,8 @@ class TokenBudgetCallback(TrainerCallback):
             "loss": logs.get("loss"),
             "learning_rate": logs.get("learning_rate"),
             "epoch": logs.get("epoch"),
+            "token_budget": self.tracker.token_budget,
+            "elapsed_seconds": self.tracker.elapsed_seconds,
         }
         with self.metrics_path.open("a") as f:
             f.write(json.dumps(record) + "\n")

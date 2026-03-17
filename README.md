@@ -2,6 +2,73 @@
 
 This repo supports end‑to‑end tokenizer training, hyperparameter sweeps, pretraining (unsupervised, supervised, mixed), streaming large datasets, and spot‑friendly execution on AWS. Below is a practical how‑to.
 
+## Robust Experiment Workflow (Current)
+
+The current end-to-end path for the paper-scale experiment matrix is now:
+
+1. Define one experiment spec in [configs/experiment_spec_example.yaml](/Users/lsieben/VSCode/CLIMB/configs/experiment_spec_example.yaml).
+2. Expand it into a fully resolved manifest:
+   ```bash
+   python3 scripts/generate_experiment_manifest.py \
+     --spec configs/experiment_spec_example.yaml \
+     --output experiments/robust_matrix/manifest.json
+   ```
+3. Validate the selected runs before launch:
+   ```bash
+   python3 scripts/preflight_experiment.py \
+     --manifest experiments/robust_matrix/manifest.json
+   ```
+4. Launch smoke runs or a main wave:
+   ```bash
+   python3 scripts/launch_experiment_wave.py \
+     --manifest experiments/robust_matrix/manifest.json \
+     --stage smoke \
+     --preflight \
+     --resume
+   ```
+   After smoke finishes, backfill ETA estimates for the rest of the matrix:
+   ```bash
+   python3 scripts/calibrate_manifest.py \
+     --manifest experiments/robust_matrix/manifest.json
+   ```
+5. Monitor active nodes with the manifest-aware monitor:
+   ```bash
+   bash watch_pretrain.sh \
+     experiments/robust_matrix/manifest.json \
+     configs/cluster_config_example.json
+   ```
+6. Aggregate raw results after runs complete:
+   ```bash
+   python3 scripts/aggregate_experiment_results.py \
+     --manifest experiments/robust_matrix/manifest.json \
+     --output experiments/robust_matrix/aggregate/raw_results.csv
+   python3 scripts/candidate_moleculenet_score.py \
+     --input experiments/robust_matrix/aggregate/raw_results.csv \
+     --output experiments/robust_matrix/aggregate/candidate_scores.csv
+   ```
+
+What is new in this workflow:
+- `s3://` inputs are accepted directly for tokenizer paths, tokenized unsupervised shards, and supervised parquet sources.
+- Remote shard access uses a small local read-through cache in `~/.cache/climb_s3` unless `CLIMB_S3_CACHE_DIR` overrides it.
+- Every resolved run gets a saved config, run context, metrics log, metadata file, backup target, and MoleculeNet suite output.
+- `pretrain_pipeline.py --resume` now resumes from the latest checkpoint or `spot_checkpoint` when present.
+- Background S3 backup is handled by [scripts/sync_run_to_s3.py](/Users/lsieben/VSCode/CLIMB/scripts/sync_run_to_s3.py) during launches and writes `backup_status.json` for monitoring.
+
+Manifest shape and default matrix:
+- Smoke runs: `3`
+- Unsupervised baseline runs: `15`
+- Supervised family/order runs: `25`
+- Unsupervised fixed-budget coverage runs: `5`
+- Mixed fixed-budget runs: `15`
+
+Representative files for this workflow:
+- [experiment_manifest.py](/Users/lsieben/VSCode/CLIMB/experiment_manifest.py)
+- [scripts/generate_experiment_manifest.py](/Users/lsieben/VSCode/CLIMB/scripts/generate_experiment_manifest.py)
+- [scripts/preflight_experiment.py](/Users/lsieben/VSCode/CLIMB/scripts/preflight_experiment.py)
+- [scripts/launch_experiment_wave.py](/Users/lsieben/VSCode/CLIMB/scripts/launch_experiment_wave.py)
+- [scripts/run_moleculenet_suite.py](/Users/lsieben/VSCode/CLIMB/scripts/run_moleculenet_suite.py)
+- [scripts/monitor_cluster.py](/Users/lsieben/VSCode/CLIMB/scripts/monitor_cluster.py)
+
 ---
 
 ## Current Data Sources, Processing, and Storage (AWS)
@@ -276,6 +343,11 @@ python evaluate_model.py \
 - `train_multitask.py`: pooled multi-task supervised pretraining (masked losses).
 - `hyperparameter_search.py`: Optuna sweep for MLM.
 - `evaluate_model.py`, `evaluate_all_moleculenet.sh`: downstream evaluation.
+- `scripts/generate_experiment_manifest.py`: resolve the full smoke + main matrix from one YAML spec.
+- `scripts/preflight_experiment.py`: validate tokenizer/data/backup/eval dependencies before launch.
+- `scripts/launch_experiment_wave.py`: launch a selected wave, run backups, and trigger full MoleculeNet evaluation.
+- `scripts/monitor_cluster.py`, `watch_pretrain.sh`: monitor manifest runs across multiple workers.
+- `scripts/aggregate_experiment_results.py`, `scripts/candidate_moleculenet_score.py`: aggregate raw outputs and compute provisional summary scores.
 
 ---
 

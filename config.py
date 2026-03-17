@@ -251,6 +251,8 @@ class PretrainingConfig:
     compute_budget: ComputeBudgetConfig = field(default_factory=ComputeBudgetConfig)
     mlm_training: MLMTrainingConfig = field(default_factory=MLMTrainingConfig)
     unsupervised_data: List[str] = field(default_factory=list)
+    unsupervised_subset_fraction: Optional[float] = None
+    unsupervised_subset_seed: int = 0
     tasks: List[Dict[str, Any]] = field(default_factory=list)
     data_sources: List[Dict[str, Any]] = field(default_factory=list)
     supervised_parquet_path: Optional[str] = None
@@ -258,6 +260,8 @@ class PretrainingConfig:
     supervised_families: List[Dict[str, Any]] = field(default_factory=list)
     supervised_training: MultiTaskTrainingConfig = field(default_factory=MultiTaskTrainingConfig)
     validation_fraction: float = 0.1
+    backup_s3_uri: Optional[str] = None
+    run_metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if isinstance(self.model, dict):
@@ -275,6 +279,8 @@ class PretrainingConfig:
 
         if not (0.0 <= self.validation_fraction <= 0.5):
             raise ValueError("validation_fraction must be between 0 and 0.5")
+        if self.unsupervised_subset_fraction is not None and not (0.0 < self.unsupervised_subset_fraction <= 1.0):
+            raise ValueError("unsupervised_subset_fraction must be in (0, 1]")
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> 'PretrainingConfig':
@@ -289,6 +295,8 @@ class PretrainingConfig:
             compute_budget=config.get('compute_budget', {}),
             mlm_training=config.get('mlm_training', {}),
             unsupervised_data=config.get('unsupervised_data', []),
+            unsupervised_subset_fraction=config.get('unsupervised_subset_fraction'),
+            unsupervised_subset_seed=config.get('unsupervised_subset_seed', 0),
             tasks=config.get('tasks', []),
             data_sources=config.get('data_sources', []),
             supervised_parquet_path=config.get('supervised_parquet_path'),
@@ -296,6 +304,8 @@ class PretrainingConfig:
             supervised_families=config.get('supervised_families', []),
             supervised_training=config.get('supervised_training', {}),
             validation_fraction=config.get('validation_fraction', 0.1),
+            backup_s3_uri=config.get('backup_s3_uri'),
+            run_metadata=config.get('run_metadata', {}),
         )
 
     @classmethod
@@ -314,6 +324,8 @@ class PretrainingConfig:
             'compute_budget': asdict(self.compute_budget),
             'mlm_training': asdict(self.mlm_training),
             'unsupervised_data': self.unsupervised_data,
+            'unsupervised_subset_fraction': self.unsupervised_subset_fraction,
+            'unsupervised_subset_seed': self.unsupervised_subset_seed,
             'tasks': self.tasks,
             'data_sources': self.data_sources,
             'supervised_parquet_path': self.supervised_parquet_path,
@@ -321,6 +333,8 @@ class PretrainingConfig:
             'supervised_families': self.supervised_families,
             'supervised_training': asdict(self.supervised_training),
             'validation_fraction': self.validation_fraction,
+            'backup_s3_uri': self.backup_s3_uri,
+            'run_metadata': self.run_metadata,
         }
 
     def save_yaml(self, path: str) -> None:

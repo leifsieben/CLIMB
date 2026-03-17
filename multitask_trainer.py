@@ -34,7 +34,7 @@ from transformers import TrainingArguments
 
 from multitask_model import MultiTaskModel
 from multitask_data import MultiTaskDataset, MultiTaskCollator
-from utils import register_spot_handler
+from utils import find_latest_checkpoint, register_spot_handler
 from token_budget import TokenBudgetCallback, TokenBudgetTracker
 from token_budget import TokenBudgetTrainer
 
@@ -138,6 +138,8 @@ def train_multitask(
     metrics_path: Optional[str] = None,
     run_id: str = "run",
     phase: str = "supervised",
+    resume_from_checkpoint: Optional[str] = None,
+    auto_resume: bool = True,
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -202,7 +204,11 @@ def train_multitask(
     collator = MultiTaskCollator()
 
     # Trainer
-    token_tracker = TokenBudgetTracker(token_budget) if token_budget else None
+    resolved_resume = resume_from_checkpoint
+    if resolved_resume is None and auto_resume:
+        resolved_resume = find_latest_checkpoint(output_dir)
+
+    token_tracker = TokenBudgetTracker(token_budget) if (token_budget is not None or metrics_path) else None
     callbacks = []
     if token_tracker:
         callbacks.append(TokenBudgetCallback(token_tracker, metrics_path, run_id, phase))
@@ -221,7 +227,9 @@ def train_multitask(
 
     # Train
     logger.info("Starting training...")
-    train_result = trainer.train()
+    if resolved_resume:
+        logger.info("Resuming from checkpoint: %s", resolved_resume)
+    train_result = trainer.train(resume_from_checkpoint=resolved_resume)
 
     # Save final model
     trainer.save_model(os.path.join(output_dir, "final"))
@@ -238,6 +246,8 @@ def train_multitask(
         'train_samples': train_len if train_len is not None else "streamed",
         'num_epochs': num_epochs,
         'global_step': train_result.global_step,
+        'tokens_seen': token_tracker.tokens_seen if token_tracker else None,
+        'resume_from_checkpoint': resolved_resume,
     }
 
     with open(os.path.join(output_dir, "training_results.json"), 'w') as f:

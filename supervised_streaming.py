@@ -28,6 +28,8 @@ except Exception as exc:  # pragma: no cover - handled at runtime
 else:
     _pyarrow_import_error = None
 
+from storage_utils import is_s3_uri, materialize_path, parquet_dataset, path_exists
+
 
 DEFAULT_FAMILIES = [
     {"name": "PCQM", "prefix": "PCQM__"},
@@ -60,13 +62,15 @@ def has_tokenized_columns(columns: List[str]) -> bool:
 
 def _parquet_dataset(parquet_path: str) -> ds.Dataset:
     _require_pyarrow()
+    if is_s3_uri(parquet_path):
+        return parquet_dataset(parquet_path)
     path = Path(parquet_path)
     if path.is_dir():
         files = sorted(str(p) for p in path.glob("*.parquet"))
         if not files:
             raise FileNotFoundError(f"No parquet files found in {parquet_path}")
         return ds.dataset(files, format="parquet")
-    return ds.dataset(parquet_path, format="parquet")
+    return ds.dataset(materialize_path(parquet_path), format="parquet")
 
 
 def parquet_has_tokenized_columns(parquet_path: str) -> bool:
@@ -79,9 +83,8 @@ def resolve_family_specs(
     families: Optional[List[Dict[str, str]]] = None,
 ) -> Tuple[str, List[Dict[str, object]]]:
     _require_pyarrow()
-    path = Path(parquet_path)
-    if not path.exists():
-        raise FileNotFoundError(path)
+    if not path_exists(parquet_path):
+        raise FileNotFoundError(parquet_path)
 
     dataset = _parquet_dataset(parquet_path)
     columns = dataset.schema.names

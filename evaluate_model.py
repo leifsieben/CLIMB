@@ -56,6 +56,7 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 from utils import setup_logging, get_device
+from storage_utils import materialize_tokenizer_dir
 
 logger = logging.getLogger(__name__)
 
@@ -406,7 +407,8 @@ def evaluate_on_dataset(
     # Load tokenizer
     if tokenizer_path is None:
         tokenizer_path = pretrained_model_path
-    
+
+    tokenizer_path = materialize_tokenizer_dir(tokenizer_path)
     tokenizer = PreTrainedTokenizerFast(
         tokenizer_file=str(Path(tokenizer_path) / "tokenizer.json"),
         bos_token="<s>",
@@ -734,6 +736,7 @@ def evaluate_multitask_model(
     if tokenizer_path is None:
         tokenizer_path = model_path
 
+    tokenizer_path = materialize_tokenizer_dir(tokenizer_path)
     tokenizer = PreTrainedTokenizerFast(
         tokenizer_file=str(Path(tokenizer_path) / "tokenizer.json"),
         bos_token="<s>",
