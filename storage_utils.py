@@ -76,6 +76,16 @@ def _require_fsspec():
         )
 
 
+def _s3_fsspec():
+    _require_fsspec()
+    try:
+        return fsspec.filesystem("s3")
+    except Exception as exc:  # pragma: no cover - depends on optional s3fs install
+        raise ImportError(
+            "Install s3fs to access S3 through fsspec."
+        ) from exc
+
+
 def s3_filesystem():
     _require_pyarrow_fs()
     return pafs.S3FileSystem(region=os.environ.get("AWS_REGION"))
@@ -131,9 +141,7 @@ def path_exists(path: PathLike) -> bool:
     if is_s3_uri(target):
         try:
             if any(target.endswith(sfx) for sfx in (".pkl", ".parquet", ".json", ".yaml", ".yml")):
-                bucket, key = split_s3_uri(target)
-                info = s3_filesystem().get_file_info(f"{bucket}/{key}")
-                return info.type != pafs.FileType.NotFound
+                return bool(_s3_fsspec().exists(target))
             return bool(list_data_files(target))
         except Exception:
             return False
