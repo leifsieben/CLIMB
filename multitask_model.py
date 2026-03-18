@@ -102,9 +102,30 @@ class TaskHead(nn.Module):
             if self.task_type == TaskType.REGRESSION:
                 pred = logits.squeeze(-1) if logits.dim() > 1 and logits.size(-1) == 1 else logits
                 target = labels.float().squeeze(-1) if labels.dim() > 1 else labels.float()
+                if mask is not None:
+                    # Avoid propagating NaNs from masked-out labels into the loss.
+                    target = torch.nan_to_num(target, nan=0.0, posinf=0.0, neginf=0.0)
             else:
                 pred = logits
-                target = labels.long().squeeze(-1) if labels.dim() > 1 else labels.long()
+                target = labels.float().squeeze(-1) if labels.dim() > 1 else labels.float()
+                valid_target = torch.isfinite(target)
+                if self.task_type == TaskType.BINARY_CLASSIFICATION:
+                    if mask is not None:
+                        # Accept common binary encodings and map them into {0, 1}.
+                        masked_target = target[mask.bool()]
+                    else:
+                        masked_target = target
+                    if masked_target.numel() > 0:
+                        if torch.all((masked_target == -1) | (masked_target == 1)):
+                            target = (target > 0).to(torch.float32)
+                        elif torch.all((masked_target == 1) | (masked_target == 2)):
+                            target = target - 1.0
+                    valid_target = valid_target & ((target == 0) | (target == 1))
+                target = torch.where(valid_target, target, torch.zeros_like(target)).long()
+                if mask is None:
+                    mask = valid_target.float()
+                else:
+                    mask = mask.float() * valid_target.float()
 
             per_sample_loss = self.loss_fn(pred, target)
 

@@ -50,6 +50,7 @@ from supervised_streaming import (
     SupervisedFamily,
     build_task_registry_for_family,
     count_non_nan_labels,
+    count_rows_with_any_label,
     estimate_avg_tokens_from_parquet,
     parquet_has_tokenized_columns,
     resolve_family_specs,
@@ -215,6 +216,10 @@ def allocate_epoch_budget(total_epochs: int, supervised_fraction: float) -> Tupl
         return total_epochs, 0
     if supervised_fraction == 1:
         return 0, total_epochs
+    if total_epochs == 1:
+        # For mixed token-budgeted runs, a single placeholder epoch is used only
+        # to enable both phases; max_steps/token budgets remain the real limit.
+        return 1, 1
 
     mlm_epochs = max(1, int(round(total_epochs * unsupervised_fraction)))
     supervised_epochs = max(1, total_epochs - mlm_epochs)
@@ -428,12 +433,20 @@ def run_supervised_families(
         if not columns:
             logger.warning("Skipping family %s (no columns found)", spec["name"])
             continue
+        skipped_columns = spec.get("skipped_columns") or []
+        if skipped_columns:
+            logger.info(
+                "Family %s: skipping %d unsupported non-scalar/non-numeric columns",
+                spec["name"],
+                len(skipped_columns),
+            )
         label_count = count_non_nan_labels(parquet_path, columns)
         families.append(
             SupervisedFamily(
                 name=spec["name"],
                 prefix=spec["prefix"],
                 columns=columns,
+                task_type=spec.get("task_type", TaskType.REGRESSION),
                 label_count=label_count,
             )
         )
@@ -466,7 +479,10 @@ def run_supervised_families(
             family_budget if family_budget is not None else "none",
         )
 
-        task_registry = build_task_registry_for_family(family.columns)
+        task_registry = build_task_registry_for_family(
+            family.columns,
+            task_type=family.task_type,
+        )
         family_model = MultiTaskModel(
             encoder=encoder,
             task_registry=task_registry,
@@ -502,6 +518,12 @@ def run_supervised_families(
                     batch_size=config.supervised_training.batch_size,
                     avg_tokens_per_sample=avg_len,
                 )
+        else:
+            row_count = count_rows_with_any_label(parquet_path, family.columns)
+            if row_count <= 0:
+                raise ValueError(f"No rows with labels found for family {family.name}")
+            steps_per_epoch = int(math.ceil(row_count / max(config.supervised_training.batch_size, 1)))
+            max_steps = max(1, steps_per_epoch * max(config.supervised_training.num_epochs, 1))
 
         family_dir = stage_dir / family.name
         family_dir.mkdir(parents=True, exist_ok=True)
@@ -538,6 +560,7 @@ def run_supervised_families(
             {
                 "name": family.name,
                 "columns": len(family.columns),
+                "task_type": family.task_type.value,
                 "label_count": family.label_count,
                 "token_budget": family_budget,
                 "avg_token_length": avg_len,
@@ -549,7 +572,10 @@ def run_supervised_families(
     if families:
         final_model = MultiTaskModel(
             encoder=encoder,
-            task_registry=build_task_registry_for_family(families[-1].columns),
+            task_registry=build_task_registry_for_family(
+                families[-1].columns,
+                task_type=families[-1].task_type,
+            ),
             include_mlm_head=False,
         )
         final_model.save_encoder(str(stage_dir / "encoder"))

@@ -18,6 +18,8 @@ if str(ROOT) not in sys.path:
 
 from experiment_manifest import dump_yaml
 
+PYTHON = sys.executable
+
 
 def _load_manifest(path: str) -> Dict:
     with open(path) as f:
@@ -41,7 +43,7 @@ def _select_runs(manifest: Dict, stage: str, run_type: str, run_ids: List[str], 
 def _background_sync(run_dir: Path, s3_dest: str, interval_seconds: int) -> subprocess.Popen:
     return subprocess.Popen(
         [
-            "python3",
+            PYTHON,
             "scripts/sync_run_to_s3.py",
             "--run_dir",
             str(run_dir),
@@ -84,7 +86,7 @@ def _run_pretrain(run: Dict, resume: bool) -> None:
     config_path = run_dir / "config.yaml"
     dump_yaml(str(config_path), run["pretrain_config"])
     cmd = [
-        "python3",
+        PYTHON,
         "pretrain_pipeline.py",
         "--config",
         str(config_path),
@@ -109,7 +111,7 @@ def _run_eval(run: Dict, evaluation_cfg: Dict) -> None:
         pretrained_model = str(Path(run["output_dir"]) / "unsupervised" / "encoder")
 
     cmd = [
-        "python3",
+        PYTHON,
         "scripts/run_moleculenet_suite.py",
         "--pretrained_model",
         pretrained_model,
@@ -152,7 +154,7 @@ def main() -> None:
         raise SystemExit("No runs selected.")
 
     if args.preflight:
-        cmd = ["python3", "scripts/preflight_experiment.py", "--manifest", args.manifest]
+        cmd = [PYTHON, "scripts/preflight_experiment.py", "--manifest", args.manifest]
         for run in runs:
             cmd.extend(["--run_id", run["run_id"]])
         subprocess.run(cmd, check=True)
@@ -181,7 +183,7 @@ def main() -> None:
                 _terminate(backup_proc)
                 subprocess.run(
                     [
-                        "python3",
+                        PYTHON,
                         "scripts/sync_run_to_s3.py",
                         "--run_dir",
                         str(run_dir),

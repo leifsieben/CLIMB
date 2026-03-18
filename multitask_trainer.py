@@ -98,6 +98,8 @@ def get_training_args(
 
     Device selection is automatic (CUDA > MPS > CPU).
     """
+    filtered_kwargs = {key: value for key, value in kwargs.items() if value is not None}
+
     return TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=num_epochs,
@@ -120,7 +122,7 @@ def get_training_args(
         metric_for_best_model=metric_for_best_model,
         greater_is_better=greater_is_better,
         remove_unused_columns=False,  # Keep all columns for multi-task
-        **kwargs,
+        **filtered_kwargs,
     )
 
 

@@ -15,6 +15,8 @@ if str(ROOT) not in sys.path:
 
 from experiment_manifest import DEFAULT_MOLECULENET_DATASETS
 
+PYTHON = sys.executable
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the MoleculeNet evaluation suite")
@@ -41,7 +43,7 @@ def main() -> None:
             continue
 
         cmd = [
-            "python3",
+            PYTHON,
             "evaluate_model.py",
             "--pretrained_model",
             args.pretrained_model,
@@ -67,7 +69,7 @@ def main() -> None:
 
     subprocess.run(
         [
-            "python3",
+            PYTHON,
             "scripts/aggregate_moleculenet.py",
             "--root",
             str(output_root),

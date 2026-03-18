@@ -74,7 +74,8 @@ Representative files for this workflow:
 ## Current Data Sources, Processing, and Storage (AWS)
 
 ### A) Dataset sources and how they are used
-- Unsupervised pretraining corpus: filtered PubChem tokenized shards stored in S3 at `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`.
+- Unsupervised filtered PubChem source shards: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`.
+- Unsupervised training-ready tokenized shards: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`.
 - Tokenizer artifact used for current runs: `s3://climb-s3-bucket/tokenizer_10M/` (contains `tokenizer.json`).
 - Canonical supervised source parquet for pretraining: `s3://climb-s3-bucket/preparing_datasets/supervised_wide.parquet`.
 - Canonical supervised tokenized parquet for pretraining: `s3://climb-s3-bucket/tokenized/supervised_wide_parquet/`.
@@ -91,6 +92,7 @@ Processing path used in this repo:
 Known active paths:
 - `s3://climb-s3-bucket/tokenizer_10M/`
 - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
+- `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`
 - `s3://climb-s3-bucket/preparing_datasets/supervised_wide.parquet`
 - `s3://climb-s3-bucket/tokenized/supervised_wide_parquet/`
 
@@ -99,9 +101,12 @@ Canonical storage inventory:
   - Format: tokenizer directory containing `tokenizer.json` and tokenizer metadata files.
   - Used by: unsupervised pretraining, supervised pretraining, MoleculeNet evaluation.
 - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
-  - Format: training-ready unsupervised tokenized shards consumed directly by the pretraining pipeline.
-  - Loader support: S3 streaming for tokenized parquet and legacy pickle shards.
-  - Required columns/content: `input_ids`, `attention_mask`.
+  - Format: filtered unsupervised parquet source shards.
+  - Important: this is not the current training-ready unsupervised input for the smoke/main matrix.
+- `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`
+  - Format: training-ready unsupervised tokenized pickle shards.
+  - Loader support: direct S3 streaming for legacy pickle shards.
+  - Required content: `{"data": [{"input_ids": [...], "attention_mask": [...]}, ...]}`.
 - `s3://climb-s3-bucket/preparing_datasets/supervised_wide.parquet`
   - Format: fused supervised source parquet with canonical SMILES column plus task label columns.
   - Used by: source-of-truth supervised dataset; can be re-tokenized reproducibly.
@@ -121,9 +126,10 @@ aws s3 ls s3://climb-s3-bucket/ --recursive | grep tokenizer.json
 
 Download artifacts to EC2:
 ```bash
-mkdir -p ~/artifacts/tokenizer_10M ~/data/pubchem_filtered ~/data/supervised_wide_tokenized
+mkdir -p ~/artifacts/tokenizer_10M ~/data/pubchem_filtered ~/data/pubchem_filtered_tokenized_pkl ~/data/supervised_wide_tokenized
 aws s3 sync s3://climb-s3-bucket/tokenizer_10M ~/artifacts/tokenizer_10M
 aws s3 sync s3://climb-s3-bucket/tokenized_sources/pubchem_filtered ~/data/pubchem_filtered
+aws s3 sync s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl ~/data/pubchem_filtered_tokenized_pkl
 aws s3 cp s3://climb-s3-bucket/preparing_datasets/supervised_wide.parquet ~/data/supervised_wide.parquet
 aws s3 sync s3://climb-s3-bucket/tokenized/supervised_wide_parquet ~/data/supervised_wide_tokenized
 ```
@@ -133,8 +139,27 @@ aws s3 sync s3://climb-s3-bucket/tokenized/supervised_wide_parquet ~/data/superv
 - Sweep now supports both `.pkl` and `.parquet` tokenized inputs.
 - Current tokenizer location is documented as `s3://climb-s3-bucket/tokenizer_10M/`.
 - AWS examples now align with the currently used S3 prefixes.
+- The robust experiment spec now points to `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/` for unsupervised training-ready shards.
 - The robust experiment spec now points to the labeled tokenized supervised parquet at `s3://climb-s3-bucket/tokenized/supervised_wide_parquet/`.
 - The legacy unlabeled supervised pickle shards are explicitly marked as non-canonical.
+- Clean AWS bootstrap now requires the pinned `requirements.txt` in this repo, including the Python-3.9-safe `urllib3==1.26.20` and no `datasets` dependency.
+
+### D) Current CLIMB smoke worker setup
+- Current CLIMB smoke pool: `3 x g5.2xlarge` in `us-east-1d`.
+- Worker template: Deep Learning Base AMI with Single CUDA (Amazon Linux 2023) `2026-02-20`.
+- Per-worker storage: `1000 GB gp3` root volume.
+- Per-worker runtime layout:
+  - repo: `/home/ec2-user/CLIMB`
+  - venv: `/home/ec2-user/venvs/climb`
+  - run artifacts: `/home/ec2-user/artifacts/robust_matrix`
+- Cluster monitor config for the current smoke pool:
+  - `configs/cluster_config_smoke_20260317.json`
+- Recommended G5 choice for this project:
+- `g5.xlarge` is generally too CPU/RAM constrained for S3 streaming plus evaluation.
+- `g5.2xlarge` is the default sweet spot for one-A10G runs.
+- `g5.4xlarge` is useful when the extra CPU/RAM is actually needed, but it does not buy an additional GPU.
+- Mixed token-budget runs are configured with `total_epochs: 1`, but the pipeline now explicitly enables both phases when `0 < supervised_fraction < 1`; the token budget, not the epoch count, is the real limiter there.
+- RoBERTa-style encoder configs should use `max_position_embeddings: 514` when training on 512-token sequences.
 
 ---
 
@@ -397,7 +422,7 @@ Unsupervised pretraining source:
 - PubChem-124M molecular strings dataset (SMILES/SELFIES/InChI/IUPAC):
   - [PubChem-124M-SMILES-SELFIES-InChI-IUPAC](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC)
 - In our current pipeline, filtered/tokenized unsupervised shards are stored in:
-  - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/` (parquet source shards)
+  - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/` (filtered parquet source shards)
   - `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/` (training-ready tokenized pickle shards; generated for this workflow)
 
 Supervised/downstream sources:
@@ -426,7 +451,7 @@ Current operational workflow:
 
 Practical storage pattern:
 - Raw/filtered unsupervised source shards: parquet.
-- Model-training ingest format: pickled dictionaries with key `data`, where each element has:
+- Unsupervised training ingest format: pickled dictionaries with key `data`, where each element has:
   - `input_ids`
   - `attention_mask`
 - Supervised source-of-truth format: one fused parquet with canonical SMILES and many label columns.
@@ -519,8 +544,8 @@ This enforces a consistent optimization baseline and avoids per-task overfitting
 
 Artifact locations:
 - Tokenizer: `s3://climb-s3-bucket/tokenizer_10M/`
-- Unsupervised tokenized shards: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`
-- Unsupervised streaming shards used by current experiment spec: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
+- Unsupervised filtered source shards: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
+- Unsupervised tokenized shards used by current experiment spec: `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/`
 - Supervised source parquet: `s3://climb-s3-bucket/preparing_datasets/supervised_wide.parquet`
 - Supervised tokenized parquet: `s3://climb-s3-bucket/tokenized/supervised_wide_parquet/`
 - Hyperparameter outputs (typical local path): `hp_search_results/` with:

@@ -39,6 +39,14 @@ DEFAULT_FAMILIES = [
     {"name": "PCBA", "prefix": "PCBA__"},
 ]
 
+DEFAULT_FAMILY_TASK_TYPES = {
+    "PCQM": TaskType.REGRESSION,
+    "WONG": TaskType.REGRESSION,
+    "L1000_MCF7": TaskType.REGRESSION,
+    "L1000_VCAP": TaskType.REGRESSION,
+    "PCBA": TaskType.BINARY_CLASSIFICATION,
+}
+
 
 def _require_pyarrow():
     if pa is None:
@@ -102,12 +110,20 @@ def resolve_family_specs(
         prefix = fam.get("prefix", f"{name}__")
         if not prefix.endswith("__"):
             prefix = f"{prefix}__"
-        cols = [c for c in columns if c.startswith(prefix)]
+        all_cols = [c for c in columns if c.startswith(prefix)]
+        cols = [
+            c
+            for c in all_cols
+            if _is_supported_scalar_label_type(dataset.schema.field(c))
+        ]
+        skipped = sorted(set(all_cols) - set(cols))
         resolved.append(
             {
                 "name": name,
                 "prefix": prefix,
                 "columns": cols,
+                "task_type": DEFAULT_FAMILY_TASK_TYPES.get(name, TaskType.REGRESSION),
+                "skipped_columns": skipped,
             }
         )
     return smiles_col, resolved
@@ -115,6 +131,15 @@ def resolve_family_specs(
 
 def _is_float_array(arr: pa.Array) -> bool:
     return pa.types.is_floating(arr.type)
+
+
+def _is_supported_scalar_label_type(field: pa.Field) -> bool:
+    field_type = field.type
+    return (
+        pa.types.is_boolean(field_type)
+        or pa.types.is_integer(field_type)
+        or pa.types.is_floating(field_type)
+    )
 
 
 def count_non_nan_labels(parquet_path: str, columns: List[str], batch_rows: int = 50_000) -> int:
@@ -130,6 +155,24 @@ def count_non_nan_labels(parquet_path: str, columns: List[str], batch_rows: int 
             if _is_float_array(arr):
                 valid = pc.and_(valid, pc.invert(pc.is_nan(arr)))
             total += int(pc.sum(valid).as_py() or 0)
+    return total
+
+
+def count_rows_with_any_label(parquet_path: str, columns: List[str], batch_rows: int = 50_000) -> int:
+    _require_pyarrow()
+    if not columns:
+        return 0
+    dataset = _parquet_dataset(parquet_path)
+    total = 0
+    for batch in dataset.to_batches(columns=columns, batch_size=batch_rows):
+        any_valid = None
+        for col in columns:
+            arr = batch.column(col)
+            valid = pc.invert(pc.is_null(arr))
+            if _is_float_array(arr):
+                valid = pc.and_(valid, pc.invert(pc.is_nan(arr)))
+            any_valid = valid if any_valid is None else pc.or_(any_valid, valid)
+        total += int(pc.sum(any_valid).as_py() or 0)
     return total
 
 
@@ -186,10 +229,13 @@ def estimate_avg_tokens_from_parquet(
     return float(np.mean(lengths))
 
 
-def build_task_registry_for_family(columns: List[str]) -> TaskRegistry:
+def build_task_registry_for_family(
+    columns: List[str],
+    task_type: TaskType = TaskType.REGRESSION,
+) -> TaskRegistry:
     registry = TaskRegistry()
     for col in columns:
-        registry.register(TaskSpec(name=col, task_type=TaskType.REGRESSION))
+        registry.register(TaskSpec(name=col, task_type=task_type))
     return registry
 
 
@@ -198,6 +244,7 @@ class SupervisedFamily:
     name: str
     prefix: str
     columns: List[str]
+    task_type: TaskType = TaskType.REGRESSION
     label_count: int = 0
 
 

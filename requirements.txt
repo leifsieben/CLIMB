@@ -13,7 +13,6 @@ certifi==2026.1.4
 charset-normalizer==3.4.4
 colorlog==6.10.1
 comm==0.2.3
-datasets==4.4.2
 debugpy==1.8.19
 decorator==5.2.1
 deepchem==2.8.0
@@ -92,7 +91,7 @@ traitlets==5.14.3
 transformers==4.57.3
 typing_extensions==4.15.0
 tzdata==2025.3
-urllib3==2.6.2
+urllib3==1.26.20
 wcwidth==0.2.14
 Werkzeug==3.1.4
 xxhash==3.6.0
