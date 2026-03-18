@@ -522,8 +522,20 @@ def run_supervised_families(
                 )
         else:
             row_count = count_rows_with_any_label(parquet_path, family.columns)
+            logger.info("Family %s: count_rows_with_any_label=%d", family.name, row_count)
             if row_count <= 0:
-                raise ValueError(f"No rows with labels found for family {family.name}")
+                # Fallback: count_rows_with_any_label can return 0 on transient S3 errors.
+                # Use label_count (total non-null label values) as a conservative row estimate.
+                if family.label_count > 0:
+                    logger.warning(
+                        "count_rows_with_any_label returned 0 for family %s but label_count=%d; "
+                        "likely a transient S3 scan error. Falling back to label_count for max_steps.",
+                        family.name,
+                        family.label_count,
+                    )
+                    row_count = family.label_count
+                else:
+                    raise ValueError(f"No rows with labels found for family {family.name}")
             steps_per_epoch = int(math.ceil(row_count / max(config.supervised_training.batch_size, 1)))
             max_steps = max(1, steps_per_epoch * max(config.supervised_training.num_epochs, 1))
 
