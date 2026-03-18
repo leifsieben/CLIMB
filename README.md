@@ -540,7 +540,28 @@ Protocol used for comparability:
 
 This enforces a consistent optimization baseline and avoids per-task overfitting of training settings.
 
-### 7) Reproducibility and artifact management
+### 7) Open issues and action items
+
+#### ACTION: PCBA pretraining/evaluation overlap — characterize and report
+
+**Observation:** PCBA (`PCBA__` prefix) is one of the supervised pretraining families in `supervised_streaming.py` and also appears as a MoleculeNet evaluation dataset in `evaluate_model.py`. This is a potential train/test data relationship that must be understood before publishing.
+
+**Why it may not be a simple leak:** The supervised pretraining heads are discarded after training — only the encoder is kept. PCBA labels are not directly accessible at evaluation time. It is an open empirical question whether PCBA pretraining gives a visible boost on the PCBA MoleculeNet benchmark (which tests the same assay family) vs. the encoder having merely learned useful chemical representations from the signal.
+
+**Action items:**
+1. Compute molecule-level overlap between `supervised_wide.parquet` PCBA columns and the MoleculeNet PCBA train/val/test splits (by canonical SMILES or InChI key).
+2. Run a controlled ablation: compare encoder performance on PCBA evaluation for (a) runs pretrained with the PCBA family vs. (b) runs pretrained without it, holding everything else constant.
+3. In the paper: explicitly state the overlap, report the ablation, and discuss whether observed PCBA performance is driven by representation quality or implicit label memorization.
+
+#### ACTION: Add random-encoder evaluation baseline
+
+Five replicates of the full MoleculeNet evaluation suite run on a randomly initialized encoder (same architecture, no pretraining) must be added to the experiment matrix. Without this baseline, no claim about pretraining benefit can be supported by the data. The five replicates quantify variance due to head initialization and fine-tuning randomness alone. These runs are cheap (no pretraining, just the evaluation pipeline).
+
+#### ACTION: Fix `StreamingSupervisedFamilyDataset` multi-worker data duplication
+
+`supervised_streaming.py:StreamingSupervisedFamilyDataset.__iter__` does not implement `torch.utils.data.get_worker_info()` sharding. When `dataloader_num_workers > 0` (the recommended setting for G5 instances), every worker loads the full parquet independently, causing each molecule to be presented `num_workers` times per pass. This inflates token counts and effective epochs. Fix by sharding the parquet batches across workers using `worker_info.id` and `worker_info.num_workers`, mirroring the pattern already in `StreamingTokenizedDataset.__iter__` (`data.py:232`).
+
+### 8) Reproducibility and artifact management
 
 Artifact locations:
 - Tokenizer: `s3://climb-s3-bucket/tokenizer_10M/`
