@@ -72,7 +72,7 @@ PY
     echo
     echo "[$worker] $run_id @ $host"
     ssh -i "$key_path" -o StrictHostKeyChecking=no "${user}@${host}" \
-      RUN_DIR="$RUN_DIR" LOG_FILE="$LOG_FILE" 'bash -s' <<'EOF'
+      RUN_DIR="$RUN_DIR" EVAL_DIR="$EVAL_DIR" LOG_FILE="$LOG_FILE" 'bash -s' <<'EOF'
 set -euo pipefail
 STATUS=unknown
 if [ -f "$EVAL_DIR/suite_summary.json" ] || [ -f "$RUN_DIR/evaluations/suite_summary.json" ]; then
