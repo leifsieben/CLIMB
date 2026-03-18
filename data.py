@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import torch
-from torch.utils.data import Dataset, ConcatDataset, IterableDataset
+from torch.utils.data import Dataset, IterableDataset
 
 try:
     import pyarrow.dataset as ds
@@ -80,31 +80,6 @@ class SupervisedChemicalDataset(Dataset):
         print(f"Loaded {len(obj['data'])} samples from {path}")
         return SupervisedChemicalDataset(obj['data'], obj['labels'])
 
-
-class MixedDataset(ConcatDataset):
-    """Mix unsupervised and supervised datasets"""
-    
-    def __init__(
-        self,
-        unsupervised_dataset: Optional[UnsupervisedChemicalDataset],
-        supervised_dataset: Optional[SupervisedChemicalDataset],
-        unsupervised_weight: float = 0.5,
-        supervised_weight: float = 0.5,
-    ):
-        datasets = []
-        
-        if unsupervised_dataset and unsupervised_weight > 0:
-            n_unsup = int(len(unsupervised_dataset) * unsupervised_weight)
-            datasets.append(torch.utils.data.Subset(unsupervised_dataset, range(n_unsup)))
-        
-        if supervised_dataset and supervised_weight > 0:
-            n_sup = int(len(supervised_dataset) * supervised_weight)
-            datasets.append(torch.utils.data.Subset(supervised_dataset, range(n_sup)))
-        
-        if not datasets:
-            raise ValueError("At least one dataset must be provided with weight > 0")
-        
-        super().__init__(datasets)
 
 
 def _expand_paths(path):

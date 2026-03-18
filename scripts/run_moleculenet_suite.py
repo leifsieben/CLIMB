@@ -27,6 +27,8 @@ def main() -> None:
     parser.add_argument("--num_epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=2e-5)
+    parser.add_argument("--early_stopping_patience", type=int, default=10,
+                        help="Stop fine-tuning after this many epochs with no eval_loss improvement")
     parser.add_argument("--datasets", nargs="*", default=DEFAULT_MOLECULENET_DATASETS)
     parser.add_argument("--skip_existing", action="store_true", help="Skip datasets with existing results.json")
     args = parser.parse_args()
@@ -61,6 +63,8 @@ def main() -> None:
             str(args.batch_size),
             "--learning_rate",
             str(args.learning_rate),
+            "--early_stopping_patience",
+            str(args.early_stopping_patience),
         ]
         if args.freeze_encoder:
             cmd.append("--freeze_encoder")

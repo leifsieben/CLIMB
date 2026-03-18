@@ -105,6 +105,7 @@ class MultiTaskTrainingConfig:
     early_stopping_patience: int = 10  # Epochs without improvement before stopping
     freeze_encoder: bool = False  # Whether to freeze encoder weights
     tokens_per_step_estimate: Optional[int] = None
+    seed: int = 42
 
 
 @dataclass
@@ -239,6 +240,7 @@ class MLMTrainingConfig:
     shuffle: bool = False
     streaming_max_samples: Optional[int] = None
     tokens_per_step_estimate: Optional[int] = None
+    seed: int = 42
 
 
 @dataclass

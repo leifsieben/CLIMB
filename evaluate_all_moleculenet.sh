@@ -16,6 +16,7 @@ set -euo pipefail
 MODEL_DIR="${1:-}"
 OUTPUT_ROOT="${2:-}"
 TOKENIZER_PATH="${3:-$MODEL_DIR}"
+EARLY_STOPPING_PATIENCE="${4:-10}"
 
 if [[ -z "$MODEL_DIR" || -z "$OUTPUT_ROOT" ]]; then
   echo "Usage: $0 <pretrained_model_dir> <output_root_dir> [tokenizer_path]" >&2
@@ -50,7 +51,8 @@ for ds in "${DATASETS[@]}"; do
     --dataset_name "$ds" \
     --output "$OUTPUT_ROOT/$ds" \
     --tokenizer "$TOKENIZER_PATH" \
-    --freeze_encoder
+    --freeze_encoder \
+    --early_stopping_patience "$EARLY_STOPPING_PATIENCE"
 done
 
 echo "All evaluations complete. Aggregate results: see each dataset folder and any all_evaluations.txt files under $OUTPUT_ROOT."

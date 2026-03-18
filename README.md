@@ -378,9 +378,13 @@ Use `evaluate_all_moleculenet.sh` or `evaluate_model.py` directly.
 ./evaluate_all_moleculenet.sh \
   experiments/prototyping_sup_unsup_50_50 \
   experiments/moleculenet_evals \
-  tokenizer
+  tokenizer \
+  10   # optional: early_stopping_patience (default 10)
 ```
 This runs per-dataset fine-tuning with frozen encoder and saves per‑dataset results plus an aggregate `all_evaluations.txt`.
+
+**Early stopping:** fine-tuning now stops automatically when `eval_loss` does not improve for `early_stopping_patience` epochs (default: 10). With `--num_epochs 50` (the default), this prevents overfitting the classification head on small datasets such as FreeSolv (642 molecules) or BBBP (2039 molecules). The best checkpoint by `eval_loss` is loaded before test evaluation.
+
 Direct single-dataset example:
 ```bash
 python evaluate_model.py \
@@ -390,6 +394,7 @@ python evaluate_model.py \
   --output experiments/moleculenet_evals/Tox21 \
   --tokenizer tokenizer \
   --freeze_encoder \
+  --early_stopping_patience 10 \
   --predictions_csv experiments/moleculenet_evals/Tox21/test_predictions.csv  # optional
 ```
 - If you want a human-readable predictions file (SMILES, prediction, label), pass `--predictions_csv <path>`. If omitted, predictions are saved only as `.npy`.
@@ -574,6 +579,14 @@ Artifact locations:
   - `optuna_study.db`
   - `study_snapshot.json`
 
+**Training seed:** both `MLMTrainingConfig` and `MultiTaskTrainingConfig` now have a `seed` field (default `42`). The seed is forwarded to `TrainingArguments` in both the unsupervised and supervised phases, which calls `set_seed()` before training and seeds dataloader workers. Set it explicitly in your YAML config to ensure reproducibility across replicates:
+```yaml
+mlm_training:
+  seed: 42
+supervised_training:
+  seed: 42
+```
+
 Suggested reporting fields for paper appendix:
 - exact S3 prefixes used,
 - code commit hash,
@@ -581,4 +594,5 @@ Suggested reporting fields for paper appendix:
 - tokenizer identifier/path,
 - sample/shard caps used during HP search,
 - number of trials and selected trial ID,
-- final selected hyperparameters.
+- final selected hyperparameters,
+- `seed` value used for all training phases.

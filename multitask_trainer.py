@@ -91,6 +91,7 @@ def get_training_args(
     load_best_model_at_end: bool = True,
     metric_for_best_model: str = "loss",
     greater_is_better: bool = False,
+    seed: int = 42,
     **kwargs,
 ) -> TrainingArguments:
     """
@@ -122,6 +123,7 @@ def get_training_args(
         metric_for_best_model=metric_for_best_model,
         greater_is_better=greater_is_better,
         remove_unused_columns=False,  # Keep all columns for multi-task
+        seed=seed,
         **filtered_kwargs,
     )
 
@@ -142,6 +144,7 @@ def train_multitask(
     phase: str = "supervised",
     resume_from_checkpoint: Optional[str] = None,
     auto_resume: bool = True,
+    seed: int = 42,
     **kwargs,
 ) -> Dict[str, Any]:
     """
@@ -199,6 +202,7 @@ def train_multitask(
         batch_size=batch_size,
         learning_rate=learning_rate,
         eval_strategy=eval_strategy,
+        seed=seed,
         **kwargs,
     )
 

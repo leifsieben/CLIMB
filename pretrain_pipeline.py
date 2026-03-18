@@ -286,6 +286,7 @@ def train_unsupervised_phase(
         report_to=[],
         remove_unused_columns=False,
         max_steps=max_steps,
+        seed=mlm_cfg.seed,
     )
 
     # Transformers >=4.57 renamed evaluation_strategy -> eval_strategy.
@@ -389,6 +390,7 @@ def run_supervised_phase(
         gradient_accumulation_steps=training_cfg.gradient_accumulation_steps,
         max_grad_norm=training_cfg.max_grad_norm,
         dataloader_num_workers=training_cfg.dataloader_num_workers,
+        seed=training_cfg.seed,
         save_encoder=True,
         spot_mode=spot_mode,
         metrics_path=metrics_path,
@@ -545,6 +547,7 @@ def run_supervised_families(
             gradient_accumulation_steps=config.supervised_training.gradient_accumulation_steps,
             max_grad_norm=config.supervised_training.max_grad_norm,
             dataloader_num_workers=config.supervised_training.dataloader_num_workers,
+            seed=config.supervised_training.seed,
             max_steps=max_steps,
             save_encoder=True,
             spot_mode=spot_mode,

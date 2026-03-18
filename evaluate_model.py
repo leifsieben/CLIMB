@@ -49,6 +49,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score, mean_squared
 import torch
 from torch.utils.data import Dataset
 from transformers import (
+    EarlyStoppingCallback,
     RobertaForSequenceClassification,
     Trainer,
     TrainingArguments,
@@ -379,10 +380,11 @@ def evaluate_on_dataset(
     batch_size: int = 32,
     learning_rate: float = 2e-5,
     predictions_csv: str = None,
+    early_stopping_patience: int = 10,
 ):
     """
     Fine-tune pretrained encoder on downstream task and evaluate
-    
+
     Args:
         pretrained_model_path: Path to pretrained model directory
         dataset_splits: Dict with 'train', 'val', 'test' data
@@ -514,6 +516,7 @@ def evaluate_on_dataset(
         train_dataset=tokenized_splits['train'],
         eval_dataset=tokenized_splits.get('val'),
         data_collator=collate_fn,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=early_stopping_patience)],
     )
     
     # Fine-tune
@@ -897,6 +900,8 @@ def main():
     parser.add_argument("--num_epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=2e-5)
+    parser.add_argument("--early_stopping_patience", type=int, default=10,
+                        help="Stop fine-tuning after this many epochs with no eval_loss improvement")
     parser.add_argument("--log_file", help="Log file path")
     parser.add_argument("--predictions_csv", help="Optional path to save SMILES/predictions/labels CSV")
 
@@ -959,6 +964,7 @@ def main():
             batch_size=args.batch_size,
             learning_rate=args.learning_rate,
             predictions_csv=args.predictions_csv,
+            early_stopping_patience=args.early_stopping_patience,
         )
 
 
