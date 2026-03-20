@@ -65,9 +65,26 @@ class MultiTaskTrainer(TokenBudgetTrainer):
         )
 
         loss = outputs.get('loss')
-        if loss is None:
-            # No valid labels in batch - return zero loss
-            loss = torch.tensor(0.0, device=inputs['input_ids'].device, requires_grad=True)
+        if loss is None or torch.isnan(loss):
+            # No valid labels in batch, or NaN loss from a bad batch.
+            # Return a zero loss that is *connected to the model graph* so that
+            # the HF/AMP GradScaler sees real (zero) gradients rather than None.
+            # This prevents the 0.0 * inf = NaN corruption that occurs when:
+            #   1. A disconnected leaf tensor gives grad=None to all parameters.
+            #   2. The GradScaler's inv_scale drifts to inf (scale→0 after many
+            #      inf-detection halvings from occasional huge regression losses).
+            #   3. None-grad parameters are skipped by unscale_(), GradScaler
+            #      sees no overflow → scale keeps growing.
+            #   4. When scale eventually underflows to 0.0, inv_scale=inf, and
+            #      0.0 * inf = NaN (IEEE 754) corrupts all weights.
+            # Multiplying a model parameter by 0 gives proper zero gradients
+            # that flow back through the graph, keeping the GradScaler healthy.
+            try:
+                first_param = next(p for p in model.parameters() if p.requires_grad)
+                loss = first_param.sum() * 0.0
+            except StopIteration:
+                loss = torch.tensor(0.0, device=inputs['input_ids'].device,
+                                    requires_grad=True)
 
         return (loss, outputs) if return_outputs else loss
 

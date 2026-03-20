@@ -387,7 +387,13 @@ def run_supervised_phase(
         logging_steps=training_cfg.logging_steps,
         save_steps=training_cfg.save_steps,
         eval_steps=training_cfg.eval_steps,
-        fp16=training_cfg.fp16,
+        # fp16 is intentionally disabled for supervised training regardless of
+        # config.  Regression targets (e.g. PCQM quantum chemistry values in
+        # Hartrees) routinely exceed the FP16 max (65504), causing the loss to
+        # be inf.  Combined with batches that have all-masked labels (loss=None
+        # → graph-disconnected zero), the AMP GradScaler scale underflows to 0,
+        # which makes inv_scale=inf, and 0.0 × inf = NaN corrupts all weights.
+        fp16=False,
         gradient_accumulation_steps=training_cfg.gradient_accumulation_steps,
         max_grad_norm=training_cfg.max_grad_norm,
         dataloader_num_workers=training_cfg.dataloader_num_workers,
@@ -575,7 +581,11 @@ def run_supervised_families(
             logging_steps=config.supervised_training.logging_steps,
             save_steps=config.supervised_training.save_steps,
             eval_steps=0,
-            fp16=config.supervised_training.fp16,
+            # fp16=False — see comment in run_supervised_phase(); same issue
+            # applies here: PCQM and other regression families have targets that
+            # overflow FP16, and all-masked batches starve the GradScaler until
+            # its scale underflows to 0, causing 0×inf=NaN weight corruption.
+            fp16=False,
             gradient_accumulation_steps=config.supervised_training.gradient_accumulation_steps,
             max_grad_norm=config.supervised_training.max_grad_norm,
             dataloader_num_workers=config.supervised_training.dataloader_num_workers,
