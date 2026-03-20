@@ -17,6 +17,7 @@ import logging
 import pickle
 import math
 import inspect
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union, Optional
@@ -286,6 +287,7 @@ def train_unsupervised_phase(
         report_to=[],
         remove_unused_columns=False,
         max_steps=max_steps,
+        seed=mlm_cfg.seed,
     )
 
     # Transformers >=4.57 renamed evaluation_strategy -> eval_strategy.
@@ -385,10 +387,17 @@ def run_supervised_phase(
         logging_steps=training_cfg.logging_steps,
         save_steps=training_cfg.save_steps,
         eval_steps=training_cfg.eval_steps,
-        fp16=training_cfg.fp16,
+        # fp16 is intentionally disabled for supervised training regardless of
+        # config.  Regression targets (e.g. PCQM quantum chemistry values in
+        # Hartrees) routinely exceed the FP16 max (65504), causing the loss to
+        # be inf.  Combined with batches that have all-masked labels (loss=None
+        # → graph-disconnected zero), the AMP GradScaler scale underflows to 0,
+        # which makes inv_scale=inf, and 0.0 × inf = NaN corrupts all weights.
+        fp16=False,
         gradient_accumulation_steps=training_cfg.gradient_accumulation_steps,
         max_grad_norm=training_cfg.max_grad_norm,
         dataloader_num_workers=training_cfg.dataloader_num_workers,
+        seed=training_cfg.seed,
         save_encoder=True,
         spot_mode=spot_mode,
         metrics_path=metrics_path,
@@ -519,9 +528,40 @@ def run_supervised_families(
                     avg_tokens_per_sample=avg_len,
                 )
         else:
-            row_count = count_rows_with_any_label(parquet_path, family.columns)
+            # Count rows that have at least one non-null label.
+            # count_rows_with_any_label can return 0 on transient S3 issues (observed
+            # with large column sets like PCBA's 1328 columns).  Retry up to 3 times
+            # before falling back to an estimate.
+            row_count = 0
+            for _attempt in range(3):
+                row_count = count_rows_with_any_label(parquet_path, family.columns)
+                logger.info(
+                    "Family %s: count_rows_with_any_label=%d (attempt %d/3)",
+                    family.name, row_count, _attempt + 1,
+                )
+                if row_count > 0:
+                    break
+                if _attempt < 2:
+                    logger.warning(
+                        "count_rows_with_any_label returned 0 for family %s; "
+                        "retrying in 10s (attempt %d/3)…",
+                        family.name, _attempt + 1,
+                    )
+                    time.sleep(10)
             if row_count <= 0:
-                raise ValueError(f"No rows with labels found for family {family.name}")
+                # All retries exhausted.  Estimate from label_count / num_columns,
+                # which gives the average number of rows that carry any label value —
+                # a safe lower-bound proxy for the true rows-with-any-label count.
+                if family.label_count > 0:
+                    row_count = max(1, family.label_count // max(len(family.columns), 1))
+                    logger.warning(
+                        "count_rows_with_any_label still 0 after 3 attempts for family %s. "
+                        "Estimating row_count=%d from label_count=%d / %d columns. "
+                        "max_steps may be slightly over-estimated.",
+                        family.name, row_count, family.label_count, len(family.columns),
+                    )
+                else:
+                    raise ValueError(f"No rows with labels found for family {family.name}")
             steps_per_epoch = int(math.ceil(row_count / max(config.supervised_training.batch_size, 1)))
             max_steps = max(1, steps_per_epoch * max(config.supervised_training.num_epochs, 1))
 
@@ -541,10 +581,15 @@ def run_supervised_families(
             logging_steps=config.supervised_training.logging_steps,
             save_steps=config.supervised_training.save_steps,
             eval_steps=0,
-            fp16=config.supervised_training.fp16,
+            # fp16=False — see comment in run_supervised_phase(); same issue
+            # applies here: PCQM and other regression families have targets that
+            # overflow FP16, and all-masked batches starve the GradScaler until
+            # its scale underflows to 0, causing 0×inf=NaN weight corruption.
+            fp16=False,
             gradient_accumulation_steps=config.supervised_training.gradient_accumulation_steps,
             max_grad_norm=config.supervised_training.max_grad_norm,
             dataloader_num_workers=config.supervised_training.dataloader_num_workers,
+            seed=config.supervised_training.seed,
             max_steps=max_steps,
             save_encoder=True,
             spot_mode=spot_mode,
