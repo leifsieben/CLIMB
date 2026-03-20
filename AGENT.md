@@ -26,4 +26,36 @@ This is the master pretraining dataset containing:
 - SMILES column: `SMILES_std` (standardized)
 - Wide format with NaN for missing labels
 
-Use this dataset for all pretraining runs. The multi-task data loader handles missing labels via masked loss.a
+Use this dataset for all pretraining runs. The multi-task data loader handles missing labels via masked loss.
+
+# Experiment Decisions
+
+## Token budget: 1B tokens for coverage and mixed experiments
+
+**Decided 2026-03-19.**
+
+All coverage ablation and mixed MLM/supervised ratio runs (worker2, 20 total) use a **1B token budget**. Worker0's unsupervised ramp-up experiments are **kept at 10B** as a scaling control.
+
+Key reasons:
+- 10B × 20 runs on a single g5.2xlarge ≈ 62 days; 1B × 20 ≈ 6–7 days.
+- 1B tokens is within the range of published chemical language models (ChemBERTa: 300M–2B, smi-ted: 3B, MolBERT: 80M).
+- At 13M parameters, 1B tokens ≈ 77 tokens/param — well into the overtraining regime for BERT-style encoders, which is desirable for downstream fine-tuning.
+- The 13M param model is intentionally small to fit the 60+ run ablation matrix on 3 spot nodes within the project timeline.
+- Worker0's 10B ramp-up provides the scaling control needed to assess whether more tokens improve downstream performance.
+
+**When running new experiments, use `total_tokens: 1000000000` (1B) for all unsupervised_fixed_budget and mixed_fixed_budget runs unless explicitly studying token-budget scaling.**
+
+## Model architecture: 13M parameters
+
+**Decided during initial HPO.** RoBERTa-style encoder with:
+- `hidden_size: 256`
+- `num_hidden_layers: 10`
+- `num_attention_heads: 8`
+- `intermediate_size: 1024`
+- `max_position_embeddings: 514` (512-token sequences + 2 special tokens)
+
+This size is appropriate for: the SMILES domain (short sequences, ~30–50 tokens median), the supervised dataset scale (~1.5M molecules), and the ablation matrix scope. See README "Decision: 1B token budget" section for full defence.
+
+## Training seed
+
+Both `MLMTrainingConfig` and `MultiTaskTrainingConfig` have a `seed` field (default `42`). Set explicitly in YAML configs for reproducibility across replicates. The seed is forwarded to HuggingFace `TrainingArguments`, which calls `set_seed()` and seeds dataloader workers.

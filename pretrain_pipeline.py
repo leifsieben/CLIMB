@@ -17,6 +17,7 @@ import logging
 import pickle
 import math
 import inspect
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union, Optional
@@ -521,19 +522,38 @@ def run_supervised_families(
                     avg_tokens_per_sample=avg_len,
                 )
         else:
-            row_count = count_rows_with_any_label(parquet_path, family.columns)
-            logger.info("Family %s: count_rows_with_any_label=%d", family.name, row_count)
-            if row_count <= 0:
-                # Fallback: count_rows_with_any_label can return 0 on transient S3 errors.
-                # Use label_count (total non-null label values) as a conservative row estimate.
-                if family.label_count > 0:
+            # Count rows that have at least one non-null label.
+            # count_rows_with_any_label can return 0 on transient S3 issues (observed
+            # with large column sets like PCBA's 1328 columns).  Retry up to 3 times
+            # before falling back to an estimate.
+            row_count = 0
+            for _attempt in range(3):
+                row_count = count_rows_with_any_label(parquet_path, family.columns)
+                logger.info(
+                    "Family %s: count_rows_with_any_label=%d (attempt %d/3)",
+                    family.name, row_count, _attempt + 1,
+                )
+                if row_count > 0:
+                    break
+                if _attempt < 2:
                     logger.warning(
-                        "count_rows_with_any_label returned 0 for family %s but label_count=%d; "
-                        "likely a transient S3 scan error. Falling back to label_count for max_steps.",
-                        family.name,
-                        family.label_count,
+                        "count_rows_with_any_label returned 0 for family %s; "
+                        "retrying in 10s (attempt %d/3)…",
+                        family.name, _attempt + 1,
                     )
-                    row_count = family.label_count
+                    time.sleep(10)
+            if row_count <= 0:
+                # All retries exhausted.  Estimate from label_count / num_columns,
+                # which gives the average number of rows that carry any label value —
+                # a safe lower-bound proxy for the true rows-with-any-label count.
+                if family.label_count > 0:
+                    row_count = max(1, family.label_count // max(len(family.columns), 1))
+                    logger.warning(
+                        "count_rows_with_any_label still 0 after 3 attempts for family %s. "
+                        "Estimating row_count=%d from label_count=%d / %d columns. "
+                        "max_steps may be slightly over-estimated.",
+                        family.name, row_count, family.label_count, len(family.columns),
+                    )
                 else:
                     raise ValueError(f"No rows with labels found for family {family.name}")
             steps_per_epoch = int(math.ceil(row_count / max(config.supervised_training.batch_size, 1)))

@@ -266,10 +266,36 @@ For ramp experiments, 50B tokens is not required. Start with **10B total tokens*
 - 10/25/50/75/100% of 10B → 1B, 2.5B, 5B, 7.5B, 10B
 Scale up only if the loss‑vs‑tokens curve is still improving.
 
-**Comparability note:** the ramp experiments are **token‑budgeted**, not dataset‑fraction‑limited.  
+**Comparability note:** the ramp experiments are **token‑budgeted**, not dataset‑fraction‑limited.
 Each run stops after a target number of tokens are seen, even though the full dataset is streamed.
 
 **Planned Stage 2:** run a second series where we use random **data‑subset fractions** (10/25/50/75/100%) **while keeping the same compute budget**. This isolates data‑coverage effects from compute‑budget effects.
+
+#### Decision: 1B token budget for coverage and mixed experiments (worker2)
+
+**Decided 2026-03-19.** All 20 runs on worker2 (5 unsupervised coverage ablations + 15 mixed MLM/supervised ratio runs) use a **1B token budget** instead of the originally planned 10B. Worker0's unsupervised ramp-up (1M → 10B, 15 runs) is **kept at 10B** as a scaling control.
+
+**Rationale:**
+
+1. **Wall-clock time:** 20 × 10B runs on a single g5.2xlarge ≈ 62 days. 20 × 1B ≈ 6–7 days, fitting within the target 7–10 day window.
+
+2. **Literature comparison:** 1B tokens is well within the range used by published chemical language models at similar or larger scales:
+   - ChemBERTa (2020): ~300M–2B tokens, 125M params
+   - MolBERT: ~80M tokens, 85M params
+   - smi-ted (2024): ~3B tokens, 110M params
+   - ChemBERTa-2 (2022): up to 15B tokens, 85M params
+   At 13M params, 1B tokens gives ~77 tokens/param — well into the overtraining regime for BERT-style models. This is desirable for representation quality.
+
+3. **Scale defence for 13M params:** The 13M parameter count (hidden_size=256, num_layers=10, num_heads=8, intermediate=1024) is intentional:
+   - Enables a 60+ experiment ablation matrix on a 3-node spot cluster within the project timeline.
+   - Correctly sized relative to supervised dataset scale (~1.5M unique molecules, ~3,288 tasks).
+   - SMILES sequences are short (30–50 tokens median), so the encoder does not need large capacity to capture token-level dependencies.
+   - Overtrained at 1B tokens — but overtraining a small model produces better representations for fine-tuning than undertraining a large model with the same compute budget.
+   - Generalisation of the findings to larger models is a stated limitation; the paper argues the relative ordering of pretraining strategies is architecture-agnostic.
+
+4. **Scaling control preserved:** worker0 runs 1M → 10B token ramp-up experiments. These provide direct evidence of whether increasing token budget beyond 1B produces continued downstream improvement, supporting (or qualifying) the 1B choice.
+
+**Manifest impact:** `manifest.json` on worker2 was patched in-place; `total_tokens` changed from `10000000000` → `1000000000` for all 20 `unsupervised_fixed_budget` and `mixed_fixed_budget` runs. The per-run config YAMLs were also updated before restart.
 
 ---
 
@@ -596,3 +622,142 @@ Suggested reporting fields for paper appendix:
 - number of trials and selected trial ID,
 - final selected hyperparameters,
 - `seed` value used for all training phases.
+
+---
+
+## Paper Analysis Plan
+
+Central hypothesis: **Does unsupervised pretraining benefit the performance of chemical language models?**
+
+---
+
+### Aggregate performance scores
+
+Two scores are computed for every model and reported side-by-side throughout the paper:
+
+| Score | Tasks included | Purpose |
+|-------|---------------|---------|
+| **Score_full** | All MoleculeNet tasks (BBBP, Tox21, SIDER, ClinTox, MUV, HIV, PCBA, ESOL, FreeSolv, Lipophilicity) | Completeness; PCBA caveat noted |
+| **Score_unbiased** | All tasks **excluding PCBA** | Primary metric; free of supervised-pretraining/evaluation overlap risk |
+
+Construction: for each classification task compute ROC-AUC; for regression tasks compute RMSE normalised by the random-encoder-baseline RMSE on that task. Z-score across tasks before averaging so that high-variance tasks (e.g. PCBA with 128 sub-tasks) do not dominate. Report both scores in every table and every plot where a single performance number appears. The gap between them is itself informative about PCBA leakage magnitude.
+
+---
+
+### Planned plots
+
+#### Figure 1 — Unsupervised scaling curve
+- **X:** unsupervised token budget (log scale: 1M → 10B), worker0 data.
+- **Y:** Score_unbiased (mean ± std over 3 reps).
+- **Reference line:** random-encoder baseline (mean ± std over 5 reps).
+- **Purpose:** primary evidence for/against "more unsupervised pretraining helps".
+
+#### Figure 2 — Supervised scaling curve
+- **X:** supervised molecules / tokens seen (log scale), worker1 data.
+- **Y:** Score_unbiased (mean ± std over 5 reps).
+- **Reference line:** same random-encoder baseline.
+- **Faint lines:** individual family orderings (5 orderings as thin coloured lines), bold line = mean. The spread between orderings is the family-ordering variance band.
+- **Purpose:** primary evidence for/against "more supervised pretraining helps", and whether ordering matters.
+
+#### Figure 3 — 3D surface: unsupervised × supervised → performance
+- **X:** unsupervised tokens (log scale, 0 → 10B).
+- **Y:** supervised tokens (0 → 1B).
+- **Z:** Score_unbiased.
+- Rendered as both a 3D surface and a 2D heatmap. The heatmap is the primary figure; 3D is supplementary.
+- **Purpose:** identifies the optimal mix of unsupervised and supervised pretraining. If the maximum lies away from both axes, balanced pretraining is genuinely better than either alone.
+- Data sources: worker0 (unsup axis), worker1 (sup axis), worker2 mixed ratios (interior points).
+
+#### Figure 4 — PCBA leakage diagnostic
+- Side-by-side: Score_full vs. Score_unbiased for each run type (unsup-only, sup-only, mixed) with PCBA pretraining highlighted.
+- Additionally, a per-run scatter: (Score_full − Score_unbiased) on the Y axis vs. run type / token budget on X. If PCBA pretraining inflates Score_full relative to Score_unbiased, the gap is large and systematic.
+- **Purpose:** demonstrates whether PCBA's inclusion in supervised pretraining biases evaluation. Motivates Score_unbiased as primary metric.
+- Follow-up (if gap is large): run models without PCBA in the supervised family set and compare PCBA evaluation directly — confirms leakage vs. genuine representation learning.
+
+#### Figure 5 — Molecule overlap confusion matrix
+Split all molecules in the MoleculeNet evaluation sets into four groups based on their presence in the pretraining corpora:
+
+| Group | In unsupervised corpus? | In supervised corpus? |
+|-------|------------------------|----------------------|
+| A | ✓ | ✓ |
+| B | ✓ | ✗ |
+| C | ✗ | ✓ |
+| D | ✗ | ✗ |
+
+For each group, compute per-task and aggregate evaluation performance. Present as a 2×2 confusion matrix heatmap with performance as the cell colour. Key questions:
+- Do molecules seen in both corpora score best (memorisation vs. representation)?
+- Do novel molecules (group D) still benefit from pretraining, or does performance collapse to baseline?
+- Is supervised exposure more important than unsupervised exposure for seen molecules?
+This directly characterises whether the model is generalising or memorising. Matching is done by canonical SMILES (RDKit canonicalisation + salt stripping).
+
+#### Figure 6 — Permutation analysis (supervised family ordering)
+- Box plots: one box per family ordering (5 orderings × 5 reps), Score_unbiased on Y axis.
+- Supplementary: per-task breakdowns to check if specific tasks are ordering-sensitive.
+- **Purpose:** determines whether the sequence of supervised families during pretraining is a meaningful design choice. If all boxes overlap, the finding is robust to ordering.
+
+#### Figure 7 — Coverage ablation
+- **X:** % of unsupervised corpus used (10, 25, 50, 75, 100% of PubChem-filtered shards).
+- **Y:** Score_unbiased. All runs at 1B token budget (worker2).
+- Separates "how much chemical-space breadth" from "how much compute". A flat curve means coverage beyond a threshold adds nothing; a rising curve means broader coverage matters.
+
+---
+
+### Planned follow-up experiments
+
+The following experiments are not in the current matrix and will be launched after the main wave completes.
+
+#### F1 — Random-encoder baseline (5 runs) [CRITICAL]
+No pretraining; same architecture initialised randomly. Full MoleculeNet evaluation suite with 5 different random seeds. Establishes the zero-pretraining performance floor and its variance. Every performance claim in the paper requires this baseline.
+
+#### F2 — Reversed training order: supervised → unsupervised (3 runs)
+Standard order is unsupervised first, then supervised. Run 3 replicates with the order reversed at matched total compute (1B supervised + 1B unsupervised). Prediction: reversed order degrades performance because supervised fine-tuning overwrites generic representations before they are consolidated by MLM. Confirming this supports the conventional pipeline; a null result would be a notable finding.
+
+#### F3 — PCBA leave-one-out (conditional)
+Pursue only if Figure 4 shows a large, systematic (Score_full − Score_unbiased) gap. Train models with PCBA excluded from supervised families; compare PCBA evaluation directly. Distinguishes label memorisation from representation learning as the driver of PCBA evaluation performance.
+
+#### F4 — Full fine-tuning vs. frozen encoder (optional)
+All main evaluations freeze the encoder and train only the MoleculeNet head. Run a parallel sweep with full end-to-end fine-tuning on 3 representative models (random baseline, best unsup-only, best mixed). If pretraining helps with frozen encoder but not with full fine-tuning, the benefit is fragile. If it helps either way, it is robust.
+
+---
+
+### Hypothesis resolution framework
+
+| Sub-question | Data source | Positive evidence | Negative evidence |
+|---|---|---|---|
+| Does any unsupervised pretraining help? | Figure 1 vs. random baseline | Curve significantly above baseline at any token budget | Curve overlaps baseline CI throughout |
+| Does more unsupervised data monotonically help? | Figure 1 shape | Log-linear increase with flattening | Flat or non-monotone curve |
+| Does supervised pretraining help independently? | Figure 2 vs. random baseline | Same as above for sup curve | Same negative |
+| Is the combination better than either alone? | Figure 3 interior vs. axes | Interior maximum above both axes | Optimum lies on an axis (pure strategy wins) |
+| Is the benefit robust to training order? | F2 | Reversed order within CI of standard order | Large degradation under reversal |
+| Is the benefit from representation or memorisation? | Figure 5 | Group D (novel molecules) scores near group A | Group D collapses to random baseline |
+| Is PCBA evaluation biased? | Figure 4 | Large systematic Score_full − Score_unbiased gap for supervised runs | Gap is small and uniform across run types |
+
+---
+
+### Stage 2: Model scaling experiments
+
+To be planned once the main wave results are in hand. The exact design will depend on whether unsupervised pretraining shows a benefit — the working assumption is that it will not, which means the data ceiling is set by the supervised corpus (~1.5M labelled molecules) rather than the unlabelled PubChem pool.
+
+#### Motivation
+The current 13M-parameter model was chosen for ablation-matrix throughput, not for peak performance. Stage 2 asks: given the best pretraining recipe identified in Stage 1, how far does performance continue to scale with model size? This is the Chinchilla framing applied to chemical language models: hold the dataset size D fixed (at the supervised corpus ceiling) and vary N (parameters).
+
+#### F5 — Best-recipe large-model run (1 run, details TBD)
+Train a single large model (size TBD, likely 100–200M params) using the best pretraining configuration identified from the main matrix (optimal unsup/sup mix, optimal token budget, best family ordering). Compare its Score_unbiased against the 13M model trained identically. This establishes whether the qualitative findings from Stage 1 hold at a scale relevant to practitioners, and whether the 13M model is an adequate proxy for larger models.
+
+#### F6 — Chinchilla-style model-size scaling curve
+Fix dataset size D at the supervised corpus (1.5M molecules, ~1B tokens), fix the training recipe to the Stage 1 optimum, and train models at four parameter counts:
+
+| Model | Hidden | Layers | Heads | Intermediate | ~Params |
+|-------|--------|--------|-------|-------------|---------|
+| CLIMB-13M | 256 | 10 | 8 | 1024 | 13M |
+| CLIMB-50M | 512 | 12 | 8 | 2048 | ~50M |
+| CLIMB-100M | 768 | 12 | 12 | 3072 | ~100M |
+| CLIMB-200M | 1024 | 16 | 16 | 4096 | ~200M |
+
+Run 3 replicates per size (budget permitting; at minimum 1 rep per size + 3 reps at 13M from the main wave). Plot Score_unbiased vs. log(N). Key questions:
+- Does performance continue to improve log-linearly with N, or is there an inflection point?
+- At what model size does the supervised-data ceiling become the binding constraint (i.e., the curve flattens)?
+- Does the optimal unsup/sup mix shift as N grows (larger models may extract more signal from unsupervised data)?
+
+**Architecture note:** keep `max_position_embeddings: 514` and tokenizer fixed across all sizes. Only scale hidden_size, num_layers, num_heads, intermediate_size. This ensures token representations are comparable across sizes and only capacity changes.
+
+**Compute note:** CLIMB-200M at 1B tokens on a g5.2xlarge is approximately 3–4× slower than CLIMB-13M (rough estimate: ~30–35 hours per run). Budget ~1 week of EC2 time for the full F6 series at 1 rep per size; ~3 weeks for 3 reps. Replicates can be parallelised across a 3-node cluster identical to the current setup.
