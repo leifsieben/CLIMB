@@ -11,10 +11,14 @@ Performance is always measured by MoleculeNet performance. Finetune on that data
 # How
 
 * Keep the codebase as simple as possible. Use as many standard, well-maintained, common packages (transformers, pytorch, scipy, etc) as possible.
-* Always keep the version on the local machine, the git, and the EC2 instance up to date and consistent code wise. 
-* Make sure you alwyas ask the user for permission to spin up EC2 instances. You have a limit of 16 vCPU on AWS. 
+* Always keep the version on the local machine, the git, and the EC2 instance up to date and consistent code wise.
+* Make sure you alwyas ask the user for permission to spin up EC2 instances. You have a limit of 16 vCPU on AWS.
 * Ultimately the model should be light-weight, fast, and easy to interface.
 * Assume that all molecules will be inputted as SMILES. For now, we don't need to support other formats. Do check whether a SMILES is valid and we will have to do graph construction as well.
+
+## Shell scripting rules
+
+* **Never use `declare -A` (associative arrays) in bash scripts.** macOS ships with bash 3.2, which does not support associative arrays. String keys silently evaluate to index 0, so all lookups return the same value — a bug that is very hard to notice. Use `case` statements for key→value lookups instead.
 
 # Pretraining Data
 
