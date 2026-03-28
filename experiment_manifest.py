@@ -25,7 +25,16 @@ DEFAULT_SUPERVISED_FAMILIES = [
     {"name": "L1000_VCAP", "prefix": "L1000_VCAP__"},
     {"name": "PCBA", "prefix": "PCBA__"},
 ]
-DEFAULT_UNSUPERVISED_BASELINES = [1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000]
+DEFAULT_UNSUPERVISED_BASELINES = [
+    1_000_000,
+    10_000_000,
+    50_000_000,
+    100_000_000,
+    250_000_000,
+    500_000_000,
+    1_000_000_000,
+    10_000_000_000,
+]
 DEFAULT_UNSUPERVISED_COVERAGE = [0.10, 0.25, 0.50, 0.75, 1.00]
 DEFAULT_MIXED_RATIOS = [(0.10, 0.90), (0.20, 0.80), (0.50, 0.50), (0.80, 0.20), (0.90, 0.10)]
 DEFAULT_MOLECULENET_DATASETS = [
@@ -440,10 +449,17 @@ def generate_manifest(spec: Dict[str, Any], spec_path: Optional[str] = None) -> 
     summary = {
         "main_counts": dict(counts),
         "expected": {
-            "unsupervised_baseline": 15,
-            "supervised_order_ramp": 25,
-            "unsupervised_fixed_budget": 5,
-            "mixed_fixed_budget": 15,
+            "unsupervised_baseline": len(
+                spec.get("unsupervised_baseline_budgets", DEFAULT_UNSUPERVISED_BASELINES)
+            )
+            * spec.get("unsupervised_baseline_replicates", 3),
+            "supervised_order_ramp": len(spec.get("supervised_families", DEFAULT_SUPERVISED_FAMILIES))
+            * spec.get("supervised_order_sequences_per_k", 5),
+            "unsupervised_fixed_budget": len(
+                spec.get("unsupervised_coverage_fractions", DEFAULT_UNSUPERVISED_COVERAGE)
+            ),
+            "mixed_fixed_budget": len(spec.get("mixed_ratios", DEFAULT_MIXED_RATIOS))
+            * spec.get("mixed_replicates", 3),
         },
         "smoke_runs": 3,
         "total_runs": len(runs),
@@ -467,4 +483,3 @@ def write_manifest(manifest: Dict[str, Any], output_path: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
         json.dump(manifest, f, indent=2)
-

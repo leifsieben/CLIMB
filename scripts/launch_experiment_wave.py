@@ -65,6 +65,29 @@ def _terminate(proc: subprocess.Popen) -> None:
         proc.kill()
 
 
+def _s3_object_exists(s3_uri: str) -> bool:
+    result = subprocess.run(
+        ["aws", "s3", "ls", s3_uri],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _should_skip_existing(run: Dict) -> bool:
+    run_dir = Path(run["output_dir"])
+    if (run_dir / "metadata.json").exists():
+        return True
+    if Path(run["evaluation_output_dir"], "suite_summary.json").exists():
+        return True
+
+    backup_s3_uri = run.get("backup_s3_uri")
+    if not backup_s3_uri:
+        return False
+    return _s3_object_exists(f"{backup_s3_uri}/moleculenet/suite_summary.json")
+
+
 def _write_run_context(run: Dict, worker_name: str) -> None:
     run_dir = Path(run["output_dir"])
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -166,10 +189,10 @@ def main() -> None:
 
     evaluation_cfg = manifest.get("evaluation", {})
     for run in runs:
-        run_dir = Path(run["output_dir"])
-        if args.skip_existing and (run_dir / "metadata.json").exists():
+        if args.skip_existing and _should_skip_existing(run):
             print(f"Skipping existing run {run['run_id']}")
             continue
+        run_dir = Path(run["output_dir"])
         _write_run_context(run, args.worker_name)
         backup_proc = None
         try:

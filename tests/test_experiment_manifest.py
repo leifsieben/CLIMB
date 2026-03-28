@@ -87,12 +87,12 @@ class ExperimentManifestTests(unittest.TestCase):
 
     def test_manifest_counts_match_plan(self):
         manifest = generate_manifest(self.spec)
-        self.assertEqual(manifest["summary"]["expected"]["unsupervised_baseline"], 15)
+        self.assertEqual(manifest["summary"]["expected"]["unsupervised_baseline"], 24)
         self.assertEqual(manifest["summary"]["expected"]["supervised_order_ramp"], 25)
         self.assertEqual(manifest["summary"]["expected"]["unsupervised_fixed_budget"], 5)
         self.assertEqual(manifest["summary"]["expected"]["mixed_fixed_budget"], 15)
         self.assertEqual(manifest["summary"]["smoke_runs"], 3)
-        self.assertEqual(len(manifest["runs"]), 63)
+        self.assertEqual(len(manifest["runs"]), 72)
 
     def test_manifest_runs_embed_repro_metadata(self):
         manifest = generate_manifest(self.spec)
