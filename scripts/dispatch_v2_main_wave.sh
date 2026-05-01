@@ -17,15 +17,15 @@ if [ ! -f "$CLUSTER_CONFIG" ]; then
   exit 1
 fi
 
-python3 - <<EOF
+CLUSTER_CONFIG="$CLUSTER_CONFIG" KEY_PATH="$KEY_PATH" python3 - <<'EOF'
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-cfg = json.loads(Path("$CLUSTER_CONFIG").read_text())
-key = "$KEY_PATH"
+cfg = json.loads(Path(os.environ["CLUSTER_CONFIG"]).read_text())
+key = os.environ["KEY_PATH"]
 
 for w in cfg["workers"]:
     name = w["name"]
@@ -48,7 +48,7 @@ for w in cfg["workers"]:
         f"{run_args} "
         f"--worker_name {name} "
         f">> /home/ec2-user/artifacts/robust_matrix_v2_logs/main_wave.log 2>&1 < /dev/null & "
-        f"echo \"pid \\$!\""
+        "echo pid $!"
     )
 
     print(f"[{name}] dispatching {len(run_ids)} runs ...")
