@@ -158,19 +158,32 @@ def load_supervised_inram(
     attention_mask = attention_mask[has_label]
     labels = labels[has_label]
 
-    # Infer task type per column: if all non-NaN values are in {0,1}, classification.
-    task_types = []
+    # Infer task type per column AND z-score normalise regression columns to keep
+    # the supervised loss in the same magnitude as the MLM loss. Without this,
+    # raw L1000 columns (gene-expression z-scores, magnitude up to ~1000) blow up
+    # the gradient and the encoder learns only the supervised signal.
+    task_types: List[str] = []
     for j in range(labels.shape[1]):
         col = labels[:, j]
-        col = col[~torch.isnan(col)]
-        if col.numel() == 0:
+        valid = ~torch.isnan(col)
+        if valid.sum() == 0:
             task_types.append("regression")
             continue
-        unique_vals = torch.unique(col)
+        unique_vals = torch.unique(col[valid])
         if unique_vals.numel() <= 2 and torch.all((unique_vals == 0) | (unique_vals == 1)):
             task_types.append("classification")
-        else:
-            task_types.append("regression")
+            continue
+        # regression: z-score normalise on non-NaN values
+        task_types.append("regression")
+        mean = col[valid].mean()
+        std = col[valid].std()
+        if torch.isfinite(std) and std > 1e-6:
+            col_norm = (col - mean) / std
+            # Clip extreme outliers (>10 sigma) for stability
+            col_norm = torch.clamp(col_norm, min=-10.0, max=10.0)
+            # Preserve NaNs
+            col_norm[~valid] = float("nan")
+            labels[:, j] = col_norm
 
     return input_ids, attention_mask, labels, label_cols, task_types
 
