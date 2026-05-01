@@ -68,6 +68,7 @@ def load_supervised_inram(
     max_rows: Optional[int] = None,
     min_label_density: float = 0.001,
     label_dtype: str = "float16",
+    default_max_rows: int = 1_000_000,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[str], List[str]]:
     """Load (input_ids, attention_mask, labels) into RAM for the requested families.
 
@@ -103,15 +104,23 @@ def load_supervised_inram(
 
     # Get total row count to pre-allocate (avoid chunk-list growth).
     total_rows = ds_obj.count_rows()
-    n_alloc = total_rows if max_rows is None else min(total_rows, max_rows)
-    print(f"[load_supervised_inram] {len(label_cols)} label cols, {n_alloc} rows ({families})", flush=True)
+    cap = max_rows if max_rows is not None else default_max_rows
+    n_alloc = min(total_rows, cap)
+    np_dtype = {"float16": np.float16, "bfloat16": np.float32, "float32": np.float32}[label_dtype]
+    label_bytes = 2 if label_dtype == "float16" else 4
+    expected_label_gb = n_alloc * len(label_cols) * label_bytes / 1e9
+    print(
+        f"[load_supervised_inram] {len(label_cols)} label cols, {n_alloc}/{total_rows} rows, "
+        f"~{expected_label_gb:.1f} GB labels in RAM (dtype={label_dtype})",
+        flush=True,
+    )
 
     columns = ["input_ids", "attention_mask"] + label_cols
 
     # Pre-allocate (writes directly avoid concat double-copy).
     input_ids = np.zeros((n_alloc, max_length), dtype=np.int32)
     attention_mask = np.zeros((n_alloc, max_length), dtype=np.int8)
-    labels = np.full((n_alloc, len(label_cols)), np.nan, dtype=np.float32)
+    labels = np.full((n_alloc, len(label_cols)), np.nan, dtype=np_dtype)
 
     write_idx = 0
     for batch_idx, batch in enumerate(ds_obj.to_batches(columns=columns, batch_size=8192)):
@@ -142,10 +151,10 @@ def load_supervised_inram(
             if np_col.dtype == np.object_:
                 col_floats = np.array(
                     [float(v) if v is not None else np.nan for v in np_col[:n]],
-                    dtype=np.float32,
+                    dtype=np_dtype,
                 )
             else:
-                col_floats = np_col[:n].astype(np.float32, copy=False)
+                col_floats = np_col[:n].astype(np_dtype, copy=False)
             labels[write_idx : write_idx + n, j] = col_floats
 
         write_idx += n
@@ -179,11 +188,10 @@ def load_supervised_inram(
         attention_mask = attention_mask[has_label]
         labels = labels[has_label]
 
-    # Convert to torch (still float32 for the z-score pass).
+    # Convert to torch.
     input_ids_t = torch.from_numpy(input_ids).to(torch.int64)
     attention_mask_t = torch.from_numpy(attention_mask).to(torch.int64)
     labels_t = torch.from_numpy(labels)
-    # Drop the original numpy arrays
     del input_ids, attention_mask, labels
     labels = labels_t
     input_ids = input_ids_t
@@ -195,31 +203,24 @@ def load_supervised_inram(
     # the gradient and the encoder learns only the supervised signal.
     task_types: List[str] = []
     for j in range(labels.shape[1]):
-        col = labels[:, j]
-        valid = ~torch.isnan(col)
+        # Compute stats in float32 for stability, write back in the storage dtype.
+        col_f32 = labels[:, j].to(torch.float32)
+        valid = ~torch.isnan(col_f32)
         if valid.sum() == 0:
             task_types.append("regression")
             continue
-        unique_vals = torch.unique(col[valid])
+        unique_vals = torch.unique(col_f32[valid])
         if unique_vals.numel() <= 2 and torch.all((unique_vals == 0) | (unique_vals == 1)):
             task_types.append("classification")
             continue
         task_types.append("regression")
-        mean = col[valid].mean()
-        std = col[valid].std()
+        mean = col_f32[valid].mean()
+        std = col_f32[valid].std()
         if torch.isfinite(std) and std > 1e-6:
-            col_norm = (col - mean) / std
+            col_norm = (col_f32 - mean) / std
             col_norm = torch.clamp(col_norm, min=-10.0, max=10.0)
             col_norm[~valid] = float("nan")
-            labels[:, j] = col_norm
-
-    # Cast labels to lower precision (huge memory saving for many-task labels).
-    if label_dtype == "float16":
-        labels = labels.to(torch.float16)
-    elif label_dtype == "bfloat16":
-        labels = labels.to(torch.bfloat16)
-    elif label_dtype != "float32":
-        raise ValueError(f"Unsupported label_dtype: {label_dtype}")
+            labels[:, j] = col_norm.to(labels.dtype)
 
     return input_ids, attention_mask, labels, label_cols, task_types
 
