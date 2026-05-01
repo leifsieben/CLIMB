@@ -1,0 +1,51 @@
+# CLIMB v2 robust matrix spec.
+#
+# Model: 25M params, 6 layers, 384 hidden.
+# Budget: 250M forward passes per run (B). Stretch: 500M, 1B.
+# Tasks: pre-registered 9-task subset (see config_v2.MOLECULENET_TASKS_V2).
+# Replicates: 3 pretraining seeds × 3 head seeds for every (encoder, dataset).
+
+name: robust_matrix_v2
+results_root: experiments/robust_matrix_v2
+s3_backup_root: s3://climb-s3-bucket/experiments/robust_matrix_v2
+
+tokenizer_path: s3://climb-s3-bucket/tokenizer_10M
+
+unsupervised_data_paths:
+  - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/
+
+supervised_tokenized_parquet_path: s3://climb-s3-bucket/tokenized/supervised_wide_parquet/
+
+# Optionally cap supervised in-RAM rows during smoke runs.
+max_supervised_rows: null
+unsupervised_subset_fraction: null
+
+include_stretch: true
+
+random_baseline_replicates: 3
+
+model:
+  hidden_size: 384
+  num_hidden_layers: 6
+  num_attention_heads: 6
+  intermediate_size: 1536
+  max_position_embeddings: 514
+  vocab_size: 1000
+
+training:
+  learning_rate: 2.0e-4
+  batch_size: 64
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  mlm_probability: 0.15
+  total_forward_passes: 250000000
+  seed: 42
+  bf16: true
+  log_every_steps: 100
+  dataloader_num_workers: 2
+
+evaluation:
+  freeze_encoder: true
+  num_epochs: 50
+  early_stopping_patience: 10
+  head_seeds: [0, 1, 2]
