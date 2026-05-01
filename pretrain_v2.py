@@ -78,35 +78,35 @@ class SupervisedMultiTaskHead(nn.Module):
         return self.linear(hidden_cls)
 
     def loss(self, preds: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        """NaN-masked multi-task loss. preds and labels: [B, T]."""
-        # Cast labels to preds dtype (labels may be float16 from the in-RAM loader).
-        labels = labels.to(preds.dtype)
-        valid = ~torch.isnan(labels)
+        """NaN-masked multi-task loss. preds and labels: [B, T].
+        Computed in float32 regardless of input dtype, for numerical stability under
+        bf16 autocast.
+        """
+        preds_f32 = preds.float()
+        labels_f32 = labels.float()
+        valid = torch.isfinite(labels_f32)
         if valid.sum() == 0:
-            return preds.sum() * 0.0  # keep graph alive
+            return preds_f32.sum() * 0.0
 
-        cls_cols = self.is_classification.unsqueeze(0).expand_as(labels)  # [B, T]
+        cls_cols = self.is_classification.unsqueeze(0).expand_as(labels_f32)
 
-        # classification loss: BCE with logits
         cls_valid = valid & cls_cols
-        cls_loss = torch.zeros((), device=preds.device, dtype=preds.dtype)
+        cls_loss = torch.zeros((), device=preds.device, dtype=torch.float32)
         if cls_valid.any():
             cls_loss = nn.functional.binary_cross_entropy_with_logits(
-                preds[cls_valid], labels[cls_valid], reduction="mean"
+                preds_f32[cls_valid], labels_f32[cls_valid], reduction="mean"
             )
 
-        # regression loss: MSE
         reg_valid = valid & ~cls_cols
-        reg_loss = torch.zeros((), device=preds.device, dtype=preds.dtype)
+        reg_loss = torch.zeros((), device=preds.device, dtype=torch.float32)
         if reg_valid.any():
             reg_loss = nn.functional.mse_loss(
-                preds[reg_valid], labels[reg_valid], reduction="mean"
+                preds_f32[reg_valid], labels_f32[reg_valid], reduction="mean"
             )
 
-        # If both modes contribute, average them; else use whichever fired.
         n_modes = (1 if cls_valid.any() else 0) + (1 if reg_valid.any() else 0)
         if n_modes == 0:
-            return preds.sum() * 0.0
+            return preds_f32.sum() * 0.0
         return (cls_loss + reg_loss) / max(n_modes, 1)
 
 

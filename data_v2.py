@@ -205,13 +205,21 @@ def load_supervised_inram(
     for j in range(labels.shape[1]):
         # Compute stats in float32 for stability, write back in the storage dtype.
         col_f32 = labels[:, j].to(torch.float32)
-        valid = ~torch.isnan(col_f32)
+        # Treat both NaN and inf as missing — inf in raw data would propagate
+        # through z-score normalization and produce NaN losses downstream.
+        valid = torch.isfinite(col_f32)
         if valid.sum() == 0:
             task_types.append("regression")
+            # Replace any non-finite values with NaN before storing.
+            col_f32 = torch.where(valid, col_f32, torch.tensor(float("nan")))
+            labels[:, j] = col_f32.to(labels.dtype)
             continue
         unique_vals = torch.unique(col_f32[valid])
         if unique_vals.numel() <= 2 and torch.all((unique_vals == 0) | (unique_vals == 1)):
             task_types.append("classification")
+            # Mark non-finite as NaN; classification keeps {0,1} values otherwise.
+            col_f32 = torch.where(valid, col_f32, torch.tensor(float("nan")))
+            labels[:, j] = col_f32.to(labels.dtype)
             continue
         task_types.append("regression")
         mean = col_f32[valid].mean()
@@ -219,7 +227,12 @@ def load_supervised_inram(
         if torch.isfinite(std) and std > 1e-6:
             col_norm = (col_f32 - mean) / std
             col_norm = torch.clamp(col_norm, min=-10.0, max=10.0)
-            col_norm[~valid] = float("nan")
+            # Set any non-finite (inf or NaN) entries to NaN.
+            col_norm = torch.where(valid, col_norm, torch.tensor(float("nan")))
+            labels[:, j] = col_norm.to(labels.dtype)
+        else:
+            # Constant column — write zeros for valid, NaN for invalid.
+            col_norm = torch.where(valid, torch.zeros_like(col_f32), torch.tensor(float("nan")))
             labels[:, j] = col_norm.to(labels.dtype)
 
     return input_ids, attention_mask, labels, label_cols, task_types
