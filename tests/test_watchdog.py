@@ -79,9 +79,10 @@ def test_watchdog_kills_stalled_process():
             "--metrics", str(metrics),
             "--stall_seconds", "3",
             "--max_seconds", "3600",
+            "--poll_seconds", "2",
+            "--sigterm_grace_seconds", "5",
         ])
-        rc = wd.wait(timeout=90)
-        # Watchdog returns 1 on a kill.
+        rc = wd.wait(timeout=30)
         assert rc == 1, f"watchdog rc {rc} != 1 (expected kill)"
         time.sleep(1)
         assert writer.poll() is not None, "writer still alive after watchdog kill"
@@ -106,9 +107,11 @@ def test_watchdog_does_not_kill_active_writer():
             "--metrics", str(metrics),
             "--stall_seconds", "60",
             "--max_seconds", "3600",
+            "--poll_seconds", "5",
+            "--sigterm_grace_seconds", "5",
         ])
-        writer_rc = writer.wait(timeout=90)
-        wd_rc = wd.wait(timeout=10)
+        writer_rc = writer.wait(timeout=120)
+        wd_rc = wd.wait(timeout=15)
         assert writer_rc == 0, f"writer rc {writer_rc} != 0 (active writer killed)"
         assert wd_rc == 0, f"watchdog rc {wd_rc} != 0 (false-positive kill)"
 
@@ -132,10 +135,11 @@ def test_watchdog_pauses_on_tmp_file():
             "--pid", str(writer.pid),
             "--metrics", str(metrics),
             "--stall_seconds", "3",
-            "--max_seconds", "60",  # hard cap fires instead
+            "--max_seconds", "20",  # hard cap fires instead
+            "--poll_seconds", "2",
+            "--sigterm_grace_seconds", "5",
         ])
-        wd_rc = wd.wait(timeout=90)
-        # Hard cap fires (returns 1).
+        wd_rc = wd.wait(timeout=45)
         assert wd_rc == 1, f"watchdog rc {wd_rc} != 1 (expected hard-cap kill)"
         time.sleep(1)
         assert writer.poll() is not None

@@ -57,6 +57,8 @@ def main():
     p.add_argument("--heartbeat", default=None)
     p.add_argument("--stall_seconds", type=int, default=1800)
     p.add_argument("--max_seconds", type=int, default=24 * 3600)
+    p.add_argument("--poll_seconds", type=int, default=POLL_SECONDS)
+    p.add_argument("--sigterm_grace_seconds", type=int, default=60)
     args = p.parse_args()
 
     metrics_path = Path(args.metrics)
@@ -67,7 +69,7 @@ def main():
           f"stall={args.stall_seconds}s max={args.max_seconds}s")
 
     while _pid_alive(args.pid):
-        time.sleep(POLL_SECONDS)
+        time.sleep(args.poll_seconds)
         now = time.time()
         elapsed = now - started
 
@@ -92,10 +94,9 @@ def main():
                       f"SIGTERM pid={args.pid}")
                 try:
                     os.kill(args.pid, signal.SIGTERM)
-                    # Give it 60s to clean up, then SIGKILL
-                    deadline = time.time() + 60
+                    deadline = time.time() + args.sigterm_grace_seconds
                     while _pid_alive(args.pid) and time.time() < deadline:
-                        time.sleep(2)
+                        time.sleep(min(2, max(0.1, args.sigterm_grace_seconds / 5)))
                     if _pid_alive(args.pid):
                         os.kill(args.pid, signal.SIGKILL)
                 except OSError:
