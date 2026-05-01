@@ -123,45 +123,73 @@ def load_supervised_inram(
     labels = np.full((n_alloc, len(label_cols)), np.nan, dtype=np_dtype)
 
     write_idx = 0
+    rows_scanned = 0
     for batch_idx, batch in enumerate(ds_obj.to_batches(columns=columns, batch_size=8192)):
         ids_arrow = batch.column(batch.schema.get_field_index("input_ids"))
         mask_arrow = batch.column(batch.schema.get_field_index("attention_mask"))
-        n = len(ids_arrow)
-        if write_idx + n > n_alloc:
-            n = n_alloc - write_idx
+        batch_n = len(ids_arrow)
+        rows_scanned += batch_n
+        if write_idx >= n_alloc:
+            break
 
-        ids_flat = np.asarray(ids_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int32)
-        mask_flat = np.asarray(mask_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int8)
-        ids_offsets = ids_arrow.offsets.to_numpy(zero_copy_only=False)
-        mask_offsets = mask_arrow.offsets.to_numpy(zero_copy_only=False)
-
-        for i in range(n):
-            s_id, e_id = int(ids_offsets[i]), int(ids_offsets[i + 1])
-            s_m, e_m = int(mask_offsets[i]), int(mask_offsets[i + 1])
-            L_id = min(e_id - s_id, max_length)
-            L_m = min(e_m - s_m, max_length)
-            if L_id > 0:
-                input_ids[write_idx + i, :L_id] = ids_flat[s_id : s_id + L_id]
-            if L_m > 0:
-                attention_mask[write_idx + i, :L_m] = mask_flat[s_m : s_m + L_m]
-
+        # Pull labels for this batch first; identify rows with at least one non-NaN label.
+        batch_labels = np.full((batch_n, len(label_cols)), np.nan, dtype=np_dtype)
         for j, col in enumerate(label_cols):
             arr = batch.column(batch.schema.get_field_index(col))
             np_col = arr.to_numpy(zero_copy_only=False)
             if np_col.dtype == np.object_:
                 col_floats = np.array(
-                    [float(v) if v is not None else np.nan for v in np_col[:n]],
+                    [float(v) if v is not None else np.nan for v in np_col],
                     dtype=np_dtype,
                 )
             else:
-                col_floats = np_col[:n].astype(np_dtype, copy=False)
-            labels[write_idx : write_idx + n, j] = col_floats
+                col_floats = np_col.astype(np_dtype, copy=False)
+            batch_labels[:, j] = col_floats
 
-        write_idx += n
+        # Filter: only keep rows with at least one finite label.
+        # For float16/float32, use np.isfinite to also exclude inf values upfront.
+        if np_dtype == np.float16:
+            # np.isfinite supports float16
+            row_keep = np.isfinite(batch_labels).any(axis=1)
+        else:
+            row_keep = np.isfinite(batch_labels).any(axis=1)
+
+        kept_n = int(row_keep.sum())
+        if kept_n == 0:
+            if batch_idx % 20 == 0:
+                print(f"  batch {batch_idx}: scanned {rows_scanned}, kept {write_idx} (0 in this batch)", flush=True)
+            continue
+
+        # Cap kept rows so we don't overflow the alloc.
+        if write_idx + kept_n > n_alloc:
+            # Take only as many kept rows as fit.
+            keep_indices = np.where(row_keep)[0][: n_alloc - write_idx]
+            row_keep = np.zeros_like(row_keep)
+            row_keep[keep_indices] = True
+            kept_n = int(row_keep.sum())
+
+        # Pad input_ids / mask for kept rows only.
+        ids_flat = np.asarray(ids_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int32)
+        mask_flat = np.asarray(mask_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int8)
+        ids_offsets = ids_arrow.offsets.to_numpy(zero_copy_only=False)
+        mask_offsets = mask_arrow.offsets.to_numpy(zero_copy_only=False)
+
+        kept_indices = np.where(row_keep)[0]
+        for k, i in enumerate(kept_indices):
+            s_id, e_id = int(ids_offsets[i]), int(ids_offsets[i + 1])
+            s_m, e_m = int(mask_offsets[i]), int(mask_offsets[i + 1])
+            L_id = min(e_id - s_id, max_length)
+            L_m = min(e_m - s_m, max_length)
+            if L_id > 0:
+                input_ids[write_idx + k, :L_id] = ids_flat[s_id : s_id + L_id]
+            if L_m > 0:
+                attention_mask[write_idx + k, :L_m] = mask_flat[s_m : s_m + L_m]
+
+        labels[write_idx : write_idx + kept_n] = batch_labels[row_keep]
+        write_idx += kept_n
+
         if batch_idx % 20 == 0:
-            print(f"  batch {batch_idx}: {write_idx}/{n_alloc} rows", flush=True)
-        if write_idx >= n_alloc:
-            break
+            print(f"  batch {batch_idx}: scanned {rows_scanned}, kept {write_idx}/{n_alloc}", flush=True)
 
     # Trim if early-stopped
     input_ids = input_ids[:write_idx]
