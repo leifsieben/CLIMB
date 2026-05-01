@@ -1,0 +1,81 @@
+{
+  "comment": "v2-redux cluster layout. 5 g5.2xlarge workers; worker2 was terminated and is not part of v2. Run distribution targets ~70-90 GPU-hours per node.",
+  "workers": [
+    {
+      "name": "worker0",
+      "host": "3.89.64.232",
+      "user": "ec2-user",
+      "key_path": "/Users/lsieben/VSCode/CLIMB/climb-gpu-key.pem",
+      "workspace_root": "/home/ec2-user/CLIMB",
+      "run_root": "/home/ec2-user/CLIMB/experiments/robust_matrix_v2",
+      "python_bin": "/home/ec2-user/venvs/climb/bin/python",
+      "run_ids": [
+        "random_baseline_00", "random_baseline_01", "random_baseline_02",
+        "unsup_only_1of5_00", "unsup_only_1of5_01", "unsup_only_1of5_02",
+        "unsup_only_2of5_00", "unsup_only_2of5_01", "unsup_only_2of5_02",
+        "unsup_only_3of5_00", "unsup_only_3of5_01", "unsup_only_3of5_02",
+        "unsup_only_4of5_00", "unsup_only_4of5_01", "unsup_only_4of5_02",
+        "unsup_only_5of5_00", "unsup_only_5of5_01", "unsup_only_5of5_02",
+        "mixed_25_75_00", "mixed_25_75_01", "mixed_25_75_02"
+      ]
+    },
+    {
+      "name": "worker1",
+      "host": "54.89.239.106",
+      "user": "ec2-user",
+      "key_path": "/Users/lsieben/VSCode/CLIMB/climb-gpu-key.pem",
+      "workspace_root": "/home/ec2-user/CLIMB",
+      "run_root": "/home/ec2-user/CLIMB/experiments/robust_matrix_v2",
+      "python_bin": "/home/ec2-user/venvs/climb/bin/python",
+      "run_ids": [
+        "sup_only_1fam_00", "sup_only_1fam_01", "sup_only_1fam_02",
+        "sup_only_2fam_00", "sup_only_2fam_01", "sup_only_2fam_02",
+        "sup_only_3fam_00", "sup_only_3fam_01", "sup_only_3fam_02",
+        "sup_only_4fam_00", "sup_only_4fam_01", "sup_only_4fam_02",
+        "sup_only_5fam_00", "sup_only_5fam_01", "sup_only_5fam_02"
+      ]
+    },
+    {
+      "name": "worker3",
+      "host": "23.20.138.208",
+      "user": "ec2-user",
+      "key_path": "/Users/lsieben/VSCode/CLIMB/climb-gpu-key.pem",
+      "workspace_root": "/home/ec2-user/CLIMB",
+      "run_root": "/home/ec2-user/CLIMB/experiments/robust_matrix_v2",
+      "python_bin": "/home/ec2-user/venvs/climb/bin/python",
+      "run_ids": [
+        "family_order_3of5_v0_00", "family_order_3of5_v0_01", "family_order_3of5_v0_02",
+        "family_order_3of5_v1_00", "family_order_3of5_v1_01", "family_order_3of5_v1_02",
+        "family_order_3of5_v2_00", "family_order_3of5_v2_01", "family_order_3of5_v2_02",
+        "family_order_3of5_v3_00", "family_order_3of5_v3_01", "family_order_3of5_v3_02"
+      ]
+    },
+    {
+      "name": "worker4",
+      "host": "54.224.156.37",
+      "user": "ec2-user",
+      "key_path": "/Users/lsieben/VSCode/CLIMB/climb-gpu-key.pem",
+      "workspace_root": "/home/ec2-user/CLIMB",
+      "run_root": "/home/ec2-user/CLIMB/experiments/robust_matrix_v2",
+      "python_bin": "/home/ec2-user/venvs/climb/bin/python",
+      "run_ids": [
+        "mixed_50_50_00", "mixed_50_50_01", "mixed_50_50_02",
+        "mixed_75_25_00", "mixed_75_25_01", "mixed_75_25_02",
+        "stretch_unsup_500M_00", "stretch_unsup_500M_01", "stretch_unsup_500M_02"
+      ]
+    },
+    {
+      "name": "worker5",
+      "host": "13.217.40.167",
+      "user": "ec2-user",
+      "key_path": "/Users/lsieben/VSCode/CLIMB/climb-gpu-key.pem",
+      "workspace_root": "/home/ec2-user/CLIMB",
+      "run_root": "/home/ec2-user/CLIMB/experiments/robust_matrix_v2",
+      "python_bin": "/home/ec2-user/venvs/climb/bin/python",
+      "run_ids": [
+        "family_order_3of5_v4_00", "family_order_3of5_v4_01", "family_order_3of5_v4_02",
+        "stretch_unsup_1B_00", "stretch_unsup_1B_01", "stretch_unsup_1B_02"
+      ]
+    }
+  ]
+}
