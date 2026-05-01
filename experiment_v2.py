@@ -101,19 +101,31 @@ def _emit(run_type: str, run_id: str, pretrain_config: dict, spec: dict, selecti
 
 def _smoke_runs(spec: dict) -> List[dict]:
     out = []
-    selection = {
-        "mixing_ratio": 0.5, "n_families": 2,
-        "family_order": SUPERVISED_FAMILIES_V2[:2],
+    # Smoke 1: pure MLM. Cheapest possible sanity check for MLM streaming + watchdog.
+    sel_mlm = {
+        "mixing_ratio": 1.0, "n_families": 0, "family_order": [],
         "pretraining_seed": 0, "total_forward_passes": 1_000_000,
     }
-    cfg = _build_pretrain_config(
-        spec, mixing_ratio=0.5, n_families=2,
-        family_order=SUPERVISED_FAMILIES_V2[:2],
+    cfg_mlm = _build_pretrain_config(
+        spec, mixing_ratio=1.0, n_families=0, family_order=[],
         pretraining_seed=0, total_forward_passes=1_000_000, run_id="smoke_v2",
     )
-    # Smoke is quick-validate; cap supervised rows so the load doesn't dominate the run.
-    cfg["max_supervised_rows"] = 50_000
-    out.append(_emit("smoke", "smoke_v2", cfg, spec, selection, requires_pretrain=True))
+    out.append(_emit("smoke", "smoke_v2", cfg_mlm, spec, sel_mlm, requires_pretrain=True))
+
+    # Smoke 2: mixed MLM + supervised (full-family) on a 200k-row supervised slice.
+    # Validates the in-RAM supervised loader and the mixed-batch iterator.
+    sel_mix = {
+        "mixing_ratio": 0.5, "n_families": 5,
+        "family_order": SUPERVISED_FAMILIES_V2,
+        "pretraining_seed": 0, "total_forward_passes": 1_000_000,
+    }
+    cfg_mix = _build_pretrain_config(
+        spec, mixing_ratio=0.5, n_families=5,
+        family_order=SUPERVISED_FAMILIES_V2,
+        pretraining_seed=0, total_forward_passes=1_000_000, run_id="smoke_v2_mixed",
+    )
+    cfg_mix["max_supervised_rows"] = 200_000
+    out.append(_emit("smoke", "smoke_v2_mixed", cfg_mix, spec, sel_mix, requires_pretrain=True))
     return out
 
 
