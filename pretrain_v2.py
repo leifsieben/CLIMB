@@ -240,7 +240,8 @@ def train(args) -> int:
         mlm_paths = cfg["unsupervised_data_paths"]
         if isinstance(mlm_paths, str):
             mlm_paths = [mlm_paths]
-        mlm_subset_fraction = float(cfg.get("unsupervised_subset_fraction", 1.0))
+        mlm_subset_fraction_raw = cfg.get("unsupervised_subset_fraction")
+        mlm_subset_fraction = float(mlm_subset_fraction_raw) if mlm_subset_fraction_raw is not None else None
         mlm_dataset = make_mlm_dataset(
             mlm_paths,
             subset_fraction=mlm_subset_fraction,
