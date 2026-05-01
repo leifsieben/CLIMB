@@ -111,6 +111,8 @@ def _smoke_runs(spec: dict) -> List[dict]:
         family_order=SUPERVISED_FAMILIES_V2[:2],
         pretraining_seed=0, total_forward_passes=1_000_000, run_id="smoke_v2",
     )
+    # Smoke is quick-validate; cap supervised rows so the load doesn't dominate the run.
+    cfg["max_supervised_rows"] = 50_000
     out.append(_emit("smoke", "smoke_v2", cfg, spec, selection, requires_pretrain=True))
     return out
 

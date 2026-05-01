@@ -80,29 +80,49 @@ def load_supervised_inram(
 
     ids_chunks, mask_chunks, label_chunks = [], [], []
     rows_seen = 0
-    for batch in ds_obj.to_batches(columns=columns, batch_size=8192):
-        ids = batch.column(batch.schema.get_field_index("input_ids")).to_pylist()
-        mask = batch.column(batch.schema.get_field_index("attention_mask")).to_pylist()
-        n = len(ids)
+    print(f"[load_supervised_inram] streaming {len(label_cols)} label cols across families {families}", flush=True)
+    for batch_idx, batch in enumerate(ds_obj.to_batches(columns=columns, batch_size=8192)):
+        ids_arrow = batch.column(batch.schema.get_field_index("input_ids"))
+        mask_arrow = batch.column(batch.schema.get_field_index("attention_mask"))
+        n = len(ids_arrow)
+
+        # Vectorised pad: flatten, then place via offsets.
+        ids_flat = np.asarray(ids_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int32)
+        mask_flat = np.asarray(mask_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int8)
+        ids_offsets = ids_arrow.offsets.to_numpy(zero_copy_only=False)
+        mask_offsets = mask_arrow.offsets.to_numpy(zero_copy_only=False)
 
         ids_arr = np.zeros((n, max_length), dtype=np.int32)
         mask_arr = np.zeros((n, max_length), dtype=np.int8)
-        for i, (id_seq, m_seq) in enumerate(zip(ids, mask)):
-            L = min(len(id_seq), max_length)
-            ids_arr[i, :L] = id_seq[:L]
-            mask_arr[i, :L] = m_seq[:L]
+        for i in range(n):
+            s_id, e_id = int(ids_offsets[i]), int(ids_offsets[i + 1])
+            s_m, e_m = int(mask_offsets[i]), int(mask_offsets[i + 1])
+            L_id = min(e_id - s_id, max_length)
+            L_m = min(e_m - s_m, max_length)
+            if L_id > 0:
+                ids_arr[i, :L_id] = ids_flat[s_id : s_id + L_id]
+            if L_m > 0:
+                mask_arr[i, :L_m] = mask_flat[s_m : s_m + L_m]
         ids_chunks.append(ids_arr)
         mask_chunks.append(mask_arr)
 
+        # Vectorised labels: each col → numpy with NaN for nulls.
         labels_arr = np.full((n, len(label_cols)), np.nan, dtype=np.float32)
         for j, col in enumerate(label_cols):
-            vals = batch.column(batch.schema.get_field_index(col)).to_pylist()
-            for i, v in enumerate(vals):
-                if v is not None:
-                    labels_arr[i, j] = float(v)
+            arr = batch.column(batch.schema.get_field_index(col))
+            # to_numpy returns object dtype if nulls present; convert.
+            np_col = arr.to_numpy(zero_copy_only=False)
+            if np_col.dtype == np.object_:
+                # has nulls — convert with NaN replacement
+                col_floats = np.array([float(v) if v is not None else np.nan for v in np_col], dtype=np.float32)
+            else:
+                col_floats = np_col.astype(np.float32, copy=False)
+            labels_arr[:, j] = col_floats
         label_chunks.append(labels_arr)
 
         rows_seen += n
+        if batch_idx % 20 == 0:
+            print(f"  batch {batch_idx}: {rows_seen} rows seen", flush=True)
         if max_rows is not None and rows_seen >= max_rows:
             break
 
