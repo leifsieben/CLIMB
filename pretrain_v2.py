@@ -79,6 +79,8 @@ class SupervisedMultiTaskHead(nn.Module):
 
     def loss(self, preds: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """NaN-masked multi-task loss. preds and labels: [B, T]."""
+        # Cast labels to preds dtype (labels may be float16 from the in-RAM loader).
+        labels = labels.to(preds.dtype)
         valid = ~torch.isnan(labels)
         if valid.sum() == 0:
             return preds.sum() * 0.0  # keep graph alive
@@ -87,7 +89,7 @@ class SupervisedMultiTaskHead(nn.Module):
 
         # classification loss: BCE with logits
         cls_valid = valid & cls_cols
-        cls_loss = torch.zeros((), device=preds.device)
+        cls_loss = torch.zeros((), device=preds.device, dtype=preds.dtype)
         if cls_valid.any():
             cls_loss = nn.functional.binary_cross_entropy_with_logits(
                 preds[cls_valid], labels[cls_valid], reduction="mean"
@@ -95,7 +97,7 @@ class SupervisedMultiTaskHead(nn.Module):
 
         # regression loss: MSE
         reg_valid = valid & ~cls_cols
-        reg_loss = torch.zeros((), device=preds.device)
+        reg_loss = torch.zeros((), device=preds.device, dtype=preds.dtype)
         if reg_valid.any():
             reg_loss = nn.functional.mse_loss(
                 preds[reg_valid], labels[reg_valid], reduction="mean"
@@ -218,8 +220,10 @@ def train(args) -> int:
     if n_families > 0:
         sup_parquet = cfg["supervised_tokenized_parquet_path"]
         max_sup_rows = cfg.get("max_supervised_rows")  # None for full
+        # 256 tokens covers >99% of SMILES; halves the in-RAM input memory.
+        sup_max_length = min(256, model_cfg.max_position_embeddings - 2)
         ids, mask, labels, label_cols, task_types = load_supervised_inram(
-            sup_parquet, family_order, max_length=model_cfg.max_position_embeddings - 2,
+            sup_parquet, family_order, max_length=sup_max_length,
             max_rows=max_sup_rows,
         )
         sup_dataset = SupervisedInRAMDataset(ids, mask, labels, task_types)

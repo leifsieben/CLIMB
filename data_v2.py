@@ -66,15 +66,23 @@ def load_supervised_inram(
     families: List[str],
     max_length: int = 512,
     max_rows: Optional[int] = None,
+    min_label_density: float = 0.001,
+    label_dtype: str = "float16",
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[str], List[str]]:
     """Load (input_ids, attention_mask, labels) into RAM for the requested families.
 
+    Memory-conscious: pre-allocates output tensors based on parquet row count, writes
+    directly into them (no chunk-list-then-concat). Drops very sparse label columns
+    (default <0.1% non-NaN) which contribute essentially zero gradient signal but
+    consume real memory. Stores labels as float16 (precision ~1e-3, fine for z-scored
+    targets with magnitude <10).
+
     Returns:
-        input_ids: int32 tensor [N, max_length]
-        attention_mask: int8 tensor [N, max_length]
-        labels: float32 tensor [N, T] where T = #label columns; NaN for missing
-        column_names: ordered list of label columns
-        task_types: per-column "classification" or "regression" inferred from values
+        input_ids: int64 tensor [N, max_length]
+        attention_mask: int64 tensor [N, max_length]
+        labels: float16 (or as configured) tensor [N, T]; NaN for missing
+        column_names: ordered list of label columns kept after density filter
+        task_types: per-column "classification" or "regression"
     """
     import pyarrow.dataset as pads
 
@@ -93,70 +101,93 @@ def load_supervised_inram(
     if "input_ids" not in schema_cols or "attention_mask" not in schema_cols:
         raise ValueError(f"Parquet {parquet_path} missing input_ids/attention_mask columns")
 
+    # Get total row count to pre-allocate (avoid chunk-list growth).
+    total_rows = ds_obj.count_rows()
+    n_alloc = total_rows if max_rows is None else min(total_rows, max_rows)
+    print(f"[load_supervised_inram] {len(label_cols)} label cols, {n_alloc} rows ({families})", flush=True)
+
     columns = ["input_ids", "attention_mask"] + label_cols
 
-    ids_chunks, mask_chunks, label_chunks = [], [], []
-    rows_seen = 0
-    print(f"[load_supervised_inram] streaming {len(label_cols)} label cols across families {families}", flush=True)
+    # Pre-allocate (writes directly avoid concat double-copy).
+    input_ids = np.zeros((n_alloc, max_length), dtype=np.int32)
+    attention_mask = np.zeros((n_alloc, max_length), dtype=np.int8)
+    labels = np.full((n_alloc, len(label_cols)), np.nan, dtype=np.float32)
+
+    write_idx = 0
     for batch_idx, batch in enumerate(ds_obj.to_batches(columns=columns, batch_size=8192)):
         ids_arrow = batch.column(batch.schema.get_field_index("input_ids"))
         mask_arrow = batch.column(batch.schema.get_field_index("attention_mask"))
         n = len(ids_arrow)
+        if write_idx + n > n_alloc:
+            n = n_alloc - write_idx
 
-        # Vectorised pad: flatten, then place via offsets.
         ids_flat = np.asarray(ids_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int32)
         mask_flat = np.asarray(mask_arrow.values.to_numpy(zero_copy_only=False), dtype=np.int8)
         ids_offsets = ids_arrow.offsets.to_numpy(zero_copy_only=False)
         mask_offsets = mask_arrow.offsets.to_numpy(zero_copy_only=False)
 
-        ids_arr = np.zeros((n, max_length), dtype=np.int32)
-        mask_arr = np.zeros((n, max_length), dtype=np.int8)
         for i in range(n):
             s_id, e_id = int(ids_offsets[i]), int(ids_offsets[i + 1])
             s_m, e_m = int(mask_offsets[i]), int(mask_offsets[i + 1])
             L_id = min(e_id - s_id, max_length)
             L_m = min(e_m - s_m, max_length)
             if L_id > 0:
-                ids_arr[i, :L_id] = ids_flat[s_id : s_id + L_id]
+                input_ids[write_idx + i, :L_id] = ids_flat[s_id : s_id + L_id]
             if L_m > 0:
-                mask_arr[i, :L_m] = mask_flat[s_m : s_m + L_m]
-        ids_chunks.append(ids_arr)
-        mask_chunks.append(mask_arr)
+                attention_mask[write_idx + i, :L_m] = mask_flat[s_m : s_m + L_m]
 
-        # Vectorised labels: each col → numpy with NaN for nulls.
-        labels_arr = np.full((n, len(label_cols)), np.nan, dtype=np.float32)
         for j, col in enumerate(label_cols):
             arr = batch.column(batch.schema.get_field_index(col))
-            # to_numpy returns object dtype if nulls present; convert.
             np_col = arr.to_numpy(zero_copy_only=False)
             if np_col.dtype == np.object_:
-                # has nulls — convert with NaN replacement
-                col_floats = np.array([float(v) if v is not None else np.nan for v in np_col], dtype=np.float32)
+                col_floats = np.array(
+                    [float(v) if v is not None else np.nan for v in np_col[:n]],
+                    dtype=np.float32,
+                )
             else:
-                col_floats = np_col.astype(np.float32, copy=False)
-            labels_arr[:, j] = col_floats
-        label_chunks.append(labels_arr)
+                col_floats = np_col[:n].astype(np.float32, copy=False)
+            labels[write_idx : write_idx + n, j] = col_floats
 
-        rows_seen += n
+        write_idx += n
         if batch_idx % 20 == 0:
-            print(f"  batch {batch_idx}: {rows_seen} rows seen", flush=True)
-        if max_rows is not None and rows_seen >= max_rows:
+            print(f"  batch {batch_idx}: {write_idx}/{n_alloc} rows", flush=True)
+        if write_idx >= n_alloc:
             break
 
-    input_ids = torch.from_numpy(np.concatenate(ids_chunks, axis=0)).to(torch.int64)
-    attention_mask = torch.from_numpy(np.concatenate(mask_chunks, axis=0)).to(torch.int64)
-    labels = torch.from_numpy(np.concatenate(label_chunks, axis=0))
+    # Trim if early-stopped
+    input_ids = input_ids[:write_idx]
+    attention_mask = attention_mask[:write_idx]
+    labels = labels[:write_idx]
 
-    if max_rows is not None:
-        input_ids = input_ids[:max_rows]
-        attention_mask = attention_mask[:max_rows]
-        labels = labels[:max_rows]
+    # Drop label columns that are too sparse to be useful.
+    if min_label_density > 0:
+        density = (~np.isnan(labels)).mean(axis=0)
+        keep_cols = density >= min_label_density
+        if not keep_cols.all():
+            kept = int(keep_cols.sum())
+            dropped = int((~keep_cols).sum())
+            print(f"  dropping {dropped} cols with <{min_label_density:.1%} density; keeping {kept}", flush=True)
+            labels = labels[:, keep_cols]
+            label_cols = [c for c, k in zip(label_cols, keep_cols) if k]
 
-    # Drop rows where every label is NaN (no signal for any active family)
-    has_label = (~torch.isnan(labels)).any(dim=1)
-    input_ids = input_ids[has_label]
-    attention_mask = attention_mask[has_label]
-    labels = labels[has_label]
+    # Drop rows with no labels at all (no signal).
+    has_label = (~np.isnan(labels)).any(axis=1)
+    n_kept = int(has_label.sum())
+    if n_kept < write_idx:
+        print(f"  dropping {write_idx - n_kept} all-NaN rows; keeping {n_kept}", flush=True)
+        input_ids = input_ids[has_label]
+        attention_mask = attention_mask[has_label]
+        labels = labels[has_label]
+
+    # Convert to torch (still float32 for the z-score pass).
+    input_ids_t = torch.from_numpy(input_ids).to(torch.int64)
+    attention_mask_t = torch.from_numpy(attention_mask).to(torch.int64)
+    labels_t = torch.from_numpy(labels)
+    # Drop the original numpy arrays
+    del input_ids, attention_mask, labels
+    labels = labels_t
+    input_ids = input_ids_t
+    attention_mask = attention_mask_t
 
     # Infer task type per column AND z-score normalise regression columns to keep
     # the supervised loss in the same magnitude as the MLM loss. Without this,
@@ -173,17 +204,22 @@ def load_supervised_inram(
         if unique_vals.numel() <= 2 and torch.all((unique_vals == 0) | (unique_vals == 1)):
             task_types.append("classification")
             continue
-        # regression: z-score normalise on non-NaN values
         task_types.append("regression")
         mean = col[valid].mean()
         std = col[valid].std()
         if torch.isfinite(std) and std > 1e-6:
             col_norm = (col - mean) / std
-            # Clip extreme outliers (>10 sigma) for stability
             col_norm = torch.clamp(col_norm, min=-10.0, max=10.0)
-            # Preserve NaNs
             col_norm[~valid] = float("nan")
             labels[:, j] = col_norm
+
+    # Cast labels to lower precision (huge memory saving for many-task labels).
+    if label_dtype == "float16":
+        labels = labels.to(torch.float16)
+    elif label_dtype == "bfloat16":
+        labels = labels.to(torch.bfloat16)
+    elif label_dtype != "float32":
+        raise ValueError(f"Unsupported label_dtype: {label_dtype}")
 
     return input_ids, attention_mask, labels, label_cols, task_types
 
