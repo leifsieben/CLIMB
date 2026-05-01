@@ -29,18 +29,34 @@ from storage_utils import is_s3_uri, materialize_path, parquet_dataset
 
 # ---------- supervised in-RAM loader ----------
 
-def _family_columns(schema_columns: List[str], families: List[str]) -> List[str]:
-    """Pick label columns belonging to the given families. Convention: column names
-    start with `<family>__`. We exclude `input_ids`, `attention_mask`, and any column
-    that doesn't match the convention.
+def _family_columns(schema, families: List[str]) -> List[str]:
+    """Pick *numeric* label columns belonging to the given families. Convention:
+    column names start with `<family>__`. We always exclude `input_ids` and
+    `attention_mask`, plus any column whose pyarrow type is not numeric.
+
+    `schema` may be either a list of column names (legacy) or a pyarrow.Schema.
     """
+    import pyarrow as pa
+    is_schema = hasattr(schema, "field")
+    schema_columns = schema.names if is_schema else list(schema)
+
+    EXCLUDE = {"input_ids", "attention_mask", "smiles", "SMILES", "canonical_smiles", "canonical_SMILES"}
+
+    def _is_numeric(name: str) -> bool:
+        if not is_schema:
+            return True  # legacy path: caller is responsible
+        field = schema.field(name)
+        t = field.type
+        return pa.types.is_floating(t) or pa.types.is_integer(t) or pa.types.is_boolean(t)
+
     out = []
     for col in schema_columns:
-        if col in ("input_ids", "attention_mask", "smiles", "canonical_smiles"):
+        if col in EXCLUDE:
             continue
         for fam in families:
             if col.startswith(f"{fam}__") or col == fam:
-                out.append(col)
+                if _is_numeric(col):
+                    out.append(col)
                 break
     return out
 
@@ -67,8 +83,9 @@ def load_supervised_inram(
     else:
         ds_obj = pads.dataset(parquet_path, format="parquet")
 
-    schema_cols = ds_obj.schema.names
-    label_cols = _family_columns(schema_cols, families)
+    schema = ds_obj.schema
+    schema_cols = schema.names
+    label_cols = _family_columns(schema, families)
     if not label_cols:
         raise ValueError(
             f"No label columns matched families {families} in parquet {parquet_path}"
