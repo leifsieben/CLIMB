@@ -20,9 +20,9 @@ import tempfile
 from pathlib import Path
 
 import torch
-from transformers import RobertaConfig, RobertaModel, set_seed
+from transformers import ModernBertModel, set_seed
 
-from config_v2 import ModelConfigV2, MOLECULENET_TASKS_V2
+from config_v2 import ModelConfigV2, MOLECULENET_TASKS_V2, build_modernbert_config
 from eval_v2 import evaluate
 from storage_utils import materialize_tokenizer_dir
 
@@ -36,25 +36,14 @@ def _state_dict_checksum(model: torch.nn.Module) -> str:
 
 
 def make_random_encoder(model_cfg: ModelConfigV2, seed: int, save_dir: str, vocab_size: int = None) -> str:
+    cfg = build_modernbert_config(model_cfg, vocab_size or model_cfg.vocab_size)
     set_seed(seed)
-    cfg = RobertaConfig(
-        vocab_size=vocab_size or model_cfg.vocab_size,
-        hidden_size=model_cfg.hidden_size,
-        num_hidden_layers=model_cfg.num_hidden_layers,
-        num_attention_heads=model_cfg.num_attention_heads,
-        intermediate_size=model_cfg.intermediate_size,
-        max_position_embeddings=model_cfg.max_position_embeddings,
-        type_vocab_size=model_cfg.type_vocab_size,
-        layer_norm_eps=model_cfg.layer_norm_eps,
-        hidden_dropout_prob=model_cfg.hidden_dropout_prob,
-        attention_probs_dropout_prob=model_cfg.attention_probs_dropout_prob,
-    )
-    model = RobertaModel(cfg, add_pooling_layer=False)
+    model = ModernBertModel(cfg)
     actual_checksum = _state_dict_checksum(model)
 
     # Reference: re-create with the same seed; should match.
     set_seed(seed)
-    reference = RobertaModel(cfg, add_pooling_layer=False)
+    reference = ModernBertModel(cfg)
     ref_checksum = _state_dict_checksum(reference)
     assert actual_checksum == ref_checksum, (
         "Random-init encoder checksum doesn't match a freshly seeded reference; "
@@ -73,6 +62,10 @@ def run(
     head_seeds,
     tokenizer_path: str,
     model_cfg: ModelConfigV2,
+    pool_mode: str = "mean",
+    standardize: str = "zscore",
+    head: str = "mlp",
+    max_length: int = 256,
 ):
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -93,7 +86,7 @@ def run(
     encoder_dir = out / "encoder"
     make_random_encoder(model_cfg, seed=pretraining_seed, save_dir=str(encoder_dir), vocab_size=vocab_size)
 
-    # Eval
+    # Eval — identical pipeline to the trained encoders (this is the floor anchor)
     eval_dir = out / "moleculenet"
     evaluate(
         encoder_path=str(encoder_dir),
@@ -101,6 +94,11 @@ def run(
         output_dir=str(eval_dir),
         head_seeds=list(head_seeds),
         datasets=MOLECULENET_TASKS_V2,
+        featurizer="encoder",
+        pool_mode=pool_mode,
+        standardize=standardize,
+        head=head,
+        max_length=max_length,
     )
 
 
@@ -121,7 +119,13 @@ def main():
     tokenizer_path = cfg["tokenizer_path"]
     model_cfg = ModelConfigV2(**cfg.get("model", {}))
 
-    run(args.run_dir, pretraining_seed, head_seeds, tokenizer_path, model_cfg)
+    run(
+        args.run_dir, pretraining_seed, head_seeds, tokenizer_path, model_cfg,
+        pool_mode=eval_cfg.get("pool", "mean"),
+        standardize=eval_cfg.get("standardize", "zscore"),
+        head=eval_cfg.get("head", "mlp"),
+        max_length=eval_cfg.get("max_length", 256),
+    )
 
 
 if __name__ == "__main__":

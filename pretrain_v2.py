@@ -37,117 +37,161 @@ import torch.nn as nn
 import yaml
 from torch.utils.data import DataLoader
 from transformers import (
+    ModernBertForMaskedLM,
     PreTrainedTokenizerFast,
-    RobertaConfig,
-    RobertaModel,
     get_cosine_schedule_with_warmup,
     set_seed,
 )
-from transformers.models.roberta.modeling_roberta import RobertaLMHead
 
 from config_v2 import (
+    DESCRIPTOR_STATS_PATH,
     SUPERVISED_FAMILIES_V2,
+    SUPERVISED_FAMILY_CAPS,
+    SUPERVISED_FAMILY_WEIGHTS,
     EvalConfigV2,
     ModelConfigV2,
     TrainingConfigV2,
+    build_modernbert_config,
 )
 from data_v2 import (
     MLMCollator,
-    MixedModeBatchIterator,
+    MTRCollator,
+    MultiObjectiveBatchIterator,
+    RawSmilesMLMCollator,
     SupervisedCollator,
     SupervisedInRAMDataset,
-    load_supervised_inram,
+    load_supervised_inram_stratified,
     make_mlm_dataset,
+    make_raw_smiles_dataset,
 )
+from featurize_v2 import pool
 from storage_utils import materialize_tokenizer_dir
 
 
-# ---------- multi-task supervised head ----------
+# ---------- supervised multi-head (MiniMol-style) + dense MTR head ----------
 
-class SupervisedMultiTaskHead(nn.Module):
-    def __init__(self, hidden_size: int, n_tasks: int, task_types: List[str]):
+class MultiHeadSupervised(nn.Module):
+    """Per-family 2-layer MLP heads on the shared pooled embedding (MiniMol), with
+    per-family NaN-masked loss (BCE for classification, MAE/MSE for regression) and
+    either fixed per-family weights or learned homoscedastic-uncertainty weighting
+    (Kendall et al.) so noisy/near-unlearnable families can't dominate the gradient.
+
+    ``.loss(pooled, labels)`` returns ``(total, {family: float})`` for logging.
+    """
+
+    def __init__(self, hidden: int, col_family: List[str], task_types: List[str],
+                 family_weights: Dict[str, float], regression_loss: str = "mae",
+                 uncertainty: bool = True):
         super().__init__()
-        self.linear = nn.Linear(hidden_size, n_tasks)
-        # Per-column task type for loss routing
-        self.register_buffer(
-            "is_classification",
-            torch.tensor([1 if t == "classification" else 0 for t in task_types], dtype=torch.bool),
-        )
+        self.families = list(dict.fromkeys(col_family))  # unique, order-preserving
+        self.regression_loss = regression_loss
+        self.uncertainty = uncertainty
+        self.heads = nn.ModuleDict()
+        for f in self.families:
+            idx = [i for i, cf in enumerate(col_family) if cf == f]
+            self.heads[f] = nn.Sequential(
+                nn.Linear(hidden, hidden // 2), nn.GELU(), nn.Linear(hidden // 2, len(idx))
+            )
+            self.register_buffer(f"cols_{f}", torch.tensor(idx, dtype=torch.long))
+            self.register_buffer(
+                f"isclf_{f}",
+                torch.tensor([task_types[i] == "classification" for i in idx], dtype=torch.bool),
+            )
+        if uncertainty:
+            self.log_var = nn.ParameterDict({f: nn.Parameter(torch.zeros(())) for f in self.families})
+        self.family_weights = {f: float(family_weights.get(f, 1.0)) for f in self.families}
 
-    def forward(self, hidden_cls: torch.Tensor) -> torch.Tensor:
-        return self.linear(hidden_cls)
+    def loss(self, pooled: torch.Tensor, labels: torch.Tensor):
+        labels = labels.float()
+        per_family: Dict[str, float] = {}
+        terms = []
+        for f in self.families:
+            cols = getattr(self, f"cols_{f}")
+            isclf = getattr(self, f"isclf_{f}")
+            preds = self.heads[f](pooled).float()          # [B, nf]
+            y = labels.index_select(1, cols)
+            valid = torch.isfinite(y)
+            if valid.sum() == 0:
+                Lf = preds.sum() * 0.0
+            else:
+                clf_m = valid & isclf.unsqueeze(0)
+                reg_m = valid & (~isclf).unsqueeze(0)
+                parts = []
+                if clf_m.any():
+                    parts.append(nn.functional.binary_cross_entropy_with_logits(preds[clf_m], y[clf_m]))
+                if reg_m.any():
+                    parts.append(nn.functional.l1_loss(preds[reg_m], y[reg_m])
+                                 if self.regression_loss == "mae"
+                                 else nn.functional.mse_loss(preds[reg_m], y[reg_m]))
+                Lf = sum(parts) / max(len(parts), 1) if parts else preds.sum() * 0.0
+            per_family[f] = float(Lf.detach())
+            if self.uncertainty:
+                s = self.log_var[f]
+                terms.append(torch.exp(-s) * Lf + s)       # Kendall: exp(-log σ²)·L + log σ²
+            else:
+                terms.append(self.family_weights[f] * Lf)
+        if self.uncertainty:
+            total = sum(terms)
+        else:
+            wsum = sum(self.family_weights.values()) or 1.0
+            total = sum(terms) / wsum
+        return total, per_family
 
-    def loss(self, preds: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        """NaN-masked multi-task loss. preds and labels: [B, T].
-        Computed in float32 regardless of input dtype, for numerical stability under
-        bf16 autocast.
-        """
-        preds_f32 = preds.float()
-        labels_f32 = labels.float()
-        valid = torch.isfinite(labels_f32)
+
+class MTRHead(nn.Module):
+    """Dense descriptor regression head (ChemBERTa-2 MTR): pooled → ~200 descriptors."""
+
+    def __init__(self, hidden: int, n_desc: int):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(hidden, hidden), nn.GELU(), nn.Linear(hidden, n_desc))
+
+    def loss(self, pooled: torch.Tensor, targets: torch.Tensor, loss_type: str = "mse") -> torch.Tensor:
+        preds = self.net(pooled).float()
+        t = targets.float()
+        valid = torch.isfinite(t)
         if valid.sum() == 0:
-            return preds_f32.sum() * 0.0
-
-        cls_cols = self.is_classification.unsqueeze(0).expand_as(labels_f32)
-
-        cls_valid = valid & cls_cols
-        cls_loss = torch.zeros((), device=preds.device, dtype=torch.float32)
-        if cls_valid.any():
-            cls_loss = nn.functional.binary_cross_entropy_with_logits(
-                preds_f32[cls_valid], labels_f32[cls_valid], reduction="mean"
-            )
-
-        reg_valid = valid & ~cls_cols
-        reg_loss = torch.zeros((), device=preds.device, dtype=torch.float32)
-        if reg_valid.any():
-            reg_loss = nn.functional.mse_loss(
-                preds_f32[reg_valid], labels_f32[reg_valid], reduction="mean"
-            )
-
-        n_modes = (1 if cls_valid.any() else 0) + (1 if reg_valid.any() else 0)
-        if n_modes == 0:
-            return preds_f32.sum() * 0.0
-        return (cls_loss + reg_loss) / max(n_modes, 1)
+            return preds.sum() * 0.0
+        return (nn.functional.l1_loss(preds[valid], t[valid]) if loss_type == "mae"
+                else nn.functional.mse_loss(preds[valid], t[valid]))
 
 
 # ---------- v2 wrapper model ----------
 
 class ClimbV2Model(nn.Module):
-    """RobertaModel + MLM head + supervised multi-task head."""
+    """ModernBERT encoder + optional {MLM, supervised multi-head, dense MTR} objectives.
 
-    def __init__(
-        self,
-        roberta_config: RobertaConfig,
-        n_supervised_tasks: int,
-        supervised_task_types: List[str],
-    ):
+    All objectives share the encoder and the SAME masked-mean pooling used at eval.
+    Only the base encoder is saved; all heads are discarded. Supports warm-starting the
+    encoder from a prior run (sequential unsup→sup).
+    """
+
+    def __init__(self, modernbert_config, *, supervised: Optional[dict] = None,
+                 mtr_n_desc: int = 0):
         super().__init__()
-        self.config = roberta_config
-        self.encoder = RobertaModel(roberta_config, add_pooling_layer=False)
-        self.mlm_head = RobertaLMHead(roberta_config)
-        # Supervised head only created if we have any supervised tasks
-        self.has_sup = n_supervised_tasks > 0
-        if self.has_sup:
-            self.sup_head = SupervisedMultiTaskHead(
-                roberta_config.hidden_size, n_supervised_tasks, supervised_task_types
-            )
+        self.config = modernbert_config
+        self.mlm_model = ModernBertForMaskedLM(modernbert_config)
+        self.encoder = self.mlm_model.model  # ModernBertModel (shared weights)
+        h = modernbert_config.hidden_size
+        self.sup_head = MultiHeadSupervised(h, **supervised) if supervised else None
+        self.mtr_head = MTRHead(h, mtr_n_desc) if mtr_n_desc > 0 else None
+
+    def _pool(self, input_ids, attention_mask):
+        out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
+        return pool(out.last_hidden_state, attention_mask, mode="mean")
 
     def forward_mlm(self, input_ids, attention_mask, labels):
-        out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-        sequence_output = out.last_hidden_state
-        prediction_scores = self.mlm_head(sequence_output)
-        loss = nn.functional.cross_entropy(
-            prediction_scores.view(-1, self.config.vocab_size),
-            labels.view(-1),
-            ignore_index=-100,
-        )
-        return loss
+        return self.mlm_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels).loss
 
     def forward_sup(self, input_ids, attention_mask, labels):
-        out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-        cls_hidden = out.last_hidden_state[:, 0, :]  # [B, H]
-        preds = self.sup_head(cls_hidden)
-        return self.sup_head.loss(preds, labels)
+        return self.sup_head.loss(self._pool(input_ids, attention_mask), labels)  # (total, per_family)
+
+    def forward_mtr(self, input_ids, attention_mask, targets, loss_type="mse"):
+        return self.mtr_head.loss(self._pool(input_ids, attention_mask), targets, loss_type)
+
+    def load_init_encoder(self, path: str):
+        from transformers import ModernBertModel
+        src = ModernBertModel.from_pretrained(path, reference_compile=False)
+        self.encoder.load_state_dict(src.state_dict())
 
     def save_encoder(self, path: str):
         os.makedirs(path, exist_ok=True)
@@ -190,11 +234,29 @@ def train(args) -> int:
     train_cfg = TrainingConfigV2(**cfg.get("training", {}))
 
     selection = cfg.get("selection", {})
-    mixing_ratio = float(selection.get("mixing_ratio", 1.0))
-    n_families = int(selection.get("n_families", 0))
-    family_order = selection.get("family_order") or SUPERVISED_FAMILIES_V2[:n_families]
     pretraining_seed = int(selection.get("pretraining_seed", train_cfg.seed))
     total_fps = int(selection.get("total_forward_passes", train_cfg.total_forward_passes))
+    augmentation = selection.get("augmentation", train_cfg.augmentation)
+    _subset_raw = selection.get("unsupervised_subset_fraction", cfg.get("unsupervised_subset_fraction"))
+    mlm_subset_fraction = float(_subset_raw) if _subset_raw is not None else None
+    init_encoder_path = selection.get("init_encoder_path")
+
+    # Per-batch objective weights. Explicit `objectives` supersedes the legacy
+    # mixing_ratio/n_families knobs (kept for backward compatibility).
+    objectives = selection.get("objectives")
+    if not objectives:
+        mixing_ratio = float(selection.get("mixing_ratio", 1.0))
+        objectives = {}
+        if mixing_ratio > 0.0:
+            objectives["mlm"] = mixing_ratio
+        if mixing_ratio < 1.0:
+            objectives["supervised"] = 1.0 - mixing_ratio
+    objectives = {k: float(v) for k, v in objectives.items() if v and float(v) > 0}
+
+    sup_families = selection.get("supervised_families")
+    if sup_families is None and "supervised" in objectives:
+        n_families = int(selection.get("n_families", 0))
+        sup_families = selection.get("family_order") or (SUPERVISED_FAMILIES_V2[:n_families] if n_families else SUPERVISED_FAMILIES_V2)
 
     set_seed(pretraining_seed)
 
@@ -213,94 +275,125 @@ def train(args) -> int:
     ]
     special_tokens = [t for t in special_tokens if t is not None]
 
-    # ---- supervised in-RAM data ----
-    sup_dataset = None
+    seq_cap = min(train_cfg.train_max_length, model_cfg.max_position_embeddings - 2)
+    raw_paths = cfg.get("unsupervised_raw_smiles_paths")
+    if isinstance(raw_paths, str):
+        raw_paths = [raw_paths]
+
+    # ---- supervised (stratified, family-balanced) ----
+    supervised_spec = None
     sup_loader = None
-    sup_task_types: List[str] = []
-    if n_families > 0:
-        sup_parquet = cfg["supervised_tokenized_parquet_path"]
-        max_sup_rows = cfg.get("max_supervised_rows")  # None for full
-        # 256 tokens covers >99% of SMILES; halves the in-RAM input memory.
-        sup_max_length = min(256, model_cfg.max_position_embeddings - 2)
-        ids, mask, labels, label_cols, task_types = load_supervised_inram(
-            sup_parquet, family_order, max_length=sup_max_length,
-            max_rows=max_sup_rows,
+    if "supervised" in objectives:
+        caps = {f: SUPERVISED_FAMILY_CAPS.get(f, 100_000) for f in sup_families}
+        # eval-molecule blocklist (leakage dedup); local path or s3:// (downloaded once)
+        blocklist = None
+        bl_path = cfg.get("eval_blocklist_path")
+        if bl_path:
+            if str(bl_path).startswith("s3://"):
+                import subprocess, tempfile
+                local_bl = str(Path(tempfile.gettempdir()) / "eval_blocklist.json")
+                subprocess.run(["aws", "s3", "cp", bl_path, local_bl], check=True)
+                bl_path = local_bl
+            blocklist = set(json.loads(Path(bl_path).read_text()))
+            print(f"[pretrain_v2] eval blocklist: {len(blocklist)} molecules will be dropped from SFT", flush=True)
+        ids, mask, labels, label_cols, task_types, col_family = load_supervised_inram_stratified(
+            cfg["supervised_tokenized_parquet_path"], sup_families, caps,
+            max_length=seq_cap, regression_loss=train_cfg.supervised_regression_loss,
+            blocklist=blocklist,
         )
         sup_dataset = SupervisedInRAMDataset(ids, mask, labels, task_types)
-        sup_task_types = task_types
         sup_loader = DataLoader(
-            sup_dataset,
-            batch_size=train_cfg.batch_size,
-            shuffle=True,
-            num_workers=0,  # in-RAM; no need for workers
-            collate_fn=SupervisedCollator(pad_token_id=pad_token_id),
-            drop_last=True,
+            sup_dataset, batch_size=train_cfg.batch_size, shuffle=True, num_workers=0,
+            collate_fn=SupervisedCollator(pad_token_id=pad_token_id), drop_last=True,
         )
-        print(f"[pretrain_v2] supervised: {len(sup_dataset)} rows × {len(label_cols)} tasks")
+        supervised_spec = dict(
+            col_family=col_family, task_types=task_types,
+            family_weights=SUPERVISED_FAMILY_WEIGHTS,
+            regression_loss=train_cfg.supervised_regression_loss,
+            uncertainty=train_cfg.uncertainty_weighting,
+        )
+        print(f"[pretrain_v2] supervised: {len(sup_dataset)} rows × {len(label_cols)} tasks "
+              f"over {sorted(set(col_family))}")
 
-    # ---- MLM streaming data ----
+    # ---- dense descriptor MTR ----
+    mtr_loader = None
+    mtr_n_desc = 0
+    if "mtr" in objectives:
+        from descriptors_v2 import fit_descriptor_stats, load_stats, save_stats
+        if not raw_paths:
+            raise ValueError("mtr objective requires 'unsupervised_raw_smiles_paths'")
+        stats_path = cfg.get("descriptor_stats_path", DESCRIPTOR_STATS_PATH)
+        if Path(stats_path).exists():
+            desc_stats = load_stats(stats_path)
+        else:
+            print("[pretrain_v2] fitting descriptor stats on a raw-SMILES sample ...", flush=True)
+            sample = [ex["smiles"] for _, ex in zip(range(20000), make_raw_smiles_dataset(raw_paths, subset_seed=0))]
+            desc_stats = fit_descriptor_stats(sample)
+            save_stats(desc_stats, stats_path)
+        mtr_n_desc = len(desc_stats["mean"])
+        desc_dir = cfg.get("descriptor_precompute_dir")
+        if desc_dir:
+            print(f"[pretrain_v2] MTR using PRECOMPUTED descriptors from {desc_dir} (GPU-bound)", flush=True)
+        mtr_loader = DataLoader(
+            make_raw_smiles_dataset(raw_paths, subset_fraction=mlm_subset_fraction,
+                                    subset_seed=pretraining_seed, descriptors_dir=desc_dir),
+            batch_size=train_cfg.batch_size, num_workers=train_cfg.dataloader_num_workers,
+            collate_fn=MTRCollator(tokenizer, desc_stats, max_length=seq_cap,
+                                   randomize=(augmentation == "enumerated")),
+        )
+
+    # ---- MLM streaming ----
     mlm_loader = None
-    if mixing_ratio > 0.0:
-        mlm_paths = cfg["unsupervised_data_paths"]
-        if isinstance(mlm_paths, str):
-            mlm_paths = [mlm_paths]
-        mlm_subset_fraction_raw = cfg.get("unsupervised_subset_fraction")
-        mlm_subset_fraction = float(mlm_subset_fraction_raw) if mlm_subset_fraction_raw is not None else None
-        mlm_dataset = make_mlm_dataset(
-            mlm_paths,
-            subset_fraction=mlm_subset_fraction,
-            subset_seed=pretraining_seed,
-        )
-        mlm_collator = MLMCollator(
-            mask_token_id=mask_token_id,
-            vocab_size=vocab_size,
-            mlm_probability=train_cfg.mlm_probability,
-            pad_token_id=pad_token_id,
-            special_tokens=special_tokens,
-        )
-        mlm_loader = DataLoader(
-            mlm_dataset,
-            batch_size=train_cfg.batch_size,
-            num_workers=train_cfg.dataloader_num_workers,
-            collate_fn=mlm_collator,
-        )
+    if "mlm" in objectives:
+        mlm_max_length = min(train_cfg.train_max_length, model_cfg.max_position_embeddings)
+        if augmentation == "enumerated":
+            if not raw_paths:
+                raise ValueError("augmentation='enumerated' requires 'unsupervised_raw_smiles_paths'")
+            mlm_dataset = make_raw_smiles_dataset(raw_paths, subset_fraction=mlm_subset_fraction, subset_seed=pretraining_seed)
+            mlm_collator = RawSmilesMLMCollator(
+                tokenizer, mlm_probability=train_cfg.mlm_probability, randomize=True,
+                max_length=mlm_max_length, special_tokens=special_tokens,
+            )
+        else:
+            mlm_paths = cfg["unsupervised_data_paths"]
+            if isinstance(mlm_paths, str):
+                mlm_paths = [mlm_paths]
+            mlm_dataset = make_mlm_dataset(mlm_paths, subset_fraction=mlm_subset_fraction, subset_seed=pretraining_seed)
+            mlm_collator = MLMCollator(
+                mask_token_id=mask_token_id, vocab_size=vocab_size,
+                mlm_probability=train_cfg.mlm_probability, pad_token_id=pad_token_id,
+                special_tokens=special_tokens, max_length=mlm_max_length,
+            )
+        mlm_loader = DataLoader(mlm_dataset, batch_size=train_cfg.batch_size,
+                                num_workers=train_cfg.dataloader_num_workers, collate_fn=mlm_collator)
 
     # ---- model ----
-    n_supervised_tasks = sup_dataset.labels.shape[1] if sup_dataset is not None else 0
-    roberta_config = RobertaConfig(
-        vocab_size=vocab_size,
-        hidden_size=model_cfg.hidden_size,
-        num_hidden_layers=model_cfg.num_hidden_layers,
-        num_attention_heads=model_cfg.num_attention_heads,
-        intermediate_size=model_cfg.intermediate_size,
-        max_position_embeddings=model_cfg.max_position_embeddings,
-        type_vocab_size=model_cfg.type_vocab_size,
-        layer_norm_eps=model_cfg.layer_norm_eps,
-        hidden_dropout_prob=model_cfg.hidden_dropout_prob,
-        attention_probs_dropout_prob=model_cfg.attention_probs_dropout_prob,
-        pad_token_id=pad_token_id,
+    attn_impl = "sdpa"
+    modernbert_config = build_modernbert_config(
+        model_cfg, vocab_size, pad_token_id=pad_token_id,
+        bos_token_id=(tokenizer.bos_token_id if tokenizer.bos_token_id is not None else 0),
+        eos_token_id=(tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 2),
+        cls_token_id=tokenizer.cls_token_id, sep_token_id=tokenizer.sep_token_id,
+        attn_implementation=attn_impl,
     )
-    model = ClimbV2Model(roberta_config, n_supervised_tasks, sup_task_types).to(device)
+    model = ClimbV2Model(modernbert_config, supervised=supervised_spec, mtr_n_desc=mtr_n_desc)
+    if init_encoder_path:
+        print(f"[pretrain_v2] warm-starting encoder from {init_encoder_path}", flush=True)
+        model.load_init_encoder(init_encoder_path)
+    model = model.to(device)
+    n_params = sum(p.numel() for p in model.encoder.parameters())
+    print(f"[pretrain_v2] ModernBERT {n_params/1e6:.1f}M | objectives={objectives} | aug={augmentation}"
+          f"{' | init='+init_encoder_path if init_encoder_path else ''}", flush=True)
 
     # ---- optimizer + schedule ----
     total_steps = max(1, total_fps // train_cfg.batch_size)
     warmup_steps = max(1, int(train_cfg.warmup_ratio * total_steps))
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train_cfg.learning_rate,
-        weight_decay=train_cfg.weight_decay,
-    )
-    scheduler = get_cosine_schedule_with_warmup(
-        optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=train_cfg.learning_rate, weight_decay=train_cfg.weight_decay)
+    scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
 
-    # ---- mixed iterator ----
-    iterator = MixedModeBatchIterator(
-        mlm_loader=mlm_loader,
-        sup_loader=sup_loader,
-        mixing_ratio=mixing_ratio,
-        total_batches=total_steps,
-        seed=pretraining_seed,
+    iterator = MultiObjectiveBatchIterator(
+        {"mlm": mlm_loader, "mtr": mtr_loader, "supervised": sup_loader},
+        objectives, total_batches=total_steps, seed=pretraining_seed,
     )
 
     # ---- metadata ----
@@ -309,10 +402,15 @@ def train(args) -> int:
         "model_config": asdict(model_cfg),
         "training_config": asdict(train_cfg),
         "selection": selection,
-        "n_supervised_tasks": n_supervised_tasks,
+        "objectives": objectives,
+        "supervised_families": sup_families,
+        "mtr_n_desc": mtr_n_desc,
         "total_steps": total_steps,
         "total_forward_passes_target": total_fps,
         "warmup_steps": warmup_steps,
+        "augmentation": augmentation,
+        "unsupervised_subset_fraction": mlm_subset_fraction,
+        "encoder_params": int(sum(p.numel() for p in model.encoder.parameters())),
         "started_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     metadata_path.write_text(json.dumps(metadata, indent=2))
@@ -323,6 +421,8 @@ def train(args) -> int:
 
     model.train()
     forward_passes_seen = 0
+    tokens_seen = 0
+    tokens_seen_dev = torch.zeros((), device=device, dtype=torch.long)
     start_time = time.time()
     last_log_time = start_time
     metrics_file = metrics_path.open("a", buffering=1)
@@ -343,18 +443,19 @@ def train(args) -> int:
 
     heartbeat("starting")
 
+    last_per_family: Dict[str, float] = {}
     try:
         for step, (mode, batch) in enumerate(iterator):
             batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
             with torch.autocast(**autocast_kwargs) if use_amp else _NoCtx():
                 if mode == "mlm":
-                    loss = model.forward_mlm(
-                        batch["input_ids"], batch["attention_mask"], batch["labels"]
-                    )
-                else:
-                    loss = model.forward_sup(
-                        batch["input_ids"], batch["attention_mask"], batch["labels"]
-                    )
+                    loss = model.forward_mlm(batch["input_ids"], batch["attention_mask"], batch["labels"])
+                elif mode == "mtr":
+                    loss = model.forward_mtr(batch["input_ids"], batch["attention_mask"],
+                                             batch["mtr_targets"], train_cfg.mtr_loss)
+                else:  # supervised -> (total, per_family)
+                    loss, last_per_family = model.forward_sup(
+                        batch["input_ids"], batch["attention_mask"], batch["labels"])
 
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
@@ -363,25 +464,38 @@ def train(args) -> int:
             scheduler.step()
 
             forward_passes_seen += batch["input_ids"].shape[0]
+            tokens_seen_dev += batch["attention_mask"].sum()  # on-device; sync only at log
 
             if (step + 1) % train_cfg.log_every_steps == 0 or step == total_steps - 1:
                 now = time.time()
+                tokens_seen = int(tokens_seen_dev.item())
                 rec = {
                     "step": step + 1,
-                    "mode": mode,
+                    "objective": mode,
                     "loss": float(loss.detach().item()),
                     "lr": scheduler.get_last_lr()[0],
                     "forward_passes_seen": forward_passes_seen,
+                    "tokens_seen": tokens_seen,
                     "elapsed_seconds": now - start_time,
                     "step_time_seconds": (now - last_log_time) / train_cfg.log_every_steps,
                     "timestamp": now,
                 }
+                if last_per_family:
+                    rec["sup_per_family"] = {k: round(v, 4) for k, v in last_per_family.items()}
                 metrics_file.write(json.dumps(rec) + "\n")
                 metrics_file.flush()
                 os.fsync(metrics_file.fileno())
                 last_log_time = now
                 heartbeat("ok")
-                print(f"[step {step+1}/{total_steps}] mode={mode} loss={rec['loss']:.4f} fp={forward_passes_seen}/{total_fps}", flush=True)
+                extra = f" perfam={rec.get('sup_per_family')}" if "sup_per_family" in rec else ""
+                print(f"[step {step+1}/{total_steps}] obj={mode} loss={rec['loss']:.4f} fp={forward_passes_seen}/{total_fps}{extra}", flush=True)
+
+            # Periodic checkpoint for long runs: overwrite the encoder dir so a spot
+            # interruption (paired with the launcher's S3-sync sidecar) loses at most
+            # save_every_steps of progress. 0 disables (short runs save only at the end).
+            if train_cfg.save_every_steps and (step + 1) % train_cfg.save_every_steps == 0:
+                model.save_encoder(str(encoder_save_path))
+                heartbeat("checkpoint")
 
         heartbeat("saving")
         model.save_encoder(str(encoder_save_path))

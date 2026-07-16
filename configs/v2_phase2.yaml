@@ -1,0 +1,79 @@
+# CLIMB v2 Phase 2 — "does unsupervised pretraining even help?" across SFT types.
+#
+# Three blocks (see experiment_v2._phase2_runs), each run tagged with a `stage`:
+#   ladder : shared pure-unsup MLM ladder, from scratch, growing compute.
+#   u2s    : unsup->sup[W]  = warm-start each ladder checkpoint on W (small SFT).
+#   skip   : skip-unsup[W]  = random base + SFT[W], per-W budget ladder (catch-up test).
+#
+# Three SFT types W: dense (RDKit-MTR) / sparse_all (PCBA+L1000) / dense_plus_sparse.
+# Adaptive-to-96M, stop-when-flat: dense skip goes to 96M; sparse/combo capped at 48M
+# initially (extend by hand only if still moving). unsup ladder to 48M (+96M if rising).
+
+wave: phase2_scaling
+name: climb_v2_phase2
+results_root: experiments/climb_v2_phase2
+s3_backup_root: s3://climb-s3-bucket/experiments/climb_v2_phase2
+
+tokenizer_path: s3://climb-s3-bucket/tokenizer_10M
+unsupervised_data_paths:
+  - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/
+unsupervised_raw_smiles_paths:
+  - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/
+supervised_tokenized_parquet_path: s3://climb-s3-bucket/tokenized/supervised_wide_parquet/
+descriptor_stats_path: configs/descriptor_stats.json   # deployed to every box (identical stats)
+descriptor_precompute_dir: s3://climb-s3-bucket/tokenized_sources/pubchem_descriptors/  # MTR speedup (precomputed once)
+eval_blocklist_path: s3://climb-s3-bucket/configs/eval_blocklist.json  # leakage dedup (built once)
+
+pretraining_seed: 0
+random_baseline_replicates: 3
+include_ecfp_anchor: true
+
+unsup_ladder: [2000000, 8000000, 24000000, 48000000]   # +96000000 by hand if still rising
+sup_finetune_budget: 2000000                            # warm-start SFT phase per checkpoint
+
+# Five SFT recipes (additive — we keep every variation to study how the SFT-data mix
+# matters). 1-3 are the original wave (running); 4-5 are the MiniMol+Wong additions.
+sft_types:
+  - {name: dense,             objectives: {mtr: 1.0},                  group: null}          # 1. ChemBERTa-2 dense descriptors
+  - {name: sparse_all,        objectives: {supervised: 1.0},          group: sparse_all}    # 2. assays only (PCBA+L1000), no QM
+  - {name: dense_plus_sparse, objectives: {mtr: 0.5, supervised: 0.5}, group: sparse_all}    # 3. descriptors + assays
+  - {name: minimol_full,      objectives: {supervised: 1.0},          group: minimol_full}  # 4. PCQM+PCBA+L1000+WONG (MiniMol+Wong)
+  - {name: mixed,             objectives: {mtr: 0.5, supervised: 0.5}, group: minimol_full}  # 5. descriptors + MiniMol+Wong
+
+skip_ladders:
+  dense:             [2000000, 8000000, 24000000, 48000000, 96000000]
+  sparse_all:        [2000000, 8000000, 24000000, 48000000]
+  dense_plus_sparse: [2000000, 8000000, 24000000, 48000000]
+  minimol_full:      [2000000, 8000000, 24000000, 48000000]
+  mixed:             [2000000, 8000000, 24000000, 48000000]
+
+model:
+  hidden_size: 512
+  num_hidden_layers: 12
+  num_attention_heads: 8
+  intermediate_size: 1536
+  max_position_embeddings: 256
+  vocab_size: 1000
+
+training:
+  learning_rate: 2.0e-4
+  batch_size: 256
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  mlm_probability: 0.3
+  train_max_length: 128
+  supervised_regression_loss: mae
+  mtr_loss: mse
+  uncertainty_weighting: true
+  seed: 42
+  bf16: true
+  log_every_steps: 50
+  save_every_steps: 15000     # periodic encoder checkpoint (~3.8M FP) for the long runs
+  dataloader_num_workers: 6
+
+evaluation:
+  pool: mean
+  standardize: zscore
+  head: mlp
+  max_length: 256
+  head_seeds: [0, 1, 2]

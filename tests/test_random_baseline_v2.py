@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 import torch
-from transformers import RobertaConfig, RobertaModel
+from transformers import ModernBertModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -28,8 +28,8 @@ def test_random_encoder_seed_is_deterministic():
     with tempfile.TemporaryDirectory() as td:
         a = make_random_encoder(cfg, seed=42, save_dir=str(Path(td) / "a"))
         b = make_random_encoder(cfg, seed=42, save_dir=str(Path(td) / "b"))
-        ma = RobertaModel.from_pretrained(a, add_pooling_layer=False)
-        mb = RobertaModel.from_pretrained(b, add_pooling_layer=False)
+        ma = ModernBertModel.from_pretrained(a)
+        mb = ModernBertModel.from_pretrained(b)
         assert _state_dict_checksum(ma) == _state_dict_checksum(mb)
 
 
@@ -41,6 +41,6 @@ def test_random_encoder_seed_changes_weights():
     with tempfile.TemporaryDirectory() as td:
         a = make_random_encoder(cfg, seed=0, save_dir=str(Path(td) / "a"))
         b = make_random_encoder(cfg, seed=1, save_dir=str(Path(td) / "b"))
-        ma = RobertaModel.from_pretrained(a, add_pooling_layer=False)
-        mb = RobertaModel.from_pretrained(b, add_pooling_layer=False)
+        ma = ModernBertModel.from_pretrained(a)
+        mb = ModernBertModel.from_pretrained(b)
         assert _state_dict_checksum(ma) != _state_dict_checksum(mb)

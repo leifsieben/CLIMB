@@ -149,13 +149,41 @@ def _run_eval(run: dict) -> str:
     if not tokenizer_path.exists():
         return "failed_no_tokenizer"
 
+    ev = (run.get("pretrain_config", {}) or {}).get("evaluation", {}) or {}
     cmd = [
         sys.executable, "eval_v2.py",
         "--encoder", str(encoder_path),
         "--tokenizer", str(tokenizer_path),
         "--output_dir", str(eval_dir),
+        "--pool", str(ev.get("pool", "mean")),
+        "--standardize", str(ev.get("standardize", "zscore")),
+        "--head", str(ev.get("head", "mlp")),
+        "--max_length", str(ev.get("max_length", 256)),
     ]
+    if ev.get("head_seeds"):
+        cmd += ["--head_seeds", *[str(s) for s in ev["head_seeds"]]]
     print(f"[launch_v2] eval: {' '.join(cmd)}", flush=True)
+    rc = subprocess.run(cmd).returncode
+    return "ok" if rc == 0 else "failed"
+
+
+def _run_ecfp_anchor(run: dict) -> str:
+    """Classical ECFP4 + XGBoost baseline — no encoder, pure eval."""
+    run_dir = Path(run["output_dir"])
+    run_dir.mkdir(parents=True, exist_ok=True)
+    eval_dir = run_dir / "moleculenet"
+    eval_dir.mkdir(exist_ok=True)
+    ov = run.get("eval_override", {}) or {}
+    ev = (run.get("pretrain_config", {}) or {}).get("evaluation", {}) or {}
+    cmd = [
+        sys.executable, "eval_v2.py",
+        "--output_dir", str(eval_dir),
+        "--featurizer", str(ov.get("featurizer", "ecfp4")),
+        "--head", str(ov.get("head", "xgb")),
+    ]
+    if ev.get("head_seeds"):
+        cmd += ["--head_seeds", *[str(s) for s in ev["head_seeds"]]]
+    print(f"[launch_v2] ecfp4_anchor: {' '.join(cmd)}", flush=True)
     rc = subprocess.run(cmd).returncode
     return "ok" if rc == 0 else "failed"
 
@@ -230,6 +258,9 @@ def main():
 
         if run["run_type"] == "random_baseline":
             status = _run_random_baseline(run)
+            _run_status(run_dir, status, elapsed_seconds=time.time() - run_started)
+        elif run["run_type"] == "ecfp4_anchor":
+            status = _run_ecfp_anchor(run)
             _run_status(run_dir, status, elapsed_seconds=time.time() - run_started)
         else:
             pre_status = _run_pretrain(run)

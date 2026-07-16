@@ -1,51 +1,71 @@
-# CLIMB v2 robust matrix spec.
+# CLIMB v2 EXPLORATORY spec (single-seed sweep).
 #
-# Model: 25M params, 6 layers, 384 hidden.
-# Budget: 250M forward passes per run (B). Stretch: 500M, 1B.
-# Tasks: pre-registered 9-task subset (see config_v2.MOLECULENET_TASKS_V2).
-# Replicates: 3 pretraining seeds × 3 head seeds for every (encoder, dataset).
+# Backbone: ~40M ModernBERT MLM encoder (RoPE / pre-norm / GeGLU / SDPA).
+# Eval: frozen featurizer, masked-mean pool, z-scored, MLP head + ECFP4/XGBoost anchor.
+# Reports ABSOLUTE per-task metrics (no z-scores) on the 5 pre-registered tasks
+# (ESOL, BBBP, BACE, Tox21, QM7) — see config_v2.MOLECULENET_TASKS_V2.
+#
+# This spec is the exploratory pass: single pretraining seed for B, the full C
+# scaling curve, anchors, and smoke. Headline 3-seed replication lives in
+# configs/v2_headline.yaml. The Exp-A gate is just running a subset of this manifest:
+#   --run_id ecfp4_anchor unsup_only_seed0 random_baseline_00
 
-name: robust_matrix_v2
-results_root: experiments/robust_matrix_v2
-s3_backup_root: s3://climb-s3-bucket/experiments/robust_matrix_v2
+name: climb_v2_exploratory
+results_root: experiments/climb_v2
+s3_backup_root: s3://climb-s3-bucket/experiments/climb_v2
 
 tokenizer_path: s3://climb-s3-bucket/tokenizer_10M
 
+# Canonical (pre-tokenized) unsupervised stream:
 unsupervised_data_paths:
   - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/
+# Raw-SMILES source for the enumerated (on-the-fly randomization) stream. Reuses the
+# existing filtered-PubChem parquet directly (has a SMILES_canonical column):
+unsupervised_raw_smiles_paths:
+  - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/
 
 supervised_tokenized_parquet_path: s3://climb-s3-bucket/tokenized/supervised_wide_parquet/
 
-# Optionally cap supervised in-RAM rows during smoke runs.
 max_supervised_rows: null
-unsupervised_subset_fraction: null
 
-include_stretch: true
+# Fixed compute budget for B (core) and C (scaling). 2M forward passes ≈ 90M tokens
+# (~9x the v1 unsup peak), ~0.75h/run on one A10G at ~750 seq/s.
+b_core_forward_passes: 2000000         # 2M forward passes
 
-random_baseline_replicates: 3
+core_pretraining_seeds: [0]            # exploratory: single seed
+random_baseline_replicates: 3          # anchors are cheap
+include_smoke: true
+include_ecfp_anchor: true
+include_scaling: true
+
+# C: unique-molecule fractions of the ~124M PubChem corpus (compute held constant).
+scaling_fractions: [0.001, 0.01, 0.1, 0.3, null]   # ~124k / 1.24M / 12.4M / 37M / full
+scaling_augmentations: [canonical, enumerated]
 
 model:
-  hidden_size: 384
-  num_hidden_layers: 6
-  num_attention_heads: 6
+  hidden_size: 512
+  num_hidden_layers: 12
+  num_attention_heads: 8
   intermediate_size: 1536
-  max_position_embeddings: 514
+  max_position_embeddings: 256
   vocab_size: 1000
 
 training:
   learning_rate: 2.0e-4
-  batch_size: 64
+  batch_size: 256
   warmup_ratio: 0.05
   weight_decay: 0.01
-  mlm_probability: 0.15
-  total_forward_passes: 250000000
+  mlm_probability: 0.3
+  train_max_length: 128
   seed: 42
   bf16: true
-  log_every_steps: 100
-  dataloader_num_workers: 2
+  log_every_steps: 50
+  dataloader_num_workers: 4
+  augmentation: canonical
 
 evaluation:
-  freeze_encoder: true
-  num_epochs: 50
-  early_stopping_patience: 10
+  pool: mean
+  standardize: zscore
+  head: mlp
+  max_length: 256
   head_seeds: [0, 1, 2]

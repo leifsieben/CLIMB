@@ -1,0 +1,60 @@
+# CLIMB v2 supervised ablation — dense (RDKit-MTR) vs sparse (PCBA/L1000) labels.
+#
+# Every arm is unsup→sup[X]: warm-start from an MLM base, then fine-tune on X.
+# Reuses the round-1 unsup_only encoder as the base (set base_encoder_path) so we go
+# straight to the arms; unset base_encoder_path to train a fresh base instead.
+# Arms (see experiment_v2._ablation_runs): seq_mtr / seq_pcba / seq_l1000 /
+# seq_sparse_all / seq_dense_plus_sparse / seq_pcqm, + random + ECFP4 anchors.
+
+wave: ablation
+name: climb_v2_ablation
+results_root: experiments/climb_v2_ablation
+s3_backup_root: s3://climb-s3-bucket/experiments/climb_v2_ablation
+
+tokenizer_path: s3://climb-s3-bucket/tokenizer_10M
+unsupervised_data_paths:
+  - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_tokenized_pkl/
+unsupervised_raw_smiles_paths:
+  - s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/
+supervised_tokenized_parquet_path: s3://climb-s3-bucket/tokenized/supervised_wide_parquet/
+descriptor_stats_path: configs/descriptor_stats.json   # fit+cached on first MTR run
+eval_blocklist_path: s3://climb-s3-bucket/configs/eval_blocklist.json  # leakage dedup
+
+# Reuse the existing MLM base (round-1 unsup_only). Comment out to train a fresh base.
+base_encoder_path: experiments/climb_v2/unsup_only_seed0/encoder
+base_forward_passes: 2000000      # only used if base_encoder_path is unset
+sup_forward_passes: 2000000       # per-arm supervised/MTR fine-tune (~0.75h on A10G)
+
+pretraining_seed: 0
+random_baseline_replicates: 3
+include_ecfp_anchor: true
+
+model:
+  hidden_size: 512
+  num_hidden_layers: 12
+  num_attention_heads: 8
+  intermediate_size: 1536
+  max_position_embeddings: 256
+  vocab_size: 1000
+
+training:
+  learning_rate: 2.0e-4
+  batch_size: 256
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  mlm_probability: 0.3
+  train_max_length: 128
+  supervised_regression_loss: mae
+  mtr_loss: mse
+  uncertainty_weighting: true
+  seed: 42
+  bf16: true
+  log_every_steps: 50
+  dataloader_num_workers: 6
+
+evaluation:
+  pool: mean
+  standardize: zscore
+  head: mlp
+  max_length: 256
+  head_seeds: [0, 1, 2]

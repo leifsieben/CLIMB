@@ -1,16 +1,22 @@
-"""v2 frozen-encoder MoleculeNet evaluation.
+"""v2 frozen-featurizer MoleculeNet evaluation.
 
-For each (encoder, dataset) pair:
-  1. Load the encoder + tokenizer.
-  2. Forward-pass every train/val/test molecule once (cache CLS hidden state).
-  3. Train a small head from the cached features 3x (different seeds), pick the
-     best by val loss with early stopping, evaluate on test.
-  4. Report mean ± sd across the 3 head seeds.
+How molecular foundation models are actually deployed: freeze the encoder, extract
+one embedding per molecule, train a small downstream head on those embeddings. This
+runs that protocol for the 5 pre-registered tasks (config_v2.MOLECULENET_TASKS_V2)
+and reports ABSOLUTE per-task metrics — no z-scores, no pooled aggregate.
 
-This runs the 9 pre-registered MoleculeNet tasks from config_v2.MOLECULENET_TASKS_V2.
+Three featurizers share the identical head pipeline so comparisons are fair:
+  - encoder : frozen ModernBERT, masked-mean pooled, standardized (fixes the v1
+              CLS-linear-probe pathology)
+  - ecfp4   : Morgan fingerprint (the classical "how bad is our CLM?" anchor;
+              pair with --head xgb)
+  - (random-encoder floor is produced by random_baseline_v2 → featurizer=encoder)
 
-Output: <output_dir>/moleculenet_summary.csv with one row per (dataset, head_seed)
-plus an aggregate mean/sd row per dataset.
+Downstream head ∈ {linear, mlp, xgb} from heads_v2, trained 3× (head seeds), plus
+optional train-set subsampling for the label-efficiency curve (Exp D).
+
+Output: <output_dir>/moleculenet_summary.csv (one row per dataset×featurizer×head_seed
++ MEAN/STD rows) and suite_summary.json.
 """
 
 from __future__ import annotations
@@ -18,314 +24,209 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
-import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-from transformers import (
-    PreTrainedTokenizerFast,
-    RobertaConfig,
-    RobertaModel,
-    set_seed,
-)
 
 from config_v2 import MOLECULENET_TASKS_V2
+from featurize_v2 import apply_standardizer, ecfp4_features, fit_standardizer, pool
+from heads_v2 import compute_metric, make_head
 
 
 # ---------- DeepChem dataset loaders ----------
 
-def _load_moleculenet(name: str) -> Tuple[List[str], np.ndarray, List[str], np.ndarray, List[str], np.ndarray]:
+def _load_moleculenet(name: str):
     """Returns (train_smiles, train_y, val_smiles, val_y, test_smiles, test_y)."""
     import deepchem as dc
 
     loaders = {
-        "BACE": dc.molnet.load_bace_classification,
-        "BBBP": dc.molnet.load_bbbp,
-        "ClinTox": dc.molnet.load_clintox,
-        "Tox21": dc.molnet.load_tox21,
-        "ToxCast": dc.molnet.load_toxcast,
-        "SIDER": dc.molnet.load_sider,
         "ESOL": dc.molnet.load_delaney,
-        "FreeSolv": dc.molnet.load_freesolv,
-        "Lipophilicity": dc.molnet.load_lipo,
+        "BBBP": dc.molnet.load_bbbp,
+        "BACE": dc.molnet.load_bace_classification,
+        "Tox21": dc.molnet.load_tox21,
+        "QM7": dc.molnet.load_qm7,
+        # optional later extensions
+        "HIV": dc.molnet.load_hiv,
+        "QM9": dc.molnet.load_qm9,
     }
     if name not in loaders:
         raise ValueError(f"Unknown MoleculeNet dataset: {name}")
     tasks, datasets, _ = loaders[name](featurizer="Raw", splitter="scaffold")
     train_ds, val_ds, test_ds = datasets
     return (
-        list(train_ds.ids), np.asarray(train_ds.y, dtype=np.float32),
-        list(val_ds.ids), np.asarray(val_ds.y, dtype=np.float32),
-        list(test_ds.ids), np.asarray(test_ds.y, dtype=np.float32),
+        [str(s) for s in train_ds.ids], np.asarray(train_ds.y, dtype=np.float32),
+        [str(s) for s in val_ds.ids], np.asarray(val_ds.y, dtype=np.float32),
+        [str(s) for s in test_ds.ids], np.asarray(test_ds.y, dtype=np.float32),
     )
 
 
-# ---------- tokenize + forward-pass-cache ----------
+# ---------- encoder featurization ----------
 
-def _tokenize(tokenizer, smiles: List[str], max_length: int) -> Tuple[torch.Tensor, torch.Tensor]:
-    enc = tokenizer(
-        smiles, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt",
-    )
-    return enc["input_ids"], enc["attention_mask"]
-
-
-def _forward_features(
-    encoder: RobertaModel, input_ids: torch.Tensor, attention_mask: torch.Tensor,
-    device: torch.device, batch_size: int = 64,
-) -> torch.Tensor:
+def _encoder_features(encoder, tokenizer, smiles: List[str], device, pool_mode: str,
+                      max_length: int, batch_size: int = 128) -> np.ndarray:
     encoder.eval()
     feats = []
     with torch.no_grad():
-        for i in range(0, input_ids.shape[0], batch_size):
-            ids = input_ids[i : i + batch_size].to(device)
-            mask = attention_mask[i : i + batch_size].to(device)
+        for i in range(0, len(smiles), batch_size):
+            chunk = smiles[i:i + batch_size]
+            enc = tokenizer(chunk, truncation=True, max_length=max_length,
+                            padding="longest", return_tensors="pt")
+            ids = enc["input_ids"].to(device)
+            mask = enc["attention_mask"].to(device)
             out = encoder(input_ids=ids, attention_mask=mask)
-            cls = out.last_hidden_state[:, 0, :]  # [B, H]
-            feats.append(cls.detach().cpu())
-    return torch.cat(feats, dim=0)
+            pooled = pool(out.last_hidden_state, mask, pool_mode).float().cpu().numpy()
+            feats.append(pooled)
+    return np.concatenate(feats, axis=0)
 
 
-# ---------- head training ----------
-
-def _train_head(
-    train_x: torch.Tensor, train_y: np.ndarray,
-    val_x: torch.Tensor, val_y: np.ndarray,
-    test_x: torch.Tensor, test_y: np.ndarray,
-    task_type: str,
-    n_outputs: int,
-    seed: int,
-    num_epochs: int = 50,
-    early_stopping_patience: int = 10,
-    lr: float = 1e-3,
-    batch_size: int = 64,
-) -> Tuple[float, np.ndarray]:
-    """Train a 1-layer head with early stopping. Return (test_metric, test_predictions)."""
-    set_seed(seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    hidden = train_x.shape[1]
-    head = nn.Linear(hidden, n_outputs).to(device)
-    optimizer = torch.optim.Adam(head.parameters(), lr=lr)
-
-    is_clf = task_type == "classification"
-    train_y_t = torch.from_numpy(train_y).to(torch.float32)
-    val_y_t = torch.from_numpy(val_y).to(torch.float32)
-    test_y_t = torch.from_numpy(test_y).to(torch.float32)
-
-    if train_y_t.ndim == 1:
-        train_y_t = train_y_t.unsqueeze(1)
-        val_y_t = val_y_t.unsqueeze(1)
-        test_y_t = test_y_t.unsqueeze(1)
-
-    train_ds = TensorDataset(train_x, train_y_t)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-
-    best_val = float("inf")
-    best_state = {k: v.detach().cpu().clone() for k, v in head.state_dict().items()}
-    patience = 0
-
-    for epoch in range(num_epochs):
-        head.train()
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
-            optimizer.zero_grad()
-            preds = head(x)
-            valid = ~torch.isnan(y)
-            if valid.sum() == 0:
-                continue
-            if is_clf:
-                loss = nn.functional.binary_cross_entropy_with_logits(preds[valid], y[valid])
-            else:
-                loss = nn.functional.mse_loss(preds[valid], y[valid])
-            loss.backward()
-            optimizer.step()
-
-        # Val
-        head.eval()
-        with torch.no_grad():
-            v = head(val_x.to(device))
-            valid = ~torch.isnan(val_y_t.to(device))
-            if valid.sum() == 0:
-                val_loss = float("inf")
-            elif is_clf:
-                val_loss = nn.functional.binary_cross_entropy_with_logits(
-                    v[valid], val_y_t.to(device)[valid]
-                ).item()
-            else:
-                val_loss = nn.functional.mse_loss(
-                    v[valid], val_y_t.to(device)[valid]
-                ).item()
-
-        if val_loss < best_val - 1e-5:
-            best_val = val_loss
-            best_state = {k: v.detach().cpu().clone() for k, v in head.state_dict().items()}
-            patience = 0
-        else:
-            patience += 1
-            if patience >= early_stopping_patience:
-                break
-
-    # Test
-    head.load_state_dict(best_state)
-    head.to(device)
-    head.eval()
-    with torch.no_grad():
-        test_preds = head(test_x.to(device)).detach().cpu().numpy()
-
-    metric = _metric(test_preds, test_y, task_type)
-    return metric, test_preds
-
-
-def _metric(preds: np.ndarray, labels: np.ndarray, task_type: str) -> float:
-    if task_type == "classification":
-        from sklearn.metrics import roc_auc_score
-        # multitask: average AUC across columns where both classes present and non-NaN
-        if labels.ndim == 1:
-            mask = ~np.isnan(labels)
-            if mask.sum() == 0 or len(np.unique(labels[mask])) < 2:
-                return float("nan")
-            return float(roc_auc_score(labels[mask], preds[mask]))
-        scores = []
-        for j in range(labels.shape[1]):
-            mask = ~np.isnan(labels[:, j])
-            if mask.sum() == 0 or len(np.unique(labels[mask, j])) < 2:
-                continue
-            scores.append(roc_auc_score(labels[mask, j], preds[mask, j]))
-        return float(np.mean(scores)) if scores else float("nan")
-    else:
-        # regression: RMSE averaged over columns
-        if labels.ndim == 1:
-            mask = ~np.isnan(labels)
-            return float(np.sqrt(np.mean((preds[mask] - labels[mask]) ** 2)))
-        rmses = []
-        for j in range(labels.shape[1]):
-            mask = ~np.isnan(labels[:, j])
-            if mask.sum() == 0:
-                continue
-            rmses.append(np.sqrt(np.mean((preds[mask, j] - labels[mask, j]) ** 2)))
-        return float(np.mean(rmses)) if rmses else float("nan")
+def _subsample_train(smiles: List[str], y: np.ndarray, n: Optional[int], seed: int):
+    if n is None or n >= len(smiles):
+        return smiles, y
+    rng = np.random.default_rng(seed)
+    idx = rng.choice(len(smiles), size=n, replace=False)
+    return [smiles[i] for i in idx], y[idx]
 
 
 # ---------- main ----------
 
 def evaluate(
-    encoder_path: str,
-    tokenizer_path: str,
+    encoder_path: Optional[str],
+    tokenizer_path: Optional[str],
     output_dir: str,
     head_seeds: List[int],
     datasets: List[Tuple[str, str]],
-    max_length: int = 512,
+    *,
+    featurizer: str = "encoder",
+    pool_mode: str = "mean",
+    standardize: str = "zscore",
+    head: str = "mlp",
+    max_length: int = 256,
+    train_subsample: Optional[int] = None,
+    subsample_seed: int = 0,
 ) -> Path:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
-    encoder = RobertaModel.from_pretrained(encoder_path).to(device)
-    encoder.eval()
+    encoder = tokenizer = None
+    if featurizer == "encoder":
+        from transformers import ModernBertModel, PreTrainedTokenizerFast
+        tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
+        # reference_compile=False: ModernBERT otherwise triggers torch.compile/triton,
+        # which needs a working gcc/CUDA toolchain the workers don't have. SDPA is plenty.
+        encoder = ModernBertModel.from_pretrained(
+            encoder_path, attn_implementation="sdpa", reference_compile=False
+        ).to(device)
+        encoder.eval()
+    elif featurizer != "ecfp4":
+        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4)")
+
+    # ECFP bit vectors are already 0/1; standardizing them is pointless (trees are
+    # scale-invariant) and can destabilize PCA, so force 'none' for the fingerprint.
+    std_method = "none" if featurizer == "ecfp4" else standardize
 
     rows = []
-
     for ds_name, task_type in datasets:
         t0 = time.time()
-        print(f"[eval_v2] {ds_name} ({task_type}) ...")
+        main_metric = "roc_auc" if task_type == "classification" else "rmse"
+        print(f"[eval_v2] {ds_name} ({task_type}) featurizer={featurizer} head={head}")
         try:
             tr_s, tr_y, va_s, va_y, te_s, te_y = _load_moleculenet(ds_name)
         except Exception as exc:
             print(f"  failed to load: {exc}")
             continue
 
-        # Tokenize + forward once (cached).
-        tr_ids, tr_mask = _tokenize(tokenizer, tr_s, max_length)
-        va_ids, va_mask = _tokenize(tokenizer, va_s, max_length)
-        te_ids, te_mask = _tokenize(tokenizer, te_s, max_length)
-        tr_x = _forward_features(encoder, tr_ids, tr_mask, device)
-        va_x = _forward_features(encoder, va_ids, va_mask, device)
-        te_x = _forward_features(encoder, te_ids, te_mask, device)
-
+        tr_s, tr_y = _subsample_train(tr_s, tr_y, train_subsample, subsample_seed)
+        n_train = len(tr_s)
         n_outputs = tr_y.shape[1] if tr_y.ndim > 1 else 1
+
+        # Featurize
+        if featurizer == "ecfp4":
+            tr_x = ecfp4_features(tr_s); va_x = ecfp4_features(va_s); te_x = ecfp4_features(te_s)
+        else:
+            tr_x = _encoder_features(encoder, tokenizer, tr_s, device, pool_mode, max_length)
+            va_x = _encoder_features(encoder, tokenizer, va_s, device, pool_mode, max_length)
+            te_x = _encoder_features(encoder, tokenizer, te_s, device, pool_mode, max_length)
+
+        # Standardize (fit on train only)
+        std_params = fit_standardizer(tr_x, std_method)
+        tr_x = apply_standardizer(tr_x, std_params)
+        va_x = apply_standardizer(va_x, std_params)
+        te_x = apply_standardizer(te_x, std_params)
 
         per_seed = []
         for seed in head_seeds:
-            metric, _ = _train_head(
-                tr_x, tr_y, va_x, va_y, te_x, te_y,
-                task_type=task_type, n_outputs=n_outputs, seed=seed,
-            )
+            hd = make_head(head, task_type, n_outputs, seed).fit(tr_x, tr_y, va_x, va_y)
+            metric = compute_metric(hd.predict(te_x), te_y, task_type)
             per_seed.append(metric)
             rows.append({
-                "dataset": ds_name,
-                "task_type": task_type,
-                "main_metric": "roc_auc" if task_type == "classification" else "rmse",
-                "head_seed": seed,
-                "main_value": metric,
-                "elapsed_seconds": time.time() - t0,
+                "dataset": ds_name, "task_type": task_type, "featurizer": featurizer,
+                "pool": pool_mode if featurizer == "encoder" else "-",
+                "standardize": std_method, "head": head, "main_metric": main_metric,
+                "head_seed": seed, "n_train": n_train, "main_value": metric,
+                "elapsed_seconds": round(time.time() - t0, 1),
             })
 
-        per_seed = np.array(per_seed, dtype=np.float64)
-        rows.append({
-            "dataset": ds_name,
-            "task_type": task_type,
-            "main_metric": "roc_auc" if task_type == "classification" else "rmse",
-            "head_seed": "MEAN",
-            "main_value": float(np.nanmean(per_seed)),
-            "elapsed_seconds": time.time() - t0,
-        })
-        rows.append({
-            "dataset": ds_name,
-            "task_type": task_type,
-            "main_metric": "roc_auc" if task_type == "classification" else "rmse",
-            "head_seed": "STD",
-            "main_value": float(np.nanstd(per_seed)),
-            "elapsed_seconds": time.time() - t0,
-        })
+        arr = np.array(per_seed, dtype=np.float64)
+        for tag, val in (("MEAN", float(np.nanmean(arr))), ("STD", float(np.nanstd(arr)))):
+            rows.append({
+                "dataset": ds_name, "task_type": task_type, "featurizer": featurizer,
+                "pool": pool_mode if featurizer == "encoder" else "-",
+                "standardize": std_method, "head": head, "main_metric": main_metric,
+                "head_seed": tag, "n_train": n_train, "main_value": val,
+                "elapsed_seconds": round(time.time() - t0, 1),
+            })
+        print(f"  {ds_name}: {main_metric} = {np.nanmean(arr):.4f} ± {np.nanstd(arr):.4f} (n_train={n_train})")
 
+    fieldnames = ["dataset", "task_type", "featurizer", "pool", "standardize", "head",
+                  "main_metric", "head_seed", "n_train", "main_value", "elapsed_seconds"]
     summary_path = out / "moleculenet_summary.csv"
     with summary_path.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["dataset", "task_type", "main_metric", "head_seed", "main_value", "elapsed_seconds"])
+        w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for r in rows:
             w.writerow(r)
 
-    suite_path = out / "suite_summary.json"
-    summary = {}
+    suite = {}
     for r in rows:
         if r["head_seed"] in ("MEAN", "STD"):
-            key = f"{r['dataset']}_{r['head_seed']}"
-            summary[key] = r["main_value"]
-    suite_path.write_text(json.dumps(summary, indent=2))
-
-    print(f"[eval_v2] wrote {summary_path} and {suite_path}")
+            suite[f"{r['dataset']}_{r['head_seed']}"] = r["main_value"]
+    (out / "suite_summary.json").write_text(json.dumps(suite, indent=2))
+    print(f"[eval_v2] wrote {summary_path}")
     return summary_path
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--encoder", required=True, help="Path to a saved RobertaModel encoder")
-    p.add_argument("--tokenizer", required=True)
+    p.add_argument("--encoder", default=None, help="Path to a saved ModernBertModel encoder")
+    p.add_argument("--tokenizer", default=None)
     p.add_argument("--output_dir", required=True)
     p.add_argument("--head_seeds", type=int, nargs="+", default=[0, 1, 2])
-    p.add_argument("--datasets", nargs="+", default=None,
-                   help="Override the 9-task subset; pass dataset names")
+    p.add_argument("--datasets", nargs="+", default=None, help="Override the 5-task subset")
+    p.add_argument("--featurizer", choices=["encoder", "ecfp4"], default="encoder")
+    p.add_argument("--pool", choices=["cls", "mean", "cls_mean"], default="mean")
+    p.add_argument("--standardize", choices=["zscore", "pca_whiten", "none"], default="zscore")
+    p.add_argument("--head", choices=["linear", "mlp", "xgb"], default="mlp")
+    p.add_argument("--max_length", type=int, default=256)
+    p.add_argument("--train_subsample", type=int, default=None)
+    p.add_argument("--subsample_seed", type=int, default=0)
     args = p.parse_args()
 
     if args.datasets is not None:
-        # Look up task type from MOLECULENET_TASKS_V2
         type_map = dict(MOLECULENET_TASKS_V2)
         ds_list = [(n, type_map.get(n, "classification")) for n in args.datasets]
     else:
         ds_list = MOLECULENET_TASKS_V2
 
     evaluate(
-        encoder_path=args.encoder,
-        tokenizer_path=args.tokenizer,
-        output_dir=args.output_dir,
-        head_seeds=args.head_seeds,
-        datasets=ds_list,
+        encoder_path=args.encoder, tokenizer_path=args.tokenizer, output_dir=args.output_dir,
+        head_seeds=args.head_seeds, datasets=ds_list, featurizer=args.featurizer,
+        pool_mode=args.pool, standardize=args.standardize, head=args.head,
+        max_length=args.max_length, train_subsample=args.train_subsample,
+        subsample_seed=args.subsample_seed,
     )
 
 
