@@ -87,7 +87,11 @@ def main():
             print(f"[watchdog] tmp file present; pausing stall check")
             continue
 
-        if metrics_path.exists():
+        # Only trust metrics.jsonl written by THIS run: a leftover file from a prior run
+        # has an mtime older than the watchdog start, and must NOT count as "recent
+        # progress" nor trigger an immediate stale-kill before the fresh run's first write.
+        fresh_metrics = metrics_path.exists() and metrics_path.stat().st_mtime >= started
+        if fresh_metrics:
             metrics_age = now - metrics_path.stat().st_mtime
             if metrics_age > args.stall_seconds:
                 print(f"[watchdog] metrics stale ({metrics_age:.0f}s > {args.stall_seconds}s); "
@@ -103,7 +107,7 @@ def main():
                     pass
                 return 1
         else:
-            # metrics.jsonl never appeared — something failed at startup
+            # no fresh metrics yet (missing, or a stale leftover) — apply startup grace
             startup_grace = 600  # 10 min for first metric write
             if elapsed > startup_grace:
                 print(f"[watchdog] no metrics.jsonl after {elapsed:.0f}s; SIGTERM pid={args.pid}")

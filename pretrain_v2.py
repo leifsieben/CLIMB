@@ -425,7 +425,10 @@ def train(args) -> int:
     tokens_seen_dev = torch.zeros((), device=device, dtype=torch.long)
     start_time = time.time()
     last_log_time = start_time
-    metrics_file = metrics_path.open("a", buffering=1)
+    # Truncate ('w', not 'a'): a re-run into an existing run_dir must start metrics.jsonl
+    # fresh — a leftover stale file (old mtime) makes the watchdog kill the fresh run for
+    # "no recent progress" before the first metric is written.
+    metrics_file = metrics_path.open("w", buffering=1)
 
     def heartbeat(status: str):
         _atomic_write_json(heartbeat_path, {
