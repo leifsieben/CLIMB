@@ -121,12 +121,14 @@ def evaluate(
             encoder_path, attn_implementation="sdpa", reference_compile=False
         ).to(device)
         encoder.eval()
-    elif featurizer != "ecfp4":
-        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4)")
+    elif featurizer not in ("ecfp4", "rdkit_desc"):
+        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4|rdkit_desc)")
 
-    # ECFP bit vectors are already 0/1; standardizing them is pointless (trees are
-    # scale-invariant) and can destabilize PCA, so force 'none' for the fingerprint.
-    std_method = "none" if featurizer == "ecfp4" else standardize
+    # ECFP bit vectors are 0/1; RDKit descriptors are heterogeneous-scale with NaNs. For
+    # both, the intended head is XGBoost (scale-invariant, native NaN handling), so skip
+    # standardization. This makes rdkit_desc the classical control for the dense-MTR arm:
+    # the SAME 217 descriptors used directly in a tree model vs learned by the CLM.
+    std_method = "none" if featurizer in ("ecfp4", "rdkit_desc") else standardize
 
     rows = []
     for ds_name, task_type in datasets:
@@ -146,6 +148,13 @@ def evaluate(
         # Featurize
         if featurizer == "ecfp4":
             tr_x = ecfp4_features(tr_s); va_x = ecfp4_features(va_s); te_x = ecfp4_features(te_s)
+        elif featurizer == "rdkit_desc":
+            from descriptors_v2 import rdkit_descriptors
+            def _rd(s):
+                x = np.asarray(rdkit_descriptors(list(s)), dtype=np.float32)
+                x[~np.isfinite(x)] = np.nan  # XGBoost treats NaN as missing but ERRORS on inf
+                return x
+            tr_x = _rd(tr_s); va_x = _rd(va_s); te_x = _rd(te_s)
         else:
             tr_x = _encoder_features(encoder, tokenizer, tr_s, device, pool_mode, max_length)
             va_x = _encoder_features(encoder, tokenizer, va_s, device, pool_mode, max_length)

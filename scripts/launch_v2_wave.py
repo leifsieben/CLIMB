@@ -92,12 +92,11 @@ def _stall_seconds_for(run: dict) -> int:
 def _max_seconds_for(run: dict) -> int:
     sel = run.get("selection", {})
     fps = int(sel.get("total_forward_passes") or run["pretrain_config"]["selection"].get("total_forward_passes", 250_000_000))
-    # Generous cap: ~12s per 1k FPs ≈ 50M FPs/h → 250M FPs ≈ 5 h, +eval. Pad heavily.
-    if fps >= 1_000_000_000:
-        return 36 * 3600
-    if fps >= 500_000_000:
-        return 24 * 3600
-    return 12 * 3600
+    # Hard ceiling only — real stalls are caught separately by stall_seconds (no-progress).
+    # Measured throughput is ~700-760 seq/s; budget at a CONSERVATIVE 400 seq/s + 4h for
+    # eval/warmup so genuinely long runs are never killed prematurely (the old flat 12h cap
+    # silently truncated every 48M≈18h and 96M≈35h run at ~33M FP).
+    return int(fps / 400) + 4 * 3600
 
 
 def _run_pretrain(run: dict) -> str:
