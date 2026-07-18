@@ -48,8 +48,9 @@ def _load_moleculenet(name: str):
         "BACE": dc.molnet.load_bace_classification,
         "Tox21": dc.molnet.load_tox21,
         "QM7": dc.molnet.load_qm7,
+        "HIV": dc.molnet.load_hiv,            # large (~41k) drug-discovery classification
+        "Lipophilicity": dc.molnet.load_lipo,  # ~4.2k ADMET/physchem regression (healthy signal)
         # optional later extensions
-        "HIV": dc.molnet.load_hiv,
         "QM9": dc.molnet.load_qm9,
     }
     if name not in loaders:

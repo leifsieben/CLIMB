@@ -153,17 +153,22 @@ SUPERVISED_FAMILY_CAPS = {
 
 DESCRIPTOR_STATS_PATH = "configs/descriptor_stats.json"
 
-# Pre-registered v2 downstream suite: one dataset per common cheminformatics use
-# case, all ~1-8k. DISJOINT from SUPERVISED_FAMILIES_V2 (no PCBA leakage). Cannot
-# be revised post-hoc. Large-scale HIV/QM9 are an optional later extension.
+# v2 downstream suite: chosen to span both task TYPES (classification + regression),
+# multiple DOMAINS (physchem/basic-property, ADMET, drug-discovery, toxicity, quantum),
+# and a SIZE range (~0.6k → ~41k). Expanded 2026-07-18 (uniformly, disclosed) to add a
+# 2nd healthy regression (Lipophilicity) and a large-data anchor (HIV promoted from the
+# fine-tune ceiling test). All molecule-disjoint from the SFT families at the InChIKey
+# level via the eval-molecule blocklist (see leakage audit).
 MOLECULENET_TASKS_V2 = [
-    ("ESOL", "regression"),          # physical chemistry — aqueous solubility (~1.1k)
-    ("BBBP", "classification"),      # ADMET — blood-brain barrier / CNS (~2.0k)
-    ("BACE", "classification"),      # drug discovery — beta-secretase binding (~1.5k)
+    ("ESOL", "regression"),          # physchem — aqueous solubility (~1.1k, small)
+    ("Lipophilicity", "regression"), # ADMET/physchem — logD (~4.2k, medium)
+    ("QM7", "regression"),           # quantum — atomization energy (~7k, medium)
+    ("BBBP", "classification"),      # ADMET — blood-brain barrier / CNS (~2.0k, small)
+    ("BACE", "classification"),      # drug discovery — beta-secretase binding (~1.5k, small)
     ("Tox21", "classification"),     # toxicity / safety screening (~7.8k, 12 tasks)
-    ("QM7", "regression"),           # quantum mechanics — atomization energy (~7k)
+    ("HIV", "classification"),       # drug discovery — antiviral (~41k, LARGE)
 ]
-"""Pre-registered 5-task suite. Metrics: ROC-AUC (clf), RMSE/MAE (reg)."""
+"""7-task suite. Metrics: ROC-AUC (clf), RMSE (reg). 3 regression + 4 classification."""
 
 
 @dataclass
