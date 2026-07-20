@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# Phase-2 per-worker runner. Runs ONE pre-split worker manifest, periodically syncs
-# results to S3 (a sidecar loop, so a spot reclaim can't lose completed runs or the
-# latest long-run checkpoint), then does a final sync and self-stops.
+# Phase-2 per-worker runner (hardened). Runs ONE pre-split worker manifest with:
+#   - a PREFLIGHT gate (refuses to launch into a bad environment)
+#   - a sidecar S3 sync (spot-reclaim safe)
+#   - a HEARTBEAT + stall-alert sidecar that emails progress directly (no Claude)
+#   - a completion GATE: the box only self-stops if EVERY run in its manifest is
+#     verified complete (reached its FP budget). Otherwise it ALERTS and STAYS UP
+#     so an incomplete run can be inspected/resumed — it never again shuts down on
+#     truncated work and hides the failure.
 #
 # Usage (on the box, detached):
 #   nohup bash scripts/phase2_worker.sh <worker_manifest.json> <worker_name> &
@@ -9,29 +14,90 @@ set -x
 cd /home/ec2-user/CLIMB
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export TORCHDYNAMO_DISABLE=1
+export CLIMB_SNS_ARN="${CLIMB_SNS_ARN:-arn:aws:sns:us-east-1:075120018132:climb-experiments}"
+export CLIMB_SNS_REGION="${CLIMB_SNS_REGION:-us-east-1}"
 PY=/home/ec2-user/venvs/climb/bin/python
 MANIFEST="${1:?usage: phase2_worker.sh <manifest> <worker_name>}"
 WORKER="${2:?usage: phase2_worker.sh <manifest> <worker_name>}"
+export CLIMB_WORKER="$WORKER"
 LOCAL=experiments/climb_v2_phase2
 S3=s3://climb-s3-bucket/experiments/climb_v2_phase2
+NOTIFY="bash scripts/notify.sh"
 
-# sidecar: push results (incl. periodic encoder checkpoints) to S3 every 10 min
+# ---- PREFLIGHT: refuse to launch into a broken environment (stay up on failure) ----
+if ! bash scripts/preflight.sh "$WORKER" "$MANIFEST"; then
+  echo "PREFLIGHT FAILED — not launching, box staying up for inspection $(date -u)"
+  exit 1   # deliberately NO shutdown: leave the box alive so it can be fixed
+fi
+
+# shared descriptor stats (identical normalization across every box); harmless if absent
+aws s3 cp s3://climb-s3-bucket/configs/descriptor_stats.json configs/descriptor_stats.json >/dev/null 2>&1 || true
+# encoders are needed as warm-start bases only in stage 2 (u2s); pull any that exist
+aws s3 sync "$S3" "$LOCAL" --exclude "*/moleculenet/*" --exclude "*/tokenizer/*" >/dev/null 2>&1 || true
+
+# ---- sidecar 1: push results (incl. periodic encoder checkpoints) to S3 every 10 min ----
 ( while true; do
     aws s3 sync "$LOCAL" "$S3" --exclude "*/tokenizer/*" >/dev/null 2>&1
     sleep 600
   done ) &
 SIDECAR=$!
 
-# shared descriptor stats (identical normalization across every box); harmless if absent
-aws s3 cp s3://climb-s3-bucket/configs/descriptor_stats.json configs/descriptor_stats.json >/dev/null 2>&1 || true
+# ---- sidecar 2: heartbeat + stall alert (direct email, no Claude in the loop) ----
+( TICK=0
+  while true; do
+    sleep 1800   # 30-min cadence; emails a heartbeat every 4th tick (~2h)
+    TICK=$((TICK+1))
+    RUN=$(ls -td "$LOCAL"/*/ 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null)
+    M="$LOCAL/$RUN/metrics.jsonl"
+    FP=$(tail -1 "$M" 2>/dev/null | $PY -c "import sys,json;print(json.loads(sys.stdin.read()).get('forward_passes_seen',0))" 2>/dev/null || echo 0)
+    MT=$(stat -c %Y "$M" 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    TRAINING=$(pgrep -f "[p]retrain_v2" | head -1)
+    # stall alert: a training proc exists but metrics file hasn't advanced in >25 min
+    if [ -n "$TRAINING" ] && [ "$MT" != 0 ] && [ $((NOW - MT)) -gt 1500 ]; then
+      $NOTIFY ALERT "$WORKER STALL? $RUN" "metrics.jsonl not advanced in $(((NOW-MT)/60)) min while pid $TRAINING alive (fp=$FP). Per-run watchdog should SIGTERM shortly; flagging directly."
+    fi
+    # periodic heartbeat (~every 2h)
+    if [ $((TICK % 4)) -eq 0 ]; then
+      $NOTIFY INFO "$WORKER heartbeat" "current run=$RUN fp=$FP (last metric $(((NOW-MT)/60)) min ago)"
+    fi
+  done ) &
+HEARTBEAT=$!
 
-# encoders are needed as warm-start bases only in stage 2 (u2s); pull any that exist
-aws s3 sync "$S3" "$LOCAL" --exclude "*/moleculenet/*" >/dev/null 2>&1 || true
-
+# ---------------------- run the manifest ----------------------
 $PY scripts/launch_v2_wave.py --manifest "$MANIFEST" --worker_name "$WORKER"
 
-kill $SIDECAR 2>/dev/null || true
+kill $SIDECAR $HEARTBEAT 2>/dev/null || true
 # final authoritative sync (include encoders — stage 2 warm-starts from them)
 aws s3 sync "$LOCAL" "$S3" --exclude "*/tokenizer/*"
-echo "PHASE2 WORKER $WORKER DONE $(date -u)"
-sudo shutdown -h now
+
+# ---- completion GATE: only self-stop if EVERY run in the manifest is verified ----
+SUMMARY=$($PY - "$MANIFEST" "$LOCAL" <<'PYEOF'
+import json, sys, os
+manifest, local = sys.argv[1], sys.argv[2]
+runs = json.load(open(manifest))["runs"]
+done, missing = [], []
+for r in runs:
+    rid = r["run_id"]
+    vp = os.path.join(local, rid, "verified.json")
+    if os.path.exists(vp):
+        v = json.load(open(vp)); done.append(f"{rid}({int(v.get('fraction',0)*100)}%)")
+    else:
+        missing.append(rid)
+print(json.dumps({"done": done, "missing": missing}))
+PYEOF
+)
+MISSING=$(echo "$SUMMARY" | $PY -c "import sys,json;print(len(json.load(sys.stdin)['missing']))")
+DONE=$(echo "$SUMMARY" | $PY -c "import sys,json;print(len(json.load(sys.stdin)['done']))")
+MISSING_LIST=$(echo "$SUMMARY" | $PY -c "import sys,json;print(', '.join(json.load(sys.stdin)['missing']) or 'none')")
+DONE_LIST=$(echo "$SUMMARY" | $PY -c "import sys,json;print(', '.join(json.load(sys.stdin)['done']))")
+
+if [ "$MISSING" -eq 0 ]; then
+  $NOTIFY DONE "$WORKER manifest COMPLETE ($DONE runs)" "All runs verified complete. Box self-stopping. Done: $DONE_LIST"
+  echo "PHASE2 WORKER $WORKER ALL VERIFIED $(date -u)"
+  sudo shutdown -h now
+else
+  $NOTIFY ALERT "$WORKER INCOMPLETE — box STAYING UP" "$DONE verified, $MISSING NOT complete: $MISSING_LIST. Box left running for inspection/resume (NOT shutting down)."
+  echo "PHASE2 WORKER $WORKER INCOMPLETE ($MISSING missing) — staying up $(date -u)"
+  exit 1
+fi

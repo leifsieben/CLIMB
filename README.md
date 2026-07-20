@@ -11,10 +11,14 @@ enough to serve as the methods section of the paper: it states the idea and hypo
 every experiment and figure, and then documents the architecture, data, curation/deduplication,
 training, and evaluation in full detail.
 
-> **Status (2026-07-16):** v2 pipeline. A ~41M-parameter ModernBERT encoder, frozen-featurizer
-> evaluation, and a phase-2 scaling matrix are running on AWS. A molecule-level leakage audit has
-> been completed and a dedup pass applied. Live experiment state and result placeholders live in
-> `experiments/climb_v2_phase2/RESULTS_DOSSIER.md` (a scratch storyboard, not part of this doc).
+> **Status (2026-07-20):** v2.1 pipeline. A ~41M-parameter ModernBERT encoder, frozen-featurizer
+> evaluation, and a phase-2 scaling matrix on AWS. A molecule-level leakage audit is complete and
+> dedup applied. A batch of long runs was **truncated by an old 12h watchdog cap** (compounded by an
+> unwired descriptor precompute); the harness is now **hardened** — throughput-based cap, completion
+> judged by verified forward-passes (not file existence), a preflight gate, and direct box→email
+> (SNS) alerts on START/COMPLETE/TRUNCATION/STALL. The recovery wave + the expanded experiment set
+> (E12–E13, mechanism figures) below are queued short-first. Live experiment state and result
+> placeholders live in `experiments/climb_v2_phase2/RESULTS_DOSSIER.md` (a scratch storyboard).
 
 ---
 
@@ -77,9 +81,21 @@ unsupervised×supervised surface. v2 revised this after early results and review
 **Core**
 - **H1 — Does unsupervised pretraining help at all?** Compare skip-unsup vs pure-unsup vs unsup→sup
   per task at matched compute.
-- **H2 — Prior vs endpoint.** Is unsup merely a *better initialization* that SFT-from-scratch catches
-  up to if trained long enough, or does it reach a genuinely *better endpoint* no amount of
-  SFT-only compute matches?
+- **H2 — Which mechanism? (initialization vs regularization vs added information).** If unsup helps,
+  *why*? The earlier "better initialization vs better endpoint" framing silently merged two distinct
+  mechanisms — regularization *also* yields a better endpoint skip-unsup can't reach — so it misfiled
+  regularization as "adds information." Three testable mechanisms, each with a distinctive signature:
+  - **(a) initialization** — same reachable endpoint, reached faster/cheaper; skip-unsup catches up
+    given enough SFT compute. *Signature:* a left-shift on the label/compute axis that **closes at
+    full labels / high compute**.
+  - **(b) regularization** — constrains SFT toward a more generalizable endpoint skip can't reach;
+    benefit **concentrated in the low-label regime** with a **smaller train–test gap**. *Signature:*
+    gain only at small label fractions + reduced overfitting, vanishing at 100% labels.
+  - **(c) adds information** — injects content skip-unsup has no access to; benefit **persists as
+    labels grow** and is **content-dependent**. *Signature:* a persistent vertical gap at 100% labels;
+    provable only against a content-free pretraining control (E13 / C10).
+
+  These are separated by the label-efficiency curves (§4/C7) and the corrupted-pretraining control.
 - **H3 — Does the SFT label type decide it?** Dense (RDKit-descriptor MTR) vs sparse (assays) vs
   both. Sub-question: can dense labels compensate for missing unsup where sparse cannot?
 - **H4 — Plateaus.** Where (in compute / molecules) do the pure-unsup and skip-unsup curves flatten?
@@ -95,8 +111,27 @@ unsupervised×supervised surface. v2 revised this after early results and review
 - **H7 — Catastrophic forgetting.** Does running MLM *after* SFT erase the supervised signal?
 - **H8 — Beyond one epoch.** Past one pass of the corpus, does SMILES enumeration (fresh
   augmentation per pass) beat exact canonical repetition?
-- **H9 — Representation vs memorization.** Do novel molecules (in neither pretraining corpus) benefit
-  from pretraining as much as molecules the model has seen? (Molecule-overlap confusion matrix.)
+- **H9 — Representation vs memorization.** Do novel molecules benefit from pretraining as much as
+  molecules the model has actually *seen during unsupervised pretraining*? Studied **entirely on the
+  production (deduped) models — no un-deduplicated model is trained**, so no leakage is reintroduced.
+  The key is that H9 asks about the **pretraining** corpus, and the SFT dedup (§6.6) only removes eval
+  overlap from the **supervised** data — the pretraining overlap is a *different*, disclosed 0–7%
+  (§10) that is deliberately kept. Two leakage-free handles: (i) that **0–7% pretraining overlap** is a
+  genuine "seen-in-pretraining" group already present in the clean model; (ii) **Tanimoto distance to
+  the nearest training molecule** (ECFP4, binned) gives a continuous interpolation↔extrapolation
+  dose–response that subsumes the binary seen/not-seen split (at distance ≈0 it already probes the
+  near-memorization limit). Exact memorization from *supervised* labels is intentionally **not** tested
+  — that would require reintroducing the leakage we removed.
+
+**Content (added 2026-07-20)**
+- **H10 — Domain-matched transfer.** Transfer from an SFT family to a downstream task is governed by
+  molecular / domain **content** similarity (bioassay families → BBBP/BACE/Tox21/HIV; quantum PCQM →
+  QM7), *not* by label type or label distribution per se. Sub-question: how best to *measure*
+  similarity — molecular content (nearest-neighbor Tanimoto / scaffold overlap) vs label-space
+  similarity. Built from the existing E1 single-family arms (transfer matrix, §4 / C8).
+
+*(No formal scaling-law hypothesis. Model-size and compute-optimal scaling are **out of scope for
+this paper**; a purely descriptive compute/data plot is recycled from runs collected anyway — §4.)*
 
 A hypothesis-resolution matrix (positive vs negative evidence per sub-question) is in §11.
 
@@ -110,16 +145,18 @@ metrics, lift over a random-encoder floor.
 | # | Experiment | Purpose | Status |
 |---|---|---|---|
 | E0 | **Round-1 exploratory** | unsup_only / sup_only / mixed at a fixed budget + a unique-molecule sweep | ✅ done |
-| E1 | **Dense-vs-sparse ablation** | 6 SFT arms warm-started from one MLM base (mtr / pcba / l1000 / sparse_all / dense+sparse / pcqm) | ✅ done; re-run deduped |
+| E1 | **Dense-vs-sparse ablation + transfer-matrix source** | 6 SFT arms warm-started from one MLM base (mtr / pcba / l1000 / sparse_all / dense+sparse / pcqm). **Retain per-task (not just per-arm) metrics** as the source for the H10 task-transfer matrix (Fig, C8) | ✅ done; re-run deduped |
 | E2 | **Phase-2 scaling matrix** | the H1–H4 core: pure-unsup ladder + unsup→sup + skip-unsup ladders × 5 SFT recipes | ⏳ running |
 | E3 | **SFT-LR sweep (H5)** | warm-start SFT at LR {2e-4,1e-4,5e-5,2e-5} for dense + sparse | ⏳ (base refit pending) |
 | E4 | **Leakage audit (H6)** | canonical-SMILES overlap of eval test vs pretrain + each SFT family | ✅ done |
 | E5 | **Eval-ceiling / Fig D (H5)** | frozen probe vs end-to-end finetune per checkpoint + HIV | 🔲 planned |
-| E6 | **Headline bars / Fig A** | random · ECFP4 · skip · pure-unsup · unsup→sup per recipe, 3 seeds + CIs | 🔲 planned |
+| E6 | **Headline bars / Fig A** | random · ECFP4 · skip · pure-unsup · unsup→sup per recipe (**single seed for now; 3-seed CIs deferred**) | 🔲 planned |
 | E7 | **Catastrophic forgetting (H7)** | SFT encoder → continue MLM → re-eval | 🔲 planned |
 | E8 | **Beyond-one-epoch (H8)** | canonical repetition vs enumerated augmentation past one pass | 🔲 planned |
 | E9 | **Molecule-overlap matrix (H9)** | performance by (seen-in-unsup × seen-in-sup) group | 🔲 planned |
-| E10 | **Chinchilla model-scaling (Stage 2)** | best recipe at ~13M/50M/100M/200M params, D fixed | 🔲 future |
+| ~~E10~~ | **Model-size / Chinchilla scaling — DROPPED** | model-size scaling (13M/50M/100M/200M) and any compute-optimal / IsoFLOP scaling-law analysis are **out of scope for this paper**; no new runs. A descriptive compute/data plot is recycled from existing runs (§4) | ❌ dropped |
+| E12 | **Label-efficiency sweep (H2 mechanism)** | retrain the frozen probe on 5/10/25/50/100% of each eval **train** split, per regime + per task; report the train–test gap. No new pretraining (cached embeddings) | 🔲 planned |
+| E13 | **Corrupted / irrelevant-pretraining control (H2c)** | pretrain on a domain-mismatched corpus **or** a corrupted objective (shuffled-token MLM / shuffled-target MTR); 1–2 points vs random init and real pretraining | 🔲 planned *(optional, new compute)* |
 
 The **5 SFT recipes** used in E2 (each gets a full skip + unsup→sup ladder):
 `dense` (RDKit-MTR) · `sparse_all` (PCBA+L1000) · `dense_plus_sparse` · `minimol_full`
@@ -141,21 +178,25 @@ Because the corpus is ~12M molecules (§6.1), forward-pass budgets ≥ 12M are *
 
 | Figure | Content | x-axis / form |
 |---|---|---|
-| **Fig A — headline bars** | random · ECFP4 · skip · pure-unsup · unsup→sup per recipe (3 seeds + CI) | compute-matched bars |
+| **Fig A — headline bars** | random · ECFP4 · skip · pure-unsup · unsup→sup per recipe (**single seed for now; 3-seed CIs deferred**) | compute-matched bars |
 | **Fig B — scaling** | 3 lines/task (pure-unsup, unsup→sup, skip-unsup) × 5 recipes | vs forward passes **and** vs #molecules |
 | **Fig C — dense-vs-sparse ablation** | per-arm lift over random (7 arms) | table + bars |
 | **Fig D — eval-ceiling** | frozen probe vs finetuned per checkpoint (+ HIV) | vs compute |
 | **Leakage table** | eval-test overlap % with pretrain / PCBA / L1000 / PCQM / WONG | table (§6.5) |
 | **SFT-LR table** | dense/sparse lift vs base at 4 LRs | table |
 | **Forgetting** | metric before/after post-hoc MLM | table |
-| **Fig H8 — repetition** | canonical vs enumerated past one epoch | vs forward passes |
-| **Fig H9 — overlap matrix** | performance by (in-unsup × in-sup) group | 2×2 heatmap |
-| **Fig — model scaling (Stage 2)** | Score vs log(params) at fixed D | Chinchilla-style |
+| **Fig H8 — repetition** | canonical vs enumerated: **MLM val & test loss** (train↓/val↑ = overfit signature) *and* downstream lift | vs forward passes |
+| **Fig H9 — memorization & representation** | **Panel 1** lift for eval molecules seen vs not-seen in the *pretraining* corpus (the disclosed 0–7% overlap); **Panel 2** lift vs Tanimoto distance to nearest training molecule (binned, ECFP4) — continuous dose–response. Both on the deduped production model | 2 panels |
+| **Fig — label-efficiency** | frozen-probe performance vs #labels (5/10/25/50/100% of train) for skip / pure-unsup / unsup→sup, per task; + train–test gap | vs label fraction |
+| **Fig — task-transfer matrix** | rows = E1 single-family SFT arms, cols = eval task, cell = lift; overlaid with content (nearest-neighbor Tanimoto) and bio/physchem/quantum domain labels | heatmap + similarity overlay |
+| **Fig — compute/data recycling (descriptive)** | every already-collected point: performance vs forward passes **and** vs #molecules, colored by regime/recipe — a descriptive look at what we have, **not** a fitted scaling law (no new runs) | scatter, existing runs only |
+| **Fig — corrupted-pretraining control** *(optional)* | domain-mismatched / corrupted-objective pretraining vs random init vs real pretraining | control bar |
 
 Metric conventions: ESOL & QM7 = RMSE (lower better); BBBP/BACE/Tox21/HIV = ROC-AUC (higher
-better). "Lift" = improvement over the random-encoder floor. Replicates (3 pretraining seeds + CIs)
-are used for the **bar** figures; scaling curves are single-seed by design (cost), with the
-stop-when-flat rule standing in for error bars on the plateau claim.
+better). "Lift" = improvement over the random-encoder floor. **All figures are currently single
+pretraining seed** (3-seed replication with CIs on the bar figures is deferred — see §10); each eval
+still averages **3 head seeds**, and scaling curves use the stop-when-flat rule in place of plateau
+error bars.
 
 ---
 
@@ -199,7 +240,8 @@ is masked-mean, not CLS (see §8).
 **Why this size.** ~41M is deliberately "believable-SOTA but single-GPU": it matches MoLFormer-base
 (44M) and ChemBERTa-2 (46M), trains on one A10G (g5.2xlarge), and keeps a large ablation matrix
 affordable. SMILES are short (median ~30–50 tokens), so token-level modeling does not need large
-capacity. Generalization to larger models is a stated limitation; Stage 2 (E10) tests it directly.
+capacity. Generalization to larger models is a stated limitation and is **out of scope for this
+paper** (model-size scaling / E10 dropped).
 
 ---
 
@@ -213,6 +255,12 @@ capacity. Generalization to larger models is a stated limitation; Stage 2 (E10) 
 - **Implication:** one epoch = ~12M molecules. Forward-pass budgets above 12M are multi-epoch.
 - Streaming is deterministic given `subset_seed` (worker-sharded, hash-based subset membership), so
   every run sees the same molecule order and the ladders are nested subsets.
+- **Held-out MLM val / test split (C5, for H8).** A fixed hash-based holdout of the corpus (never
+  streamed into training) provides MLM **validation and test** loss, logged per run. This exposes the
+  H8 mechanism directly: canonical repetition should overfit (train↓, val/test↑) while enumeration
+  keeps generalizing — a readout the frozen-probe downstream lift can mask (the ceiling of §10). The
+  holdout membership is derived from the same deterministic `subset_seed` hashing so it is disjoint
+  from every ladder's training subset.
 
 ### 6.2 Tokenizer
 - **Byte-level BPE, vocab 1000**, artifact `s3://climb-s3-bucket/tokenizer_10M/` (`tokenizer.json`).
@@ -298,6 +346,15 @@ the exact strings that match = **34,301 leaked rows**; the supervised loader dro
 string membership, no RDKit in the hot path). Blocklist:
 `s3://climb-s3-bucket/configs/eval_blocklist.json`.
 
+**Two distinct keys — dedup vs "seen" (C17).** The blocklist key above is deliberately *fuzzy*: it
+salt-strips to the largest fragment and canonicalizes without stereo, which conservatively
+over-removes (salt forms / stereo-variants collapse together) — the right choice for a **safety**
+dedup. It is **not** used to define the H9 "seen" axis. For H9 (memorization), "seen" = **true
+exact-molecule identity**: the full canonical SMILES *including stereochemistry*, with **no**
+salt-strip / largest-fragment collapse. Keeping the two keys separate means dedup stays conservative
+while the memorization axis is never mislabelled by merged salt/stereo variants. Both keys are
+recorded per eval molecule (§9.5) so a reviewer can see which molecules each classifies as overlapping.
+
 ### 6.7 Dense descriptor targets (MTR) and precompute
 - **Targets:** 217 RDKit `Descriptors.descList` values, NaN-safe, **z-normalized** with mean/std fit
   once on a deterministic 20k-molecule sample (`subset_seed=0`); stats cached to
@@ -331,6 +388,9 @@ string membership, no RDKit in the hot path). Blocklist:
   Within one epoch (≤12M) forward passes = #unique molecules; beyond that they diverge (repetition).
 - **Canonical vs enumerated.** Primary runs use canonical SMILES (one presentation per molecule);
   enumeration (on-the-fly RDKit randomization) is the H8 lever for the beyond-one-epoch regime.
+  **Enumeration RNG is logged (C18):** the randomized-SMILES enumeration seed is recorded per run
+  (separate from `subset_seed`, which does not capture the augmentation RNG), so an enumerated run is
+  reproducible bit-for-bit.
 - **HPO policy.** A single up-front MLM hyperparameter search fixes the recipe; the same settings are
   reused for every subsequent run (no per-experiment tuning) so optimization never confounds a
   comparison. The exception is the deliberate SFT-LR ablation (E3).
@@ -357,9 +417,23 @@ extract one embedding per molecule, train a small head on those embeddings.
   the same head pipeline. "Lift" is improvement over the random floor.
 - **Eval-ceiling (E5):** the same encoders are additionally **fine-tuned end-to-end** (`finetune_v2`)
   on a few tasks + HIV, to test whether the frozen probe under-resolves encoder quality (H5).
+- **Per-molecule prediction dump (C16, blocking).** `eval_v2` writes **`(canonical_key, y_true,
+  y_pred, task, split)` per eval molecule**, not only aggregate RMSE/AUC. This is required to build
+  both Fig H9 panels (C6) and to bin the label-efficiency curves (C7); without it H9 is unbuildable
+  without re-running eval. *Caveat:* per-cell / per-bin **ROC-AUC is unstable** on small subsets —
+  prefer per-molecule residual/rank, or run the mechanism panels on the RMSE tasks (ESOL, QM7).
+- **Persisted fingerprints (C19).** The **ECFP4 fingerprints** already computed for the ECFP4 anchor
+  are saved for all eval molecules **and a pretraining-corpus sample**, so nearest-neighbor Tanimoto
+  distance (Fig H9 panel 2) and the C8 similarity overlay need no recomputation.
+- **Mechanism figures through finetune (C20).** For H9, label-efficiency, and the transfer matrix,
+  report at least a subset **through end-to-end finetune** (`finetune_v2`) as well as the frozen
+  probe — or caveat explicitly with the frozen-probe ceiling (H5 / §10). A ceiling-compressed probe
+  flattens the very differences these figures rely on (Type-II risk), so the mechanism story must not
+  rest solely on the probe H5 says may be under-resolving.
 
-Replication: bar figures use **3 pretraining seeds** with CIs; scaling curves are single-seed
-(cost), with stop-when-flat standing in for plateau error bars.
+Replication: **currently single pretraining seed for all figures** (3-seed CIs on the bar figures are
+deferred, §10); each eval averages **3 head seeds**, and scaling curves use stop-when-flat in place of
+plateau error bars.
 
 ---
 
@@ -372,7 +446,7 @@ Replication: bar figures use **3 pretraining seeds** with CIs; scaling curves ar
 | `data_v2.py` | streaming MLM/raw-SMILES datasets, `MTRCollator` (+ precomputed descriptors), stratified supervised loader (dedup + scarce-first routing), objective iterator |
 | `descriptors_v2.py` | 217 RDKit descriptors, fit/normalize/save stats |
 | `pretrain_v2.py` | `ClimbV2Model` (MLM/MTR/supervised heads), training loop, warm-start, checkpointing |
-| `eval_v2.py` | frozen-featurizer MoleculeNet evaluation, scaffold splits, standardization |
+| `eval_v2.py` | frozen-featurizer MoleculeNet evaluation, scaffold splits, standardization; **per-molecule prediction dump (C16)** and **ECFP4 fingerprint persistence (C19)** |
 | `featurize_v2.py` / `heads_v2.py` | pooling + standardizer; downstream heads + metrics |
 | `finetune_v2.py` | end-to-end fine-tuning (eval-ceiling) |
 | `random_baseline_v2.py` | untrained-encoder + ECFP4 anchors |
@@ -410,11 +484,14 @@ Env on GPU boxes: `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, `TORCHDYNA
 | `.../tokenized/supervised_wide_parquet/` | 5.38M-row supervised wide table |
 | `.../configs/eval_blocklist.json` | 34,301 leaked-molecule dedup blocklist |
 | `.../configs/descriptor_stats.json` | descriptor normalization stats |
-| `.../experiments/climb_v2*/` | run outputs (encoders, metrics, MoleculeNet CSVs) |
+| `.../experiments/climb_v2*/` | run outputs (encoders, metrics, MoleculeNet CSVs, **per-molecule predictions C16**) |
+| `.../configs/eval_fingerprints/` | persisted ECFP4 fingerprints for eval molecules + a pretraining sample (C19) |
 
 ### 9.5 Reporting fields for the paper appendix
 exact S3 prefixes; git commit hash; config path(s); tokenizer id; descriptor-stats + blocklist
-hashes; per-run forward-pass budget; head/pretraining seeds; the frozen-vs-finetune eval flag.
+hashes; per-run forward-pass budget; head/pretraining seeds; **the enumeration seed (C18)**; the
+frozen-vs-finetune eval flag; **both leakage keys per eval molecule — the fuzzy dedup key and the
+exact-identity "seen" key (C17)**.
 
 ---
 
@@ -423,18 +500,29 @@ hashes; per-run forward-pass budget; head/pretraining seeds; the frozen-vs-finet
   Pretrain overlap (0–7%) is disclosed, not removed (standard for the field, and conservative).
 - **SFT-LR confound (H5):** warm-start uses the pretraining LR; the E3 sweep tests whether the
   "SFT ≤ MLM base" ablation finding is an LR artifact.
-- **Single pretraining seed** on scaling curves (bars use 3); the ablation's dense-vs-sparse gap is
-  within plausible seed noise.
+- **Single pretraining seed** on **all** figures currently (3-seed replication with CIs on the bar
+  figures is deferred); the ablation's dense-vs-sparse gap is within plausible seed noise until then.
 - **Frozen-probe ceiling:** the probe under-resolves encoder quality (MLM loss 0.14 vs 0.39 → same
   downstream), so "skip ≈ unsup" risks a Type-II error; Fig D is the test.
 - **Scale:** ladders reach ≤8 epochs of a ~12M corpus, well below MoLFormer's token budget; absolute
-  and "global plateau" claims are scoped to this model/compute. Stage 2 (E10) probes model size.
+  and "global plateau" claims are scoped to this model/compute. **Model-size scaling is out of scope
+  for this paper** (E10 dropped); the only scaling view is a descriptive recycling plot (§4) from
+  runs collected anyway, which makes no scaling-law claim.
 - **SFT data quality:** PCQM-dominated; L1000 small and near-unlearnable; Kendall weighting can drive
   L1000 toward zero, so "sparse" is effectively PCBA(+WONG).
 - **Eval breadth:** 5–6 small MoleculeNet tasks with known label noise (esp. BBBP) and high-variance
   scaffold-test sets; QM7 is quantum and a weak probe for structural pretraining.
 - **Pooling / length:** only masked-mean tested; the 128-token cap drops large molecules from both
   pretraining and eval.
+- **Fixed unlabeled corpus (C21).** Only the *labeled* side of the "unlabeled × labeled combinations"
+  question is varied; the unlabeled corpus is a single fixed PubChem set. Any claim about *which
+  unlabeled data* matters is out of scope unless a second, domain-shifted unsupervised corpus is added
+  (relates to the corrupted-pretraining control, E13 / C10).
+- **All models are deduped (C22).** There is no un-deduplicated model. H9 (memorization) is answered
+  on the production deduped models using the disclosed 0–7% *pretraining* overlap plus a Tanimoto
+  dose–response (§2 H9), so no leaked artifact is ever trained. Exact memorization from *supervised*
+  labels is deliberately out of scope — testing it would mean reintroducing the leakage the dedup
+  removed, which would contaminate the model set for no proportional insight.
 
 ---
 
@@ -445,10 +533,13 @@ hashes; per-run forward-pass budget; head/pretraining seeds; the frozen-vs-finet
 | Does any unsupervised pretraining help? | Fig A/B vs random | curve above floor CI at some budget | overlaps floor throughout |
 | Does more unsup monotonically help? | Fig B shape | log-linear rise then flatten | flat / non-monotone |
 | Can you skip unsup (SFT-only match)? | skip vs unsup→sup lines | skip reaches unsup→sup endpoint | skip plateaus below |
-| Prior vs endpoint? | skip trained long (H2) | catches up with more SFT compute | never catches up |
+| Mechanism (a) initialization? | H2a: label-efficiency + skip trained long | left-shift that **closes at 100% labels / high compute** | gap persists at full labels |
+| Mechanism (b) regularization? | H2b: label-efficiency + train–test gap | gain **only at small label fractions** + smaller overfit gap | no low-label-specific gain |
+| Mechanism (c) adds information? | H2c: label-efficiency + corrupted control (E13) | **persistent gap at 100% labels**, absent for content-free pretraining | content-free pretraining helps equally |
 | Does label type decide it? | dense vs sparse skip lines | dense compensates, sparse doesn't (or vice versa) | all recipes equal |
+| Domain-matched transfer? (H10) | transfer matrix (E1) + Tanimoto/domain overlay | lift tracks content similarity, not label type | transfer unrelated to content similarity |
 | Robust to training order? | forgetting (H7) | reversed ≈ standard within CI | large degradation |
-| Representation vs memorization? | overlap matrix (H9) | novel molecules ≈ seen molecules | novel collapse to floor |
+| Representation vs memorization? (H9) | deduped model: pretrain-overlap (0–7%) seen axis + Tanimoto dose–response | novel ≈ seen; benefit flat across Tanimoto distance | benefit decays sharply with distance from training data |
 | Is the frozen-probe result real? | Fig D (H5) | finetune agrees with frozen | finetune flips it |
 | Is eval leaked? | leakage audit (H6) | small/uniform overlap | large systematic overlap (→ dedup) |
 
@@ -464,4 +555,16 @@ hashes; per-run forward-pass budget; head/pretraining seeds; the frozen-vs-finet
   / git / EC2 code consistent; prefer standard packages (transformers, torch, rdkit, scipy); macOS
   bash 3.2 has no associative arrays — use `case`, never `declare -A`.
 - **v2 milestones:** exploratory wave → dense-vs-sparse ablation → leakage audit + dedup →
-  descriptor precompute → phase-2 scaling matrix.
+  descriptor precompute → phase-2 scaling matrix → **12h-cap truncation incident + harness hardening
+  (verified-completion, preflight, SNS alerts)** → recovery + expanded mechanism experiments (v2.1).
+- **v2.1 changes (2026-07-20, from the C1–C22 hand-off + follow-up discussion):** H2 split into
+  init/regularization/added-information; added H10 (domain-matched transfer, from existing E1 data).
+  Reframed H9 to run **on the deduped models** via the disclosed 0–7% pretraining overlap + a Tanimoto
+  dose–response — the earlier proposal to train an un-deduped model (E11) was **dropped** to avoid
+  reintroducing leakage (Tanimoto already supplies the memorization gradient leak-free). New
+  experiments E12 (label-efficiency) and E13 (corrupted control, optional); new figures
+  (label-efficiency, transfer matrix, corrupted control). **Scaling laws dropped:** the proposed H11 /
+  E10 model-size & Chinchilla data×compute analysis is **out of scope**; only a descriptive
+  compute/data recycling plot (existing runs, no new compute, no fitted law) remains. Bar figures are
+  **single pretraining seed for now** (3-seed CIs deferred). Data-collection changes: per-molecule
+  predictions, persisted fingerprints, MLM val/test loss, enumeration seed.

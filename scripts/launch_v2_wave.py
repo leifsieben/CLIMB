@@ -45,14 +45,100 @@ def _path_exists_s3(uri: str) -> bool:
         return False
 
 
+NOTIFY = str(Path(__file__).parent / "notify.sh")
+
+
+def _notify(level: str, subject: str, message: str) -> None:
+    """Best-effort direct SNS notification (never fatal)."""
+    try:
+        subprocess.run(["bash", NOTIFY, level, subject, message], timeout=30, check=False)
+    except Exception:
+        pass
+
+
+def _budget_fp(run: dict) -> int:
+    sel = run.get("selection", {})
+    return int(sel.get("total_forward_passes")
+               or run["pretrain_config"]["selection"].get("total_forward_passes", 250_000_000))
+
+
+def _final_fp_from_jsonl_text(text: str) -> int:
+    last = None
+    for line in text.splitlines():
+        if line.strip():
+            last = line
+    if not last:
+        return 0
+    try:
+        return int(json.loads(last).get("forward_passes_seen", 0))
+    except Exception:
+        return 0
+
+
+def _final_fp_local(run_dir: Path) -> int:
+    mp = run_dir / "metrics.jsonl"
+    if not mp.exists():
+        return 0
+    return _final_fp_from_jsonl_text(mp.read_text())
+
+
+def _final_fp_s3(run: dict) -> int:
+    uri = run["backup_s3_uri"].rstrip("/") + "/metrics.jsonl"
+    try:
+        out = subprocess.run(["aws", "s3", "cp", uri, "-"], capture_output=True,
+                             text=True, timeout=90, check=False)
+        if out.returncode != 0:
+            return 0
+        return _final_fp_from_jsonl_text(out.stdout)
+    except Exception:
+        return 0
+
+
+def _reached_budget(run: dict, *, prefer_s3: bool = False) -> bool:
+    """Ground-truth completion test: did training actually reach >=98% of its
+    forward-pass budget? This replaces the old 'a suite_summary.json exists' test,
+    which a TRUNCATED run also satisfies and which silently poisoned re-runs."""
+    budget = _budget_fp(run)
+    fp = _final_fp_local(Path(run["output_dir"]))
+    if prefer_s3 and fp < 0.98 * budget:
+        fp = max(fp, _final_fp_s3(run))
+    return fp >= 0.98 * budget
+
+
 def _should_skip(run: dict, no_skip: bool) -> bool:
+    """Skip only a run that is VERIFIED complete. Precedence:
+      1) --no_skip_existing forces a re-run of everything.
+      2) A `verified.json` marker (local or S3) — written only on genuine completion.
+      3) For non-pretraining anchors (no FP budget), fall back to suite existence.
+      4) Otherwise: training must have reached >=98% of its FP budget.
+    A stale/truncated suite_summary.json NO LONGER causes a skip."""
     if no_skip:
         return False
-    eval_dir = Path(run["evaluation_output_dir"])
-    if (eval_dir / "suite_summary.json").exists():
+    run_dir = Path(run["output_dir"])
+    # (2) explicit verified marker is the single source of truth
+    if (run_dir / "verified.json").exists():
         return True
-    s3_summary = run["backup_s3_uri"].rstrip("/") + "/moleculenet/suite_summary.json"
-    return _path_exists_s3(s3_summary)
+    if _path_exists_s3(run["backup_s3_uri"].rstrip("/") + "/verified.json"):
+        return True
+    # (3) anchors / random baselines have no training budget
+    if run.get("run_type") in ("ecfp4_anchor", "random_baseline"):
+        eval_dir = Path(run["evaluation_output_dir"])
+        return ((eval_dir / "suite_summary.json").exists()
+                or _path_exists_s3(run["backup_s3_uri"].rstrip("/") + "/moleculenet/suite_summary.json"))
+    # (4) pretraining runs: require the FP budget to have actually been reached
+    return _reached_budget(run, prefer_s3=True)
+
+
+def _write_verified_marker(run: dict, run_dir: Path, final_fp: int) -> None:
+    """Only genuine, budget-reaching completion earns this marker (the thing
+    `_should_skip` trusts). Downstream / future waves treat it as authoritative."""
+    (run_dir / "verified.json").write_text(json.dumps({
+        "run_id": run["run_id"],
+        "budget_fp": _budget_fp(run),
+        "final_fp": final_fp,
+        "fraction": round(final_fp / max(1, _budget_fp(run)), 4),
+        "verified_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }, indent=2))
 
 
 def _write_config_yaml(run: dict) -> Path:
@@ -200,7 +286,7 @@ def _backup_to_s3(run: dict) -> None:
     run_dir = Path(run["output_dir"])
     s3_uri = run["backup_s3_uri"]
     # Sync only essential files (skip large model dirs to save bandwidth).
-    essentials = ["metrics.jsonl", "metadata.json", "config.yaml", "run_status.json", "heartbeat.json"]
+    essentials = ["metrics.jsonl", "metadata.json", "config.yaml", "run_status.json", "heartbeat.json", "verified.json"]
     for f in essentials:
         src = run_dir / f
         if src.exists():
@@ -254,22 +340,48 @@ def main():
 
         print(f"\n========== {run_id} ({run['run_type']}) ==========")
         run_started = time.time()
+        budget = _budget_fp(run)
+        _notify("INFO", f"{args.worker_name}: START {run_id}",
+                f"run_type={run['run_type']} budget_fp={budget:,}")
 
         if run["run_type"] == "random_baseline":
             status = _run_random_baseline(run)
             _run_status(run_dir, status, elapsed_seconds=time.time() - run_started)
+            _notify("DONE" if status == "ok" else "ALERT",
+                    f"{args.worker_name}: {status.upper()} {run_id}", "random baseline")
         elif run["run_type"] == "ecfp4_anchor":
             status = _run_ecfp_anchor(run)
             _run_status(run_dir, status, elapsed_seconds=time.time() - run_started)
+            _notify("DONE" if status == "ok" else "ALERT",
+                    f"{args.worker_name}: {status.upper()} {run_id}", "ecfp4 anchor")
         else:
             pre_status = _run_pretrain(run)
-            if pre_status != "ok":
-                _run_status(run_dir, pre_status, phase="pretrain", elapsed_seconds=time.time() - run_started)
+            final_fp = _final_fp_local(run_dir)
+            reached = final_fp >= 0.98 * budget
+            if pre_status != "ok" or not reached:
+                # TRUNCATION / STALL: never silent. Do NOT write a verified marker, so
+                # a later wave will re-run this instead of treating it as complete.
+                pct = 100.0 * final_fp / max(1, budget)
+                _run_status(run_dir, "truncated", phase="pretrain",
+                            final_fp=final_fp, budget_fp=budget, fraction=round(final_fp / max(1, budget), 4),
+                            pretrain_status=pre_status, elapsed_seconds=time.time() - run_started)
+                _notify("ALERT", f"{args.worker_name}: TRUNCATED {run_id}",
+                        f"pretrain_status={pre_status} reached {final_fp:,}/{budget:,} FP ({pct:.0f}%). "
+                        f"NOT marked complete — will be re-run. Investigate before assuming this datapoint is valid.")
                 _backup_to_s3(run)
                 continue
             ev_status = _run_eval(run)
-            _run_status(run_dir, ev_status, phase="eval" if ev_status != "ok" else "complete",
-                        elapsed_seconds=time.time() - run_started)
+            if ev_status == "ok":
+                _write_verified_marker(run, run_dir, final_fp)
+                _run_status(run_dir, "ok", phase="complete", final_fp=final_fp, budget_fp=budget,
+                            elapsed_seconds=time.time() - run_started)
+                _notify("DONE", f"{args.worker_name}: COMPLETE {run_id}",
+                        f"reached {final_fp:,}/{budget:,} FP (100%), eval OK, verified.")
+            else:
+                _run_status(run_dir, ev_status, phase="eval", final_fp=final_fp, budget_fp=budget,
+                            elapsed_seconds=time.time() - run_started)
+                _notify("ALERT", f"{args.worker_name}: EVAL FAILED {run_id}",
+                        f"training reached budget ({final_fp:,} FP) but eval status={ev_status}.")
 
         _backup_to_s3(run)
 
