@@ -490,6 +490,28 @@ extract one embedding per molecule, train a small head on those embeddings.
   flattens the very differences these figures rely on (Type-II risk), so the mechanism story must not
   rest solely on the probe H5 says may be under-resolving.
 
+### 8.1 Model-vs-model comparison protocol (headline tables)
+
+Every pairwise claim ("model A beats baseline B") is backed by the same protocol. **Every model —
+CLM *and* classical baseline (Morgan/desc/fp_desc XGBoost) — is run at 3 seeds × 5 scaffold-CV folds
+= 15 (metric) evaluations.** The comparison table (see `scripts/compare_models.py`, reproduced in the
+notebook) reports:
+
+| Element | Specification |
+|---|---|
+| Points per model | **3 training seeds × 5 scaffold-CV folds = 15** metric evaluations (CLMs: pretraining seed; XGBoost: model seed) |
+| Error bar | mean ± std across the 15 points — folds in **both** pretraining-seed and scaffold-split variance |
+| Pairing | all models share one scaffold fold partition per seed → fold- and molecule-paired |
+| Effect | Δ(metric) and relative % |
+| **RMSE tasks** (ESOL/QM7/Lipo) | rigorous test = molecule-level **paired Wilcoxon** on per-molecule squared error over the pooled out-of-fold predictions (large n) |
+| **AUC tasks** (BBBP/BACE/Tox21/HIV) | rigorous test = **DeLong paired-AUC** on the pooled OOF scores (per label column for multi-task Tox21, then summarised) |
+| Fold-level test | paired t across folds — reported but **flagged anti-conservative** (CV folds share training data; Bengio & Grandvalet 2004), so the molecule-level Wilcoxon/DeLong is the test of record |
+
+The canonical instance is **"does a CLM beat the toughest classical baseline (`fp_desc`)?"** run for
+each regime; a **non-descriptor CLM (`unsup_only`) is included as a control** so the descriptor-trained
+`dense` CLM's gap to `fp_desc` can be read against a CLM that never saw descriptors (isolates whether
+descriptor pretraining actually transfers descriptor information).
+
 Replication / error bars: the primary error bar is **scaffold k-fold CV** (mean ± std across folds,
 above) — it captures the split variance that dominates on these small tasks and costs no extra
 training. Pretraining-seed replication (3-seed CIs on the bar figures) is a *separate* axis, deferred
