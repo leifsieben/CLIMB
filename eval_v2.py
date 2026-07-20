@@ -55,7 +55,10 @@ def _load_moleculenet(name: str):
     }
     if name not in loaders:
         raise ValueError(f"Unknown MoleculeNet dataset: {name}")
-    tasks, datasets, _ = loaders[name](featurizer="Raw", splitter="scaffold")
+    # reload=False: skip DeepChem's on-disk featurization cache. Loading several datasets
+    # in one process otherwise collides on a shared cache dir ("No Metadata found ...") and
+    # returns a corrupt/ragged dataset. Raw featurizer is cheap, so recomputing is fine.
+    tasks, datasets, _ = loaders[name](featurizer="Raw", splitter="scaffold", reload=False)
     train_ds, val_ds, test_ds = datasets
     return (
         [str(s) for s in train_ds.ids], np.asarray(train_ds.y, dtype=np.float32),

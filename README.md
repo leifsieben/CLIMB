@@ -334,17 +334,23 @@ paper** (model-size scaling / E10 dropped).
 
 ### 6.5 Downstream evaluation datasets
 MoleculeNet via DeepChem, **scaffold split** (Bemis–Murcko), loaded in `eval_v2._load_moleculenet`.
-Pre-registered 5-task suite (+ HIV for the eval-ceiling), chosen as one dataset per common
-cheminformatics use case and **not revised post-hoc**:
+Pre-registered 5-task core suite (+ HIV for the eval-ceiling, + Lipophilicity as a second healthy
+regression anchor), chosen as one dataset per common cheminformatics use case and **not revised
+post-hoc**. Counts below are computed from the same loaders (`featurizer="Raw"`, scaffold split),
+summed over train+val+test:
 
-| Task | n | Metric | Domain |
-|---|---|---|---|
-| ESOL | ~1,128 | RMSE ↓ | aqueous solubility |
-| BBBP | ~2,039 | ROC-AUC ↑ | blood-brain barrier (ADMET) |
-| BACE | ~1,513 | ROC-AUC ↑ | β-secretase binding |
-| Tox21 | ~7,800 (12 tasks) | ROC-AUC ↑ | toxicity screening |
-| QM7 | ~6,834 | RMSE ↓ | atomization energy (quantum) |
-| HIV | ~41,000 | ROC-AUC ↑ | replication inhibition (ceiling test only) |
+| Dataset | Type | Metric | Description | Positives / Negatives | Total (molecules) |
+|---|---|---|---|---|---|
+| ESOL | regression | RMSE ↓ | log aqueous solubility (log mol/L) | n.a. | 1,128 |
+| BBBP | classification | ROC-AUC ↑ | binary — does the molecule cross the blood–brain barrier | 1,560 / 479 | 2,039 |
+| BACE | classification | ROC-AUC ↑ | binary — β-secretase 1 (BACE-1) inhibition | 691 / 822 | 1,513 |
+| Tox21 | classification (12 tasks) | ROC-AUC ↑ | 12 binary toxicity assays (nuclear-receptor & stress-response) | 5,858 / 72,006 † | 7,823 |
+| QM7 | regression | RMSE ↓ | atomization energy (quantum, DFT) | n.a. | 6,838 |
+| HIV | classification | ROC-AUC ↑ | binary — inhibits HIV replication (highly imbalanced) | 1,443 / 39,677 | 41,120 |
+| Lipophilicity | regression | RMSE ↓ | octanol/water distribution coefficient (logD 7.4) | n.a. | 4,200 |
+
+† Tox21 positives/negatives are **label counts summed over its 12 binary tasks** (missing labels
+excluded), not molecule counts — hence the total exceeds the 7,823 molecules.
 
 ### 6.6 Molecule-level leakage audit and dedup (H6)
 `scripts/leakage_audit.py` computes a canonical key for every eval molecule and measures overlap
@@ -439,16 +445,26 @@ extract one embedding per molecule, train a small head on those embeddings.
   standardization leakage).
 - **Head:** small **MLP** (also supports linear / XGBoost), trained with **3 head seeds**; the
   reported value is the mean over seeds. Early stopping on val (patience 15, ≤100 epochs).
-- **Splits:** DeepChem **scaffold** split (train/val/test) by default, **or scaffold k-fold
-  cross-validation** (`--cv_folds k`, default k=5). CV is the recommended readout for the small
-  MoleculeNet tasks: the single scaffold hold-out is one noisy draw on a ~100–200-molecule test set,
-  and its variance (not pretraining-seed variance) dominates the uncertainty. CV partitions molecules
-  into **k scaffold-disjoint folds** (each Bemis–Murcko scaffold lives in exactly one fold; ring-less
-  molecules share one group), tests each fold against a model trained on the other k−1, and reports
-  **mean ± std across folds** — an honest error bar. It is nearly free: the frozen encoder features
-  are computed once for the whole dataset and sliced per fold, so CV adds only k small head-fits (no
-  re-pretraining). Because every molecule is in exactly one test fold, CV also yields a **complete
-  out-of-fold per-molecule prediction set** (feeds the H9/mechanism figures, C16).
+- **Splits — two schemes, both reported.** Every figure has a **default** readout and an optional
+  **tougher SI variant**, from the same encoder features:
+  1. **Scaffold 5-fold cross-validation — DEFAULT (`--cv_folds 5`).** Partition molecules into **5
+     scaffold-disjoint folds** (each Bemis–Murcko scaffold in exactly one fold; ring-less molecules
+     are singletons so they distribute and keep folds balanced), greedily balanced by size. Each fold
+     is tested against a head trained on the other four (with a 10% validation carve-out for early
+     stopping); report **mean ± std across the 5 folds**. This is the primary error bar because the
+     dominant uncertainty on these ~1–8k-molecule tasks is *which molecules land in test*, and CV
+     measures exactly that. Nearly free — encoder features are computed once and sliced per fold (no
+     re-pretraining) — and it yields a **complete out-of-fold per-molecule prediction set** (feeds
+     H9/mechanism figures, C16).
+  2. **DeepChem single scaffold hold-out — TOUGHER SI VARIANT (default splitter, no `--cv_folds`).**
+     One 80/10/10 split where DeepChem sorts scaffolds by frequency and sends the **rarest** scaffolds
+     to test — a deliberately adversarial "generalize to novel chemistry" stress test. Systematically
+     **lower and noisier** than CV (one draw, no error bar), so it lives in the SI, not the headline.
+  **Convention:** CV-5 is the default scheme for **all** figures; the harder single-split is added to
+  the SI where the novel-scaffold stress is worth showing (currently Fig A1). The two are stored side
+  by side (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within one panel** — every bar
+  in a figure uses the same scheme. Absolute numbers differ markedly between schemes (e.g. BBBP ≈0.95
+  CV vs ≈0.74 single-split), which is expected and disclosed; model *rankings* are what transfer.
 - **Metrics:** absolute **per task** — RMSE for ESOL/QM7, ROC-AUC for BBBP/BACE/Tox21/HIV. Never
   z-scored or averaged across tasks.
 - **Anchors:** an untrained-encoder **random floor** (3 seeds) and **ECFP4 + XGBoost**, both through

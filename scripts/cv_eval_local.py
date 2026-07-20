@@ -1,30 +1,46 @@
-"""Download the valid 8M-ladder encoders and run scaffold 5-fold CV eval locally (CPU),
-writing results into figure_data/ so the notebook's A1/A2 error bars populate with real
-fold spread. Encoder-only (no xgboost needed). Run from repo root with .venv_sanity python."""
-import subprocess, sys
+"""Generate scaffold 5-fold CV results for every model in Fig A1, written to a SEPARATE
+`moleculenet_cv/` dir (so the single-split `moleculenet/` results are preserved for the
+tougher SI variant). Each run is a fresh subprocess → a crash in one can't kill the rest,
+and there is no cross-run DeepChem cache state. Run from repo root with .venv_sanity python."""
+import subprocess, sys, os, tempfile, shutil, glob
 from pathlib import Path
-import eval_v2
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT); os.chdir(ROOT)
 
-CORE = [("ESOL","regression"),("BBBP","classification"),("BACE","classification"),
-        ("Tox21","classification"),("QM7","regression")]
+PY = sys.executable
+TOK = "figure_data/_tokenizer"
 S3 = "s3://climb-s3-bucket/experiments/climb_v2_phase2"
-TOK_S3 = "s3://climb-s3-bucket/tokenizer_10M"
+CORE = ["ESOL", "BBBP", "BACE", "Tox21", "QM7"]
 FD = Path("figure_data/climb_v2_phase2")
-RUNS = ["unsup_8M","skip_dense_8M","skip_sparse_all_8M",
-        "skip_dense_plus_sparse_8M","skip_minimol_full_8M","skip_mixed_8M"]
+ENCODER_RUNS = ["unsup_8M", "skip_dense_8M", "skip_sparse_all_8M", "skip_dense_plus_sparse_8M",
+                "skip_minimol_full_8M", "skip_mixed_8M",
+                "random_baseline_00", "random_baseline_01", "random_baseline_02"]
 
-tok = Path("figure_data/_tokenizer"); tok.mkdir(parents=True, exist_ok=True)
-if not (tok/"tokenizer.json").exists():
-    subprocess.run(["aws","s3","sync",TOK_S3,str(tok)], check=False)
+if not Path(TOK, "tokenizer.json").exists():
+    subprocess.run(["aws", "s3", "sync", "s3://climb-s3-bucket/tokenizer_10M", TOK], check=False)
 
-for run in RUNS:
+def has_weights(enc):
+    return (enc/"model.safetensors").exists() or (enc/"pytorch_model.bin").exists()
+
+def run_eval(args, label):
+    for d in glob.glob(os.path.join(tempfile.gettempdir(), "*-featurized")):
+        shutil.rmtree(d, ignore_errors=True)  # avoid DeepChem cache collisions
+    print(f"[cv] === {label} ===", flush=True)
+    r = subprocess.run([PY, "eval_v2.py"] + args, capture_output=True, text=True)
+    ok = "[eval_v2] wrote" in r.stdout
+    print(f"[cv] {label}: {'OK' if ok else 'FAIL'}", flush=True)
+    if not ok:
+        print("STDOUT tail:", r.stdout[-800:], "\nSTDERR tail:", r.stderr[-800:], flush=True)
+
+for run in ENCODER_RUNS:
     enc = FD/run/"encoder"
-    if not enc.exists():
-        print(f"[cv] downloading {run} encoder ...", flush=True)
-        subprocess.run(["aws","s3","sync",f"{S3}/{run}/encoder",str(enc)], check=False)
-    if not (enc/"model.safetensors").exists() and not (enc/"pytorch_model.bin").exists():
-        print(f"[cv] SKIP {run}: no encoder weights found", flush=True); continue
-    print(f"[cv] === {run}: scaffold 5-fold CV ===", flush=True)
-    eval_v2.evaluate(str(enc), str(tok), str(FD/run/"moleculenet"),
-                     head_seeds=[0,1,2], datasets=CORE, featurizer="encoder", cv_folds=5)
-print("[cv] DONE — all encoders CV-evaluated into figure_data/", flush=True)
+    if not has_weights(enc):
+        subprocess.run(["aws", "s3", "sync", f"{S3}/{run}/encoder", str(enc)], check=False)
+    if not has_weights(enc):
+        print(f"[cv] SKIP {run}: no encoder weights", flush=True); continue
+    run_eval(["--encoder", str(enc), "--tokenizer", TOK, "--output_dir", str(FD/run/"moleculenet_cv"),
+              "--cv_folds", "5", "--head_seeds", "0", "1", "2", "--datasets"] + CORE, f"{run} (CV)")
+
+run_eval(["--output_dir", str(FD/"ecfp4_anchor"/"moleculenet_cv"), "--featurizer", "ecfp4", "--head", "xgb",
+          "--cv_folds", "5", "--head_seeds", "0", "1", "2", "--datasets"] + CORE, "ecfp4_anchor (CV)")
+print("[cv] ALL DONE", flush=True)
