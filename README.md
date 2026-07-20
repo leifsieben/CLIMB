@@ -628,3 +628,98 @@ exact-identity "seen" key (C17)**.
   compute/data recycling plot (existing runs, no new compute, no fitted law) remains. Bar figures are
   **single pretraining seed for now** (3-seed CIs deferred). Data-collection changes: per-molecule
   predictions, persisted fingerprints, MLM val/test loss, enumeration seed.
+
+---
+
+## 13. Operational state & session recovery (LIVE — updated 2026-07-20)
+
+> **Volatile section** (unlike the methods above): live infrastructure + run state so a fresh session
+> can resume with zero context loss. Update as runs land.
+
+### 13.1 Access — buckets, machines, credentials
+- **S3 bucket `s3://climb-s3-bucket/`** — everything lives here:
+  - `experiments/climb_v2_phase2/<run>/` → `encoder/` (weights), `moleculenet/` (single-split eval),
+    `moleculenet_cv/` (**5-fold CV** eval), `metrics.jsonl`, `config.yaml`, `run_status.json`,
+    **`verified.json`** (written ONLY when a run reached ≥98% of its FP budget — the source of truth
+    for "done", not file existence).
+  - `tokenizer_10M/`, `tokenized_sources/pubchem_filtered/` (~12M unsup shards),
+    `tokenized_sources/pubchem_descriptors/` (precomputed 217-descriptor companions),
+    `tokenized/supervised_wide_parquet/` (SFT table), `configs/eval_blocklist.json` (34,301-string
+    dedup), `configs/descriptor_stats.json`.
+  - Prior waves: `experiments/{climb_v2_ablation,climb_v2_headline,climb_v2_labeleff,climb_v2_lrsweep,climb_v2}/`.
+- **EC2:** 5× g5.2xlarge (A10G, **us-east-1d**, on-demand). Instance-ID → worker:
+  `i-02dfaa83dae4ad937`=w0 · `i-03b11b7ddd885c65d`=w1 · `i-0b59865cc08ef390c`=w2 ·
+  `i-0dbc751470e2108d5`=w3 · `i-07486d883063b0925`=w4. IPs change on restart (query them). SSH
+  `ssh -i climb-gpu-key.pem ec2-user@<ip>`; repo `~/CLIMB`; venv `/home/ec2-user/venvs/climb/bin/python`.
+  **Capacity caveat:** us-east-1d intermittently returns InsufficientInstanceCapacity on start —
+  retry until it clears (minutes–hours).
+- **SNS (direct box→email, no Claude in loop):** topic
+  `arn:aws:sns:us-east-1:075120018132:climb-experiments`, email **sieben.leif@gmail.com**
+  (must be confirmed). Boxes email START/COMPLETE/TRUNCATED/STALL/heartbeat via `scripts/notify.sh`.
+- **Git:** branch **`v2-redux`** on `github.com/leifsieben/CLIMB`. Boxes deploy via
+  `git fetch && git reset --hard origin/v2-redux`.
+- **Local ML env (this Mac):** `.venv_sanity/bin/python` = torch/transformers/deepchem/rdkit/xgboost
+  (CPU) — used for local CV eval + figure rendering.
+
+### 13.2 Data local on THIS machine (no re-download needed)
+- `experiments/climb_v2_phase2/results_20260720_104231/` — result files (metrics/summaries/configs,
+  no weights) for all 28 phase-2 runs.
+- `figure_data/climb_v2_phase2/<run>/moleculenet/` (single-split) + `.../moleculenet_cv/` (**5-fold
+  CV**, the 10 Fig A1 models). `figure_data/_tokenizer/`, and downloaded `.../<run>/encoder/`.
+- `figures_out/figA1_H1_headline_bars_{cv,SI}.{png,pdf}` — rendered.
+- `climb_figures.ipynb` (repo root) — figure notebook (global STYLE; `DF` single-split + `DF_CV`;
+  `plot_A1()` renders both schemes). Render headlessly: exec code cells 2,3,5,7 with matplotlib Agg.
+- `experiments/climb_v2_phase2/download_valid_data.sh` — pulls valid results from S3.
+
+### 13.3 Run inventory — the full program
+**A. COMPLETE & VALID (in S3, reached budget):** phase-2 single-split ladder — `unsup_{2M,8M,24M}`,
+`skip_sparse_all_{2M,8M,24M,48M}`, `skip_mixed_{2M,8M,48M}`, `skip_minimol_full_{2M,8M,24M}`,
+`skip_dense_plus_sparse_{2M,8M,24M}`, `skip_dense_{2M,8M}` + anchors `ecfp4_anchor`,
+`random_baseline_{00,01,02}` (18 pretrains + 4 anchors; the four `*_48M` are 7-task, rest 5-task).
+**5-fold CV done locally** for the 10 Fig A1 models. Prior waves in S3: `climb_v2_ablation` seq_* arms
+(**pre-dedup**, transfer-matrix source), `climb_v2_labeleff`, `climb_v2_headline`, `climb_v2` (E0).
+`climb_v2_lrsweep` = 8 runs TRAINED but NOT evaluated.
+
+**B. TRUNCATED (being re-run in wave 1):** unsup_48M, skip_dense_{24M,48M,96M},
+skip_minimol_full_48M, skip_dense_plus_sparse_48M, skip_mixed_24M (root cause: old 12h cap +
+unwired precompute — both fixed; see §12 + harness in scripts/).
+
+**C. WAVE 1 — RUNNING** (manifest `experiments/climb_v2_phase2/manifest_wave1.json`, split into
+`manifests/wave1/worker{0..4}.json`; workers 1 & 4 relaunched from `~/CLIMB/w{1,4}_ordered.json`
+= short-first reorder so u2s land first). Contents: the 7 recovery redos (minus u2s_from48M) + the
+15 u2s runs warm-started from clean 2M/8M/24M encoders. **Lesson baked in:** the worker manifest must
+live OUTSIDE the S3-synced `experiments/` tree, else the startup `aws s3 sync` clobbers a reorder.
+
+**D. WAVE 2 — QUEUED:** u2s_*_from48M (5, after unsup_48M verifies) · 7-task re-eval of clean
+encoders · descriptor-XGB + dummy anchors · eval the 8 lrsweep runs (E3) · E1 deduped re-run · E7
+forgetting · E8 enumerated · E12 label-efficiency · E13 corrupted control. **Code prereqs still TODO:**
+C5 (MLM val/test loss), C18 (enum seed), E13 (corrupted objective), C19 (fingerprints).
+
+**E. FINAL robustness pass (after waves 1 & 2) — the strong error bars:**
+**Retrain every headline model at 3 pretraining seeds, then 5-fold CV each → 15 (metric) points per
+bar** (3 seeds × 5 folds), so the error bar folds together the two dominant noise sources —
+pretraining-seed AND scaffold-split variance — into one honest interval. CV is ~30 min/model, so the
+extra ~1.5h/model is cheap for a much stronger claim. **This supersedes the "single pretraining seed"
+caveat throughout** once done.
+
+### 13.4 Current live status (2026-07-20)
+w0=`skip_dense_96M` · w1=`u2s_minimol_full_from24M` · w2=`skip_dense_plus_sparse_48M` ·
+w3=`skip_minimol_full_48M` · w4=`u2s_dense_plus_sparse_from2M`. 4 u2s verified so far. ETAs from
+launch: u2s ~1 day, recovery 48M ~18h, 96M ~35h.
+
+### 13.5 Figures — done vs pending
+- **DONE:** Fig A1 (both **CV default** + **single-split SI**), leakage table (§6.6).
+- **PENDING** (need wave-1/2 data): A2 scaling, Fig B, Fig C ablation, Fig D eval-ceiling (finetune —
+  not run), label-efficiency, transfer matrix, forgetting, H8 repetition, H9 memorization/Tanimoto,
+  compute/data recycling. The notebook carries DUMMY placeholder cells for the uncollected ones (nb §11).
+
+### 13.6 Resume-from-scratch commands
+```bash
+# live state
+aws ec2 describe-instances --instance-ids i-02dfaa83dae4ad937 i-03b11b7ddd885c65d i-0b59865cc08ef390c i-0dbc751470e2108d5 i-07486d883063b0925 --query 'Reservations[].Instances[].[InstanceId,State.Name,PublicIpAddress]' --output text
+for r in $(aws s3 ls s3://climb-s3-bucket/experiments/climb_v2_phase2/ | awk '{print $2}' | tr -d /); do aws s3 ls s3://climb-s3-bucket/experiments/climb_v2_phase2/$r/verified.json >/dev/null 2>&1 && echo VERIFIED $r; done
+# deploy + (re)launch a worker (manifest-first, manifest OUTSIDE the synced tree):
+ssh -i climb-gpu-key.pem ec2-user@<ip> 'cd ~/CLIMB && git fetch && git reset --hard origin/v2-redux && chmod +x scripts/*.sh && nohup bash scripts/phase2_worker.sh <manifest.json> wN > phase2_wN.log 2>&1 &'
+# local CV eval → moleculenet_cv/, then render figures (exec nb code cells 2,3,5,7, matplotlib Agg)
+.venv_sanity/bin/python scripts/cv_eval_local.py
+```
