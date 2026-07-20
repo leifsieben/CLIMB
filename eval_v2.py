@@ -214,6 +214,9 @@ def evaluate(
 ) -> Path:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    # per-molecule dump is append-mode within a run (one call per dataset); clear any prior
+    # run's file first so re-evaluating the same output_dir cannot accumulate duplicate rows.
+    (out / "test_predictions.csv").unlink(missing_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     encoder = tokenizer = None
