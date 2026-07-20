@@ -43,4 +43,7 @@ for run in ENCODER_RUNS:
 
 run_eval(["--output_dir", str(FD/"ecfp4_anchor"/"moleculenet_cv"), "--featurizer", "ecfp4", "--head", "xgb",
           "--cv_folds", "5", "--head_seeds", "0", "1", "2", "--datasets"] + CORE, "ecfp4_anchor (CV)")
+# Toughest classical baseline: Morgan fingerprints ++ RDKit descriptors → XGBoost.
+run_eval(["--output_dir", str(FD/"fp_desc_anchor"/"moleculenet_cv"), "--featurizer", "fp_desc", "--head", "xgb",
+          "--cv_folds", "5", "--head_seeds", "0", "1", "2", "--datasets"] + CORE, "fp_desc_anchor (CV)")
 print("[cv] ALL DONE", flush=True)

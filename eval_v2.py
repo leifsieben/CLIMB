@@ -226,14 +226,14 @@ def evaluate(
             encoder_path, attn_implementation="sdpa", reference_compile=False
         ).to(device)
         encoder.eval()
-    elif featurizer not in ("ecfp4", "rdkit_desc"):
-        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4|rdkit_desc)")
+    elif featurizer not in ("ecfp4", "rdkit_desc", "fp_desc"):
+        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4|rdkit_desc|fp_desc)")
 
     # ECFP bit vectors are 0/1; RDKit descriptors are heterogeneous-scale with NaNs. For
     # both, the intended head is XGBoost (scale-invariant, native NaN handling), so skip
     # standardization. This makes rdkit_desc the classical control for the dense-MTR arm:
     # the SAME 217 descriptors used directly in a tree model vs learned by the CLM.
-    std_method = "none" if featurizer in ("ecfp4", "rdkit_desc") else standardize
+    std_method = "none" if featurizer in ("ecfp4", "rdkit_desc", "fp_desc") else standardize
 
     def _featurize(smiles):
         if featurizer == "ecfp4":
@@ -243,6 +243,14 @@ def evaluate(
             x = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
             x[~np.isfinite(x)] = np.nan  # XGBoost treats NaN as missing but ERRORS on inf
             return x
+        if featurizer == "fp_desc":
+            # Tougher classical baseline: Morgan ECFP4 bits ++ 217 RDKit descriptors → XGBoost.
+            # Gives the tree both substructure presence AND computed physchem properties.
+            from descriptors_v2 import rdkit_descriptors
+            fp = np.asarray(ecfp4_features(smiles), dtype=np.float32)
+            d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
+            d[~np.isfinite(d)] = np.nan
+            return np.concatenate([fp, d], axis=1)
         return _encoder_features(encoder, tokenizer, smiles, device, pool_mode, max_length)
 
     def _row(ds_name, task_type, main_metric, tag, n_train, val, t0):
@@ -373,7 +381,7 @@ def main():
     p.add_argument("--output_dir", required=True)
     p.add_argument("--head_seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--datasets", nargs="+", default=None, help="Override the 5-task subset")
-    p.add_argument("--featurizer", choices=["encoder", "ecfp4", "rdkit_desc"], default="encoder")
+    p.add_argument("--featurizer", choices=["encoder", "ecfp4", "rdkit_desc", "fp_desc"], default="encoder")
     p.add_argument("--pool", choices=["cls", "mean", "cls_mean"], default="mean")
     p.add_argument("--standardize", choices=["zscore", "pca_whiten", "none"], default="zscore")
     p.add_argument("--head", choices=["linear", "mlp", "xgb"], default="mlp")

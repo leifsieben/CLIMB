@@ -467,8 +467,13 @@ extract one embedding per molecule, train a small head on those embeddings.
   CV vs ≈0.74 single-split), which is expected and disclosed; model *rankings* are what transfer.
 - **Metrics:** absolute **per task** — RMSE for ESOL/QM7, ROC-AUC for BBBP/BACE/Tox21/HIV. Never
   z-scored or averaged across tasks.
-- **Anchors:** an untrained-encoder **random floor** (3 seeds) and **ECFP4 + XGBoost**, both through
-  the same head pipeline. "Lift" is improvement over the random floor.
+- **Anchors (classical baselines, `--head xgb`, all through the same eval pipeline):** an
+  untrained-encoder **random floor** (3 seeds); **`ecfp4`** = Morgan ECFP4 + XGBoost; **`rdkit_desc`**
+  = 217 RDKit descriptors + XGBoost (the classical control for the dense-MTR arm); and **`fp_desc`** =
+  **Morgan fingerprints ++ RDKit descriptors concatenated → XGBoost** — the *toughest* classical
+  baseline (both substructure bits and computed physchem), which a CLM must beat to justify itself
+  (e.g. it already gets ESOL ≈0.35 CV-RMSE, ahead of every neural regime at 8M). "Lift" is improvement
+  over the random floor.
 - **Eval-ceiling (E5):** the same encoders are additionally **fine-tuned end-to-end** (`finetune_v2`)
   on a few tasks + HIV, to test whether the frozen probe under-resolves encoder quality (H5).
 - **Per-molecule prediction dump (C16, blocking).** `eval_v2` writes **`(canonical_key, y_true,
