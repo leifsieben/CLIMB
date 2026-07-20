@@ -536,6 +536,18 @@ each regime; a **non-descriptor CLM (`unsup_only`) is included as a control** so
 `dense` CLM's gap to `fp_desc` can be read against a CLM that never saw descriptors (isolates whether
 descriptor pretraining actually transfers descriptor information).
 
+> **⚠️ Descriptor-favorable tasks — interpret the `fp_desc` gap with care (ESOL especially).** The
+> physchem/quantum *regressions* are structurally biased toward the classical descriptor baselines.
+> ESOL's canonical model (Delaney) is a near-linear function of LogP / MW / rotatable-bonds /
+> aromatic-fraction — all RDKit descriptors — so `fp_desc` has *near-oracle* features and beating the
+> CLM on ESOL (≈0.35 vs ≈0.43 CV-RMSE) is **expected, not evidence the CLM is weak**. Lipophilicity
+> (logD ≈ LogP) shares this; QM7 partly (atomization energy tracks composition). We **keep ESOL** as a
+> deliberate *descriptor-optimal reference point*, but the CLM-vs-descriptor question is adjudicated
+> primarily on the **bioactivity / virtual-screening** tasks (BACE, Tox21, HIV) where structure→property
+> is not a simple descriptor. The cleanest *positive* signal is internal to the CLMs: the
+> descriptor-trained `dense` CLM closing ESOL's gap over the non-descriptor `unsup_only` control is
+> evidence that descriptor pretraining transferred descriptor-relevant information.
+
 Replication / error bars: the primary error bar is **scaffold k-fold CV** (mean ± std across folds,
 above) — it captures the split variance that dominates on these small tasks and costs no extra
 training. Pretraining-seed replication (3-seed CIs on the bar figures) is a *separate* axis, deferred
