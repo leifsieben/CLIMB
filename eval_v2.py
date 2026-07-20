@@ -33,7 +33,7 @@ import torch
 
 from config_v2 import MOLECULENET_TASKS_V2
 from featurize_v2 import apply_standardizer, ecfp4_features, fit_standardizer, pool
-from heads_v2 import compute_metric, make_head
+from heads_v2 import compute_metric, compute_nef, make_head
 
 
 # ---------- DeepChem dataset loaders ----------
@@ -287,6 +287,7 @@ def evaluate(
             folds = _scaffold_kfold_indices(s_all, cv_folds, subsample_seed)
             rng = np.random.default_rng(subsample_seed)
             fold_metrics = []
+            fold_nefs = []   # NEF1% per fold (classification only) — the VS early-enrichment metric
             oof = np.full(y_all.shape, np.nan, dtype=np.float64)
             for j, test_idx in enumerate(folds):
                 test_idx = np.asarray(test_idx, dtype=int)
@@ -308,11 +309,20 @@ def evaluate(
                 m = compute_metric(pred, y_all[test_idx], task_type)
                 fold_metrics.append(m)
                 rows.append(_row(ds_name, task_type, main_metric, f"fold{j}", len(tr_idx), m, t0))
+                if task_type == "classification":   # NEF1% is computed PER held-out fold (Truong et al. 2026)
+                    nef = compute_nef(pred, y_all[test_idx])
+                    fold_nefs.append(nef)
+                    rows.append(_row(ds_name, task_type, "nef1", f"fold{j}", len(tr_idx), nef, t0))
             arr = np.array(fold_metrics, dtype=np.float64)
             rows.append(_row(ds_name, task_type, main_metric, "MEAN", len(s_all), float(np.nanmean(arr)), t0))
             rows.append(_row(ds_name, task_type, main_metric, "STD", len(s_all), float(np.nanstd(arr)), t0))
             print(f"  {ds_name}: {main_metric} = {np.nanmean(arr):.4f} ± {np.nanstd(arr):.4f} "
                   f"(scaffold {cv_folds}-fold CV, n={len(s_all)})")
+            if fold_nefs:
+                narr = np.array(fold_nefs, dtype=np.float64)
+                rows.append(_row(ds_name, task_type, "nef1", "MEAN", len(s_all), float(np.nanmean(narr)), t0))
+                rows.append(_row(ds_name, task_type, "nef1", "STD", len(s_all), float(np.nanstd(narr)), t0))
+                print(f"  {ds_name}: NEF1% = {np.nanmean(narr):.4f} ± {np.nanstd(narr):.4f} (top-1% early enrichment)")
             try:  # OOF: every molecule is in exactly one test fold → a complete prediction set
                 _dump_test_predictions(out, ds_name, task_type, s_all, y_all, oof)
             except Exception as exc:
@@ -337,6 +347,7 @@ def evaluate(
         te_x = apply_standardizer(te_x, std_params)
 
         per_seed = []
+        per_seed_nef = []
         seed_preds = []
         for seed in head_seeds:
             hd = make_head(head, task_type, n_outputs, seed).fit(tr_x, tr_y, va_x, va_y)
@@ -345,11 +356,20 @@ def evaluate(
             metric = compute_metric(te_pred, te_y, task_type)
             per_seed.append(metric)
             rows.append(_row(ds_name, task_type, main_metric, seed, n_train, metric, t0))
+            if task_type == "classification":
+                nef = compute_nef(te_pred, te_y)
+                per_seed_nef.append(nef)
+                rows.append(_row(ds_name, task_type, "nef1", seed, n_train, nef, t0))
 
         arr = np.array(per_seed, dtype=np.float64)
         rows.append(_row(ds_name, task_type, main_metric, "MEAN", n_train, float(np.nanmean(arr)), t0))
         rows.append(_row(ds_name, task_type, main_metric, "STD", n_train, float(np.nanstd(arr)), t0))
         print(f"  {ds_name}: {main_metric} = {np.nanmean(arr):.4f} ± {np.nanstd(arr):.4f} (n_train={n_train})")
+        if per_seed_nef:
+            narr = np.array(per_seed_nef, dtype=np.float64)
+            rows.append(_row(ds_name, task_type, "nef1", "MEAN", n_train, float(np.nanmean(narr)), t0))
+            rows.append(_row(ds_name, task_type, "nef1", "STD", n_train, float(np.nanstd(narr)), t0))
+            print(f"  {ds_name}: NEF1% = {np.nanmean(narr):.4f} ± {np.nanstd(narr):.4f} (top-1% early enrichment)")
 
         # C16: per-molecule TEST predictions (mean over head seeds) for the mechanism figures.
         try:
@@ -371,7 +391,14 @@ def evaluate(
     suite = {}
     for r in rows:
         if r["head_seed"] in ("MEAN", "STD"):
-            suite[f"{r['dataset']}_{r['head_seed']}"] = r["main_value"]
+            # Primary metric (roc_auc / rmse) keeps the bare `<ds>_<MEAN|STD>` key so every
+            # existing loader is unchanged; secondary metrics (e.g. nef1) are namespaced as
+            # `<ds>_<metric>_<MEAN|STD>` to avoid clobbering it.
+            primary = "roc_auc" if r["task_type"] == "classification" else "rmse"
+            if r["main_metric"] == primary:
+                suite[f"{r['dataset']}_{r['head_seed']}"] = r["main_value"]
+            else:
+                suite[f"{r['dataset']}_{r['main_metric']}_{r['head_seed']}"] = r["main_value"]
     (out / "suite_summary.json").write_text(json.dumps(suite, indent=2))
     print(f"[eval_v2] wrote {summary_path}")
     return summary_path

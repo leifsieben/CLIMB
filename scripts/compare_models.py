@@ -56,9 +56,14 @@ def delong_test(y_true, p1, p2):
 def _cv_csv(run): return f"figure_data/climb_v2_phase2/{run}/moleculenet_cv/moleculenet_summary.csv"
 def _oof(run):    return f"figure_data/climb_v2_phase2/{run}/moleculenet_cv/test_predictions.csv"
 
-def _folds(run, task):
+def _folds(run, task, metric=None):
+    """Per-fold values for one (task, metric). Classification summaries now carry BOTH
+    `roc_auc` and `nef1` rows per fold, so metric MUST be specified to avoid mixing them."""
     d = pd.read_csv(_cv_csv(run))
-    d = d[(d.dataset == task) & (d.head_seed.astype(str).str.startswith("fold"))].sort_values("head_seed")
+    d = d[(d.dataset == task) & (d.head_seed.astype(str).str.startswith("fold"))]
+    if metric is not None and "main_metric" in d.columns:
+        d = d[d.main_metric == metric]
+    d = d.sort_values("head_seed")
     return d.main_value.values
 
 def _oof_task(run, task):
@@ -68,10 +73,19 @@ def _oof_task(run, task):
 # ---------------- the comparison ----------------
 
 def compare(run_a, run_b, tasks):
-    """run_a vs run_b (b is usually the baseline, e.g. fp_desc). Returns a tidy DataFrame."""
+    """run_a vs run_b (b is usually the baseline, e.g. fp_desc). Returns a tidy DataFrame.
+
+    `tasks` items are (task, higher_better) or (task, higher_better, metric). The metric
+    selects which fold summary drives the mean±sd / fold-t columns: default 'rmse' for
+    regression, 'roc_auc' for classification; pass 'nef1' for HIV-style early-enrichment.
+    The rigorous point test is unchanged (Wilcoxon on sq-err for regression, DeLong paired
+    AUC for classification — a rank test that tracks enrichment)."""
     rows = []
-    for task, higher_better in tasks:
-        a, b = _folds(run_a, task), _folds(run_b, task)
+    for spec in tasks:
+        task, higher_better = spec[0], spec[1]
+        metric = spec[2] if len(spec) > 2 else ("roc_auc" if higher_better else "rmse")
+        metric_label = {"rmse": "RMSE↓", "roc_auc": "AUC↑", "nef1": "NEF1%↑"}.get(metric, metric)
+        a, b = _folds(run_a, task, metric), _folds(run_b, task, metric)
         _, ptt = stats.ttest_rel(a, b)
         oa, ob = _oof_task(run_a, task), _oof_task(run_b, task)
         m = oa.merge(ob, on=["dataset", "mol_index", "output_index"], suffixes=("_a", "_b"))
@@ -92,7 +106,7 @@ def compare(run_a, run_b, tasks):
             _, point_p = stats.wilcoxon(ea, eb)
             point_test = "Wilcoxon (sq-err)"
         better_b = (b.mean() > a.mean()) if higher_better else (b.mean() < a.mean())
-        rows.append(dict(task=task, metric="AUC↑" if higher_better else "RMSE↓",
+        rows.append(dict(task=task, metric=metric_label,
                          a_mean=a.mean(), a_sd=a.std(), b_mean=b.mean(), b_sd=b.std(),
                          delta=a.mean() - b.mean(), fold_t_p=ptt, point_test=point_test,
                          point_p=point_p, winner=(run_b if better_b else run_a)))

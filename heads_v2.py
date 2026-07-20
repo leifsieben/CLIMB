@@ -70,6 +70,36 @@ def compute_metric(preds: np.ndarray, labels: np.ndarray, task_type: str) -> flo
     return float(np.mean(rmses)) if rmses else float("nan")
 
 
+def compute_nef(preds: np.ndarray, labels: np.ndarray, top_frac: float = 0.01) -> float:
+    """Normalized enrichment factor at the top `top_frac` — the virtual-screening
+    early-enrichment metric (LIT-PCBA NEF; Tran-Nguyen, Jacquemard & Rognan, JCIM 2020;
+    used as NEF1% by Truong et al. 2026, s13321-026-01262-x).
+
+        NEF_x% = EF_x% / EF_x%^max = H_a / min(n, A),   n = ceil(top_frac * N)
+
+    where N = #compounds, A = #actives, n = size of the top-ranked slice, and H_a =
+    #actives in that slice. Equivalently precision@top-n, capped by recall when actives
+    are scarce. Range [0, 1]; 1 = a perfect ranking put every retrievable active on top.
+    Averaged over valid classification columns (per-column for multitask sets like Tox21).
+    Only defined for classification (needs discrete actives); NaN if no actives present."""
+    preds = _as2d(preds)
+    labels = _as2d(labels)
+    vals = []
+    for j in range(labels.shape[1]):
+        mask = ~np.isnan(labels[:, j])
+        y = labels[mask, j]
+        s = preds[mask, j]
+        N = len(y)
+        A = int((y > 0.5).sum())
+        if N == 0 or A == 0:               # no actives in this column → enrichment undefined
+            continue
+        n = max(1, int(np.ceil(top_frac * N)))
+        order = np.argsort(-s, kind="mergesort")   # descending predicted score; stable
+        H_a = int((y[order[:n]] > 0.5).sum())
+        vals.append(H_a / min(n, A))
+    return float(np.mean(vals)) if vals else float("nan")
+
+
 # ---------- torch heads (linear / mlp) ----------
 
 class _TorchHead:

@@ -10,7 +10,10 @@ sys.path.insert(0, ROOT); os.chdir(ROOT)
 PY = sys.executable
 TOK = "figure_data/_tokenizer"
 S3 = "s3://climb-s3-bucket/experiments/climb_v2_phase2"
-CORE = ["ESOL", "BBBP", "BACE", "Tox21", "QM7"]
+# Full v2 eval suite (matches config_v2.MOLECULENET_TASKS_V2). HIV last: it is the large
+# (~41k) virtual-screening task scored primarily by NEF1% (top-1% early enrichment) — its
+# CV is the slowest, so ordering it last lets the small tasks land first.
+CORE = ["ESOL", "Lipophilicity", "QM7", "BBBP", "BACE", "Tox21", "HIV"]
 FD = Path("figure_data/climb_v2_phase2")
 ENCODER_RUNS = ["unsup_8M", "skip_dense_8M", "skip_sparse_all_8M", "skip_dense_plus_sparse_8M",
                 "skip_minimol_full_8M", "skip_mixed_8M",

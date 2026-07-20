@@ -215,8 +215,10 @@ line). The separate **no_pretrain_end_to_end** baseline (random encoder **unfroz
 directly on each eval task) is the eval-ceiling (E1) case — **not yet run**, and reserved as a hatched
 pending-placeholder bar in Fig A1 so it drops straight in once collected.
 
-Metric conventions: ESOL & QM7 = RMSE (lower better); BBBP/BACE/Tox21/HIV = ROC-AUC (higher
-better). "Lift" = improvement over the **no_pretrain** floor. **All figures are currently single
+Metric conventions: ESOL/QM7/Lipophilicity = RMSE (lower better); BBBP/BACE/Tox21 = ROC-AUC (higher
+better); **HIV = NEF1% (top-1% enrichment, higher better)** as the virtual-screening headline (ROC-AUC
+secondary; see §6.5). In the per-task figures (A1/A2/…) HIV's bar/line uses NEF1%. "Lift" = improvement
+over the **no_pretrain** floor. **All figures are currently single
 pretraining seed** (3-seed replication with CIs on the bar figures is deferred — see §10); each eval
 still averages **3 head seeds**, and scaling curves use the stop-when-flat rule in place of plateau
 error bars.
@@ -336,10 +338,9 @@ paper** (model-size scaling / E10 dropped).
 
 ### 6.5 Downstream evaluation datasets
 MoleculeNet via DeepChem, **scaffold split** (Bemis–Murcko), loaded in `eval_v2._load_moleculenet`.
-Pre-registered 5-task core suite (+ HIV for the eval-ceiling, + Lipophilicity as a second healthy
-regression anchor), chosen as one dataset per common cheminformatics use case and **not revised
-post-hoc**. Counts below are computed from the same loaders (`featurizer="Raw"`, scaffold split),
-summed over train+val+test:
+Pre-registered 7-task suite, chosen as one dataset per common cheminformatics use case and **not
+revised post-hoc** (`config_v2.MOLECULENET_TASKS_V2`; evaluated by default on every run). Counts below
+are computed from the same loaders (`featurizer="Raw"`, scaffold split), summed over train+val+test:
 
 | Dataset | Type | Metric | Description | Positives / Negatives | Total (molecules) |
 |---|---|---|---|---|---|
@@ -348,11 +349,30 @@ summed over train+val+test:
 | BACE | classification | ROC-AUC ↑ | binary — β-secretase 1 (BACE-1) inhibition | 691 / 822 | 1,513 |
 | Tox21 | classification (12 tasks) | ROC-AUC ↑ | 12 binary toxicity assays (nuclear-receptor & stress-response) | 5,858 / 72,006 † | 7,823 |
 | QM7 | regression | RMSE ↓ | atomization energy (quantum, DFT) | n.a. | 6,838 |
-| HIV | classification | ROC-AUC ↑ | binary — inhibits HIV replication (highly imbalanced) | 1,443 / 39,677 | 41,120 |
+| **HIV** | classification (**virtual screening**) | **NEF1% ↑** (primary), ROC-AUC ↑ (secondary) | binary — inhibits HIV replication; large + **highly imbalanced (3.5% active)** → a genuine early-enrichment / hit-retrieval task | 1,443 / 39,677 | 41,120 |
 | Lipophilicity | regression | RMSE ↓ | octanol/water distribution coefficient (logD 7.4) | n.a. | 4,200 |
 
 † Tox21 positives/negatives are **label counts summed over its 12 binary tasks** (missing labels
 excluded), not molecule counts — hence the total exceeds the 7,823 molecules.
+
+**HIV as the virtual-screening task (added 2026-07-20).** Virtual screening — ranking a large library
+so true actives surface in the tiny top slice a chemist can actually test — is a primary downstream use
+of molecular foundation models, and none of the small MoleculeNet sets exercises it. HIV does: 41k
+molecules, 3.5% active. Its headline metric is therefore **NEF1%** (normalized enrichment factor of true
+actives in the top 1%), following Truong et al. 2026 (*J. Cheminform.*, s13321-026-01262-x) and the
+LIT-PCBA definition (Tran-Nguyen, Jacquemard & Rognan, *JCIM* 2020):
+
+$$\text{NEF}_{1\%}=\frac{\text{EF}_{1\%}}{\text{EF}_{1\%}^{\max}}=\frac{H_a}{\min(n,\,A)},\qquad n=\lceil 0.01\,N\rceil$$
+
+where *N* = #compounds in the (held-out) test fold, *A* = #actives, *n* = size of the top-1% slice,
+*H_a* = actives found in it. It is precision@top-1%, capped by recall when actives are scarce; range
+[0, 1], with 1 = a perfect ranking that put every retrievable active on top. Computed **per held-out
+fold**, then reported as mean ± std across folds (same protocol as every other metric). ROC-AUC is kept
+as a secondary metric. NEF1% is only *informative* on imbalanced retrieval — on class-balanced sets
+(e.g. BBBP, ~76% positive) the top 1% is trivially all-active and NEF1% saturates at 1.0, which is why
+it is the headline metric for HIV specifically and reported-but-not-headline elsewhere. Implemented in
+`heads_v2.compute_nef` and emitted for every classification task by `eval_v2` (as `main_metric="nef1"`
+rows; the primary metric keeps the bare `<ds>_MEAN` suite key, NEF is namespaced `<ds>_nef1_MEAN`).
 
 ### 6.6 Molecule-level leakage audit and dedup (H6)
 `scripts/leakage_audit.py` computes a canonical key for every eval molecule and measures overlap
@@ -467,8 +487,9 @@ extract one embedding per molecule, train a small head on those embeddings.
   by side (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within one panel** — every bar
   in a figure uses the same scheme. Absolute numbers differ markedly between schemes (e.g. BBBP ≈0.95
   CV vs ≈0.74 single-split), which is expected and disclosed; model *rankings* are what transfer.
-- **Metrics:** absolute **per task** — RMSE for ESOL/QM7, ROC-AUC for BBBP/BACE/Tox21/HIV. Never
-  z-scored or averaged across tasks.
+- **Metrics:** absolute **per task** — RMSE for ESOL/QM7/Lipophilicity, ROC-AUC for BBBP/BACE/Tox21,
+  and **NEF1% (top-1% normalized enrichment) as the headline for HIV** (the virtual-screening task; ROC-AUC
+  kept secondary) — see §6.5 for the NEF1% definition. Never z-scored or averaged across tasks.
 - **Anchors (classical baselines, `--head xgb`, all through the same eval pipeline):** an
   untrained-encoder **random floor** (3 seeds); **`ecfp4`** = Morgan ECFP4 + XGBoost; **`rdkit_desc`**
   = 217 RDKit descriptors + XGBoost (the classical control for the dense-MTR arm); and **`fp_desc`** =
@@ -506,7 +527,8 @@ notebook) reports:
 | Pairing | all models share one scaffold fold partition per seed → fold- and molecule-paired |
 | Effect | Δ(metric) and relative % |
 | **RMSE tasks** (ESOL/QM7/Lipo) | rigorous test = molecule-level **paired Wilcoxon** on per-molecule squared error over the pooled out-of-fold predictions (large n) |
-| **AUC tasks** (BBBP/BACE/Tox21/HIV) | rigorous test = **DeLong paired-AUC** on the pooled OOF scores (per label column for multi-task Tox21, then summarised) |
+| **AUC tasks** (BBBP/BACE/Tox21) | rigorous test = **DeLong paired-AUC** on the pooled OOF scores (per label column for multi-task Tox21, then summarised) |
+| **HIV (virtual screening)** | headline metric = **NEF1%** (top-1% enrichment), reported as mean ± std across folds; rigorous paired test = **DeLong paired-AUC** on the pooled OOF scores (a rank test that tracks early enrichment). Select NEF1% in `compare_models.compare` by passing the task as `('HIV', True, 'nef1')` |
 | Fold-level test | paired t across folds — reported but **flagged anti-conservative** (CV folds share training data; Bengio & Grandvalet 2004), so the molecule-level Wilcoxon/DeLong is the test of record |
 
 The canonical instance is **"does a CLM beat the toughest classical baseline (`fp_desc`)?"** run for
