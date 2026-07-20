@@ -85,7 +85,13 @@ def compare(run_a, run_b, tasks):
         task, higher_better = spec[0], spec[1]
         metric = spec[2] if len(spec) > 2 else ("roc_auc" if higher_better else "rmse")
         metric_label = {"rmse": "RMSE↓", "roc_auc": "AUC↑", "nef1": "NEF1%↑"}.get(metric, metric)
-        a, b = _folds(run_a, task, metric), _folds(run_b, task, metric)
+        try:
+            a, b = _folds(run_a, task, metric), _folds(run_b, task, metric)
+        except FileNotFoundError:
+            a = b = np.array([])
+        if len(a) == 0 or len(b) == 0:   # metric not evaluated yet (e.g. HIV NEF1% pre-final-pass)
+            print(f"  [compare] skipping {task}/{metric}: no data for {run_a if len(a)==0 else run_b}")
+            continue
         _, ptt = stats.ttest_rel(a, b)
         oa, ob = _oof_task(run_a, task), _oof_task(run_b, task)
         m = oa.merge(ob, on=["dataset", "mol_index", "output_index"], suffixes=("_a", "_b"))
