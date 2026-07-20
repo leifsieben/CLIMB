@@ -205,6 +205,7 @@ invented data.
 | **J1** | H10 | rows = single-family unsup→sup arms, cols = eval task, cell = lift over no_pretrain; domain tags | heatmap | ✅ partial (no Tanimoto overlay) |
 | **S1** | — | every collected point: metric vs forward passes, coloured by regime/recipe — descriptive, **no fitted law** | scatter | ✅ |
 | **T1** | H1 | CLM vs toughest classical baseline (fp_desc = Morgan+descriptors→XGBoost): `dense` (trained on descriptors) + `unsup_only` (control, never saw descriptors), each with per-task Δ, fold-t, and the rigorous point test (Wilcoxon sq-err for RMSE / DeLong paired-AUC for classification) — protocol in §8.1 | paired-significance table | ✅ (8M single-seed×5-fold; refreshes on the 3-seed×5-fold pass) |
+| **T2** | H1 | `unsup→sup` (MLM→SFT) decomposed at the 8M base: **Q1** vs `sup_only` (does the MLM base help the SFT?) → adds ~0, 0/5 tasks significant, worse on `dense_plus_sparse`; **Q2** vs `unsup_only` (does SFT help on top of MLM?) → significantly helps regression (ESOL/QM7), hurts bioactivity (BBBP/BACE). Reinforces "skip unsupervised pretraining." | paired-significance table | ✅ (8M) |
 
 **Two distinct baselines (do not conflate):** **random** is the dumb chance model — 0.5 ROC-AUC, or
 predict-the-mean RMSE (≈1.0 on DeepChem-normalized targets); it is a reference line, not a trained
