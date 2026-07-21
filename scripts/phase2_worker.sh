@@ -32,12 +32,51 @@ fi
 
 # shared descriptor stats (identical normalization across every box); harmless if absent
 aws s3 cp s3://climb-s3-bucket/configs/descriptor_stats.json configs/descriptor_stats.json >/dev/null 2>&1 || true
-# encoders are needed as warm-start bases only in stage 2 (u2s); pull any that exist
-aws s3 sync "$S3" "$LOCAL" --exclude "*/moleculenet/*" --exclude "*/tokenizer/*" >/dev/null 2>&1 || true
+
+# ---- OWNERSHIP: this box may only ever WRITE the runs in its own manifest ----
+# Previously every box downloaded the ENTIRE wave tree at startup and pushed the ENTIRE tree
+# back every 10 min. A box therefore held copies of runs owned by other boxes, and re-uploaded
+# its stale copy on every cycle -- silently reverting completed work in S3 (metrics.jsonl and
+# run_status.json differ in SIZE from the good copy, so `aws s3 sync` always pushed them;
+# encoders are same-size-and-older, which is the only reason model weights survived). Worse,
+# the startup download then propagated the clobbered files back DOWN onto the box that had
+# produced the good copy, destroying the last good original. Five completed runs were reverted
+# this way before it was caught.
+#
+# Fix: a run has exactly one owner -- the box whose manifest lists it. Uploads are scoped to
+# owned runs. Downloads pull owned runs in full (needed to resume after a restart) but pull
+# only encoder/ for everything else (u2s stage-2 warm-start bases), so a run this box does not
+# own can never be written by it, in either direction.
+# NB: ownership keys off output_dir, NOT run_id. In the seed manifests run_id is the BASE name
+# ("unsup_8M") while the actual on-disk/S3 location carries the seed suffix ("unsup_8M_s1") --
+# scoping by run_id would make a seed box push its s1 results straight over the ORIGINAL
+# completed unsup_8M run, i.e. re-create the very corruption this change exists to prevent.
+OWN_RUNS=$($PY -c "
+import json, os
+m = json.load(open('$MANIFEST'))
+runs = m['runs'] if isinstance(m, dict) and 'runs' in m else m
+print(' '.join(os.path.basename(r['output_dir'].rstrip('/')) for r in runs))
+")
+echo "OWNED RUNS ($WORKER): $OWN_RUNS"
+
+# warm-start bases only: encoders of runs this box does NOT own (never their metrics/status)
+aws s3 sync "$S3" "$LOCAL" --exclude "*" --include "*/encoder/*" >/dev/null 2>&1 || true
+# owned runs in full, so an interrupted run can resume from its checkpoint
+for r in $OWN_RUNS; do
+  aws s3 sync "$S3/$r" "$LOCAL/$r" --exclude "*/tokenizer/*" >/dev/null 2>&1 || true
+done
+
+# push ONLY owned runs; never the whole tree
+push_owned() {
+  for r in $OWN_RUNS; do
+    [ -d "$LOCAL/$r" ] || continue
+    aws s3 sync "$LOCAL/$r" "$S3/$r" --exclude "*/tokenizer/*" >/dev/null 2>&1
+  done
+}
 
 # ---- sidecar 1: push results (incl. periodic encoder checkpoints) to S3 every 10 min ----
 ( while true; do
-    aws s3 sync "$LOCAL" "$S3" --exclude "*/tokenizer/*" >/dev/null 2>&1
+    push_owned
     sleep 600
   done ) &
 SIDECAR=$!
@@ -68,8 +107,10 @@ HEARTBEAT=$!
 $PY scripts/launch_v2_wave.py --manifest "$MANIFEST" --worker_name "$WORKER"
 
 kill $SIDECAR $HEARTBEAT 2>/dev/null || true
-# final authoritative sync (include encoders — stage 2 warm-starts from them)
-aws s3 sync "$LOCAL" "$S3" --exclude "*/tokenizer/*"
+# final authoritative sync (include encoders — stage 2 warm-starts from them).
+# Scoped to owned runs for the same reason as the sidecar: a full-tree push here was the
+# second clobber path, firing exactly when a box finished and had the most stale copies.
+push_owned
 
 # ---- completion GATE: only self-stop if EVERY run in the manifest is verified ----
 # Delegates to launch_v2_wave.py --check_complete so the gate and the skip logic share ONE

@@ -77,3 +77,5 @@ optuna_study.db
 # Config with secrets (if any)
 secrets.yaml
 .env
+# staged result data pulled from S3 for figure rendering (multi-GB, reproducible via download_valid_data.sh)
+figure_data/
