@@ -840,7 +840,9 @@ throughout — **no scientific artifact was lost.** Training logs restored for
 `skip_minimol_full_48M` (32.1M of 48M logged) and `u2s_mixed_from2M` (269K of 2M logged) — those
 two runs are complete and their encoders/evals are valid, only the loss curve is truncated.
 One CV had to be redone: `skip_mixed_24M`'s encoder had been downloaded mid-training
-(md5-distinct from the final), so its CV had scored the wrong model.
+(md5-distinct from the final), so its CV had scored the wrong model. Both that re-run and a
+first-time CV for `skip_dense_48M` (verified complete, never previously evaluated) completed
+cleanly on 2026-07-21 via `scripts/cv_repair.sh` — 7-task, 5-fold, 3 head seeds, incl. NEF1%.
 
 **Fix (commit 686049f):** a run has exactly one owner — the box whose manifest lists it. Uploads
 are scoped to owned runs; downloads pull owned runs in full (needed to resume) but only
@@ -851,9 +853,16 @@ scoping by `run_id` would push seed results straight over the original completed
 **Standing rules this bought:**
 - Never let two boxes hold write authority over one `output_dir`. Before offloading tail work to
   a spare box, remember a running worker's queue cannot be edited — an overlap is a collision.
-- Keep scratch/quarantine dirs OUTSIDE `experiments/` (a `_quarantine_stale/` placed inside it
-  was promptly synced to S3 — 7.5 GB of junk under `climb_v2_phase2/_quarantine_stale/`, still
-  there, safe to delete: it duplicates real run dirs).
+- Keep scratch/quarantine dirs OUTSIDE `experiments/` — a `_quarantine_stale/` placed inside it
+  was promptly synced to S3 (7.5 GB / 412 objects of duplicated run dirs). Purged 2026-07-21
+  after verifying no quarantined copy was ahead of its live counterpart. The one that looked
+  ahead — `unsup_48M` at 22.5M vs 18.9M live — was the DEAD 12h-truncated run, while the live
+  one was the fresh rerun still climbing to 48M: **higher forward-pass count, wrong run.** That
+  is why box→S3 authority is ownership-based and never "highest fp wins".
+- Deleting under versioning needs `--version-id`: these objects predated versioning (VersionId
+  `null`) and the lifecycle keeps the 3 newest noncurrent versions indefinitely, so a plain
+  `aws s3 rm` would have added delete markers and freed nothing. See
+  `scripts/` history / session notes for the batched versioned-purge pattern.
 - **S3 bucket versioning is now ENABLED** (2026-07-21) — it was off, which is why the overwrites
   were unrecoverable. A clobber is now a rollback:
   ```bash
