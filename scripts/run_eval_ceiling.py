@@ -21,10 +21,18 @@ import re
 import sys
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
+
+# matplotlib is OPTIONAL here. The CSV is the result; the PNGs are a convenience. Importing it
+# at module scope meant a box without matplotlib crashed before running a single finetune --
+# which is exactly what happened, wasting a GPU box on a plotting dependency.
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    _HAVE_MPL = True
+except ModuleNotFoundError:
+    _HAVE_MPL = False
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from finetune_v2 import TASK_TYPE, finetune_one
@@ -96,6 +104,10 @@ def main():
     df = pd.DataFrame(rows)
     df.to_csv(out / "eval_ceiling.csv", index=False)
 
+    if not _HAVE_MPL:
+        print("[ceiling] matplotlib absent — CSV written, skipping figures (not an error)")
+        print(f"[ceiling] wrote {out}/eval_ceiling.csv")
+        return
     # per-task: metric vs compute budget, frozen line vs finetune line
     for task in sorted(df.task.unique()):
         d = (df[(df.task == task) & (df.budget > 0)]

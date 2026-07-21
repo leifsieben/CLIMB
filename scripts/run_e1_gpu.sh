@@ -42,3 +42,6 @@ bash scripts/notify.sh "$([ $rc -eq 0 ] && echo DONE || echo ALERT)" \
   "E1 eval-ceiling (3 seeds, incl HIV) rc=$rc" \
   "Results at s3://climb-s3-bucket/derived/eval_ceiling/eval_ceiling.csv"
 echo "E1_GPU_DONE rc=$rc"
+# Propagate the real status: the script previously ended on `echo`, so its exit code was the
+# echo's (0) and a caller checking $? saw success even when the run had failed.
+exit "$rc"
