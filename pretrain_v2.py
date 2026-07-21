@@ -54,6 +54,7 @@ from config_v2 import (
     build_modernbert_config,
 )
 from data_v2 import (
+    CorruptedCollator,
     MLMCollator,
     MTRCollator,
     MultiObjectiveBatchIterator,
@@ -240,6 +241,9 @@ def train(args) -> int:
     _subset_raw = selection.get("unsupervised_subset_fraction", cfg.get("unsupervised_subset_fraction"))
     mlm_subset_fraction = float(_subset_raw) if _subset_raw is not None else None
     init_encoder_path = selection.get("init_encoder_path")
+    # E13 / H2c content-free control: same objective + compute, zero real chemistry.
+    # None (default) | "shuffle_tokens" (MLM) | "shuffle_targets" (MTR) | "both".
+    corruption = selection.get("corruption")
 
     # Per-batch objective weights. Explicit `objectives` supersedes the legacy
     # mixing_ratio/n_families knobs (kept for backward compatibility).
@@ -334,12 +338,17 @@ def train(args) -> int:
         desc_dir = cfg.get("descriptor_precompute_dir")
         if desc_dir:
             print(f"[pretrain_v2] MTR using PRECOMPUTED descriptors from {desc_dir} (GPU-bound)", flush=True)
+        mtr_collator = MTRCollator(tokenizer, desc_stats, max_length=seq_cap,
+                                   randomize=(augmentation == "enumerated"))
+        if corruption in ("shuffle_targets", "both"):
+            mtr_collator = CorruptedCollator(mtr_collator, "shuffle_targets", seed=pretraining_seed)
+            print("[pretrain_v2] E13 CONTROL: MTR targets SHUFFLED across batch "
+                  "(molecule→descriptor mapping destroyed)", flush=True)
         mtr_loader = DataLoader(
             make_raw_smiles_dataset(raw_paths, subset_fraction=mlm_subset_fraction,
                                     subset_seed=pretraining_seed, descriptors_dir=desc_dir),
             batch_size=train_cfg.batch_size, num_workers=train_cfg.dataloader_num_workers,
-            collate_fn=MTRCollator(tokenizer, desc_stats, max_length=seq_cap,
-                                   randomize=(augmentation == "enumerated")),
+            collate_fn=mtr_collator,
         )
 
     # ---- MLM streaming ----
@@ -364,6 +373,10 @@ def train(args) -> int:
                 mlm_probability=train_cfg.mlm_probability, pad_token_id=pad_token_id,
                 special_tokens=special_tokens, max_length=mlm_max_length,
             )
+        if corruption in ("shuffle_tokens", "both"):
+            mlm_collator = CorruptedCollator(mlm_collator, "shuffle_tokens", seed=pretraining_seed)
+            print("[pretrain_v2] E13 CONTROL: MLM token order SHUFFLED within each sequence "
+                  "(SMILES grammar destroyed; token distribution + mask rate preserved)", flush=True)
         mlm_loader = DataLoader(mlm_dataset, batch_size=train_cfg.batch_size,
                                 num_workers=train_cfg.dataloader_num_workers, collate_fn=mlm_collator)
 
@@ -383,7 +396,8 @@ def train(args) -> int:
     model = model.to(device)
     n_params = sum(p.numel() for p in model.encoder.parameters())
     print(f"[pretrain_v2] ModernBERT {n_params/1e6:.1f}M | objectives={objectives} | aug={augmentation}"
-          f"{' | init='+init_encoder_path if init_encoder_path else ''}", flush=True)
+          f"{' | init='+init_encoder_path if init_encoder_path else ''}"
+          f"{' | CORRUPTION='+corruption if corruption else ''}", flush=True)
 
     # ---- optimizer + schedule ----
     total_steps = max(1, total_fps // train_cfg.batch_size)
@@ -403,6 +417,7 @@ def train(args) -> int:
         "training_config": asdict(train_cfg),
         "selection": selection,
         "objectives": objectives,
+        "corruption": corruption,          # E13/H2c: content-free control marker (None = real pretraining)
         "supervised_families": sup_families,
         "mtr_n_desc": mtr_n_desc,
         "total_steps": total_steps,

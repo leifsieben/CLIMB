@@ -10,6 +10,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -163,3 +165,55 @@ def test_mixed_iterator_pure_mlm_no_sup_loader():
     modes = [mode for mode, _ in it]
     assert all(m == "mlm" for m in modes)
     assert len(modes) == 100
+
+
+# ---------- E13 / H2c corrupted-pretraining control ----------
+
+def test_corrupted_collator_shuffle_tokens_preserves_pairing_and_pins_special():
+    """shuffle_tokens must destroy ORDER only: CLS/SEP stay pinned, the interior is a
+    permutation of the original tokens, and each masked slot still asks for its own
+    original token (input_ids and labels permuted together). If this breaks, the E13
+    control silently stops being a valid control."""
+    from data_v2 import CorruptedCollator
+    CLS, SEP, PAD, MASK = 1, 2, 0, 3
+
+    class Base:
+        def __call__(self, _ex):
+            return {
+                "input_ids": torch.tensor([[CLS, 10, 11, 12, 13, 14, SEP, PAD],
+                                           [CLS, 20, MASK, 22, SEP, PAD, PAD, PAD]]),
+                "attention_mask": torch.tensor([[1, 1, 1, 1, 1, 1, 1, 0],
+                                                [1, 1, 1, 1, 1, 0, 0, 0]]),
+                "labels": torch.tensor([[-100] * 8,
+                                        [-100, -100, 21, -100, -100, -100, -100, -100]]),
+            }
+
+    out = CorruptedCollator(Base(), "shuffle_tokens", seed=0)(None)
+    ids, labels = out["input_ids"], out["labels"]
+    # CLS / SEP pinned, interior is a permutation of the originals
+    assert ids[0, 0].item() == CLS and ids[0, 6].item() == SEP
+    assert sorted(ids[0, 1:6].tolist()) == [10, 11, 12, 13, 14]
+    assert sorted(ids[1, 1:4].tolist()) == sorted([20, MASK, 22])
+    # (input, label) correspondence survives the permutation
+    assert any(ids[1, p].item() == MASK and labels[1, p].item() == 21 for p in range(1, 4))
+
+
+def test_corrupted_collator_shuffle_targets_permutes_rows():
+    """shuffle_targets must break the molecule->descriptor mapping while keeping the
+    target distribution identical (rows permuted, never the identity)."""
+    from data_v2 import CorruptedCollator
+
+    class Base:
+        def __call__(self, _ex):
+            return {"mtr_targets": torch.arange(12, dtype=torch.float32).reshape(4, 3)}
+
+    orig = torch.arange(12, dtype=torch.float32).reshape(4, 3)
+    got = CorruptedCollator(Base(), "shuffle_targets", seed=0)(None)["mtr_targets"]
+    assert sorted(map(tuple, got.tolist())) == sorted(map(tuple, orig.tolist()))
+    assert not torch.equal(got, orig)
+
+
+def test_corrupted_collator_rejects_unknown_mode():
+    from data_v2 import CorruptedCollator
+    with pytest.raises(ValueError):
+        CorruptedCollator(object(), "not_a_mode")

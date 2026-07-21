@@ -608,6 +608,82 @@ class MTRCollator:
                 "mtr_targets": targets}
 
 
+class CorruptedCollator:
+    """E13 / H2c control — the *content-free* pretraining baseline.
+
+    Wraps any pretraining collator and destroys the **chemical content** of each batch
+    while holding everything else fixed: same objective, same loss shape, same token /
+    target distribution, same sequence lengths, same mask rate, same compute. The logic
+    of the control: a model pretrained on this sees an objective of identical *structure*
+    but zero real chemistry, so **any downstream benefit that survives corruption cannot
+    be chemical information** — it must come from the objective's optimization /
+    regularization effect. Comparing real-vs-corrupted pretraining is what separates H2's
+    mechanism (c) "adds information" from (a)/(b) "initialization / regularization".
+
+    modes:
+      ``shuffle_tokens``  (MLM) — permute the *interior* token positions of each sequence
+          (CLS at 0 and the final SEP stay put). The SAME permutation is applied to
+          ``input_ids`` and ``labels``, so every masked slot still asks for its own
+          original token; only the surrounding context is scrambled. SMILES grammar and
+          atom ordering are destroyed; the unigram token distribution and length are not.
+      ``shuffle_targets`` (MTR) — permute the target ROWS across the batch, so each
+          molecule is regressed onto *another* molecule's descriptors. The target
+          distribution is untouched; the molecule→descriptor mapping is gone.
+      ``both`` — apply whichever of the two applies to the batch.
+
+    Deterministic given ``seed`` (per-worker offset applied so dataloader workers differ).
+    """
+
+    def __init__(self, base, mode: str, seed: int = 0):
+        valid = {"shuffle_tokens", "shuffle_targets", "both"}
+        if mode not in valid:
+            raise ValueError(f"corruption mode must be one of {sorted(valid)}, got {mode!r}")
+        self.base = base
+        self.mode = mode
+        self.seed = int(seed)
+        self._g = None  # lazily built per worker so each worker draws a different stream
+
+    def _gen(self) -> torch.Generator:
+        if self._g is None:
+            info = torch.utils.data.get_worker_info()
+            wid = info.id if info is not None else 0
+            self._g = torch.Generator().manual_seed(self.seed * 100003 + wid)
+        return self._g
+
+    def _shuffle_tokens(self, batch: Dict[str, torch.Tensor]) -> None:
+        ids, am = batch["input_ids"], batch["attention_mask"]
+        labels = batch.get("labels")
+        g = self._gen()
+        for i in range(ids.size(0)):
+            L = int(am[i].sum().item())
+            if L <= 3:            # [CLS] x [SEP] — nothing meaningful to permute
+                continue
+            idx = torch.arange(1, L - 1)               # keep CLS at 0 and SEP at L-1 fixed
+            perm = idx[torch.randperm(idx.numel(), generator=g)]
+            ids[i, idx] = ids[i, perm].clone()
+            if labels is not None:
+                labels[i, idx] = labels[i, perm].clone()
+
+    def _shuffle_targets(self, batch: Dict[str, torch.Tensor]) -> None:
+        t = batch.get("mtr_targets")
+        if t is None or t.size(0) < 2:
+            return
+        g = self._gen()
+        n = t.size(0)
+        perm = torch.randperm(n, generator=g)
+        if bool((perm == torch.arange(n)).all()):      # avoid the identity permutation
+            perm = torch.roll(perm, 1)
+        batch["mtr_targets"] = t[perm].clone()
+
+    def __call__(self, examples):
+        batch = self.base(examples)
+        if self.mode in ("shuffle_tokens", "both") and "input_ids" in batch:
+            self._shuffle_tokens(batch)
+        if self.mode in ("shuffle_targets", "both") and "mtr_targets" in batch:
+            self._shuffle_targets(batch)
+        return batch
+
+
 # ---------- raw-SMILES streaming (enumerated augmentation path) ----------
 
 class StreamingRawSmilesDataset(StreamingTokenizedDataset):

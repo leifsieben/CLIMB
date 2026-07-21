@@ -160,7 +160,7 @@ metrics, lift over a random-encoder floor.
 | E9 | **Molecule-overlap matrix (H9)** | performance by (seen-in-unsup × seen-in-sup) group | 🔲 planned |
 | ~~E10~~ | **Model-size / Chinchilla scaling — DROPPED** | model-size scaling (13M/50M/100M/200M) and any compute-optimal / IsoFLOP scaling-law analysis are **out of scope for this paper**; no new runs. A descriptive compute/data plot is recycled from existing runs (§4) | ❌ dropped |
 | E12 | **Label-efficiency sweep (H2 mechanism)** | retrain the frozen probe on 5/10/25/50/100% of each eval **train** split, per regime + per task; report the train–test gap. No new pretraining (cached embeddings) | 🔲 planned |
-| E13 | **Corrupted / irrelevant-pretraining control (H2c)** | pretrain on a domain-mismatched corpus **or** a corrupted objective (shuffled-token MLM / shuffled-target MTR); 1–2 points vs random init and real pretraining | 🔲 planned *(optional, new compute)* |
+| E13 | **Corrupted-pretraining control (H2c)** | two arms at the 8M matched budget: `corrupt_mlm_8M` (**shuffled-token MLM**) and `corrupt_mtr_8M` (**shuffled-target MTR**) — same objective/compute, zero chemical content. See §7.1. | ✅ **code + tests ready**; runs pending (build manifest with `scripts/make_e13_manifest.py`) |
 
 The **5 SFT recipes** used in E2 (each gets a full sup_only + unsup→sup ladder):
 `dense` (RDKit-MTR) · `sparse_all` (PCBA+L1000) · `dense_plus_sparse` · `minimol_full`
@@ -194,7 +194,7 @@ invented data.
 | **A2** | H1·H4 | unsup_only + 5 sup_only lines/task, vs no_pretrain (dashed) & random (dotted) references; plateau = knee | vs forward passes (log) | ✅ (unsup→sup pending; 7 truncated excluded) |
 | **A3** | H1 | round-1 exploratory: no_pretrain · unsup_only · sup_only · unsup→sup · Morgan+XGBoost | grouped bars | ✅ |
 | **B1** | H2 | label-efficiency: Morgan+XGBoost · no_pretrain · sup_only · unsup_only vs #labels (100/300/1k/3k/full) | vs label count (log) | ✅ (no unsup→sup; no train–test gap) |
-| **B2** | H2c | corrupted / domain-mismatch / real pretrain vs no_pretrain | control bars | ❌ dummy (E13 unrun) |
+| **B2** | H2c | three bars per task: **no_pretrain · corrupted pretraining · real pretraining** (MLM arm vs `unsup_only`; MTR arm vs `sup_only:dense`) — separates H2(c) "adds information" from H2(a/b) "init/regularization"; see §7.1 | control bars | ❌ dummy — **E13 code ready**, runs pending |
 | **C1** | H3 | dense-vs-sparse ablation, per-arm lift over no_pretrain (6 unsup→sup arms + base) | bars + heatmap | ✅ (pre-dedup ‡ assay arms) |
 | **E1** | H5 | eval-ceiling: frozen probe vs finetuned per ckpt (+HIV) | vs compute | ❌ dummy (no finetune runs) |
 | **E2** | H5 | SFT-LR sweep: dense/sparse lift vs unsup_only base at 4 LRs | bars | ❌ dummy (8 runs trained, not evaluated) |
@@ -456,6 +456,43 @@ recorded per eval molecule (§9.5) so a reviewer can see which molecules each cl
   in the worker script survive spot reclaim (current boxes are on-demand, so this is belt-and-braces).
 
 ---
+
+### 7.1 Corrupted-pretraining control (E13 → Fig B2, hypothesis H2c)
+
+The label-efficiency curves (B1) can show *that* pretraining helps but cannot say *why*: a
+gain could come from the chemistry the corpus contains (**information**, H2c) or merely from
+running a self-supervised objective at all — the optimization/regularization effect of the
+task's structure (**initialization/regularization**, H2a/b). The corrupted control separates
+them by holding **everything** fixed except chemical content:
+
+| Held fixed | Destroyed |
+|---|---|
+| objective + loss shape, compute (8M FP), schedule, model, batch size, mask rate, sequence lengths, token / target **distributions** | SMILES grammar & atom ordering (MLM arm); the molecule→descriptor **mapping** (MTR arm) |
+
+Two arms, each matched to its real counterpart at the 8M budget (`scripts/make_e13_manifest.py`):
+
+- **`corrupt_mlm_8M`** — `corruption: shuffle_tokens`. Permutes the *interior* token positions
+  of every sequence (CLS/SEP stay pinned), applying the **same permutation to `input_ids` and
+  `labels`** so each masked slot still asks for its own original token — only the surrounding
+  context is scrambled. Controls for `unsup_only` (real MLM).
+- **`corrupt_mtr_8M`** — `corruption: shuffle_targets`. Permutes the descriptor target *rows*
+  across the batch, so each molecule is regressed onto **another** molecule's descriptors.
+  Controls for `sup_only:dense` (real dense MTR).
+
+Implemented as `data_v2.CorruptedCollator` (wraps any pretraining collator; deterministic per
+seed with a per-dataloader-worker offset), selected via `selection.corruption` in the run config
+and recorded in the run metadata (`corruption` field) so every run is auditable. Invariants are
+regression-tested in `tests/test_data_v2.py` (CLS/SEP pinned, interior is a true permutation,
+input↔label pairing survives, targets permuted and never the identity).
+
+**How to read Fig B2** (three bars per task — `no_pretrain` · corrupted · real):
+
+- corrupted ≈ `no_pretrain`, and real **>** both → the gain is **chemical information** (H2c). ✔
+- corrupted ≈ real, and both **>** `no_pretrain` → the gain is the **objective's structure**
+  (initialization/regularization, H2a/b) — pretraining is not teaching chemistry.
+
+This is the experiment that decides whether the persistent part of B1's `unsup_only` advantage
+(clearest on ESOL/BACE) is real chemistry or an optimization artifact.
 
 ## 8. Evaluation protocol (frozen featurizer)
 
