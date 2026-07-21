@@ -117,7 +117,9 @@ def main():
              .sort_values("budget"))
         if d.empty:
             continue
-        metric = d["metric"].iloc[0]
+        # metric is per-task and constant, so read it from the unaggregated frame -- the
+        # groupby above intentionally keeps only run_id/budget and the numeric columns.
+        metric = df[df.task == task]["metric"].iloc[0]
         fig, ax = plt.subplots(figsize=(6, 4))
         if d["frozen"].notna().any():
             ax.plot(d["budget"], d["frozen"], marker="o", label="frozen probe")
