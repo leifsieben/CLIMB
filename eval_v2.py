@@ -349,6 +349,7 @@ def evaluate(
         per_seed = []
         per_seed_nef = []
         seed_preds = []
+        per_seed_train = []
         for seed in head_seeds:
             hd = make_head(head, task_type, n_outputs, seed).fit(tr_x, tr_y, va_x, va_y)
             te_pred = hd.predict(te_x)
@@ -356,6 +357,15 @@ def evaluate(
             metric = compute_metric(te_pred, te_y, task_type)
             per_seed.append(metric)
             rows.append(_row(ds_name, task_type, main_metric, seed, n_train, metric, t0))
+            # TRAIN-set score for the same fitted head. Emitted as "<metric>_train" so the
+            # schema is unchanged and every existing consumer (which filters main_metric to
+            # rmse/roc_auc) ignores it. Needed for the label-efficiency train-vs-test panel:
+            # test alone cannot separate "the head cannot FIT this many labels" from "it fits
+            # and fails to GENERALISE", which is the whole question at small N.
+            tr_pred = hd.predict(tr_x)
+            tr_metric = compute_metric(tr_pred, tr_y, task_type)
+            per_seed_train.append(tr_metric)
+            rows.append(_row(ds_name, task_type, f"{main_metric}_train", seed, n_train, tr_metric, t0))
             if task_type == "classification":
                 nef = compute_nef(te_pred, te_y)
                 per_seed_nef.append(nef)
@@ -364,6 +374,12 @@ def evaluate(
         arr = np.array(per_seed, dtype=np.float64)
         rows.append(_row(ds_name, task_type, main_metric, "MEAN", n_train, float(np.nanmean(arr)), t0))
         rows.append(_row(ds_name, task_type, main_metric, "STD", n_train, float(np.nanstd(arr)), t0))
+        if per_seed_train:
+            tarr = np.array(per_seed_train, dtype=np.float64)
+            rows.append(_row(ds_name, task_type, f"{main_metric}_train", "MEAN", n_train,
+                             float(np.nanmean(tarr)), t0))
+            rows.append(_row(ds_name, task_type, f"{main_metric}_train", "STD", n_train,
+                             float(np.nanstd(tarr)), t0))
         print(f"  {ds_name}: {main_metric} = {np.nanmean(arr):.4f} ± {np.nanstd(arr):.4f} (n_train={n_train})")
         if per_seed_nef:
             narr = np.array(per_seed_nef, dtype=np.float64)
