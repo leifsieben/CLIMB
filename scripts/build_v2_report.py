@@ -29,7 +29,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-CORPUS_SIZE = 124_000_000  # PubChem filtered; for the scaling x-axis
+# Molecules ACTUALLY streamed, not the size of the upstream source. The corpus in use is
+# s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/ = 12 shards x 1,000,000 rows = 12M.
+# It is *derived from* the PubChem-124M release (README 6.1), and this constant previously read
+# 124_000_000 -- which silently multiplied every subset_fraction on the scaling x-axis by ~10,
+# so a 0.1 subset would have been reported as 12.4M molecules when it is 1.2M.
+CORPUS_SIZE = 12_000_000
 CORE_ORDER = ["random_baseline", "ecfp4_anchor", "unsup_only", "sup_only", "mixed"]
 
 
