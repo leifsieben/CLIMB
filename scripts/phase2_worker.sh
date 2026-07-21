@@ -72,21 +72,12 @@ kill $SIDECAR $HEARTBEAT 2>/dev/null || true
 aws s3 sync "$LOCAL" "$S3" --exclude "*/tokenizer/*"
 
 # ---- completion GATE: only self-stop if EVERY run in the manifest is verified ----
-SUMMARY=$($PY - "$MANIFEST" "$LOCAL" <<'PYEOF'
-import json, sys, os
-manifest, local = sys.argv[1], sys.argv[2]
-runs = json.load(open(manifest))["runs"]
-done, missing = [], []
-for r in runs:
-    rid = r["run_id"]
-    vp = os.path.join(local, rid, "verified.json")
-    if os.path.exists(vp):
-        v = json.load(open(vp)); done.append(f"{rid}({int(v.get('fraction',0)*100)}%)")
-    else:
-        missing.append(rid)
-print(json.dumps({"done": done, "missing": missing}))
-PYEOF
-)
+# Delegates to launch_v2_wave.py --check_complete so the gate and the skip logic share ONE
+# definition of "done". They used to differ: this gate accepted only a LOCAL verified.json,
+# while the launcher also accepts an S3 marker, an anchor exemption, and FP>=98% of budget.
+# Anything complete via those routes was reported "missing" forever, so the box never
+# self-terminated and billed indefinitely while emitting a plausible-looking INCOMPLETE alert.
+SUMMARY=$($PY scripts/launch_v2_wave.py --manifest "$MANIFEST" --worker_name "$WORKER" --check_complete)
 MISSING=$(echo "$SUMMARY" | $PY -c "import sys,json;print(len(json.load(sys.stdin)['missing']))")
 DONE=$(echo "$SUMMARY" | $PY -c "import sys,json;print(len(json.load(sys.stdin)['done']))")
 MISSING_LIST=$(echo "$SUMMARY" | $PY -c "import sys,json;print(', '.join(json.load(sys.stdin)['missing']) or 'none')")

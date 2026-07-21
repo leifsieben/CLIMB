@@ -105,28 +105,39 @@ def _reached_budget(run: dict, *, prefer_s3: bool = False) -> bool:
     return fp >= 0.98 * budget
 
 
-def _should_skip(run: dict, no_skip: bool) -> bool:
-    """Skip only a run that is VERIFIED complete. Precedence:
-      1) --no_skip_existing forces a re-run of everything.
-      2) A `verified.json` marker (local or S3) — written only on genuine completion.
-      3) For non-pretraining anchors (no FP budget), fall back to suite existence.
-      4) Otherwise: training must have reached >=98% of its FP budget.
-    A stale/truncated suite_summary.json NO LONGER causes a skip."""
-    if no_skip:
-        return False
+def _is_complete(run: dict) -> bool:
+    """THE completion test. Precedence:
+      1) A `verified.json` marker (local or S3) — written only on genuine completion.
+      2) For non-pretraining anchors (no FP budget), fall back to suite existence.
+      3) Otherwise: training must have reached >=98% of its FP budget.
+
+    Every consumer of "is this run done?" MUST call this — skip logic, the worker's
+    shutdown gate, and any downstream artifact gate. Having two different notions of
+    completion is its own bug class: the shutdown gate previously accepted ONLY a local
+    verified.json, so runs that this function legitimately considers done (anchors, and
+    complete-but-unmarked runs verified via S3 or FP) were reported "missing" forever and
+    the box never self-terminated — billing indefinitely while looking like a real alarm."""
     run_dir = Path(run["output_dir"])
-    # (2) explicit verified marker is the single source of truth
+    # (1) explicit verified marker is the single source of truth
     if (run_dir / "verified.json").exists():
         return True
     if _path_exists_s3(run["backup_s3_uri"].rstrip("/") + "/verified.json"):
         return True
-    # (3) anchors / random baselines have no training budget
+    # (2) anchors / random baselines have no training budget
     if run.get("run_type") in ("ecfp4_anchor", "random_baseline"):
         eval_dir = Path(run["evaluation_output_dir"])
         return ((eval_dir / "suite_summary.json").exists()
                 or _path_exists_s3(run["backup_s3_uri"].rstrip("/") + "/moleculenet/suite_summary.json"))
-    # (4) pretraining runs: require the FP budget to have actually been reached
+    # (3) pretraining runs: require the FP budget to have actually been reached
     return _reached_budget(run, prefer_s3=True)
+
+
+def _should_skip(run: dict, no_skip: bool) -> bool:
+    """Skip only a run that is VERIFIED complete (see `_is_complete`).
+    A stale/truncated suite_summary.json NO LONGER causes a skip."""
+    if no_skip:
+        return False
+    return _is_complete(run)
 
 
 def _write_verified_marker(run: dict, run_dir: Path, final_fp: int) -> None:
@@ -312,6 +323,11 @@ def main():
     p.add_argument("--run_type", action="append", default=[])
     p.add_argument("--worker_name", default="local")
     p.add_argument("--no_skip_existing", action="store_true")
+    p.add_argument("--check_complete", action="store_true",
+                   help="Do not run anything: report {done, missing} for the manifest using the "
+                        "SAME completion test as the skip logic, and exit 0 iff all runs are "
+                        "complete. This is what the worker's shutdown gate must call — a gate "
+                        "with its own separate notion of 'done' will strand boxes forever.")
     args = p.parse_args()
 
     with open(args.manifest) as f:
@@ -326,6 +342,13 @@ def main():
     if not selected:
         print("[launch_v2] no runs match selection")
         return 0
+
+    if args.check_complete:
+        done, missing = [], []
+        for run in selected:
+            (done if _is_complete(run) else missing).append(run["run_id"])
+        print(json.dumps({"done": done, "missing": missing}))
+        return 0 if not missing else 1
 
     print(f"[launch_v2] {args.worker_name}: {len(selected)} runs queued")
 
