@@ -58,14 +58,17 @@ def _load_runs(path: str) -> list:
     return m["runs"] if isinstance(m, dict) and "runs" in m else m
 
 
-def _existing_marker(run: dict, run_dir: Path) -> dict | None:
-    """The authoritative completion record, if one already exists locally or in S3."""
-    local = run_dir / "verified.json"
-    if local.exists():
-        try:
-            return json.loads(local.read_text())
-        except Exception:
-            pass
+def _read_local_marker(run_dir: Path) -> dict | None:
+    p = run_dir / "verified.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        return None
+
+
+def _read_s3_marker(run: dict) -> dict | None:
     uri = run["backup_s3_uri"].rstrip("/") + "/verified.json"
     try:
         out = subprocess.run(["aws", "s3", "cp", uri, "-"], capture_output=True,
@@ -75,6 +78,18 @@ def _existing_marker(run: dict, run_dir: Path) -> dict | None:
     except Exception:
         pass
     return None
+
+
+def _is_legacy(marker: dict | None) -> bool:
+    """True for the {achieved, budget, ...} schema emitted by an earlier version of this
+    script, which satisfies the existence-only completion test but breaks any consumer that
+    reads final_fp/budget_fp."""
+    return bool(marker) and "final_fp" not in marker and "achieved" in marker
+
+
+def _existing_marker(run: dict, run_dir: Path) -> dict | None:
+    """The authoritative completion record, if one already exists locally or in S3."""
+    return _read_local_marker(run_dir) or _read_s3_marker(run)
 
 
 def main() -> int:
@@ -93,9 +108,19 @@ def main() -> int:
         run_dir = Path(run["output_dir"])
         rid = os.path.basename(str(run_dir).rstrip("/"))
 
-        s3_marker_uri = run["backup_s3_uri"].rstrip("/") + "/verified.json"
-        need_local = run_dir.exists() and not (run_dir / "verified.json").exists()
-        need_s3 = a.s3 and not _path_exists_s3(s3_marker_uri)
+        # An earlier version of this script emitted {achieved, budget, verified, backfilled,
+        # route} instead of the canonical {run_id, budget_fp, final_fp, fraction,
+        # verified_at_utc}. Both satisfy the existence-only completion test, so the drift is
+        # invisible until something reads the fields -- two marker schemas is the same
+        # two-sources-of-truth bug class that caused the original truncation incident. Each
+        # target is judged on ITS OWN marker: a run can hold a canonical local marker and a
+        # legacy S3 one, and only the S3 copy then needs upgrading.
+        local_m = _read_local_marker(run_dir)
+        s3_m = _read_s3_marker(run) if a.s3 else None
+        need_local = run_dir.exists() and (local_m is None or _is_legacy(local_m))
+        need_s3 = a.s3 and (s3_m is None or _is_legacy(s3_m))
+        existing = local_m or s3_m
+        legacy = _is_legacy(existing)
         if not need_local and not need_s3:
             # Already marked everywhere we would write. Never rewrite an existing marker: it
             # would replace a genuine completion record (and its original verified_at_utc)
@@ -108,7 +133,11 @@ def main() -> int:
             continue
 
         is_anchor = run.get("run_type") in ANCHOR_TYPES
-        prior = _existing_marker(run, run_dir)
+        # A legacy marker's numbers are still trustworthy provenance -- migrate them across
+        # rather than recomputing from metrics.jsonl, which the sync bug may have corrupted.
+        prior = existing
+        if legacy:
+            prior = {"budget_fp": existing.get("budget"), "final_fp": existing.get("achieved")}
 
         if is_anchor:
             # Anchors carry no `selection` block and no FP budget at all; they are complete by
