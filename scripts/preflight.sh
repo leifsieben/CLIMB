@@ -47,8 +47,28 @@ else
   add "python deps: IMPORT FAILED"; fail=1
 fi
 
-# 6. descriptor precompute reachable IFF a dense/mixed/mtr run is in this manifest
-if [ -n "$MANIFEST" ] && grep -qiE '"(dense|mixed)|mtr' "$MANIFEST" 2>/dev/null; then
+# 6. descriptor precompute reachable IFF a run in this manifest actually USES the MTR objective.
+# Decided by parsing the manifest, not by grepping for the substring "mtr": every config carries
+# the hyperparameter `"mtr_loss": "mse"` whether or not MTR is among its objectives, so the old
+# grep fired on manifests with no MTR run at all. finalize_manifest.py then (correctly) had not
+# wired descriptor_precompute_dir into such a manifest, so the wiring check below failed and
+# preflight refused to launch a perfectly valid supervised-only wave.
+NEEDS_MTR=$($PY - "$MANIFEST" <<'PYEOF' 2>/dev/null || echo no
+import json, sys
+try:
+    m = json.load(open(sys.argv[1]))
+except Exception:
+    print("no"); raise SystemExit
+runs = m["runs"] if isinstance(m, dict) and "runs" in m else m
+def uses_mtr(r):
+    for sel in ((r.get("selection") or {}), ((r.get("pretrain_config") or {}).get("selection") or {})):
+        if float((sel.get("objectives") or {}).get("mtr", 0) or 0) > 0:
+            return True
+    return False
+print("yes" if any(uses_mtr(r) for r in runs) else "no")
+PYEOF
+)
+if [ -n "$MANIFEST" ] && [ "$NEEDS_MTR" = "yes" ]; then
   N=$(aws s3 ls s3://climb-s3-bucket/tokenized_sources/pubchem_descriptors/ 2>/dev/null | grep -c '\.npy')
   add "descriptor precompute: ${N}/12 shards in S3"
   if [ "${N:-0}" -lt 12 ]; then add "precompute: INCOMPLETE — dense runs would run 6x slow"; fail=1; fi
