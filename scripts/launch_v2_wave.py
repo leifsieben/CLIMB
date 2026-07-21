@@ -57,9 +57,27 @@ def _notify(level: str, subject: str, message: str) -> None:
 
 
 def _budget_fp(run: dict) -> int:
-    sel = run.get("selection", {})
-    return int(sel.get("total_forward_passes")
-               or run["pretrain_config"]["selection"].get("total_forward_passes", 250_000_000))
+    """Forward-pass budget, or 0 for runs that legitimately have none.
+
+    Eval-only runs (ecfp4/fp_desc anchors, random baselines) carry a `selection` without
+    `total_forward_passes` AND a `pretrain_config` without a `selection` block at all -- so the
+    old fall-through raised KeyError on the FIRST such run and killed the whole worker before it
+    trained anything. That stayed hidden while every anchor in flight happened to be already
+    complete (and so skipped before this call); it surfaced the moment a wave containing a
+    not-yet-complete anchor was launched, which reported as 5 runs 'missing' with no training and
+    no obvious cause.
+
+    Returning 0 is correct rather than defensive: these runs have no training to budget. Callers
+    must treat 0 as 'no budget' -- _reached_budget already does, via _is_complete's anchor branch.
+    """
+    sel = run.get("selection") or {}
+    fp = sel.get("total_forward_passes")
+    if not fp:
+        pc_sel = (run.get("pretrain_config") or {}).get("selection") or {}
+        fp = pc_sel.get("total_forward_passes")
+    if not fp:
+        return 0 if not run.get("requires_pretrain") else 250_000_000
+    return int(fp)
 
 
 def _final_fp_from_jsonl_text(text: str) -> int:
@@ -177,8 +195,8 @@ def _spawn_watchdog(pid: int, metrics_path: Path, stall_seconds: int, max_second
 
 
 def _stall_seconds_for(run: dict) -> int:
-    sel = run.get("selection", {})
-    fps = int(sel.get("total_forward_passes") or run["pretrain_config"]["selection"].get("total_forward_passes", 250_000_000))
+    # Third copy of the budget fall-through; same KeyError on eval-only runs. Delegated too.
+    fps = _budget_fp(run)
     if fps >= 1_000_000_000:
         return 60 * 60     # 60 min
     if fps >= 500_000_000:
@@ -187,8 +205,12 @@ def _stall_seconds_for(run: dict) -> int:
 
 
 def _max_seconds_for(run: dict) -> int:
-    sel = run.get("selection", {})
-    fps = int(sel.get("total_forward_passes") or run["pretrain_config"]["selection"].get("total_forward_passes", 250_000_000))
+    # Delegates to _budget_fp rather than repeating its fall-through: this function carried its
+    # own copy, which raised the same KeyError on eval-only runs and would drift from the real
+    # budget definition. One definition of the budget, one place to fix it.
+    fps = _budget_fp(run)
+    if not fps:
+        return 4 * 3600      # eval-only run: no training to size against
     # Hard ceiling only — real stalls are caught separately by stall_seconds (no-progress).
     # Measured throughput is ~700-760 seq/s; budget at a CONSERVATIVE 400 seq/s + 4h for
     # eval/warmup so genuinely long runs are never killed prematurely (the old flat 12h cap
