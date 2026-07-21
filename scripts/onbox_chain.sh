@@ -18,21 +18,24 @@ NEXT_WORKER="${2:?}"
 WAIT_PAT="${3:?}"
 cd /home/ec2-user/CLIMB
 
-# Must not match ITSELF: this script receives the pattern as an argument, so its own command
-# line contains it and a naive `pgrep -f "$WAIT_PAT"` matches the chain -- which would wait
-# forever and silently never launch the next wave. Exclude everything in this script's own
-# process group (covers the setsid parent and any subshell) rather than just $$.
-SELF_PGID=$(ps -o pgid= -p $$ | tr -d ' ')
+# Must not match ITSELF. This script takes the pattern as an argument, so its own command line
+# contains it; a naive `pgrep -f "$WAIT_PAT"` matches the chain and the loop can never exit --
+# the follow-on wave would silently never start.
+#
+# Excluding "my own process group" is NOT enough: the wrapper that launched this script
+# (`bash -c ... setsid nohup bash onbox_chain.sh ... <pattern>`) survives in a DIFFERENT process
+# group and its command line also contains the pattern. Observed on the box: chain pid 9675 in
+# pgid 9675, wrapper pid 9674 in pgid 9650.
+#
+# Pattern tricks cannot separate them either -- any regex matching the worker's command line
+# also matches the chain's, since the chain carries the pattern verbatim. The one reliable
+# discriminator is the script NAME: the thing we wait for runs phase2_worker.sh, while every
+# process belonging to this chain mentions onbox_chain.sh.
 others_running() {
-  local p pg
-  for p in $(pgrep -f "$WAIT_PAT" 2>/dev/null); do
-    pg=$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')
-    [ -n "$pg" ] && [ "$pg" != "$SELF_PGID" ] && return 0
-  done
-  return 1
+  pgrep -af "$WAIT_PAT" 2>/dev/null | grep -v 'onbox_chain' | grep -q .
 }
 
-echo "[chain] waiting for current worker matching '$WAIT_PAT' to exit (pgid $SELF_PGID excluded) ($(date -u))"
+echo "[chain] waiting for current worker matching '$WAIT_PAT' to exit ($(date -u))"
 if ! others_running; then
   echo "[chain] WARNING: nothing matches '$WAIT_PAT' right now — proceeding immediately"
 fi
