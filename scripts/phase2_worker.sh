@@ -20,8 +20,21 @@ PY=/home/ec2-user/venvs/climb/bin/python
 MANIFEST="${1:?usage: phase2_worker.sh <manifest> <worker_name>}"
 WORKER="${2:?usage: phase2_worker.sh <manifest> <worker_name>}"
 export CLIMB_WORKER="$WORKER"
-LOCAL=experiments/climb_v2_phase2
-S3=s3://climb-s3-bucket/experiments/climb_v2_phase2
+# Wave roots come from the manifest (`results_root` / `s3_backup_root`) so this runner is not
+# pinned to climb_v2_phase2 -- the lrsweep/ablation waves live under their own prefixes, and a
+# hardcoded root would sync their runs into the wrong tree. Falls back to the phase-2 values so
+# older manifests that predate those keys still work.
+LOCAL=$($PY -c "
+import json
+m = json.load(open('$MANIFEST'))
+print(m.get('results_root', 'experiments/climb_v2_phase2') if isinstance(m, dict) else 'experiments/climb_v2_phase2')
+")
+S3=$($PY -c "
+import json
+m = json.load(open('$MANIFEST'))
+print(m.get('s3_backup_root', 's3://climb-s3-bucket/experiments/climb_v2_phase2') if isinstance(m, dict) else 's3://climb-s3-bucket/experiments/climb_v2_phase2')
+")
+echo "WAVE ROOTS: local=$LOCAL s3=$S3"
 NOTIFY="bash scripts/notify.sh"
 
 # ---- PREFLIGHT: refuse to launch into a broken environment (stay up on failure) ----
@@ -59,8 +72,33 @@ print(' '.join(os.path.basename(r['output_dir'].rstrip('/')) for r in runs))
 ")
 echo "OWNED RUNS ($WORKER): $OWN_RUNS"
 
-# warm-start bases only: encoders of runs this box does NOT own (never their metrics/status)
-aws s3 sync "$S3" "$LOCAL" --exclude "*" --include "*/encoder/*" >/dev/null 2>&1 || true
+# Warm-start bases: pull exactly the encoders the manifest names in `init_encoder_path`, rather
+# than sweeping every encoder under the wave prefix. Stage-2 runs frequently warm-start from a
+# DIFFERENT wave (the lrsweep sweeps SFT learning rate on top of a phase-2 MLM encoder), which a
+# prefix sweep would silently miss -- and a missing warm-start base kills the run on startup with
+# no metrics written at all, which is exactly how all 8 original lrsweep runs died in ~15s.
+INIT_ENCODERS=$($PY -c "
+import json
+m = json.load(open('$MANIFEST'))
+runs = m['runs'] if isinstance(m, dict) and 'runs' in m else m
+seen = []
+for r in runs:
+    for sel in (r.get('selection') or {}, (r.get('pretrain_config') or {}).get('selection') or {}):
+        p = sel.get('init_encoder_path')
+        if p and p not in seen:
+            seen.append(p)
+print(' '.join(seen))
+")
+for e in $INIT_ENCODERS; do
+  echo "warm-start base: $e"
+  mkdir -p "$e"
+  aws s3 sync "s3://climb-s3-bucket/$e" "$e" >/dev/null 2>&1 || true
+  if [ ! -f "$e/model.safetensors" ] && [ ! -f "$e/pytorch_model.bin" ]; then
+    $NOTIFY ALERT "$WORKER MISSING WARM-START BASE" "init_encoder_path '$e' has no weights after sync. Runs depending on it would die instantly. NOT launching."
+    echo "FATAL: warm-start base $e has no weights — refusing to launch $(date -u)"
+    exit 1
+  fi
+done
 # owned runs in full, so an interrupted run can resume from its checkpoint
 for r in $OWN_RUNS; do
   aws s3 sync "$S3/$r" "$LOCAL/$r" --exclude "*/tokenizer/*" >/dev/null 2>&1 || true
