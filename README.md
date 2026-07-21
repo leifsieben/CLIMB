@@ -803,10 +803,59 @@ pretraining-seed AND scaffold-split variance — into one honest interval. CV is
 extra ~1.5h/model is cheap for a much stronger claim. **This supersedes the "single pretraining seed"
 caveat throughout** once done.
 
-### 13.4 Current live status (2026-07-20)
-w0=`skip_dense_96M` · w1=`u2s_minimol_full_from24M` · w2=`skip_dense_plus_sparse_48M` ·
-w3=`skip_minimol_full_48M` · w4=`u2s_dense_plus_sparse_from2M`. 4 u2s verified so far. ETAs from
-launch: u2s ~1 day, recovery 48M ~18h, 96M ~35h.
+### 13.4 Current live status (2026-07-21)
+**RUNNING** (each box now owns exactly one run; see the ownership rule in §13.7):
+`i-02dfaa83dae4ad937` (w0) = `skip_dense_96M` ~69% · `i-0b59865cc08ef390c` (w2) = `unsup_48M` ~36% ·
+`i-03b11b7ddd885c65d` **repurposed as seed-1 worker** = `skip_dense_8M_s1` ~34% ·
+`i-07486d883063b0925` **repurposed as seed-2 worker** = `skip_dense_8M_s2` ~34%.
+**STOPPED (data preserved, not terminated):** `i-0089f074cd2749635` (w5, finished its manifest),
+plus the original w1 box. IPs change on every start — always re-query.
+
+The 3-seed robustness pass is UNDER WAY: seed manifests hold 6 runs each
+(`unsup_8M`, `skip_dense_8M`, `skip_sparse_all_8M`, `skip_dense_plus_sparse_8M`,
+`skip_minimol_full_8M`, `skip_mixed_8M`), written to `<run>_s1` / `<run>_s2` output dirs.
+`unsup_8M_s{1,2}` are verified complete; `skip_dense_8M_s{1,2}` in flight; 4 more per seed.
+
+**Nothing else needs re-training.** Every other phase-2 run is verified complete (74 markers in
+S3). The "INCOMPLETE" alerts w3/w4 emailed on 2026-07-21 were FALSE — caused by the sync bug in
+§13.7 corrupting the metrics.jsonl that the completion gate recomputes achieved-FP from, not by
+missing work. Verify against `verified.json` before ever redoing a run on the strength of an alert.
+
+### 13.7 The cross-box S3 clobbering bug (found + fixed 2026-07-21)
+**Symptom:** completed runs silently reverted in S3 — `verified.json` said 100% while
+`metrics.jsonl` showed the old truncated run. Still active when caught (a run completed at
+11:39 was reverted at 11:43).
+
+**Cause:** every worker downloaded the ENTIRE wave tree at startup and pushed the ENTIRE tree
+back every 10 min, so each box held copies of runs owned by *other* boxes and re-uploaded its
+stale copy forever. `aws s3 sync` decides by size-or-newer-mtime: metrics.jsonl/run_status.json
+differ in SIZE from the good copy so they were always pushed, while encoders are
+same-size-and-older so sync skipped them — **which is the only reason model weights survived.**
+The startup download then propagated the clobbered files back DOWN onto the box that had
+produced the good copy, destroying the last good original.
+
+**Blast radius:** 5 runs reverted. Encoders, `moleculenet*/` evals and `verified.json` intact
+throughout — **no scientific artifact was lost.** Training logs restored for
+`skip_dense_24M`, `skip_mixed_24M`, `skip_dense_48M`; **permanently short** for
+`skip_minimol_full_48M` (32.1M of 48M logged) and `u2s_mixed_from2M` (269K of 2M logged) — those
+two runs are complete and their encoders/evals are valid, only the loss curve is truncated.
+One CV had to be redone: `skip_mixed_24M`'s encoder had been downloaded mid-training
+(md5-distinct from the final), so its CV had scored the wrong model.
+
+**Fix (commit 686049f):** a run has exactly one owner — the box whose manifest lists it. Uploads
+are scoped to owned runs; downloads pull owned runs in full (needed to resume) but only
+`encoder/` for the rest (u2s warm-start bases). **Ownership keys off `output_dir`, NOT `run_id`:**
+seed manifests reuse the base `run_id` ("unsup_8M") for a run that lives at "unsup_8M_s1", so
+scoping by `run_id` would push seed results straight over the original completed runs.
+
+**Standing rules this bought:**
+- Never let two boxes hold write authority over one `output_dir`. Before offloading tail work to
+  a spare box, remember a running worker's queue cannot be edited — an overlap is a collision.
+- Keep scratch/quarantine dirs OUTSIDE `experiments/` (a `_quarantine_stale/` placed inside it
+  was promptly synced to S3 — 7.5 GB of junk under `climb_v2_phase2/_quarantine_stale/`, still
+  there, safe to delete: it duplicates real run dirs).
+- **S3 bucket versioning is NOT enabled** — that is why the overwrites were unrecoverable.
+  Enabling it is the single highest-value durability fix outstanding.
 
 ### 13.5 Figures — done vs pending
 - **DONE:** Fig A1 (both **CV default** + **single-split SI**), leakage table (§6.6).
