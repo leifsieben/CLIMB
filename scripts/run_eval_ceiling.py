@@ -31,9 +31,15 @@ from finetune_v2 import TASK_TYPE, finetune_one
 
 
 def _budget(run_id: str) -> float:
-    m = re.search(r"cscale_(\d+)([MB])", run_id)
+    """Pretraining forward passes parsed from the run id.
+
+    Was anchored to the old `cscale_<n>[MB]` naming, so every phase-2 id (unsup_2M,
+    skip_dense_8M, ...) parsed as 0.0 -- and the per-task plots filter on `budget > 0`, so the
+    driver would have written a CSV and then silently produced no figures at all.
+    """
+    m = re.search(r"(?:^|_)(\d+)([MB])(?:$|_)", run_id)
     if not m:
-        return 0.0  # random baseline / base
+        return 0.0  # random baseline / anchor: no pretraining budget
     return int(m.group(1)) * (1e9 if m.group(2) == "B" else 1e6)
 
 
@@ -53,6 +59,9 @@ def main():
     p.add_argument("--tasks", nargs="+", default=["BBBP", "BACE", "ESOL"])
     p.add_argument("--output_dir", required=True)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--tokenizer", default=None,
+                   help="shared tokenizer dir; used when a run has no tokenizer/ of its own "
+                        "(phase-2 runs share one tokenizer rather than copying it per run)")
     args = p.parse_args()
 
     root = Path(args.results_root)
@@ -61,6 +70,8 @@ def main():
     for run_id in args.run_ids:
         enc = root / run_id / "encoder"
         tok = root / run_id / "tokenizer"
+        if not tok.exists() and args.tokenizer:
+            tok = Path(args.tokenizer)
         for task in args.tasks:
             tt = TASK_TYPE.get(task, "classification")
             metric_name = "roc_auc" if tt == "classification" else "rmse"
