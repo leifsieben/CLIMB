@@ -48,4 +48,17 @@ sudo systemctl unmask halt.target     >/dev/null 2>&1 || true
 echo "[chain] poweroff.target unmasked; launching $NEXT_WORKER"
 
 bash scripts/phase2_worker.sh "$NEXT_MANIFEST" "$NEXT_WORKER" > "phase2_${NEXT_WORKER}.log" 2>&1
-echo "[chain] $NEXT_WORKER finished with rc=$? ($(date -u))"
+rc=$?
+echo "[chain] $NEXT_WORKER finished with rc=$rc ($(date -u))"
+
+# A chain must never stop the box on a FAILED stage. phase2_worker.sh exits non-zero precisely
+# when its completion gate found unverified work and deliberately kept the box alive for
+# inspection; a chain that shuts down regardless silently defeats that gate. This already
+# happened once: an E1 chain fired on "worker process exited", ran a stage that failed in
+# seconds, and stopped a box whose gate had just said INCOMPLETE.
+if [ "$rc" -ne 0 ]; then
+  bash scripts/notify.sh ALERT "$NEXT_WORKER FAILED (rc=$rc) — box STAYING UP" \
+    "Chained stage failed; box deliberately left running for inspection."
+  echo "[chain] non-zero exit — leaving the box up for inspection"
+  exit "$rc"
+fi
