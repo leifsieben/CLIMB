@@ -854,8 +854,22 @@ scoping by `run_id` would push seed results straight over the original completed
 - Keep scratch/quarantine dirs OUTSIDE `experiments/` (a `_quarantine_stale/` placed inside it
   was promptly synced to S3 — 7.5 GB of junk under `climb_v2_phase2/_quarantine_stale/`, still
   there, safe to delete: it duplicates real run dirs).
-- **S3 bucket versioning is NOT enabled** — that is why the overwrites were unrecoverable.
-  Enabling it is the single highest-value durability fix outstanding.
+- **S3 bucket versioning is now ENABLED** (2026-07-21) — it was off, which is why the overwrites
+  were unrecoverable. A clobber is now a rollback:
+  ```bash
+  # list versions of a file that got overwritten, newest first
+  aws s3api list-object-versions --bucket climb-s3-bucket \
+    --prefix experiments/climb_v2_phase2/<run>/metrics.jsonl \
+    --query 'Versions[].[LastModified,Size,IsLatest,VersionId]' --output text
+  # restore a prior version
+  aws s3api get-object --bucket climb-s3-bucket \
+    --key experiments/climb_v2_phase2/<run>/metrics.jsonl --version-id <VID> restored.jsonl
+  ```
+  Verified end-to-end (write → clobber → recover prior version) on 2026-07-21.
+  Paired with a lifecycle policy so versions cannot accumulate unbounded on a 3.8 TB bucket:
+  noncurrent versions expire after **14 days** but the **3 most recent are always kept**, and
+  incomplete multipart uploads abort after 7 days. Note versioning changes delete semantics —
+  `aws s3 rm` now leaves a delete marker; purging data for real needs `--version-id`.
 
 ### 13.5 Figures — done vs pending
 - **DONE:** Fig A1 (both **CV default** + **single-split SI**), leakage table (§6.6).
