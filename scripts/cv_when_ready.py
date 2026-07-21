@@ -56,15 +56,20 @@ def _log(msg: str) -> None:
     print(f"[cv-watch {time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def _run_cv(wave: str, run: str) -> bool:
+def _run_cv(wave: str, run: str) -> str:
+    """-> 'ok' | 'retry' | 'failed'."""
     fd = Path("figure_data") / wave / run
     enc = fd / "encoder"
     enc.mkdir(parents=True, exist_ok=True)
     subprocess.run(["aws", "s3", "sync", f"{BUCKET}/{wave}/{run}/encoder", str(enc)],
                    check=False, capture_output=True)
     if not (enc / "model.safetensors").exists() and not (enc / "pytorch_model.bin").exists():
-        _log(f"{run}: VERIFIED but no encoder weights in S3 — skipping (investigate)")
-        return False
+        # NOT terminal. verified.json and the encoder are pushed by the same periodic sync, so a
+        # run can be observed verified moments before its weights land in S3. Treating that race
+        # as failure silently drops the run from CV forever -- which is exactly what happened to
+        # two lrsweep runs. Retry instead, and only give up after RETRY_LIMIT attempts.
+        _log(f"{run}: verified but weights not in S3 yet — will retry")
+        return "retry"
 
     # DeepChem's featurization cache collides across concurrent/repeat evals.
     for d in glob.glob(os.path.join(tempfile.gettempdir(), "*-featurized")):
@@ -82,7 +87,7 @@ def _run_cv(wave: str, run: str) -> bool:
     if not ok:
         _log(f"  stdout tail: {r.stdout[-500:]}")
         _log(f"  stderr tail: {r.stderr[-500:]}")
-    return ok
+    return "ok" if ok else "failed"
 
 
 def main() -> int:
@@ -95,6 +100,8 @@ def main() -> int:
 
     pending = [r.strip() for r in a.runs.split(",") if r.strip()]
     done, failed = [], []
+    retries: dict[str, int] = {}
+    RETRY_LIMIT = 12          # ~1h at the default 300s poll, far beyond a 10-min sync cycle
     deadline = time.time() + a.max_hours * 3600
     _log(f"watching {len(pending)} runs in {a.wave}; poll {a.poll_seconds}s, "
          f"giving up after {a.max_hours}h")
@@ -111,8 +118,15 @@ def main() -> int:
                 ready.append(run)
 
         for run in ready:
+            outcome = _run_cv(a.wave, run)
+            if outcome == "retry":
+                retries[run] = retries.get(run, 0) + 1
+                if retries[run] >= RETRY_LIMIT:
+                    _log(f"{run}: weights still absent after {RETRY_LIMIT} tries — giving up")
+                    pending.remove(run); failed.append(run)
+                continue          # stays pending; re-checked next poll
             pending.remove(run)
-            (done if _run_cv(a.wave, run) else failed).append(run)
+            (done if outcome == "ok" else failed).append(run)
 
         if pending:
             _log(f"waiting on {len(pending)}: {', '.join(pending)}")
