@@ -58,7 +58,9 @@ def main():
     p.add_argument("--run_ids", nargs="+", required=True)
     p.add_argument("--tasks", nargs="+", default=["BBBP", "BACE", "ESOL"])
     p.add_argument("--output_dir", required=True)
-    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--seeds", type=int, nargs="+", default=[0],
+                   help="finetune seeds; >1 gives an error bar on the finetuned point, without "
+                        "which frozen-vs-finetuned differences of ~0.01 cannot be read as real")
     p.add_argument("--tokenizer", default=None,
                    help="shared tokenizer dir; used when a run has no tokenizer/ of its own "
                         "(phase-2 runs share one tokenizer rather than copying it per run)")
@@ -76,22 +78,31 @@ def main():
             tt = TASK_TYPE.get(task, "classification")
             metric_name = "roc_auc" if tt == "classification" else "rmse"
             frozen = _frozen_metric(root, run_id, task)
-            ft = None
-            if enc.exists() and tok.exists():
-                try:
-                    ft = finetune_one(str(enc), str(tok), task, tt, seed=args.seed)
-                except Exception as e:
-                    print(f"[ceiling] finetune {run_id}/{task} failed: {e}")
-            print(f"[ceiling] {run_id:22} {task:6} frozen={frozen} finetune={ft}")
-            rows.append({"run_id": run_id, "budget": _budget(run_id), "task": task,
-                         "metric": metric_name, "frozen": frozen, "finetune": ft})
+            for seed in args.seeds:
+                ft = None
+                if enc.exists() and tok.exists():
+                    try:
+                        ft = finetune_one(str(enc), str(tok), task, tt, seed=seed)
+                    except Exception as e:
+                        print(f"[ceiling] finetune {run_id}/{task}/seed{seed} failed: {e}")
+                print(f"[ceiling] {run_id:22} {task:6} seed={seed} frozen={frozen} finetune={ft}",
+                      flush=True)
+                # one row per seed; the consumer aggregates. Keeping seeds separate rather than
+                # pre-averaging means the spread stays recoverable.
+                rows.append({"run_id": run_id, "budget": _budget(run_id), "task": task,
+                             "seed": seed, "metric": metric_name,
+                             "frozen": frozen, "finetune": ft})
 
     df = pd.DataFrame(rows)
     df.to_csv(out / "eval_ceiling.csv", index=False)
 
     # per-task: metric vs compute budget, frozen line vs finetune line
     for task in sorted(df.task.unique()):
-        d = df[(df.task == task) & (df.budget > 0)].sort_values("budget")
+        d = (df[(df.task == task) & (df.budget > 0)]
+             .groupby(["run_id", "budget"], as_index=False)
+             .agg(frozen=("frozen", "mean"), finetune=("finetune", "mean"),
+                  finetune_sd=("finetune", "std"))
+             .sort_values("budget"))
         if d.empty:
             continue
         metric = d["metric"].iloc[0]
@@ -99,7 +110,8 @@ def main():
         if d["frozen"].notna().any():
             ax.plot(d["budget"], d["frozen"], marker="o", label="frozen probe")
         if d["finetune"].notna().any():
-            ax.plot(d["budget"], d["finetune"], marker="s", label="fine-tuned")
+            ax.errorbar(d["budget"], d["finetune"], yerr=d["finetune_sd"].fillna(0),
+                        marker="s", capsize=3, label="fine-tuned")
         rb = df[(df.task == task) & (df.run_id.str.startswith("random"))]
         if not rb.empty and rb["frozen"].notna().any():
             ax.axhline(rb["frozen"].mean(), ls="--", color="#999", label="random (frozen)")
