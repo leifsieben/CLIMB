@@ -808,8 +808,33 @@ caveat throughout** once done.
 `i-02dfaa83dae4ad937` (w0) = `skip_dense_96M` ~69% · `i-0b59865cc08ef390c` (w2) = `unsup_48M` ~36% ·
 `i-03b11b7ddd885c65d` **repurposed as seed-1 worker** = `skip_dense_8M_s1` ~34% ·
 `i-07486d883063b0925` **repurposed as seed-2 worker** = `skip_dense_8M_s2` ~34%.
-**STOPPED (data preserved, not terminated):** `i-0089f074cd2749635` (w5, finished its manifest),
-plus the original w1 box. IPs change on every start — always re-query.
+**SFT-LR sweep (E3 / Fig E2) RELAUNCHED 2026-07-21** on the two previously-stopped boxes:
+`i-03b11b7ddd885c65d` = lr0 (`lrsweep_worker0.json`) · `i-0089f074cd2749635` = lr1
+(`lrsweep_worker1.json`), 4 runs each, ~43 min/run at a verified ~760 fp/s → ~3h total.
+Manifests staged at `~/CLIMB/lrsweep_worker{0,1}.json`, OUTSIDE the synced tree.
+**These 8 runs had never trained** — see §13.8. IPs change on every start — always re-query.
+
+### 13.8 The lrsweep runs never trained (diagnosed 2026-07-21)
+`climb_v2_lrsweep` was recorded as "8 runs TRAINED but NOT evaluated". They were not: each run
+dir held only `config.yaml` + `run_status.json`, no metrics.jsonl and no encoder, with elapsed
+times of 13-990 s and status `failed`/`stalled`. **There was nothing to evaluate.**
+
+Cause: every run warm-starts from `experiments/climb_v2/unsup_only_seed0/encoder`, and **no
+`climb_v2` round-1 run has a surviving encoder anywhere** — that wave kept metrics and evals but
+never its weights. A missing warm-start base kills the run at startup, which is why all 8 failed
+instantly and identically.
+
+Repair (`scripts/build_lrsweep_manifests.py`, commit 373a247): re-point the base at
+`climb_v2_phase2/unsup_2M` — MLM-only, 1,999,872 achieved fp against the original base's
+1,999,872, an identical budget, and leakage-deduped where round-1 was not — then route through
+`finalize_manifest.py` to wire `descriptor_precompute_dir` into the 4 MTR arms (unwired, they
+recompute descriptors on the fly at ~6x slowdown). Verified in flight: logs show
+`MTR using PRECOMPUTED descriptors` and `warm-starting encoder from .../unsup_2M/encoder`, at
+~760 fp/s versus the 105-141 fp/s collapse signature.
+
+**What lands automatically:** the worker runs `_run_eval` after each pretrain, giving the
+**single-split** `moleculenet/` eval (3 head seeds). The DEFAULT scaffold **5-fold CV** panel is
+NOT produced box-side — run it locally over the 8 encoders afterwards, as for every other wave.
 
 The 3-seed robustness pass is UNDER WAY: seed manifests hold 6 runs each
 (`unsup_8M`, `skip_dense_8M`, `skip_sparse_all_8M`, `skip_dense_plus_sparse_8M`,
