@@ -814,6 +814,32 @@ caveat throughout** once done.
 Manifests staged at `~/CLIMB/lrsweep_worker{0,1}.json`, OUTSIDE the synced tree.
 **These 8 runs had never trained** — see §13.8. IPs change on every start — always re-query.
 
+### 13.9 Deduped ablation recreation — QUEUED behind the lrsweep (2026-07-21)
+`climb_v2_ablation` cannot be re-evaluated in place: **no encoder survives** for it (nor for
+`climb_v2_labeleff`, `climb_v2_headline`, or `climb_v2` round-1 — that is a systemic
+weight-retention failure across every pre-phase-2 wave). Its assay arms were also run PRE-dedup
+and carry an eval-test leak, which is why they are daggered in Fig C1/J1. Re-running fixes both.
+
+Manifests: `experiments/climb_v2_ablation_dedup/manifests/ablation_dedup_worker{0,1}.json`
+(built by `scripts/build_ablation_dedup_manifests.py`). 10 runs — 6 pretrains (2M FP each) +
+4 eval-only anchors — 12M FP ≈ **4.42 GPU-h, ~2.21h wall on two boxes**. Three repairs, all
+verified present in the built manifest: live warm-start base (`climb_v2_phase2/unsup_2M`, the
+original `climb_v2/unsup_only_seed0/encoder` is gone), `eval_blocklist_path` injected into every
+arm (**this is the de-leaking step**), and `descriptor_precompute_dir` wired via
+`finalize_manifest.py`. Writes to a NEW prefix so the pre-dedup numbers survive as before/after
+leakage evidence for H6.
+
+Launch is chained, not manual: `scripts/chain_wave.py` polls for the 8 lrsweep `verified.json`
+markers, then restarts `i-03b11b7ddd885c65d` / `i-0089f074cd2749635` (they self-stop on
+completion), redeploys, and launches workers `ab0`/`ab1`. **After it lands, Fig C1 and J1 must be
+re-pointed** from `climb_v2_ablation` to `climb_v2_ablation_dedup` (notebook cell 23 sets
+`ABL=`), and the `‡` leakage tags dropped for the re-run arms.
+
+**Waves deliberately NOT recreated:** `climb_v2_labeleff` (already redone against phase-2 8M
+encoders → `figure_data/climb_v2_labeleff_rep/`, which cell 19 reads), `climb_v2_headline`
+(A1 reads phase-2's own anchors; nothing depends on it), and `climb_v2` round-1 (10.3 GPU-h,
+exploratory; Fig H1 is MLM-only so the leak does not affect it).
+
 ### 13.8 The lrsweep runs never trained (diagnosed 2026-07-21)
 `climb_v2_lrsweep` was recorded as "8 runs TRAINED but NOT evaluated". They were not: each run
 dir held only `config.yaml` + `run_status.json`, no metrics.jsonl and no encoder, with elapsed
