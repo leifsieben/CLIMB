@@ -160,7 +160,7 @@ metrics, lift over a random-encoder floor.
 | E9 | **Molecule-overlap matrix (H9)** | performance by (seen-in-unsup × seen-in-sup) group | 🔲 planned |
 | ~~E10~~ | **Model-size / Chinchilla scaling — DROPPED** | model-size scaling (13M/50M/100M/200M) and any compute-optimal / IsoFLOP scaling-law analysis are **out of scope for this paper**; no new runs. A descriptive compute/data plot is recycled from existing runs (§4) | ❌ dropped |
 | E12 | **Label-efficiency sweep (H2 mechanism)** | retrain the frozen probe on 5/10/25/50/100% of each eval **train** split, per regime + per task; report the train–test gap. No new pretraining (cached embeddings) | 🔲 planned |
-| E13 | **Corrupted-pretraining control (H2c)** | two arms at the 8M matched budget: `corrupt_mlm_8M` (**shuffled-token MLM**) and `corrupt_mtr_8M` (**shuffled-target MTR**) — same objective/compute, zero chemical content. See §7.1. | ✅ **code + tests ready**; runs pending (build manifest with `scripts/make_e13_manifest.py`) |
+| E13 | **Corrupted-pretraining control (H2c)** | two arms at the 8M matched budget: `corrupt_mlm_8M` (**shuffled-token MLM**) and `corrupt_mtr_8M` (**shuffled-target MTR**) — same objective/compute, zero chemical content. See §7.1. | ✅ **done** — both arms trained and verified 2026-07-22 |
 
 The **5 SFT recipes** used in E2 (each gets a full sup_only + unsup→sup ladder):
 `dense` (RDKit-MTR) · `sparse_all` (PCBA+L1000) · `dense_plus_sparse` · `minimol_full`
@@ -194,7 +194,7 @@ invented data.
 | **A2** | H1·H4 | unsup_only + 5 sup_only lines/task, vs no_pretrain (dashed) & random (dotted) references; plateau = knee | vs forward passes (log) | ✅ (unsup→sup pending; 7 truncated excluded) |
 | **A3** | H1 | round-1 exploratory: no_pretrain · unsup_only · sup_only · unsup→sup · Morgan+XGBoost | grouped bars | ✅ |
 | **B1** | H2 | label-efficiency: Morgan+XGBoost · no_pretrain · sup_only · unsup_only vs #labels (100/300/1k/3k/full) | vs label count (log) | ✅ (no unsup→sup; no train–test gap) |
-| **B2** | H2c | three bars per task: **no_pretrain · corrupted pretraining · real pretraining** (MLM arm vs `unsup_only`; MTR arm vs `sup_only:dense`) — separates H2(c) "adds information" from H2(a/b) "init/regularization"; see §7.1 | control bars | ❌ dummy — **E13 code ready**, runs pending |
+| **B2** | H2c | three bars per task: **no_pretrain · corrupted pretraining · real pretraining** (MLM arm vs `unsup_only`; MTR arm vs `sup_only:dense`) — separates H2(c) "adds information" from H2(a/b) "init/regularization"; see §7.1 | control bars | ✅ real data (both control arms verified 2026-07-22) |
 | **C1** | H3 | dense-vs-sparse ablation, per-arm lift over no_pretrain (6 unsup→sup arms + base) | bars + heatmap | ✅ (pre-dedup ‡ assay arms) |
 | **E1** | H5 | eval-ceiling: frozen probe vs finetuned per ckpt (+HIV) | vs compute | ❌ dummy (no finetune runs) |
 | **E2** | H5 | SFT-LR sweep: dense/sparse lift vs unsup_only base at 4 LRs | bars | ❌ dummy (8 runs trained, not evaluated) |
@@ -289,12 +289,11 @@ paper** (model-size scaling / E10 dropped).
 - **Implication:** one epoch = ~12M molecules. Forward-pass budgets above 12M are multi-epoch.
 - Streaming is deterministic given `subset_seed` (worker-sharded, hash-based subset membership), so
   every run sees the same molecule order and the ladders are nested subsets.
-- **Held-out MLM val / test split (C5, for H8).** A fixed hash-based holdout of the corpus (never
-  streamed into training) provides MLM **validation and test** loss, logged per run. This exposes the
-  H8 mechanism directly: canonical repetition should overfit (train↓, val/test↑) while enumeration
-  keeps generalizing — a readout the frozen-probe downstream lift can mask (the ceiling of §10). The
-  holdout membership is derived from the same deterministic `subset_seed` hashing so it is disjoint
-  from every ladder's training subset.
+- ⚠️ **Not implemented: held-out MLM val/test loss.** An earlier plan (C5) called for a hash-based
+  corpus holdout giving per-run MLM validation/test loss, which would have exposed the H8 mechanism
+  directly (canonical repetition overfitting while enumeration keeps generalizing). **No such holdout
+  or loss exists in the code** — the training loop logs train loss only. H8 is therefore adjudicated
+  on downstream lift alone, which the frozen-probe ceiling (§10) may compress.
 
 ### 6.2 Tokenizer
 - **Byte-level BPE, vocab 1000**, artifact `s3://climb-s3-bucket/tokenizer_10M/` (`tokenizer.json`).
@@ -404,14 +403,29 @@ the exact strings that match = **34,301 leaked rows**; the supervised loader dro
 string membership, no RDKit in the hot path). Blocklist:
 `s3://climb-s3-bucket/configs/eval_blocklist.json`.
 
-**Two distinct keys — dedup vs "seen" (C17).** The blocklist key above is deliberately *fuzzy*: it
-salt-strips to the largest fragment and canonicalizes without stereo, which conservatively
-over-removes (salt forms / stereo-variants collapse together) — the right choice for a **safety**
-dedup. It is **not** used to define the H9 "seen" axis. For H9 (memorization), "seen" = **true
-exact-molecule identity**: the full canonical SMILES *including stereochemistry*, with **no**
-salt-strip / largest-fragment collapse. Keeping the two keys separate means dedup stays conservative
-while the memorization axis is never mislabelled by merged salt/stereo variants. Both keys are
-recorded per eval molecule (§9.5) so a reviewer can see which molecules each classifies as overlapping.
+⚠️ **The blocklist predates Lipophilicity and does not cover it.** The S3 artifact was built on
+**2026-07-16** over the then-6-task suite; **Lipophilicity was added to the eval suite on 2026-07-18**
+(commit `6f939c0`) and the blocklist has not been rebuilt since (34,301 entries, unchanged). No SFT
+arm is therefore deduplicated against Lipophilicity's eval molecules. Lipophilicity is **not** one of
+the six core tasks any figure plots, but it *is* scored by every 7-task evaluation, so **no
+Lipophilicity number may be reported without first rebuilding the blocklist and re-running the
+affected SFT arms**.
+
+⚠️ **The blocklist is applied only to supervised objectives.** `pretrain_v2` loads and applies it
+only when a run's objective mix contains `supervised`, so pure-MLM and pure-MTR runs never consult
+it. That is correct — those objectives never touch the supervised parquet — but it means "deduped"
+describes the SFT stage specifically, not the corpus.
+
+**Two distinct keys — dedup vs "seen" (C17).** ⚠️ *Corrected against the code:* the two keys differ
+**only** by the largest-fragment (salt-strip) step, **not** by stereochemistry. Both
+`scripts/make_eval_blocklist.py` and the eval-side identity key in `eval_v2.py` call
+`Chem.MolToSmiles(m)` with RDKit's default `isomericSmiles=True`, so **stereochemistry is retained in
+both**; an earlier version of this section claimed the blocklist key "canonicalizes without stereo",
+which the code does not do. The blocklist key additionally salt-strips to the largest fragment
+(selected by *string length*, not heavy-atom count), which conservatively over-removes — the right
+bias for a **safety** dedup. The H9 "seen" axis uses the un-stripped key, so a salt form and its
+parent count as distinct there while the blocklist collapses them. Both keys are recorded per eval
+molecule (§9.5) so a reviewer can see which molecules each classifies as overlapping.
 
 ### 6.7 Dense descriptor targets (MTR) and precompute
 - **Targets:** 217 RDKit `Descriptors.descList` values, NaN-safe, **z-normalized** with mean/std fit
@@ -440,15 +454,33 @@ recorded per eval molecule (§9.5) so a reviewer can see which molecules each cl
 - **Warm-start.** `init_encoder_path` loads a saved MLM encoder → unsup→sup (sequential); absent →
   sup_only (random init).
 - **Optimizer.** AdamW, LR **2e-4**, warmup ratio **0.05**, weight-decay **0.01**, grad-clip **1.0**,
-  batch **256**, bf16, seed **42**. ⚠️ The same LR is used for scratch and warm-start; the SFT-LR
+  batch **256**, bf16. ⚠️ The same LR is used for scratch and warm-start; the SFT-LR
   sweep (E3) tests whether this is fair for the warm-start phase.
+- **Seeding.** The governing seed is `selection.pretraining_seed` (0 for the primary runs; replicates
+  use 1 and 2), which fixes weight init, corpus-subset membership, objective sampling and the
+  corruption RNG. `TrainingConfigV2.seed = 42` is only a fallback and is *not* what the runs used.
+- **MLM corruption detail.** Of the 30% selected positions, the standard **80/10/10** split applies:
+  80% replaced with `[MASK]`, 10% with a random token, 10% left unchanged
+  (`data_v2.mlm_mask_tokens`); loss is computed on the selected positions only.
+- **Supervised label handling.** Every non-binary supervised column is **z-scored** over the loaded
+  subset (mean/std computed on that subset, values clipped to ±10), and a column is treated as
+  **classification iff its unique valid values are a subset of {0,1}** — task type is *inferred*
+  from the labels, not declared (`data_v2.py`). MAE/BCE in the bullet above therefore act on
+  z-scored and inferred-type targets respectively.
 - **Compute accounting.** Everything is measured in **forward passes** (molecule-presentations).
   Within one epoch (≤12M) forward passes = #unique molecules; beyond that they diverge (repetition).
 - **Canonical vs enumerated.** Primary runs use canonical SMILES (one presentation per molecule);
   enumeration (on-the-fly RDKit randomization) is the H8 lever for the beyond-one-epoch regime.
-  **Enumeration RNG is logged (C18):** the randomized-SMILES enumeration seed is recorded per run
-  (separate from `subset_seed`, which does not capture the augmentation RNG), so an enumerated run is
-  reproducible bit-for-bit.
+  ⚠️ **Known limitation — the enumeration RNG is not captured, so enumerated runs are not
+  bit-reproducible.** `smiles_augment.randomize_smiles` accepts an `rng` argument but ignores it and
+  calls `Chem.MolToSmiles(mol, doRandom=True)`, which draws atom orderings from RDKit's *global* RNG;
+  the two collators that use it are likewise unseeded on this path (`RawSmilesMLMCollator` builds a
+  bare `random.Random()`, `MTRCollator` passes no rng at all). Re-running an enumerated arm therefore
+  reproduces the *distribution* of randomized SMILES but not the exact sequence. This is accepted
+  rather than fixed: the arms affected are the H8 canonical-vs-enumerated sweep, where the three
+  pretraining seeds still give genuine independent draws, so the reported spread remains a valid
+  measure of run-to-run variability — only exact replay is unavailable. Everything else (weight init,
+  subset membership, objective sampling, corruption) *is* seeded and reproducible.
 - **HPO policy.** A single up-front MLM hyperparameter search fixes the recipe; the same settings are
   reused for every subsequent run (no per-experiment tuning) so optimization never confounds a
   comparison. The exception is the deliberate SFT-LR ablation (E3).
@@ -500,11 +532,26 @@ The **primary** protocol mirrors real deployment of molecular foundation models:
 extract one embedding per molecule, train a small head on those embeddings.
 
 - **Featurizer:** frozen encoder → **masked-mean pooling** over token states (not CLS — v1's
-  CLS-linear-probe was pathological). Optional cache of encoder forwards for speed.
+  CLS-linear-probe was pathological). Encoder features are computed once per run and sliced per fold;
+  there is no persistent on-disk cache (`EvalConfigV2.cache_encoder_forward` is declared but unused).
 - **Standardization:** per-feature **z-score fit on the train split only**, applied to val/test (no
-  standardization leakage).
-- **Head:** small **MLP** (also supports linear / XGBoost), trained with **3 head seeds**; the
-  reported value is the mean over seeds. Early stopping on val (patience 15, ≤100 epochs).
+  standardization leakage). **Exception:** the classical anchors (`ecfp4`, `rdkit_desc`, `fp_desc`)
+  are forced to `std_method="none"` — z-scoring sparse binary fingerprint bits is meaningless and
+  hurts the tree models.
+- **Head:** small **MLP** by default (also `linear`, `xgb`), trained with **3 head seeds**.
+  Full hyperparameters (`heads_v2.HEAD_HPARAMS`) — **MLP:** hidden 256, dropout 0.2, Adam lr 1e-3,
+  weight-decay 1e-4, batch 64, ≤100 epochs, early-stopping patience 15 on val.
+  **XGBoost:** 600 estimators, max_depth 6, lr 0.08, subsample 0.8, colsample_bytree 0.8,
+  min_child_weight 2, early_stopping_rounds 40, one model per output column (sklearn
+  HistGradientBoosting fallback if xgboost is unavailable). **ECFP4** = Morgan radius 2, **2048 bits**.
+- ⚠️ **How the 3 head seeds enter the number differs by scheme, and the two are not the same
+  quantity.** In the **single-split** path a metric is computed *per seed* and the reported
+  `MEAN`/`STD` are over the 3 seeds. In the **CV** path the 3 seeds' predictions are **averaged into
+  one prediction vector per fold** and a single metric is computed from it, so `MEAN`/`STD` are over
+  the **5 folds** and head-seed variance never enters the error bar.
+- **Train metrics.** `eval_v2` additionally emits a `<metric>_train` row (the same metric evaluated
+  on the head's own training molecules) **in the single-split path only**; the CV path emits no train
+  rows. Fig B1p1's fit-vs-generalize panel reads these, which is why it uses the single-split scheme.
 - **Splits — two schemes, both reported.** Every figure has a **default** readout and an optional
   **tougher SI variant**, from the same encoder features:
   1. **Scaffold 5-fold cross-validation — DEFAULT (`--cv_folds 5`).** Partition molecules into **5
@@ -519,32 +566,52 @@ extract one embedding per molecule, train a small head on those embeddings.
   2. **DeepChem single scaffold hold-out — TOUGHER SI VARIANT (default splitter, no `--cv_folds`).**
      One 80/10/10 split where DeepChem sorts scaffolds by frequency and sends the **rarest** scaffolds
      to test — a deliberately adversarial "generalize to novel chemistry" stress test. Systematically
-     **lower and noisier** than CV (one draw, no error bar), so it lives in the SI, not the headline.
-  **Convention:** CV-5 is the default scheme for **all** figures; the harder single-split is added to
-  the SI where the novel-scaffold stress is worth showing (currently Fig A1). The two are stored side
-  by side (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within one panel** — every bar
-  in a figure uses the same scheme. Absolute numbers differ markedly between schemes (e.g. BBBP ≈0.95
+     **lower and noisier** than CV (one draw; its error bar is head-seed spread, not split variance).
+  **Fold pairing.** The CV partition and the 10% validation carve-out are both drawn from
+  `--subsample_seed` (default **0**). Every run that must be compared molecule-for-molecule — including
+  the end-to-end arm — has to use the same value, or the folds do not align and the paired tests in
+  §8.1 silently compare different molecule sets.
+  **Convention (revised 2026-07-22).** The **DeepChem single scaffold hold-out is the headline
+  scheme**, and CV-5 is reported alongside it. The convention was originally the other way round and
+  was reversed on evidence: the balanced CV split saturates — an *untrained* random encoder reaches
+  ≈0.94 ROC-AUC on BBBP under CV versus ≈0.70 in the literature — and compresses the between-regime
+  gaps by 2-3× (BACE: +0.056 CV vs +0.146 hold-out), i.e. it suppresses exactly the effect the paper
+  measures. CV is retained for the two jobs it does better: it is the only scheme whose error bar
+  reflects **split variance**, and the only one that yields a **complete out-of-fold per-molecule
+  prediction set** (required by Fig I1). The code default follows this — `eval_v2.py`'s `--cv_folds`
+  defaults to `None` (hold-out) and the wave launcher never passes it; CV is produced by explicit
+  after-the-fact passes (`scripts/cv_eval_local.py`, `scripts/h1_cv_eval.sh`).
+  The two are stored side by side (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within
+  one panel** — every bar in a figure uses the same scheme. Absolute numbers differ markedly between schemes (e.g. BBBP ≈0.95
   CV vs ≈0.74 single-split), which is expected and disclosed; model *rankings* are what transfer.
 - **Metrics:** absolute **per task** — RMSE for ESOL/QM7/Lipophilicity, ROC-AUC for BBBP/BACE/Tox21,
   and **NEF1% (top-1% normalized enrichment) as the headline for HIV** (the virtual-screening task; ROC-AUC
   kept secondary) — see §6.5 for the NEF1% definition. Never z-scored or averaged across tasks.
 - **Anchors (classical baselines, `--head xgb`, all through the same eval pipeline):** an
   untrained-encoder **random floor** (3 seeds); **`ecfp4`** = Morgan ECFP4 + XGBoost; **`rdkit_desc`**
-  = 217 RDKit descriptors + XGBoost (the classical control for the dense-MTR arm); and **`fp_desc`** =
+  = 217 RDKit descriptors + XGBoost (the classical control for the dense-MTR arm — *implemented in
+  `eval_v2.py` but never actually run: no wave or script invokes it, so no `rdkit_desc` results
+  exist*); and **`fp_desc`** =
   **Morgan fingerprints ++ RDKit descriptors concatenated → XGBoost** — the *toughest* classical
   baseline (both substructure bits and computed physchem), which a CLM must beat to justify itself
   (e.g. it already gets ESOL ≈0.35 CV-RMSE, ahead of every neural regime at 8M). "Lift" is improvement
   over the random floor.
-- **Eval-ceiling (E5):** the same encoders are additionally **fine-tuned end-to-end** (`finetune_v2`)
-  on a few tasks + HIV, to test whether the frozen probe under-resolves encoder quality (H5).
+- **Eval-ceiling (H5, Fig E1):** the same encoders are additionally **fine-tuned end-to-end** on
+  BACE/BBBP/ESOL + HIV, to test whether the frozen probe under-resolves encoder quality. Driven by
+  `scripts/run_eval_ceiling.py` (+ `scripts/run_e1_gpu.sh` for the unsup ladder and
+  `scripts/run_e1_sup_gpu.sh` for the sup_only ladder), which fine-tunes via **`finetune_e2e_v2`**
+  (§8.2). ⚠️ The legacy `finetune_v2.py` is *not* the path used for any current figure: it raises on
+  multi-output tasks, emits no per-molecule predictions, no CV and no NEF1%.
 - **Per-molecule prediction dump (C16, blocking).** `eval_v2` writes **`(canonical_key, y_true,
   y_pred, task, split)` per eval molecule**, not only aggregate RMSE/AUC. This is required to build
   both Fig H9 panels (C6) and to bin the label-efficiency curves (C7); without it H9 is unbuildable
   without re-running eval. *Caveat:* per-cell / per-bin **ROC-AUC is unstable** on small subsets —
   prefer per-molecule residual/rank, or run the mechanism panels on the RMSE tasks (ESOL, QM7).
-- **Persisted fingerprints (C19).** The **ECFP4 fingerprints** already computed for the ECFP4 anchor
-  are saved for all eval molecules **and a pretraining-corpus sample**, so nearest-neighbor Tanimoto
-  distance (Fig H9 panel 2) and the C8 similarity overlay need no recomputation.
+- ⚠️ **Not implemented: persisted fingerprints (C19).** The plan was to save the ECFP4 fingerprints
+  computed for the anchor. `eval_v2` writes only `test_predictions.csv`, `moleculenet_summary.csv`
+  and `suite_summary.json`; no fingerprints are persisted. The Tanimoto analyses (Figs I1, C1J1)
+  therefore **re-derive** fingerprints from the dumped SMILES in
+  `scripts/compute_tanimoto_novelty.py` and `scripts/compute_family_task_similarity.py`.
 - **Mechanism figures through finetune (C20).** For H9, label-efficiency, and the transfer matrix,
   report at least a subset **through end-to-end finetune** (`finetune_v2`) as well as the frozen
   probe — or caveat explicitly with the frozen-probe ceiling (H5 / §10). A ceiling-compressed probe
@@ -553,15 +620,21 @@ extract one embedding per molecule, train a small head on those embeddings.
 
 ### 8.1 Model-vs-model comparison protocol (headline tables)
 
-Every pairwise claim ("model A beats baseline B") is backed by the same protocol. **Every model —
-CLM *and* classical baseline (Morgan/desc/fp_desc XGBoost) — is run at 3 seeds × 5 scaffold-CV folds
-= 15 (metric) evaluations.** The comparison table (see `scripts/compare_models.py`, reproduced in the
-notebook) reports:
+Every pairwise claim ("model A beats baseline B") is backed by the same protocol. The comparison
+table (see `scripts/compare_models.py`, reproduced in the notebook) reports:
+
+⚠️ **Corrected against the code.** This section previously claimed "3 seeds × 5 scaffold-CV folds =
+15 metric evaluations" with the error bar taken "across the 15 points". That is not what `eval_v2`
+computes: in the CV path the 3 head seeds' predictions are averaged into one prediction per fold
+before the metric is taken, so there are **5 metric values per model**, and the reported std is
+**fold (split) variance only** — head-seed variance is averaged away and never appears. Pretraining-seed
+variance is a *separate* axis, obtained by re-running pretraining under seeds 0/1/2 and aggregating
+across runs (see §9.6); where a figure's error bar uses that axis instead, its caption says so.
 
 | Element | Specification |
 |---|---|
-| Points per model | **3 training seeds × 5 scaffold-CV folds = 15** metric evaluations (CLMs: pretraining seed; XGBoost: model seed) |
-| Error bar | mean ± std across the 15 points — folds in **both** pretraining-seed and scaffold-split variance |
+| Points per model | **5** — one metric per scaffold-CV fold, each computed from the 3-head-seed-averaged prediction |
+| Error bar | mean ± std across the **5 folds** = scaffold-split variance. Head-seed variance is inside the averaged prediction; pretraining-seed variance is a separate axis (§9.6) |
 | Pairing | all models share one scaffold fold partition per seed → fold- and molecule-paired |
 | Effect | Δ(metric) and relative % |
 | **RMSE tasks** (ESOL/QM7/Lipo) | rigorous test = molecule-level **paired Wilcoxon** on per-molecule squared error over the pooled out-of-fold predictions (large n) |
@@ -593,6 +666,35 @@ training. Pretraining-seed replication (3-seed CIs on the bar figures) is a *sep
 a contrast ambiguous. Each eval also averages **3 head seeds**; scaling curves use stop-when-flat in
 place of plateau error bars.
 
+### 8.2 End-to-end fine-tuning protocol (`finetune_e2e_v2`)
+
+The frozen-probe protocol above is the primary readout. A second, **separate** protocol unfreezes the
+encoder; it produces Fig E1 (eval ceiling) and Fig B1p1's `no_pretrain_end_to_end` series. It is a
+different protocol, not a variant of §8, and its numbers are **not** comparable bar-for-bar with the
+frozen ones.
+
+| Element | Frozen probe (`eval_v2`) | End-to-end (`finetune_e2e_v2`) |
+|---|---|---|
+| Encoder | frozen; features extracted once | **unfrozen**, reloaded fresh per seed/fold |
+| Pooling | masked-mean | masked-mean (same) |
+| Head | MLP 256, dropout 0.2 | **single `Linear(hidden, n_outputs)`** (`linear_e2e`) |
+| Feature standardization | z-score on train | **none** |
+| Target scaling | task-native | DeepChem's own `NormalizationTransformer`; no extra rescaling |
+| Optimizer | Adam 1e-3, wd 1e-4 | AdamW **lr 2e-5**, wd 0.01 |
+| Schedule | ≤100 epochs, patience 15, batch 64 | **20 epochs, patience 5, batch 32**, max_length 256, bf16 autocast |
+| Seeds | 3 head seeds | 3 seeds `[0,1,2]`, each a full re-finetune |
+| Multi-output | supported | supported, per-column masked loss (raw logits, never sigmoided) |
+| Splits | hold-out + CV | hold-out + CV, sharing `_scaffold_kfold_indices` and RNG draw order with `eval_v2` so folds pair molecule-for-molecule |
+| Outputs | `eval_v2` schema | **same schema**, so rows merge for the paired tests of §8.1 |
+
+Because the fine-tuned arm re-randomises the whole encoder optimisation while the frozen arm only
+re-randomises a head, **their error bars are not the same quantity** and the fine-tuned band is
+expected to be wider; figure captions state this explicitly.
+
+The legacy `finetune_v2.py` predates this module, is single-seed, hold-out-only, single-output, and
+emits neither per-molecule predictions nor NEF1%. It is retained for provenance and is not used by
+any current figure.
+
 ---
 
 ## 9. Reproducibility
@@ -604,14 +706,69 @@ place of plateau error bars.
 | `data_v2.py` | streaming MLM/raw-SMILES datasets, `MTRCollator` (+ precomputed descriptors), stratified supervised loader (dedup + scarce-first routing), objective iterator |
 | `descriptors_v2.py` | 217 RDKit descriptors, fit/normalize/save stats |
 | `pretrain_v2.py` | `ClimbV2Model` (MLM/MTR/supervised heads), training loop, warm-start, checkpointing |
-| `eval_v2.py` | frozen-featurizer MoleculeNet evaluation, scaffold splits, standardization; **per-molecule prediction dump (C16)** and **ECFP4 fingerprint persistence (C19)** |
-| `featurize_v2.py` / `heads_v2.py` | pooling + standardizer; downstream heads + metrics |
-| `finetune_v2.py` | end-to-end fine-tuning (eval-ceiling) |
+| `eval_v2.py` | frozen-featurizer MoleculeNet evaluation, scaffold hold-out + k-fold CV, standardization; **per-molecule prediction dump (C16)**; `<metric>_train` rows (hold-out path only) |
+| `featurize_v2.py` / `heads_v2.py` | pooling + standardizer; downstream heads + metrics. ⚠️ **head hyperparameters live in `heads_v2.HEAD_HPARAMS`, not `config_v2.py`** |
+| `smiles_augment.py` | randomized-SMILES enumeration (the H8 lever). ⚠️ unseeded — see §7 |
+| `finetune_e2e_v2.py` | **end-to-end fine-tuning used by every current figure** (Fig E1, Fig B1p1 e2e series) — see §8.2 |
+| `finetune_v2.py` | legacy end-to-end fine-tuning; single-seed, single-output, superseded by `finetune_e2e_v2.py` |
 | `random_baseline_v2.py` | untrained-encoder + ECFP4 anchors |
 | `experiment_v2.py` | manifest generator for every wave (ablation / compute_scaling / phase2) |
 | `data.py`, `storage_utils.py`, `utils.py`, `token_budget.py` | shared streaming base + S3 helpers (dependencies of the above) |
 | `train_tokenizer.py` | tokenizer training (provenance; artifact is prebuilt) |
 | `scripts/` | launch/split/deploy, leakage audit, blocklist + descriptor precompute, report/figure builders (see §9.3) |
+
+**Scripts that produced published numbers** (each is the *only* way to regenerate its artifact):
+
+| Script | Produces |
+|---|---|
+| `scripts/launch_v2_wave.py` + `scripts/phase2_worker.sh` | every pretraining wave |
+| `scripts/unattended_guard.sh` | the runner used for unattended waves: saves to S3 on every exit path, then stops the box; `POST_HOOK` runs a second stage (e.g. CV) before the stop |
+| `scripts/cv_eval_local.py`, `scripts/cv_all_budgets.sh`, `scripts/h1_cv_eval.sh` | all 5-fold CV numbers and the `fp_desc` anchor |
+| `scripts/reeval_7task.py` | the 7-task (incl. HIV NEF1%) re-scoring of existing encoders |
+| `scripts/run_eval_ceiling.py`, `scripts/run_e1_gpu.sh`, `scripts/run_e1_sup_gpu.sh` | Fig E1 |
+| `scripts/b1_e2e_v2.sh`, `scripts/run_b1_e2e_cell.py`, `scripts/run_label_efficiency.py` | Fig B1p1 |
+| `scripts/run_e2e_random.py`, `scripts/run_e2e_wave.sh` | the e2e random-init replicates |
+| `scripts/make_e13_manifest.py` | Fig B2 corrupted controls |
+| `scripts/build_h1_rescale_manifest.py` | Fig H1 (3-seed retrain) |
+| `scripts/compute_tanimoto_novelty.py`, `scripts/compute_family_task_similarity.py` | Figs I1, C1J1 |
+| `scripts/compare_models.py`, `scripts/verify_e2e_pairing.py` | §8.1 paired tests and their pairing check |
+| `scripts/backfill_verified.py`, `scripts/reproducibility_audit.py`, `scripts/gen_readme_inventory.py` | completion markers, the audit, and §9.6 |
+
+### 9.1b Completion is proven, never assumed
+
+A truncated run still writes a well-formed summary, so file existence cannot be used to decide
+whether a run finished — doing so is how half-trained encoders reached figures earlier in this
+project. The rule, applied everywhere:
+
+- A run is complete **iff** its achieved forward passes reach **≥98%** of its declared budget
+  (tolerance for the final partial batch). Only then is `verified.json` written
+  (`scripts/launch_v2_wave.py::_write_verified_marker`), recording `budget_fp`, `final_fp`,
+  `fraction` and a UTC timestamp.
+- Every "is this done?" decision — skip logic, downstream consumption, shutdown gating, figure
+  inclusion — reads that marker or recomputes achieved work; precedence is local marker → S3 marker
+  → (for anchors, which have no FP budget) presence of `suite_summary.json` → else the ≥98% check
+  (`scripts/launch_v2_wave.py::_is_complete`).
+- Runs predating the marker system are retro-marked from their `metrics.jsonl` by
+  `scripts/backfill_verified.py`, which refuses to mark anything below 98%.
+- The evaluation side has its own variant: a cell is verified only when every requested task has a
+  finite `MEAN` row for **both** `<metric>` and `<metric>_train`
+  (`scripts/run_b1_e2e_cell.py`, `scripts/run_e2e_random.py`).
+- `scripts/reproducibility_audit.py` reports, per run, which of {checkpoint, training curve,
+  completion proof, each evaluation artifact} exist in S3 and locally; §9.6 is generated from it.
+
+### 9.1c Environment pinning (⚠️ load-bearing)
+
+The **RDKit version is part of the experiment definition**, not an implementation detail.
+`descriptors_v2.py` derives the descriptor list from the installed RDKit
+(`len(Descriptors.descList)`), so the version fixes:
+
+- the MTR target dimension (**217** with the RDKit used for these runs, 2025.09.2),
+- the contents of `configs/descriptor_stats.json` and every precomputed descriptor shard,
+- the feature width of the `rdkit_desc` / `fp_desc` classical anchors.
+
+⚠️ `requirements.txt` currently pins `rdkit-pypi==2022.9.5`, whose `descList` length **differs** from
+217. A reproducer installing from `requirements.txt` would silently build a different-width MTR head
+and different anchors. This pin must be corrected to the version actually used before release.
 
 ### 9.2 Configs
 `configs/v2_phase2.yaml` (the 5-arm scaling matrix), `configs/v2_ablation.yaml` (dense-vs-sparse),
