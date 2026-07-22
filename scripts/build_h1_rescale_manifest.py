@@ -17,6 +17,12 @@ Two things change versus round 1, both deliberate:
 The 2M-FP budget is kept exactly as round 1, so this is a faithful reproduction of the same
 experiment rather than a new one.
 
+The config is CLONED from a generated phase-2 run rather than hand-written. A hand-written
+`pretrain_config` containing only {run_id, selection} is accepted by the manifest loader and then
+dies inside pretrain_v2 on `cfg["tokenizer_path"]`, because the real config also carries the data
+paths, model, training and evaluation blocks. Cloning a known-good run and overriding only the
+three fields that define this sweep keeps everything else identical to the rest of the paper.
+
 Usage:
     python scripts/build_h1_rescale_manifest.py --out experiments/climb_v2_h1/manifest.json
 """
@@ -24,10 +30,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
 WAVE = "climb_v2_h1"
 BUCKET = f"s3://climb-s3-bucket/experiments/{WAVE}"
+TEMPLATE = "unsup_2M"          # 2M-FP canonical MLM: the exact shape this sweep varies
 FRACTIONS = [("frac0p001", 0.001), ("frac0p01", 0.01), ("frac0p1", 0.1),
              ("frac0p3", 0.3), ("fracfull", None)]
 AUGS = ["canonical", "enumerated"]
@@ -37,47 +48,64 @@ FP = 2_000_000
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--spec", default="configs/v2_phase2.yaml")
     ap.add_argument("--out", required=True)
     ap.add_argument("--workers", type=int, default=3)
     a = ap.parse_args()
+
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as t:
+        full_path = Path(t.name)
+    subprocess.run([sys.executable, str(ROOT / "experiment_v2.py"),
+                    "--spec", str(ROOT / a.spec), "--output", str(full_path)],
+                   check=True, cwd=ROOT, stdout=subprocess.DEVNULL)
+    full = json.loads(full_path.read_text())
+    by = {r["output_dir"].split("/")[-1]: r for r in full["runs"]}
+    if TEMPLATE not in by:
+        print(f"FATAL: template run {TEMPLATE!r} not in the generated manifest"); return 1
+    tmpl = by[TEMPLATE]
 
     runs = []
     for seed in SEEDS:
         for aug in AUGS:
             for fk, fv in FRACTIONS:
                 rid = f"scaling_{aug}_{fk}_s{seed}"
-                sel = {
-                    "objectives": {"mlm": 1.0},
-                    "supervised_families": None,
-                    "init_encoder_path": None,
-                    "pretraining_seed": seed,
-                    "total_forward_passes": FP,
-                    "augmentation": aug,
-                    "unsupervised_subset_fraction": fv,
-                }
-                runs.append({
-                    "run_id": rid,
-                    "run_type": "unsup_scaling",
-                    "stage": "ladder",
-                    "requires_pretrain": True,
-                    "output_dir": f"experiments/{WAVE}/{rid}",
-                    "backup_s3_uri": f"{BUCKET}/{rid}",
-                    "evaluation_output_dir": f"experiments/{WAVE}/{rid}/moleculenet",
-                    "selection": dict(sel),
-                    "pretrain_config": {"run_id": rid, "selection": dict(sel)},
-                })
+                r = json.loads(json.dumps(tmpl))          # deep copy of a KNOWN-GOOD config
+                r["run_id"] = rid
+                r["run_type"] = "unsup_scaling"
+                r["output_dir"] = f"experiments/{WAVE}/{rid}"
+                r["backup_s3_uri"] = f"{BUCKET}/{rid}"
+                r["evaluation_output_dir"] = f"experiments/{WAVE}/{rid}/moleculenet"
+                r["pretrain_config"]["run_id"] = rid
+                # the three fields that define this sweep; everything else stays as phase 2
+                for sel in (r.get("selection"), r["pretrain_config"].get("selection")):
+                    if isinstance(sel, dict):
+                        sel["augmentation"] = aug
+                        sel["unsupervised_subset_fraction"] = fv
+                        sel["pretraining_seed"] = seed
+                        sel["total_forward_passes"] = FP
+                        sel["init_encoder_path"] = None
+                        sel["objectives"] = {"mlm": 1.0}
+                # top-level mirror that pretrain_v2 reads for the subset fraction
+                r["pretrain_config"]["unsupervised_subset_fraction"] = fv
+                runs.append(r)
 
-    manifest = {
-        "name": WAVE,
-        "results_root": f"experiments/{WAVE}",
-        "s3_backup_root": BUCKET,
-        "tokenizer_path": "s3://climb-s3-bucket/tokenizer_10M",
-        "runs": runs,
-    }
+    manifest = {k: full[k] for k in full if k != "runs"}
+    manifest["name"] = WAVE
+    manifest["results_root"] = f"experiments/{WAVE}"
+    manifest["s3_backup_root"] = BUCKET
+    manifest["runs"] = runs
+
     p = Path(a.out); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(manifest, indent=2))
+    full_path.unlink(missing_ok=True)
 
-    # Shard round-robin over fractions so no worker gets all the large-fraction (slower) runs.
+    # Assert the cloned config really is complete: this is the exact failure that wasted a launch.
+    need = ["tokenizer_path", "unsupervised_data_paths", "model", "training", "evaluation"]
+    miss = [k for k in need if k not in runs[0]["pretrain_config"]]
+    if miss:
+        print(f"FATAL: cloned pretrain_config is missing {miss}"); return 1
+    print(f"cloned config from {TEMPLATE}: all of {need} present")
+
     for i in range(a.workers):
         q = p.with_name(p.stem + f"_worker{i}.json")
         q.write_text(json.dumps({**manifest, "runs": runs[i::a.workers]}, indent=2))
