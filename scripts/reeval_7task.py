@@ -32,6 +32,7 @@ PY = ".venv_sanity/bin/python"
 TOK = "figure_data/_tokenizer"
 CORE = ["ESOL", "Lipophilicity", "QM7", "BBBP", "BACE", "Tox21", "HIV"]
 WAVE = Path("figure_data/climb_v2_phase2")
+S3_WAVE = "s3://climb-s3-bucket/experiments/climb_v2_phase2"
 MATCHED = "8M"
 
 
@@ -84,6 +85,18 @@ def run_eval(run: Path, scheme: str) -> bool:
     log(f"  {run.name} [{scheme}]: {'OK' if ok else 'FAILED'}")
     if not ok:
         log(f"      stderr: {r.stderr[-300:]}")
+        return False
+    # Push straight back to S3. The FIRST pass of this script completed 40 single-split evals
+    # (~5.5h) and every one was silently reverted hours later by a routine
+    # `aws s3 sync s3://.../climb_v2_phase2 figure_data/climb_v2_phase2`: the fresh 7-task
+    # summary differed in size from the stale 5-task object, so sync pulled the OLD file down on
+    # top of it. Local-only results are not durable while any download sync can run -- upload as
+    # we go so the two sides never disagree.
+    up = subprocess.run(["aws", "s3", "sync", str(run / sub), f"{S3_WAVE}/{run.name}/{sub}",
+                         "--only-show-errors"], capture_output=True, text=True)
+    if up.returncode != 0:
+        log(f"      WARNING: S3 upload failed ({up.stderr[-200:].strip()}) - result is local-only "
+            f"and a later download sync can revert it")
     return ok
 
 
