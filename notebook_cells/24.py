@@ -6,6 +6,8 @@
 # means RETRAINING all ten runs -- which is now under way. This cell upgrades itself the moment a
 # CV eval appears, so no edit is needed when that lands.
 H1_SUB="moleculenet_cv" if list(Path(f"{DATA_ROOT}/climb_v2").glob("scaling_*/moleculenet_cv")) else "moleculenet"
+H1_YPAD=0.05          # same convention as A2
+H1_MIN_SPAN=0.20      # no panel may make a <0.2 difference fill its whole height
 FRACS=[("frac0p001",0.001),("frac0p01",0.01),("frac0p1",0.1),("frac0p3",0.3),("fracfull",1.0)]
 # Six panels in a single row overlapped titles, tick labels and axis labels. 3x2 matches A1.
 ncol=3; nrow=int(np.ceil(len(CORE_TASKS)/ncol))
@@ -19,6 +21,16 @@ for ax,task in zip(axes,CORE_TASKS):
             sk=TASKS[task].get("suite_key",task)
             if d and (sk,"mean") in d: xs.append(fv); ys.append(d[(sk,"mean")])
         if xs: drew=True; ax.plot(xs,ys,color=c,marker=mk,ms=3.5,lw=STYLE["lw"],mec="white")
+    # Zoom OUT, and enforce a floor on the visible range. Auto-scaling made Tox21 span 0.016 of
+    # ROC-AUC and BBBP 0.019 -- differences far inside any reasonable error bar, stretched to fill
+    # the panel so canonical-vs-enumerated looked like a real effect. A fixed pad plus a minimum
+    # span means a difference this small is DRAWN as small. This wave has no error bars at all
+    # (single hold-out, no seed replicates), which is exactly why the axis must not oversell it.
+    if drew:
+        _lo,_hi=ax.get_ylim(); _lo-=H1_YPAD; _hi+=H1_YPAD
+        if (_hi-_lo)<H1_MIN_SPAN:
+            _mid=(_lo+_hi)/2; _lo,_hi=_mid-H1_MIN_SPAN/2,_mid+H1_MIN_SPAN/2
+        ax.set_ylim(_lo,_hi)
     ax.set_xscale("log"); ax.set_title(ttitle(task,oneline=True),pad=6)
     ax.set_xlabel("unique-molecule\nfraction of corpus")
     ax.xaxis.set_minor_locator(ticker.NullLocator()); ax.tick_params(axis="x",which="minor",bottom=False)
