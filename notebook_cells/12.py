@@ -16,10 +16,12 @@ A2_KEYS = ["unsup_only", "unsup2sup:dense",
 # "the bar to clear" rather than as three more models competing with five coloured lines.
 # no_pretrain_e2e has ZERO pretraining -- it is the "skip pretraining, just fine-tune" reference,
 # and it populates automatically once the E1 runs land.
-A2_ANCHORS = [("ecfp4",           "#333333", (0, (6, 2)),   "Morgan+XGBoost (ECFP4)"),
-              ("fp_desc",         "#B3B3B3", (0, (2, 2)),   "Morgan+desc+XGBoost"),
-              ("no_pretrain_e2e", "#555555", (0, (1, 1.5)), "no_pretrain (end-to-end)")]
-A2_FLOOR_LS = (0, (5, 1, 1, 1))
+# Only the two classical anchors. Both no_pretrain references (frozen floor and end-to-end) were
+# drawn here too, which put FOUR grey/near-grey horizontal lines behind five coloured ladders --
+# the panel became unreadable and the references stopped functioning as references. The
+# no_pretrain arms are still in A1.a/A1.b, where they are bars and can be read properly.
+A2_ANCHORS = [("ecfp4",   "#333333", (0, (6, 2)), "Morgan+XGBoost (ECFP4)"),
+              ("fp_desc", "#B3B3B3", (0, (2, 2)), "Morgan+desc+XGBoost")]
 
 def ladder_cv(task, key):
     """CV mean + across-fold sd per budget, seed-0 runs only. Empty frame if nothing is scored."""
@@ -64,8 +66,6 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
                 gaps.append(f"{_lab}: no CV data"); continue
             ax.axhline(v, color=col, ls=dsh, lw=1.1, zorder=2)
             if np.isfinite(e): ax.axhspan(v - e, v + e, color=col, alpha=0.16, lw=0, zorder=0)
-        fl = npt_floor(DF_CV, task)
-        if np.isfinite(fl): ax.axhline(fl, color=rc_color("no_pretrain"), ls=A2_FLOOR_LS, lw=1.0, zorder=1)
         if xcol == "budget_fp":
             set_fp_axis(ax, BUDG); ax.set_xlim(1.6e6, 6.0e7)
         else:
@@ -91,8 +91,6 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
     handles = [plt.Line2D([], [], color=rc_color(k), marker=rc_marker(k), ls=rc_ls(k), label=rc_label(k))
                for k in A2_KEYS]
     handles += [plt.Line2D([], [], color=c, ls=d, lw=1.1, label=lab) for _, c, d, lab in A2_ANCHORS]
-    handles += [plt.Line2D([], [], color=rc_color("no_pretrain"), ls=A2_FLOOR_LS, lw=1.0,
-                           label="no_pretrain (floor)")]
     if xcol == "mols":
         handles += [plt.Line2D([], [], color="#999", ls=(0, (1, 2)), lw=0.7,
                                label="corpus exhausted (12M molecules)")]
@@ -100,8 +98,10 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
                fontsize=STYLE["fs_legend"], columnspacing=1.2)
     fig.suptitle(f"Fig {tag} - scaling of the primary regimes in {xlabel}",
                  fontsize=STYLE["fs_title"], y=1.075)
-    note = ("pooled 5-fold scaffold CV ONLY  ·  every error bar and band = ±1 sd across the 5 folds "
+    note = ("pooled 5-fold scaffold CV ONLY  ·  error bars on the ladders and the shaded band "
+            "around each classical anchor are both ±1 sd across the 5 folds "
             "(no head-seed, no pretraining-seed spread), so every interval means the same thing  ·  "
+            "the no_pretrain references are omitted here to keep the panels readable; see A1.a/A1.b  ·  "
             "the 96M rung and unsup→sup's 48M rung are hold-out-only, so they are absent rather "
             "than interpolated  ·  " + extra_note)
     fig.text(0.5, 0.995, "\n".join(_tw.wrap(note, 120)), ha="center", va="top",
