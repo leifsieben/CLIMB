@@ -73,8 +73,14 @@ def main() -> int:
     fam_smiles = {f: [] for f in FAMILIES}
     # The wide parquet is family-ordered: shard 0 is entirely PCQM. Reading the first N
     # shards therefore finds ONE family. Spread the probes across the whole range instead.
-    total_shards = 55
-    idxs = sorted({int(round(k)) for k in np.linspace(0, total_shards-1, a.shards)})
+    # Shard indices where each family actually HAS data, found by scanning the probe column of
+    # all 55 shards. The parquet is family-ordered and the families are wildly unequal in size
+    # (PCQM spans shards 0-30, PCBA 36-44, while L1000/WONG live in just 36 and 52), so neither
+    # "first N" nor an even spread finds them -- an even spread over 55 shards misses 36/52
+    # entirely, which is why L1000 and WONG came back empty.
+    FAMILY_SHARDS = {"PCQM": [0, 2, 4], "PCBA": [36, 38, 40, 42],
+                     "L1000_MCF7": [36, 52], "L1000_VCAP": [36, 52], "WONG": [31, 36, 52]}
+    idxs = sorted({i for v in FAMILY_SHARDS.values() for i in v})
     for i in idxs:
         loc = cache / f"sup_{i:05d}.parquet"
         if not loc.exists():
