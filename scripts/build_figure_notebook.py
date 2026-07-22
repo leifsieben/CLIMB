@@ -624,14 +624,38 @@ else:
     if "seed" not in C.columns: C["seed"]=0
     nseed=C.seed.nunique()
     e1_tasks=[t for t in ("BACE","BBBP","ESOL") if t in set(C.task)]
+
+    # The frozen probe DOES have three seeds -- eval_ceiling.csv just discards the spread:
+    # _frozen_metric() reads only the MEAN row of moleculenet_summary.csv and copies that one
+    # number onto every seed row, so `.std()` over the CSV is identically zero and the frozen
+    # line came out bare. Read the per-head-seed rows instead. Bonus: those summaries are the
+    # freshly re-scored ones, so E1's frozen line sits on the same scorer as A1/A2, which the
+    # cached CSV value did not.
+    def _frozen_seeds(run_id,task):
+        f=DATA_ROOT/"climb_v2_phase2"/run_id/"moleculenet"/"moleculenet_summary.csv"
+        if not f.exists(): return np.array([])
+        d=pd.read_csv(f)
+        d=d[(d.dataset==task)&(d.main_metric.isin(["roc_auc","rmse"]))   # not _train, not nef1
+            &(~d.head_seed.astype(str).isin(["MEAN","STD"]))]
+        return d.main_value.values.astype(float)
+
+    _FZ={}
+    for _r in C.run_id.unique():
+        for _t in e1_tasks: _FZ[(_r,_t)]=_frozen_seeds(_r,_t)
+    _fz_n=sorted({len(v) for v in _FZ.values() if len(v)})
     fig,axes=plt.subplots(1,len(e1_tasks),figsize=(STYLE["col2"],2.6))
     axes=np.atleast_1d(axes)
     for ax,task in zip(axes,e1_tasks):
         s=C[C.task==task]
         agg=(s.groupby(["run_id","budget"],as_index=False)
                .agg(frozen=("frozen","mean"),ft=("finetune","mean"),ft_sd=("finetune","std")))
+        agg["fz"]  =[np.mean(_FZ[(r,task)]) if len(_FZ[(r,task)]) else f
+                     for r,f in zip(agg.run_id,agg.frozen)]
+        agg["fz_sd"]=[np.std(_FZ[(r,task)],ddof=1) if len(_FZ[(r,task)])>1 else np.nan
+                      for r in agg.run_id]
         lad=agg[agg.budget>0].sort_values("budget"); rnd=agg[agg.budget==0]
-        ax.plot(lad.budget,lad.frozen,marker="o",color=PALETTE["grey"],lw=STYLE["lw"])
+        ax.errorbar(lad.budget,lad.fz,yerr=lad.fz_sd.fillna(0),
+                    marker="o",color=PALETTE["grey"],lw=STYLE["lw"],capsize=STYLE["cap_size"])
         ax.errorbar(lad.budget,lad.ft,yerr=(lad.ft_sd.fillna(0) if nseed>1 else None),
                     marker="s",color=PALETTE["blue"],lw=STYLE["lw"],capsize=STYLE["cap_size"])
         if len(rnd):
@@ -644,21 +668,36 @@ else:
              plt.Line2D([],[],color=PALETTE["blue"],marker="s",label="fine-tuned end-to-end"),
              plt.Line2D([],[],color=PALETTE["grey2"],ls=(0,(3,2)),lw=STYLE["lw_thin"],label="random-init, frozen"),
              plt.Line2D([],[],color=PALETTE["blue"],ls=(0,(1,1)),lw=STYLE["lw_thin"],label="random-init, fine-tuned")]
-    fig.legend(handles=handles,loc="upper center",bbox_to_anchor=(0.5,0.02),ncol=4,fontsize=STYLE["fs_legend"])
+    fig.legend(handles=handles,loc="upper center",bbox_to_anchor=(0.5,0.04),ncol=4,fontsize=STYLE["fs_legend"])
     fig.suptitle("Fig E1 - is the flat pretraining ladder a frozen-probe artifact?",
                  fontsize=STYLE["fs_title"],y=1.06)
-    note=(f"error bars = ±1 sd over {nseed} fine-tuning seeds" if nseed>1
-          else "SINGLE fine-tuning seed - no error bar; differences of ~0.01 are not resolvable")
-    fig.text(0.5,-0.10,note,ha="center",fontsize=STYLE["fs_annot"],color="#555")
+    # The two bars are NOT the same quantity, and saying so matters: a frozen probe's ONLY source
+    # of randomness is the head (encoder fixed => features deterministic), while a fine-tuning seed
+    # re-randomises the head AND the whole encoder optimisation. The grey band is therefore
+    # narrower by construction, not because the frozen probe is more trustworthy.
+    _fzn=_fz_n[-1] if _fz_n else 0
+    note=(f"error bars: grey = ±1 sd over {_fzn} head seeds (a frozen probe has no other "
+          f"randomness - the encoder is fixed); blue = ±1 sd over {nseed} fine-tuning seeds, "
+          f"which re-randomise the head AND the encoder optimisation, so the two bands are not "
+          f"the same quantity" if nseed>1 else
+          "SINGLE fine-tuning seed - no blue error bar; differences of ~0.01 are not resolvable")
+    fig.text(0.5,-0.20,"\n".join(_tw.wrap(note,118)),ha="center",va="top",
+             fontsize=STYLE["fs_annot"],color="#555")
     fig.subplots_adjust(bottom=0.22,wspace=0.35)
     save_fig(fig,"figE1_frozen_vs_finetune"); plt.show()
 
-    print(f"E1: {nseed} fine-tuning seed(s). Spread ACROSS the pretrained ladder:")
+    print(f"E1: {_fzn} head seeds (frozen), {nseed} fine-tuning seeds. Spread ACROSS the "
+          f"pretrained ladder, next to the seed noise it has to clear:")
     for task in e1_tasks:
         a=(C[(C.task==task)&(C.budget>0)].groupby("run_id",as_index=False)
-             .agg(fz=("frozen","mean"),ft=("finetune","mean")))
+             .agg(ft=("finetune","mean")))
+        a["fz"]=[np.mean(_FZ[(r,task)]) if len(_FZ[(r,task)]) else np.nan for r in a.run_id]
+        _noise=np.nanmean([np.std(_FZ[(r,task)],ddof=1) for r in a.run_id
+                           if len(_FZ[(r,task)])>1] or [np.nan])
         if len(a)>=2:
             dz,dt=a.fz.max()-a.fz.min(),a.ft.max()-a.ft.min()
+            print(f"   {task:<6} head-seed sd={_noise:.4f}  ->  ladder spread is "
+                  f"{dz/_noise:.1f}x that noise (frozen)" if np.isfinite(_noise) else "")
             verdict=("-> fine-tuning COMPRESSES it: the probe was NOT the ceiling" if dt<dz
                      else "-> fine-tuning SEPARATES them: the probe may be the ceiling")
             print(f"   {task:<6} frozen={dz:.4f}  fine-tuned={dt:.4f}   {verdict}")''')
@@ -1073,7 +1112,11 @@ FIG_SOURCES={
   "A1"  : _sums("climb_v2_phase2/*"),
   "A2"  : _sums("climb_v2_phase2/*"),
   "B1p1": [Path(q) for q in glob.glob(f"{LE}/*/moleculenet/moleculenet_summary.csv")],
-  "E1"  : [CEIL] if CEIL.exists() else [],
+  # E1's frozen line is read per head seed straight from the phase-2 summaries, so its verdict
+  # depends on those too -- not only on the cached eval_ceiling.csv.
+  "E1"  : ([CEIL] if CEIL.exists() else [])
+          +[q for r in ("random_baseline_00","unsup_2M","unsup_8M","unsup_24M")
+              for q in _sums(f"climb_v2_phase2/{r}")],
   "B2"  : _sums("climb_v2_phase2/*"),
   "C1J1": _sums("climb_v2_ablation_dedup/*")+_sums("climb_v2_phase2/unsup_2M"),
   "I1"  : _sums("climb_v2_phase2/*","moleculenet_cv"),

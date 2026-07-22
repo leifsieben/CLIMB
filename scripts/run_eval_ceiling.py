@@ -51,12 +51,28 @@ def _budget(run_id: str) -> float:
     return int(m.group(1)) * (1e9 if m.group(2) == "B" else 1e6)
 
 
-def _frozen_metric(results_root: Path, run_id: str, task: str):
+def _frozen_metric(results_root: Path, run_id: str, task: str, seed=None):
+    """Frozen-probe metric for one head seed, or the mean when `seed` is unavailable.
+
+    This used to read only the MEAN row and copy that single number onto every seed row, so the
+    spread was destroyed on the way into the CSV and E1's frozen line came out with no error bar
+    even though three head seeds existed on disk. A frozen probe's only source of randomness IS
+    the head (the encoder is fixed and the features are deterministic), so the per-head-seed rows
+    are exactly the right error bar -- just narrower than the fine-tuning-seed bar by construction,
+    since fine-tuning re-randomises the encoder optimisation too.
+    """
     f = results_root / run_id / "moleculenet" / "moleculenet_summary.csv"
     if not f.exists():
         return None
     df = pd.read_csv(f)
-    row = df[(df.dataset == task) & (df.head_seed == "MEAN")]
+    df = df[df.dataset == task]
+    if "main_metric" in df.columns:            # skip <metric>_train and nef1 rows
+        df = df[df.main_metric.isin(["roc_auc", "rmse"])]
+    if seed is not None:
+        row = df[df.head_seed.astype(str) == str(seed)]
+        if len(row):
+            return float(row["main_value"].iloc[0])
+    row = df[df.head_seed.astype(str) == "MEAN"]
     return float(row["main_value"].iloc[0]) if len(row) else None
 
 
@@ -85,8 +101,9 @@ def main():
         for task in args.tasks:
             tt = TASK_TYPE.get(task, "classification")
             metric_name = "roc_auc" if tt == "classification" else "rmse"
-            frozen = _frozen_metric(root, run_id, task)
             for seed in args.seeds:
+                # per head seed, so the frozen line gets a real error bar downstream
+                frozen = _frozen_metric(root, run_id, task, seed=seed)
                 ft = None
                 if enc.exists() and tok.exists():
                     try:
