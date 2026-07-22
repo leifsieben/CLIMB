@@ -78,9 +78,15 @@ else:
                         capsize=2,elinewidth=0.7,zorder=3)
             ax.errorbar(d.budget,d.ft,yerr=d.ft_sd.fillna(0),color=st["c"],marker=st["m"],
                         ls="-",lw=STYLE["lw"],ms=4.5,capsize=2,elinewidth=0.7,zorder=4)
+        # Both random-init references. The end-to-end one sat unused in the same CSV -- without it
+        # the panel shows what pretraining buys over a FROZEN random encoder, which is the easy
+        # comparison; the fine-tuned random encoder is the one a practitioner would actually use.
         _rf=e1_random(task,"frozen")
         if np.isfinite(_rf):
             ax.axhline(_rf,ls=(0,(1,1)),color=PALETTE["grey2"],lw=STYLE["lw_thin"],zorder=1)
+        _re=e1_random(task,"finetune")
+        if np.isfinite(_re):
+            ax.axhline(_re,ls=(0,(1,1.5)),color=rc_color("no_pretrain_e2e"),lw=1.0,zorder=1)
         _bud=sorted(C[(C.task==task)&(C.budget>0)].budget.unique())
         if _bud: set_fp_axis(ax,_bud)
         ax.set_xlabel("forward passes")
@@ -107,6 +113,10 @@ else:
                         capsize=3,elinewidth=0.8,zorder=3)
             ax.plot([0],[r.fz],marker=st["m"],ms=6,color=st["c"],mfc="white",zorder=4)  # open=frozen
             vals[k]=(r.fz,r.ft)
+        for _c,_v in ((PALETTE["grey2"],e1_random(task,"frozen")),
+                      (rc_color("no_pretrain_e2e"),e1_random(task,"finetune"))):
+            if np.isfinite(_v):
+                ax.axhline(_v,ls=(0,(1,1.5)),color=_c,lw=1.0,zorder=1)
         ax.set_xlim(-0.35,1.35); ax.set_xticks([0,1])
         ax.set_xticklabels(["frozen","fine-\ntuned"])
         ax.set_title(("HIV (ROC-AUC ↑)" if task=="HIV" else ttitle(task,oneline=True)),pad=6)
@@ -121,11 +131,11 @@ else:
             better=lambda a,b:(a>b) if hb else (a<b)
             fz_u_wins,ft_u_wins=better(u[0],s_[0]),better(u[1],s_[1])
             flip = fz_u_wins!=ft_u_wins
+            # The flip verdict is still computed and PRINTED below the figure, but no longer
+            # stamped on the panel: a bold red "ORDERING FLIPS" reads as a conclusion when the
+            # error bars here routinely overlap, and it is one word doing work the reader should
+            # do by looking at the two segments.
             _flips.append((task,fz_u_wins,ft_u_wins,flip))
-            ax.text(0.5,0.02,("ORDERING FLIPS" if flip else "ordering holds"),
-                    transform=ax.transAxes,ha="center",va="bottom",
-                    fontsize=STYLE["fs_annot"],fontweight=("bold" if flip else "normal"),
-                    color=("#B00020" if flip else "#666"))
     axes[1,0].set_ylabel("metric value")
     panel_tag(axes[1,0],"b",dx=-0.42)
 
@@ -135,7 +145,9 @@ else:
                          lw=STYLE["lw_thin"],label="frozen probe (open marker)"),
               plt.Line2D([],[],color="#555",marker="o",ls="-",label="fine-tuned end-to-end (filled)"),
               plt.Line2D([],[],color=PALETTE["grey2"],ls=(0,(1,1)),lw=STYLE["lw_thin"],
-                         label="random-init, frozen")]
+                         label="no_pretrain (frozen)"),
+              plt.Line2D([],[],color=rc_color("no_pretrain_e2e"),ls=(0,(1,1.5)),lw=1.0,
+                         label="no_pretrain (end-to-end)")]
     fig.legend(handles=handles,loc="upper center",bbox_to_anchor=(0.5,0.155),ncol=3,
                fontsize=STYLE["fs_legend"])
     fig.suptitle("Fig E1 (H5) - is the sup_only / unsup_only ordering a frozen-probe artifact?",
@@ -152,7 +164,10 @@ else:
            f"{_fzn} head seeds - a frozen probe has no other randomness, the encoder is fixed; "
            f"solid/filled = ±1 sd over {nseed} fine-tuning seeds, which re-randomise the head AND "
            f"the encoder optimisation, so the two are not the same quantity. HIV is scored by "
-           f"ROC-AUC here (the fine-tuning harness's metric), not the NEF1% used in A1/A2.")
+           f"ROC-AUC here (the fine-tuning harness's metric), not the NEF1% used in A1/A2. "
+           f"The no_pretrain FROZEN reference is absent on HIV only: the eval-ceiling CSV has no "
+           f"frozen HIV value for the random-init runs. Its end-to-end reference is present on all "
+           f"four tasks.")
     fig.subplots_adjust(top=0.88,bottom=0.24)
     fig.text(0.5,0.085,"\n".join(_tw.wrap(_note,132)),ha="center",va="top",
              fontsize=STYLE["fs_annot"]-0.5,color="#666")
