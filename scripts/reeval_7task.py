@@ -41,11 +41,18 @@ def log(m):
 
 
 def has_hiv(run: Path, sub: str) -> bool:
+    """Does this summary carry the HEADLINE HIV metric?
+
+    Not `startswith("HIV")`: 21 runs scored by an older eval_v2 have HIV_MEAN (plain ROC-AUC)
+    but no HIV_nef1_MEAN, and the loose check called them done -- so they were never re-queued
+    and their HIV bars stayed absent from every figure. HIV is reported as NEF1% (top-1% early
+    enrichment) everywhere, so that is the key that decides.
+    """
     p = run / sub / "suite_summary.json"
     if not p.exists():
         return False
     try:
-        return any(k.startswith("HIV") for k in json.loads(p.read_text()))
+        return "HIV_nef1_MEAN" in json.loads(p.read_text())
     except Exception:
         return False
 

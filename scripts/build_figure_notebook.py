@@ -1054,9 +1054,43 @@ for fk,fv in FRACS:
     if d: print(f"   frac={fv:<6} mean relative change {100*np.nanmean(d):+.2f}%  (n={len(d)})")''')
 
 # ============================================================================ status
-md("## Figure inventory — what is real and what is still pending")
+md(r"""## Figure inventory — which figures are FINAL, and which are still moving
 
-code(r'''# ---------- inventory: exactly what each exported figure is built from ----------
+"Can I write this number down?" gets one answer per figure, **computed** rather than remembered.
+A figure is FINAL when every summary it reads came from the current `eval_v2` and nothing it plots
+is still pending. `eval_v2` gained `<metric>_train` and HIV NEF1% on 2026-07-21; re-scoring the
+*same* encoder with it moves a metric by up to 0.03, so an older summary is not merely old — it is
+a different protocol, and a panel that mixes the two is comparing two scorers.""")
+
+code(r'''# ---------- inventory: is each exported figure FINAL, or still moving? ----------
+EVAL_BUILD = pd.Timestamp("2026-07-21")   # the eval_v2 build every final figure must be scored by
+
+def _sums(pattern,sub="moleculenet"):
+    return [Path(q) for q in glob.glob(f"figure_data/{pattern}/{sub}/suite_summary.json")]
+
+# what each figure actually reads off disk
+FIG_SOURCES={
+  "A1"  : _sums("climb_v2_phase2/*"),
+  "A2"  : _sums("climb_v2_phase2/*"),
+  "B1p1": [Path(q) for q in glob.glob(f"{LE}/*/moleculenet/moleculenet_summary.csv")],
+  "E1"  : [CEIL] if CEIL.exists() else [],
+  "B2"  : _sums("climb_v2_phase2/*"),
+  "C1J1": _sums("climb_v2_ablation_dedup/*")+_sums("climb_v2_phase2/unsup_2M"),
+  "I1"  : _sums("climb_v2_phase2/*","moleculenet_cv"),
+  "H1"  : _sums("climb_v2/scaling_*"),
+}
+# blockers that are MISSING work rather than stale scoring
+_missing_hiv=sorted(set(DF.run)-set(DF[DF.task=="HIV"].run))
+_u2s_seeds=DF[(DF.regime=="unsup2sup")&(DF.budget_label==MATCHED_BUDGET)].seed.nunique()
+BLOCKERS={
+  "A1": ([f"{len(_missing_hiv)} runs lack HIV NEF1%"] if _missing_hiv else [])
+        +([f"unsup→sup has {_u2s_seeds} pretraining seed: its error bar is head-seed only"]
+          if _u2s_seeds<2 else []),
+  "A2": ([f"{len(_missing_hiv)} runs lack HIV NEF1%"] if _missing_hiv else [])
+        +["96M-FP / ~100M-molecule unsupervised runs (the shaded band)"],
+  "B2": ([] if _have_b2 else ["corrupt_mlm_8M / corrupt_mtr_8M still training"]),
+}
+
 FIGS=[("A1","figA1_best_model_headline","which model performs best (8M, scaffold hold-out)"),
       ("A2","figA2_scaling_forward_passes","scaling in pretraining compute"),
       ("B1p1","figB1p1_label_efficiency_train_test","label-efficiency + fit/generalize mechanism"),
@@ -1065,24 +1099,32 @@ FIGS=[("A1","figA1_best_model_headline","which model performs best (8M, scaffold
       ("C1J1","figC1J1_sft_family_transfer","SFT family: which helps, how much, does it track chemistry"),
       ("I1","figI1_memorization_vs_representation","memorization vs representation"),
       ("H1","figH1_canonical_vs_enumerated","canonical vs enumerated SMILES")]
-out=Path(STYLE["outdir"])
-print(f"{'fig':<6} {'exported':<46} {'png':<5} {'pdf':<5} what")
+out=Path(STYLE["outdir"]); final=[]
+print(f"{'fig':<6} {'verdict':<12} {'exported':<44} {'files':<7} status")
 for fid,name,what in FIGS:
-    png=(out/f"{name}.png").exists(); pdf=(out/f"{name}.pdf").exists()
-    print(f"{fid:<6} {name:<46} {'ok' if png else 'MISS':<5} {'ok' if pdf else 'MISS':<5} {what}")
+    both=(out/f"{name}.png").exists() and (out/f"{name}.pdf").exists()
+    srcs=[q for q in FIG_SOURCES.get(fid,[]) if q.exists()]
+    old=[q for q in srcs if pd.Timestamp(q.stat().st_mtime,unit="s")<EVAL_BUILD]
+    blk=list(BLOCKERS.get(fid,[]))
+    # What disqualifies a figure is MIXING two scorers, not being scored by the older one. H1
+    # compares canonical vs enumerated entirely within one round-1 wave: internally consistent,
+    # so it is final even though it predates the current build. A1 mixing 07-19 and 07-22
+    # summaries is not.
+    stale = old if (old and len(old)<len(srcs)) else []
+    if stale: blk.insert(0,f"MIXED scorers: {len(stale)}/{len(srcs)} summaries predate the rest")
+    elif old: what += "  [scored by the pre-2026-07-21 eval_v2, but consistently so]"
+    verdict="FINAL" if (both and not blk) else ("PROVISIONAL" if both else "NOT EXPORTED")
+    if verdict=="FINAL": final.append(fid)
+    print(f"{fid:<6} {verdict:<12} {name:<44} {'png+pdf' if both else 'MISSING':<7} "
+          f"{'; '.join(blk) if blk else what}")
+    for q in sorted(stale)[:3]:
+        print(f"{'':<6} {'':<12}   stale: {'/'.join(q.parts[1:3])}")
 
+print(f"\nFINAL - safe to quote: {', '.join(final) if final else '(none)'}")
+prov=[f for f,_,_ in FIGS if f not in final]
+if prov: print(f"PROVISIONAL - do NOT quote effect sizes yet: {', '.join(prov)}")
 stray=sorted(p.name for p in out.glob("*") if p.stem not in {n for _,n,_ in FIGS})
-print("\nstray files in figures_out (not one of the eight):", stray or "none")
-
-print("\nStill pending (drawn as marked placeholders, never as data):")
-_pending=[]
-if not _have_b2: _pending.append("B2 - corrupt_mlm_8M / corrupt_mtr_8M still training")
-_missing_hiv=sorted(set(DF.run)-set(DF[DF.task=="HIV"].run))
-if _missing_hiv: _pending.append(f"A1/A2 HIV panel - {len(_missing_hiv)} runs not yet scored on HIV")
-_u2s_seeds=DF[(DF.regime=='unsup2sup')&(DF.budget_label==MATCHED_BUDGET)].seed.nunique()
-if _u2s_seeds<2: _pending.append("A1 unsup→sup error bar - head-seed only until the seed replicates land")
-_pending.append("A2 shaded band - 96M-FP and ~100M-molecule-corpus unsupervised runs")
-for p in _pending: print("   -",p)''')
+print("stray files in figures_out (not one of the eight):", stray or "none")''')
 
 nb = {"cells": cells,
       "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
