@@ -1,0 +1,180 @@
+wave,run,pretraining,budget,seed,encoder_s3_gb,encoder_local,metrics_jsonl,config,verified,eval::single-split summary,eval::single-split per-seed metrics,eval::5-fold CV summary,eval::5-fold CV per-seed metrics,eval::per-molecule CV predictions (I1),eval_local_single,eval_local_cv
+climb_v2,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2,mixed_seed0,round-1 mixed,?,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2,random_baseline_02,"no_pretrain (random init, frozen)",-,2,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_canonical_frac0p001,"unsup_only, canonical SMILES",2M @ frac0p001,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_canonical_frac0p01,"unsup_only, canonical SMILES",2M @ frac0p01,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_canonical_frac0p1,"unsup_only, canonical SMILES",2M @ frac0p1,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_canonical_frac0p3,"unsup_only, canonical SMILES",2M @ frac0p3,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_canonical_fracfull,"unsup_only, canonical SMILES",2M @ fracfull,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_enumerated_frac0p001,"unsup_only, enumerated SMILES",2M @ frac0p001,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_enumerated_frac0p01,"unsup_only, enumerated SMILES",2M @ frac0p01,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_enumerated_frac0p1,"unsup_only, enumerated SMILES",2M @ frac0p1,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_enumerated_frac0p3,"unsup_only, enumerated SMILES",2M @ frac0p3,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,scaling_enumerated_fracfull,"unsup_only, enumerated SMILES",2M @ fracfull,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,sup_only_seed0,round-1 sup_only,?,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2,unsup_only_seed0,round-1 unsup_only,?,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_ablation,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,random_baseline_02,"no_pretrain (random init, frozen)",-,2,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,seq_dense_plus_sparse,unsup->sup (ablation): dense_plus_sparse,2M+2M,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,seq_l1000,unsup->sup (ablation): l1000,2M+2M,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,seq_mtr,unsup->sup (ablation): mtr,2M+2M,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,seq_pcba,unsup->sup (ablation): pcba,2M+2M,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,seq_pcqm,unsup->sup (ablation): pcqm,2M+2M,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation,seq_sparse_all,unsup->sup (ablation): sparse_all,2M+2M,0,0.0,0,1,1,0,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.166,1,0,1,0,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.166,1,0,1,0,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,random_baseline_02,"no_pretrain (random init, frozen)",-,2,0.166,1,0,1,0,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,seq_dense_plus_sparse,unsup->sup (ablation): dense_plus_sparse,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,seq_l1000,unsup->sup (ablation): l1000,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,seq_mtr,unsup->sup (ablation): mtr,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,seq_pcba,unsup->sup (ablation): pcba,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,seq_pcqm,unsup->sup (ablation): pcqm,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_ablation_dedup,seq_sparse_all,unsup->sup (ablation): sparse_all,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_headline,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_headline,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2_headline,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2_headline,random_baseline_02,"no_pretrain (random init, frozen)",-,2,0.0,0,0,1,0,1,1,0,0,0,1,0
+climb_v2_labeleff,random_n100,label-efficiency probe: random,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,random_n1000,label-efficiency probe: random,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,random_n300,label-efficiency probe: random,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,random_n3000,label-efficiency probe: random,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,sup_n100,label-efficiency probe: sup,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,sup_n1000,label-efficiency probe: sup,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,sup_n300,label-efficiency probe: sup,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,sup_n3000,label-efficiency probe: sup,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,unsup_n100,label-efficiency probe: unsup,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,unsup_n1000,label-efficiency probe: unsup,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,unsup_n300,label-efficiency probe: unsup,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff,unsup_n3000,label-efficiency probe: unsup,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n0_s0,label-efficiency probe: random,n=0,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n1000_s0,label-efficiency probe: random,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n1000_s1,label-efficiency probe: random,n=1000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n1000_s2,label-efficiency probe: random,n=1000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n100_s0,label-efficiency probe: random,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n100_s1,label-efficiency probe: random,n=100,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n100_s2,label-efficiency probe: random,n=100,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n3000_s0,label-efficiency probe: random,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n3000_s1,label-efficiency probe: random,n=3000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n3000_s2,label-efficiency probe: random,n=3000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n300_s0,label-efficiency probe: random,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n300_s1,label-efficiency probe: random,n=300,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,random_n300_s2,label-efficiency probe: random,n=300,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n0_s0,label-efficiency probe: sup,n=0,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n1000_s0,label-efficiency probe: sup,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n1000_s1,label-efficiency probe: sup,n=1000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n1000_s2,label-efficiency probe: sup,n=1000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n100_s0,label-efficiency probe: sup,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n100_s1,label-efficiency probe: sup,n=100,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n100_s2,label-efficiency probe: sup,n=100,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n3000_s0,label-efficiency probe: sup,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n3000_s1,label-efficiency probe: sup,n=3000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n3000_s2,label-efficiency probe: sup,n=3000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n300_s0,label-efficiency probe: sup,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n300_s1,label-efficiency probe: sup,n=300,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,sup_n300_s2,label-efficiency probe: sup,n=300,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n0_s0,label-efficiency probe: unsup2sup,n=0,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n1000_s0,label-efficiency probe: unsup2sup,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n1000_s1,label-efficiency probe: unsup2sup,n=1000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n1000_s2,label-efficiency probe: unsup2sup,n=1000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n100_s0,label-efficiency probe: unsup2sup,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n100_s1,label-efficiency probe: unsup2sup,n=100,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n100_s2,label-efficiency probe: unsup2sup,n=100,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n3000_s0,label-efficiency probe: unsup2sup,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n3000_s1,label-efficiency probe: unsup2sup,n=3000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n3000_s2,label-efficiency probe: unsup2sup,n=3000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n300_s0,label-efficiency probe: unsup2sup,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n300_s1,label-efficiency probe: unsup2sup,n=300,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup2sup_n300_s2,label-efficiency probe: unsup2sup,n=300,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n0_s0,label-efficiency probe: unsup,n=0,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n1000_s0,label-efficiency probe: unsup,n=1000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n1000_s1,label-efficiency probe: unsup,n=1000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n1000_s2,label-efficiency probe: unsup,n=1000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n100_s0,label-efficiency probe: unsup,n=100,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n100_s1,label-efficiency probe: unsup,n=100,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n100_s2,label-efficiency probe: unsup,n=100,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n3000_s0,label-efficiency probe: unsup,n=3000,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n3000_s1,label-efficiency probe: unsup,n=3000,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n3000_s2,label-efficiency probe: unsup,n=3000,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n300_s0,label-efficiency probe: unsup,n=300,0,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n300_s1,label-efficiency probe: unsup,n=300,1,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_labeleff_v2,unsup_n300_s2,label-efficiency probe: unsup,n=300,2,0.0,0,0,0,0,1,1,0,0,0,1,0
+climb_v2_phase2,corrupt_mlm_8M,corrupted control (mlm: content destroyed),8M,0,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,corrupt_mtr_8M,corrupted control (mtr: content destroyed),8M,0,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,1,1,1,1,1,1,1,1
+climb_v2_phase2,fp_desc_anchor,classical: Morgan+desc+XGBoost,-,0,0.0,0,0,0,0,0,0,1,1,1,1,1
+climb_v2_phase2,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.166,1,0,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.166,1,0,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,random_baseline_02,"no_pretrain (random init, frozen)",-,2,0.166,1,0,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_24M,sup_only: dense,24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_2M,sup_only: dense,2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_48M,sup_only: dense,48M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_8M,sup_only: dense,8M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_8M_s1,sup_only: dense,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_dense_8M_s2,sup_only: dense,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_dense_96M,sup_only: dense,96M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_dense_plus_sparse_24M,sup_only: dense_plus_sparse,24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_plus_sparse_2M,sup_only: dense_plus_sparse,2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_plus_sparse_48M,sup_only: dense_plus_sparse,48M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_plus_sparse_8M,sup_only: dense_plus_sparse,8M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_dense_plus_sparse_8M_s1,sup_only: dense_plus_sparse,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_dense_plus_sparse_8M_s2,sup_only: dense_plus_sparse,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_minimol_full_24M,sup_only: minimol_full,24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_minimol_full_2M,sup_only: minimol_full,2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_minimol_full_48M,sup_only: minimol_full,48M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_minimol_full_8M,sup_only: minimol_full,8M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_minimol_full_8M_s1,sup_only: minimol_full,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_minimol_full_8M_s2,sup_only: minimol_full,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_mixed_24M,sup_only: mixed,24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_mixed_2M,sup_only: mixed,2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_mixed_48M,sup_only: mixed,48M,0,0.166,1,1,1,1,1,1,1,1,0,1,1
+climb_v2_phase2,skip_mixed_8M,sup_only: mixed,8M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_mixed_8M_s1,sup_only: mixed,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_mixed_8M_s2,sup_only: mixed,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_sparse_all_24M,sup_only: sparse_all,24M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_sparse_all_2M,sup_only: sparse_all,2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_sparse_all_48M,sup_only: sparse_all,48M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_sparse_all_8M,sup_only: sparse_all,8M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_sparse_all_8M_s1,sup_only: sparse_all,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,skip_sparse_all_8M_s2,sup_only: sparse_all,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,u2s_dense_from24M,unsup->sup: dense,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_from2M,unsup->sup: dense,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_from48M,unsup->sup: dense,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,u2s_dense_from8M,unsup->sup: dense,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_from8M_s1,unsup->sup: dense,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_dense_from8M_s2,unsup->sup: dense,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_dense_plus_sparse_from24M,unsup->sup: dense_plus_sparse,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_plus_sparse_from2M,unsup->sup: dense_plus_sparse,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_plus_sparse_from48M,unsup->sup: dense_plus_sparse,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,u2s_dense_plus_sparse_from8M,unsup->sup: dense_plus_sparse,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_plus_sparse_from8M_s1,unsup->sup: dense_plus_sparse,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_dense_plus_sparse_from8M_s2,unsup->sup: dense_plus_sparse,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_minimol_full_from24M,unsup->sup: minimol_full,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_minimol_full_from2M,unsup->sup: minimol_full,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_minimol_full_from48M,unsup->sup: minimol_full,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,u2s_minimol_full_from8M,unsup->sup: minimol_full,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_minimol_full_from8M_s1,unsup->sup: minimol_full,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_minimol_full_from8M_s2,unsup->sup: minimol_full,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_mixed_from24M,unsup->sup: mixed,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_mixed_from2M,unsup->sup: mixed,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_mixed_from48M,unsup->sup: mixed,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,u2s_mixed_from8M,unsup->sup: mixed,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_mixed_from8M_s1,unsup->sup: mixed,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_mixed_from8M_s2,unsup->sup: mixed,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_sparse_all_from24M,unsup->sup: sparse_all,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_sparse_all_from2M,unsup->sup: sparse_all,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_sparse_all_from48M,unsup->sup: sparse_all,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,u2s_sparse_all_from8M,unsup->sup: sparse_all,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_sparse_all_from8M_s1,unsup->sup: sparse_all,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,u2s_sparse_all_from8M_s2,unsup->sup: sparse_all,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
+climb_v2_phase2,unsup_24M,unsup_only (MLM),24M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,unsup_2M,unsup_only (MLM),2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,unsup_48M,unsup_only (MLM),48M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,unsup_8M,unsup_only (MLM),8M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,unsup_8M_s1,unsup_only (MLM),8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_phase2,unsup_8M_s2,unsup_only (MLM),8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
