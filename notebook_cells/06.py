@@ -43,7 +43,7 @@ def n_seeds(df,task,key,budget=None):
 # (config_v2.SUPERVISED_FAMILY_CAPS x README 6.3 sizes), so the sparse recipes exhaust their pool
 # after ~0.5M molecules and every further forward pass is pure repetition. A2.b makes that visible;
 # Table A1 quotes the same numbers, from here, so the two can never disagree.
-UNSUP_CORPUS=12_000_000
+UNSUP_CORPUS=UNSUP_CORPUS_12M          # default; 50M/100M override via unsup_corpus_size()
 _FAM_AVAIL=dict(PCBA=1_517_000,L1000_MCF7=11_718,L1000_VCAP=7_800,PCQM=3_810_323,WONG=34_652)
 _FAM_CAP  =dict(PCBA=500_000,L1000_MCF7=100_000,L1000_VCAP=100_000,PCQM=200_000,WONG=100_000)
 _GROUP    =dict(sparse_all=["PCBA","L1000_MCF7","L1000_VCAP"],
@@ -61,16 +61,17 @@ def sft_molecules(recipe,sft_fp):
     return (min(w_mtr*sft_fp,UNSUP_CORPUS) if w_mtr else 0,
             min(w_sup*sft_fp,ASSAY_POOL[group]) if w_sup else 0)
 
-def unique_molecules(key,budget_fp):
+def unique_molecules(key,budget_fp,budget_label=None):
     """Total unique molecules behind an arm at one budget. `budget_fp` is the DF value, i.e. for
     unsup->sup it already includes the 2M-FP SFT stage."""
     if not np.isfinite(budget_fp): return np.nan
-    if key=="unsup_only":        return min(budget_fp,UNSUP_CORPUS)
+    _corpus=unsup_corpus_size(budget_label)   # 124M for the 50M/100M rungs, 12M otherwise
+    if key=="unsup_only":        return min(budget_fp,_corpus)
     if key.startswith("sup_only:"):
         return sum(sft_molecules(key.split(":")[1],budget_fp))
     if key.startswith("unsup2sup:"):
         base=budget_fp-U2S_SFT_FP
-        return min(base,UNSUP_CORPUS)+sum(sft_molecules(key.split(":")[1],U2S_SFT_FP))
+        return min(base,_corpus)+sum(sft_molecules(key.split(":")[1],U2S_SFT_FP))
     return np.nan
 
 _MOLCOUNT={}

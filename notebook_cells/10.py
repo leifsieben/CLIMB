@@ -25,7 +25,7 @@ ARMS = {"ecfp4":           dict(label="Morgan+XGBoost (ECFP4)", runs=["ecfp4_anc
         # in this row switches from n.d. to real on the next notebook run. No hand-editing.
         "no_pretrain_e2e": dict(label="no_pretrain (end-to-end)", unsup=0, dense=0, assay=0,
                                 runs=["e2e_random_00", "e2e_random_01", "e2e_random_02"]),
-        "unsup_only":      dict(label="unsup_only (MLM)", unsup=min(_B, UNSUP_CORPUS), dense=0, assay=0,
+        "unsup_only":      dict(label="unsup_only (MLM)", unsup=unique_molecules("unsup_only", _B, MATCHED_BUDGET), dense=0, assay=0,
                                 runs=["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"])}
 for _r in sup_recipes:
     _d, _a = sft_molecules(_r, _B)
@@ -34,7 +34,7 @@ for _r in sup_recipes:
 for _r in sup_recipes:
     _d, _a = sft_molecules(_r, U2S_SFT_FP)
     ARMS[f"unsup2sup:{_r}"] = dict(label=f"unsup→sup: {_recipe_pretty[_r]}",
-                                   unsup=min(_B, UNSUP_CORPUS), dense=_d, assay=_a,
+                                   unsup=unique_molecules("unsup_only", _B, MATCHED_BUDGET), dense=_d, assay=_a,
                                    runs=[f"u2s_{_r}_from{MATCHED_BUDGET}",
                                          f"u2s_{_r}_from{MATCHED_BUDGET}_s1",
                                          f"u2s_{_r}_from{MATCHED_BUDGET}_s2"])

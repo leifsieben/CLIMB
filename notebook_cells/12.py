@@ -24,9 +24,9 @@ def ladder_cv(task, key):
     else:                              s = d[(d.regime == "sup_only") & (d.recipe == key.split(":")[1])]
     s = s[~s.truncated]
     if not len(s): return s
-    g = (s.groupby("budget_fp").agg(value=("value", "mean"), err=("std", "mean"))
+    g = (s.groupby(["budget_fp", "budget_label"]).agg(value=("value", "mean"), err=("std", "mean"))
           .reset_index().sort_values("budget_fp"))
-    g["mols"] = [unique_molecules(key, b) for b in g.budget_fp]
+    g["mols"] = [unique_molecules(key, b, l) for b, l in zip(g.budget_fp, g.budget_label)]
     return g
 
 def anchor_cv(task, key):
@@ -36,7 +36,9 @@ def anchor_cv(task, key):
 
 # Rungs that exist in the CV eval. 96M was scored on the hold-out only, and unsup->sup has no 48M
 # CV run, so both are absent here rather than silently interpolated. Stated in the caption.
-BUDG = [2e6, 8e6, 24e6, 48e6]
+# 50M/100M appear only once those runs land; listing them early would draw empty tick labels.
+BUDG = [2e6, 8e6, 24e6, 48e6] + [b for b in (50e6, 100e6)
+        if len(DF_CV[(DF_CV.regime == "unsup_only") & (DF_CV.budget_fp == b)])]
 N_RUNGS = len(BUDG)
 # Zoom OUT. Matplotlib auto-scales each panel to its own data, so every panel fills its axes and
 # differences that sit well inside one fold-spread band look dramatic. A FIXED pad (not a relative

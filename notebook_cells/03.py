@@ -48,7 +48,15 @@ TASKS = {
     "Lipophilicity" :dict(metric="RMSE",   higher_better=False,pretty="Lipo.",domain="ADMET"),
 }
 CORE_TASKS=["ESOL","BBBP","BACE","Tox21","QM7","HIV"]
-BUDGET_FP={"2M":2e6,"8M":8e6,"24M":24e6,"48M":48e6,"96M":96e6}
+BUDGET_FP={"2M":2e6,"8M":8e6,"24M":24e6,"48M":48e6,"96M":96e6,"50M":50e6,"100M":100e6}
+# Which unsupervised corpus a run streamed. The 2M-48M ladder used the 12M-molecule PubChem
+# subset, so every budget above 12M FP is REPETITION. unsup_50M / unsup_100M were trained on the
+# 124M superset and are the first rungs with genuinely that many UNIQUE molecules -- the whole
+# reason they exist, and why A2.b must not cap them at 12M.
+UNSUP_CORPUS_12M, UNSUP_CORPUS_124M = 12_000_000, 124_000_000
+LARGE_CORPUS_BUDGETS = {"50M", "100M"}
+def unsup_corpus_size(budget_label):
+    return UNSUP_CORPUS_124M if budget_label in LARGE_CORPUS_BUDGETS else UNSUP_CORPUS_12M
 MATCHED_BUDGET="8M"          # largest budget where every arm ran to completion
 U2S_SFT_FP=2e6               # unsup->sup spends its MLM base PLUS a 2M-FP SFT stage
 
