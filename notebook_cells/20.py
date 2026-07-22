@@ -12,12 +12,24 @@ ABL_LABEL={"seq_mtr":"u2s: dense (MTR)","seq_pcba":"u2s: PCBA","seq_l1000":"u2s:
 # The ablation arms warm-start from climb_v2_phase2/unsup_2M, so THAT is the MLM base to show as
 # the reference row -- not the round-1 unsup_only run the earlier version of this figure used.
 BASE_RUN=(DATA_ROOT/"climb_v2_phase2"/"unsup_2M")
+# Prefer the 5-fold CV as soon as the whole wave has it. This panel was stuck on the single
+# hold-out (113-204 test molecules on the small tasks) because the ablation wave had never been
+# CV-scored. It needs the WHOLE wave -- every seq_* arm AND the three random_baseline_* that form
+# the floor AND the anchor -- because each arm is lifted against the floor scored in its own wave;
+# a CV floor with hold-out arms would silently produce wrong lifts. All-or-nothing, checked here.
+_abl_dirs=sorted((DATA_ROOT/ABL).glob("*/"))
+C1J1_SUB=("moleculenet_cv"
+          if _abl_dirs and all((d/"moleculenet_cv"/"suite_summary.json").exists() for d in _abl_dirs)
+             and (BASE_RUN/"moleculenet_cv"/"suite_summary.json").exists()
+          else "moleculenet")
+C1J1_SCHEME=("pooled 5-fold scaffold CV" if C1J1_SUB=="moleculenet_cv" else
+             "single scaffold hold-out (113-204 test molecules) - CV PENDING for this wave")
 
 def _wave_floor(wave,task):
     """Mean of the three random-init encoders AS SCORED IN THAT WAVE."""
     v=[]
     for rb in sorted((DATA_ROOT/wave).glob("random_baseline*/")):
-        d=load_suite(rb); sk=TASKS[task].get("suite_key",task)
+        d=load_suite(rb,sub=C1J1_SUB); sk=TASKS[task].get("suite_key",task)
         if d and (sk,"mean") in d: v.append(d[(sk,"mean")])
     return float(np.mean(v)) if v else np.nan
 abl_floor=lambda task:_wave_floor(ABL,task)
@@ -27,7 +39,9 @@ abl_floor=lambda task:_wave_floor(ABL,task)
 # from ITS OWN wave -- comparing lifts, each internally consistent -- rather than against one
 # borrowed floor. The divergence is printed so the size of the effect is visible, not assumed away.
 for _t in CORE_TASKS:
-    _a,_b=abl_floor(_t),npt_floor(DF,_t)
+    # Compare like with like: once this panel is on CV, the phase-2 floor must be read from the CV
+    # table too, or the check reports a 29% "wave difference" that is really a scheme difference.
+    _a,_b=abl_floor(_t),npt_floor(DF_CV if C1J1_SUB=="moleculenet_cv" else DF,_t)
     if np.isfinite(_a) and np.isfinite(_b) and abs(_a-_b)>5e-3:
         print(f"   floor differs between waves on {_t}: dedup={_a:.4f} vs phase2={_b:.4f} "
               f"({100*abs(_a-_b)/_b:.1f}%) - each arm uses its own wave's floor")
@@ -37,7 +51,7 @@ _srcs=[("unsup_only (MLM base)",BASE_RUN,"climb_v2_phase2")]+\
       [(ABL_LABEL[a],DATA_ROOT/ABL/a,ABL) for a in ABL_ARMS]+\
       [("Morgan+XGBoost",DATA_ROOT/ABL/"ecfp4_anchor",ABL)]
 for disp,rd,wv in _srcs:
-    d=load_suite(rd)
+    d=load_suite(rd,sub=C1J1_SUB)
     if not d: continue
     for task in CORE_TASKS:
         sk=TASKS[task].get("suite_key",task)
@@ -100,7 +114,7 @@ pts=[]
 if SIMP.exists():
     SIM=pd.read_csv(SIMP)
     for arm,fams in ARM2FAM.items():
-        d=load_suite(DATA_ROOT/ABL/arm)
+        d=load_suite(DATA_ROOT/ABL/arm,sub=C1J1_SUB)
         if not d: continue
         for t in CORE_TASKS:
             sk=TASKS[t].get("suite_key",t)
@@ -140,8 +154,7 @@ fig.suptitle("Fig C1J1 - supervised pretraining data: which type helps, how much
 fig.text(0.5,0.035,"deduped wave: the SFT blocklist drops 34,301 eval molecules, so no arm trains on "
          "eval-test molecules. Arms are unsup→sup from one shared 2M-FP MLM base, each lifted "
          "against the random-init floor scored in its own wave.\n"
-         "SCHEME: single DeepChem scaffold hold-out (this wave has no 5-fold CV eval), so these "
-         "lifts are NOT comparable with the CV numbers in A1.b / A2.\n"
+         f"SCHEME: {C1J1_SCHEME}.\n"
          "(c) omits dense (MTR) and dense+sparse: descriptor regression has no family molecule set to "
          "measure similarity against. Families are sampled, so similarities are lower bounds.",
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
