@@ -303,7 +303,18 @@ def evaluate(
                 seed_preds = []
                 for seed in head_seeds:
                     hd = make_head(head, task_type, n_outputs, seed).fit(trx, y_all[tr_idx], vax, y_all[va_idx])
-                    seed_preds.append(np.asarray(hd.predict(tex), dtype=np.float64))
+                    sp_pred = np.asarray(hd.predict(tex), dtype=np.float64)
+                    seed_preds.append(sp_pred)
+                    # Per-(seed, fold) metric. The seed-averaged rows below stay exactly as they
+                    # were -- this only ADDS the un-averaged cells. Without them the CV scheme can
+                    # report at most `cv_folds` values per model, because averaging the seeds'
+                    # predictions before scoring destroys the seed axis; a "3 seeds x 5 folds"
+                    # error bar is then not computable from the output at all.
+                    rows.append(_row(ds_name, task_type, f"{main_metric}_cell", f"s{seed}_fold{j}",
+                                     len(tr_idx), compute_metric(sp_pred, y_all[test_idx], task_type), t0))
+                    if task_type == "classification":
+                        rows.append(_row(ds_name, task_type, "nef1_cell", f"s{seed}_fold{j}",
+                                         len(tr_idx), compute_nef(sp_pred, y_all[test_idx]), t0))
                 pred = np.mean(np.stack(seed_preds, axis=0), axis=0)
                 oof[test_idx] = pred
                 m = compute_metric(pred, y_all[test_idx], task_type)
