@@ -37,8 +37,17 @@ WAVES = {
     "climb_v2_labeleff":       "label-efficiency, superseded by _v2",
     "climb_v2_lrsweep":        "SFT learning-rate sweep",
     "climb_v2_headline":       "round-1 headline",
-    "climb_v2":                "round-1: canonical-vs-enumerated scaling sweep (H1) + round-1 baselines",
+    "climb_v2":                "round-1: canonical-vs-enumerated sweep - SUPERSEDED by climb_v2_h1",
+    "climb_v2_h1":             "H1 canonical-vs-enumerated retrain, 3 seeds (replaces climb_v2/scaling_*)",
 }
+
+# Runs that legitimately have no encoder of their own, so flagging them as a gap is noise:
+#  - label-efficiency probes are EVALUATIONS of an existing 8M encoder at different label budgets;
+#  - the classical anchors are XGBoost on fingerprints, with no encoder at all;
+#  - superseded waves are kept for provenance only and are not part of the release.
+NO_ENCODER_EXPECTED = re.compile(
+    r"^(ecfp4_anchor|fp_desc_anchor|(random|sup|unsup|unsup2sup)_n\d+)")
+SUPERSEDED = {"climb_v2", "climb_v2_labeleff", "climb_v2_ablation", "climb_v2_headline"}
 
 # The five evaluation surfaces a reviewer would expect to reproduce.
 EVAL_ARTIFACTS = {
@@ -140,13 +149,17 @@ def main() -> int:
     for r in rows:
         if r["wave"] not in WAVES:
             continue
-        trained = r["pretraining"] not in (
-            "classical: Morgan+XGBoost", "classical: Morgan+desc+XGBoost")
+        if r["wave"] in SUPERSEDED:
+            continue
+        trained = not NO_ENCODER_EXPECTED.match(r["run"])
+        # A random-init baseline has a checkpoint but no training curve and no forward-pass
+        # budget, so "missing metrics.jsonl / verified.json" is its correct state, not a gap.
+        untrained_by_design = r["run"].startswith("random_baseline")
         if trained and not r["encoder_s3_gb"]:
             gaps["NO ENCODER IN S3 - cannot be re-evaluated or released"].append(f'{r["wave"]}/{r["run"]}')
-        if trained and not r["metrics_jsonl"]:
+        if trained and not untrained_by_design and not r["metrics_jsonl"]:
             gaps["no training curve (metrics.jsonl)"].append(f'{r["wave"]}/{r["run"]}')
-        if trained and not r["verified"]:
+        if trained and not untrained_by_design and not r["verified"]:
             gaps["no completion proof (verified.json)"].append(f'{r["wave"]}/{r["run"]}')
         if not r["eval::single-split summary"] and not r["eval::5-fold CV summary"]:
             gaps["never evaluated"].append(f'{r["wave"]}/{r["run"]}')

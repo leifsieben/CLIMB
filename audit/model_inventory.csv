@@ -36,6 +36,7 @@ climb_v2_ablation_dedup,seq_mtr,unsup->sup (ablation): mtr,2M+2M,0,0.166,1,1,1,1
 climb_v2_ablation_dedup,seq_pcba,unsup->sup (ablation): pcba,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
 climb_v2_ablation_dedup,seq_pcqm,unsup->sup (ablation): pcqm,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
 climb_v2_ablation_dedup,seq_sparse_all,unsup->sup (ablation): sparse_all,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
+climb_v2_h1,scaling_canonical_frac0p3_s2,"unsup_only, canonical SMILES",2M @ frac0p3,2,0.0,0,0,1,0,0,0,0,0,0,0,0
 climb_v2_headline,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,0,1,1,0,0,0,1,0
 climb_v2_headline,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.0,0,0,1,0,1,1,0,0,0,1,0
 climb_v2_headline,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.0,0,0,1,0,1,1,0,0,0,1,0
@@ -107,7 +108,7 @@ climb_v2_labeleff_v2,unsup_n300_s2,label-efficiency probe: unsup,n=300,2,0.0,0,0
 climb_v2_phase2,corrupt_mlm_8M,corrupted control (mlm: content destroyed),8M,0,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,corrupt_mtr_8M,corrupted control (mtr: content destroyed),8M,0,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,ecfp4_anchor,classical: Morgan+XGBoost,-,0,0.0,0,0,0,1,1,1,1,1,1,1,1
-climb_v2_phase2,fp_desc_anchor,classical: Morgan+desc+XGBoost,-,0,0.0,0,0,0,0,0,0,1,1,1,1,1
+climb_v2_phase2,fp_desc_anchor,classical: Morgan+desc+XGBoost,-,0,0.0,0,0,0,0,1,1,1,1,1,1,1
 climb_v2_phase2,random_baseline_00,"no_pretrain (random init, frozen)",-,0,0.166,1,0,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,random_baseline_01,"no_pretrain (random init, frozen)",-,1,0.166,1,0,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,random_baseline_02,"no_pretrain (random init, frozen)",-,2,0.166,1,0,1,1,1,1,1,1,1,1,1
@@ -132,49 +133,49 @@ climb_v2_phase2,skip_minimol_full_8M_s1,sup_only: minimol_full,8M,1,0.166,1,1,1,
 climb_v2_phase2,skip_minimol_full_8M_s2,sup_only: minimol_full,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
 climb_v2_phase2,skip_mixed_24M,sup_only: mixed,24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,skip_mixed_2M,sup_only: mixed,2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
-climb_v2_phase2,skip_mixed_48M,sup_only: mixed,48M,0,0.166,1,1,1,1,1,1,1,1,0,1,1
-climb_v2_phase2,skip_mixed_8M,sup_only: mixed,8M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_mixed_48M,sup_only: mixed,48M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_mixed_8M,sup_only: mixed,8M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,skip_mixed_8M_s1,sup_only: mixed,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
 climb_v2_phase2,skip_mixed_8M_s2,sup_only: mixed,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,skip_sparse_all_24M,sup_only: sparse_all,24M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,skip_sparse_all_2M,sup_only: sparse_all,2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,skip_sparse_all_48M,sup_only: sparse_all,48M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,skip_sparse_all_8M,sup_only: sparse_all,8M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,skip_sparse_all_24M,sup_only: sparse_all,24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_sparse_all_2M,sup_only: sparse_all,2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_sparse_all_48M,sup_only: sparse_all,48M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,skip_sparse_all_8M,sup_only: sparse_all,8M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,skip_sparse_all_8M_s1,sup_only: sparse_all,8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
 climb_v2_phase2,skip_sparse_all_8M_s2,sup_only: sparse_all,8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,u2s_dense_from24M,unsup->sup: dense,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,u2s_dense_from2M,unsup->sup: dense,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_from24M,unsup->sup: dense,24M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,u2s_dense_from2M,unsup->sup: dense,2M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_dense_from48M,unsup->sup: dense,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,u2s_dense_from8M,unsup->sup: dense,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_from8M,unsup->sup: dense,8M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_dense_from8M_s1,unsup->sup: dense,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,u2s_dense_from8M_s2,unsup->sup: dense,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
-climb_v2_phase2,u2s_dense_plus_sparse_from24M,unsup->sup: dense_plus_sparse,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,u2s_dense_plus_sparse_from2M,unsup->sup: dense_plus_sparse,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_plus_sparse_from24M,unsup->sup: dense_plus_sparse,24M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,u2s_dense_plus_sparse_from2M,unsup->sup: dense_plus_sparse,2M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_dense_plus_sparse_from48M,unsup->sup: dense_plus_sparse,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,u2s_dense_plus_sparse_from8M,unsup->sup: dense_plus_sparse,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_dense_plus_sparse_from8M,unsup->sup: dense_plus_sparse,8M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_dense_plus_sparse_from8M_s1,unsup->sup: dense_plus_sparse,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,u2s_dense_plus_sparse_from8M_s2,unsup->sup: dense_plus_sparse,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
-climb_v2_phase2,u2s_minimol_full_from24M,unsup->sup: minimol_full,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,u2s_minimol_full_from2M,unsup->sup: minimol_full,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_minimol_full_from24M,unsup->sup: minimol_full,24M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,u2s_minimol_full_from2M,unsup->sup: minimol_full,2M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_minimol_full_from48M,unsup->sup: minimol_full,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,u2s_minimol_full_from8M,unsup->sup: minimol_full,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_minimol_full_from8M,unsup->sup: minimol_full,8M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_minimol_full_from8M_s1,unsup->sup: minimol_full,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,u2s_minimol_full_from8M_s2,unsup->sup: minimol_full,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
-climb_v2_phase2,u2s_mixed_from24M,unsup->sup: mixed,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,u2s_mixed_from2M,unsup->sup: mixed,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_mixed_from24M,unsup->sup: mixed,24M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,u2s_mixed_from2M,unsup->sup: mixed,2M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_mixed_from48M,unsup->sup: mixed,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,u2s_mixed_from8M,unsup->sup: mixed,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_mixed_from8M,unsup->sup: mixed,8M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_mixed_from8M_s1,unsup->sup: mixed,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,u2s_mixed_from8M_s2,unsup->sup: mixed,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
-climb_v2_phase2,u2s_sparse_all_from24M,unsup->sup: sparse_all,24M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,u2s_sparse_all_from2M,unsup->sup: sparse_all,2M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_sparse_all_from24M,unsup->sup: sparse_all,24M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,u2s_sparse_all_from2M,unsup->sup: sparse_all,2M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_sparse_all_from48M,unsup->sup: sparse_all,48M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,0
-climb_v2_phase2,u2s_sparse_all_from8M,unsup->sup: sparse_all,8M+2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,u2s_sparse_all_from8M,unsup->sup: sparse_all,8M+2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,u2s_sparse_all_from8M_s1,unsup->sup: sparse_all,8M+2M,1,0.166,0,1,1,1,1,1,0,0,0,0,0
 climb_v2_phase2,u2s_sparse_all_from8M_s2,unsup->sup: sparse_all,8M+2M,2,0.166,0,1,1,1,1,1,0,0,0,0,0
-climb_v2_phase2,unsup_24M,unsup_only (MLM),24M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,unsup_2M,unsup_only (MLM),2M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,unsup_48M,unsup_only (MLM),48M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
-climb_v2_phase2,unsup_8M,unsup_only (MLM),8M,0,0.166,1,1,1,1,1,1,0,0,0,1,1
+climb_v2_phase2,unsup_24M,unsup_only (MLM),24M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,unsup_2M,unsup_only (MLM),2M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,unsup_48M,unsup_only (MLM),48M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
+climb_v2_phase2,unsup_8M,unsup_only (MLM),8M,0,0.166,1,1,1,1,1,1,1,1,1,1,1
 climb_v2_phase2,unsup_8M_s1,unsup_only (MLM),8M,1,0.166,1,1,1,1,1,1,0,0,0,1,0
 climb_v2_phase2,unsup_8M_s2,unsup_only (MLM),8M,2,0.166,1,1,1,1,1,1,0,0,0,1,0
