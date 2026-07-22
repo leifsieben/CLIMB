@@ -46,14 +46,21 @@ BLOCKERS={
   # A figure is not FINAL just because its files are consistent -- a declared arm with no runs is
   # a gap too. B1p1 carries no_pretrain_e2e in its legend as NOT RUN; C1J1's whole wave was scored
   # only on the small single hold-out, so its effect sizes are the weakest in the notebook.
-  "B1p1": ([] if glob.glob(f"{LE}/e2e_n*/moleculenet/moleculenet_summary.csv")
-           else ["no_pretrain_end_to_end label sweep not run (legend says NOT RUN)"]),
+  # COVERAGE, not existence. A non-empty glob says ONE cell landed, not that the sweep finished --
+  # the same "the output file appeared, so it must be done" reasoning that let truncated runs into
+  # earlier analyses. Count against the expected total, and show the fraction.
+  "B1p1": ([] if len(glob.glob(f"{LE}/e2e_n*_s*/moleculenet/moleculenet_summary.csv"))>=13 else
+           [f"no_pretrain_end_to_end sweep is "
+            f"{len(glob.glob(f'{LE}/e2e_n*_s*/moleculenet/moleculenet_summary.csv'))}/13 cells "
+            f"(n=100/300/1000/3000 x 3 subsample seeds, + full)"]),
+  "C1J1": ([] if len(glob.glob(f"figure_data/{ABL}/*/moleculenet_cv/suite_summary.json"))>=10 else
+           [f"ablation-wave CV is "
+            f"{len(glob.glob(f'figure_data/{ABL}/*/moleculenet_cv/suite_summary.json'))}/10 runs; "
+            f"the panel is still on the single hold-out (113-204 test mols)"]),
   "H1"  : ([] if H1_SUB=="moleculenet_cv"
            else ["round-1 wave has NO CV eval and no saved encoders - retraining under way"]),
   "I1"  : ([] if _I1_HAVE else ["baseline is now no_pretrain_e2e; its CV predictions land with "
                                 "the E1 wave"]),
-  "C1J1": ([] if glob.glob(f"figure_data/{ABL}/*/moleculenet_cv/suite_summary.json")
-           else ["ablation wave has NO 5-fold CV eval - single hold-out only (113-204 test mols)"]),
 }
 
 FIGS=[("A1.a","figA1a_best_model_headline_holdout","which model performs best (8M, single scaffold hold-out)"),
