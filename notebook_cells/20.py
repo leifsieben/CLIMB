@@ -34,17 +34,34 @@ def _wave_floor(wave,task):
     return float(np.mean(v)) if v else np.nan
 abl_floor=lambda task:_wave_floor(ABL,task)
 
+# FLOOR CHOICE -- same change as I1. Lift over the FROZEN random encoder is the easy comparison:
+# a frozen random encoder cannot adapt to the task at all, so nearly anything clears it. The
+# honest floor is the random encoder FINE-TUNED end-to-end, which is what a practitioner would do
+# INSTEAD of pretraining.
+# Those runs live in climb_v2_phase2, not this wave, and this figure otherwise refuses cross-wave
+# comparisons. It is safe here only because the two waves' FROZEN floors are numerically identical
+# on all six tasks (both CV-scored, same random-init encoders, same folds) -- checked in the
+# printout below, so the day that stops being true it is visible rather than silent.
+C1J1_FLOOR_LABEL="no_pretrain (end-to-end)"
+def c1j1_floor(task):
+    v=arm_value(DF_CV if C1J1_SUB=="moleculenet_cv" else DF,task,"no_pretrain_e2e")
+    return v if np.isfinite(v) else _wave_floor(ABL,task)   # frozen floor if e2e is not scored
+
 # The two waves run the SAME three random-init encoders, but they were scored in separate eval
 # runs, and re-scoring shifts a metric by up to ~0.03. So each arm is lifted against the floor
 # from ITS OWN wave -- comparing lifts, each internally consistent -- rather than against one
 # borrowed floor. The divergence is printed so the size of the effect is visible, not assumed away.
-for _t in CORE_TASKS:
-    # Compare like with like: once this panel is on CV, the phase-2 floor must be read from the CV
-    # table too, or the check reports a 29% "wave difference" that is really a scheme difference.
-    _a,_b=abl_floor(_t),npt_floor(DF_CV if C1J1_SUB=="moleculenet_cv" else DF,_t)
-    if np.isfinite(_a) and np.isfinite(_b) and abs(_a-_b)>5e-3:
-        print(f"   floor differs between waves on {_t}: dedup={_a:.4f} vs phase2={_b:.4f} "
-              f"({100*abs(_a-_b)/_b:.1f}%) - each arm uses its own wave's floor")
+_drift=[(t,a,b) for t in CORE_TASKS
+         for a,b in [(abl_floor(t),npt_floor(DF_CV if C1J1_SUB=="moleculenet_cv" else DF,t))]
+         if np.isfinite(a) and np.isfinite(b) and abs(a-b)>5e-3]
+if _drift:
+    print("   WARNING - the two waves' frozen floors have drifted apart, so borrowing phase2's "
+          "end-to-end floor for this wave is no longer safe:")
+    for _t,_a,_b in _drift:
+        print(f"      {_t}: ablation={_a:.4f} vs phase2={_b:.4f} ({100*abs(_a-_b)/_b:.1f}%)")
+else:
+    print(f"   frozen floors agree across both waves on all {len(CORE_TASKS)} tasks "
+          f"-> safe to lift every arm against phase2's {C1J1_FLOOR_LABEL} floor")
 
 rows=[]
 _srcs=[("unsup_only (MLM base)",BASE_RUN,"climb_v2_phase2")]+\
@@ -56,7 +73,7 @@ for disp,rd,wv in _srcs:
     for task in CORE_TASKS:
         sk=TASKS[task].get("suite_key",task)
         if (sk,"mean") in d:
-            rows.append(dict(arm=disp,task=task,lift=lift(d[(sk,"mean")],task,_wave_floor(wv,task))))
+            rows.append(dict(arm=disp,task=task,lift=lift(d[(sk,"mean")],task,c1j1_floor(task))))
 AB=pd.DataFrame(rows)
 ARM_ORDER=[a for a in ["unsup_only (MLM base)"]+[ABL_LABEL[a] for a in ABL_ARMS]+["Morgan+XGBoost"]
            if a in set(AB.arm)]
@@ -72,7 +89,7 @@ cols=["#555555" if a.startswith("unsup_only") else
 axA.barh(range(len(ARM_ORDER)),avg.values,color=cols,edgecolor="white",lw=0.4)
 axA.axvline(0,color="#333",lw=0.8)
 axA.set_yticks(range(len(ARM_ORDER))); axA.set_yticklabels(ARM_ORDER); axA.invert_yaxis()
-axA.set_xlabel("avg lift over no_pretrain (%)")
+axA.set_xlabel(f"avg lift over {C1J1_FLOOR_LABEL} (%)")
 axA.set_title("Which SFT label type helps?\n(all arms: unsup→sup from one 2M-FP MLM base)",
               pad=6); panel_tag(axA,"a",dx=-0.62)
 
@@ -119,7 +136,7 @@ if SIMP.exists():
         for t in CORE_TASKS:
             sk=TASKS[t].get("suite_key",t)
             if (sk,"mean") not in d: continue
-            l=lift(d[(sk,"mean")],t,abl_floor(t))
+            l=lift(d[(sk,"mean")],t,c1j1_floor(t))
             m=SIM[(SIM.task==t)&(SIM.family.isin(fams))].mean_max_tanimoto.mean()
             if np.isfinite(l) and np.isfinite(m): pts.append((m,100*l,t,ABL_LABEL[arm]))
 if len(pts)>=4:
@@ -136,7 +153,7 @@ if len(pts)>=4:
     r=float(np.corrcoef(X,Y)[0,1]); rho,p=_st.spearmanr(X,Y)
     axC.set_xlabel("mean max ECFP4 Tanimoto SIMILARITY between eval-task and SFT-family molecules"
                    "  —  right = MORE similar →")
-    axC.set_ylabel("lift over no_pretrain (%)")
+    axC.set_ylabel(f"lift over {C1J1_FLOOR_LABEL} (%)")
     axC.set_title(f"H10 test: lift vs chemical similarity  (n={len(pts)}, "
                   f"Pearson r={r:+.2f}, Spearman ρ={rho:+.2f}, p={p:.2f})",pad=6)
     # legend OUTSIDE the axes: inside, the swatches read as extra data points
@@ -146,22 +163,23 @@ if len(pts)>=4:
 else:
     no_data_watermark(axC,"run scripts/compute_family_task_similarity.py")
     axC.set_xlabel("family–task Tanimoto similarity  —  right = MORE similar →")
-    axC.set_ylabel("lift over no_pretrain (%)")
+    axC.set_ylabel(f"lift over {C1J1_FLOOR_LABEL} (%)")
 panel_tag(axC,"c",dx=-0.09)
 
 fig.suptitle("Fig C1J1 - supervised pretraining data: which type helps, how much, and does it "
-             "follow chemistry?",fontsize=STYLE["fs_title"],y=0.98)
-fig.text(0.5,0.035,"deduped wave: the SFT blocklist drops 34,301 eval molecules, so no arm trains on "
-         "eval-test molecules. Arms are unsup→sup from one shared 2M-FP MLM base, each lifted "
-         "against the random-init floor scored in its own wave.\n"
-         f"SCHEME: {C1J1_SCHEME}.\n"
-         "(c) omits dense (MTR) and dense+sparse: descriptor regression has no family molecule set to "
-         "measure similarity against. Families are sampled, so similarities are lower bounds.",
+             "follow chemistry?",fontsize=STYLE["fs_title"],y=1.03)
+_c1note=(f"deduped wave: the SFT blocklist drops 34,301 eval molecules, so no arm trains on "
+         f"eval-test molecules. Arms are unsup→sup from one shared 2M-FP MLM base, all lifted "
+         f"against {C1J1_FLOOR_LABEL} -- the random encoder FINE-TUNED on the task, not the frozen "
+         f"one, since clearing a frozen random encoder is close to automatic. SCHEME: {C1J1_SCHEME}. "
+         f"(c) omits dense (MTR) and dense+sparse: descriptor regression has no family molecule set "
+         f"to measure similarity against. Families are sampled, so similarities are lower bounds.")
+fig.text(0.5,0.035,"\n".join(_tw.wrap(_c1note,150)),
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
-fig.subplots_adjust(top=0.92,bottom=0.14)
+fig.subplots_adjust(top=0.87,bottom=0.14)
 save_fig(fig,"figC1J1_sft_family_transfer"); plt.show()
 
-print("C1J1 (a) mean lift over no_pretrain:")
+print(f"C1J1 (a) mean lift over {C1J1_FLOOR_LABEL}:")
 for a in ARM_ORDER: print(f"   {a:<24} {avg[a]:+6.1f}%")
 # Reconciliation, printed rather than assumed: an arm named "dense+sparse" exists in BOTH figures
 # and means two different models. Anyone reading A1 and C1J1 together will otherwise see a
