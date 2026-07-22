@@ -25,13 +25,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from config_v2 import MOLECULENET_TASKS_V2
 from eval_v2 import _load_moleculenet
 from featurize_v2 import pool
 from heads_v2 import compute_metric
 
 FINETUNE_TASKS = ["BBBP", "BACE", "ESOL"]  # single-task, NaN-free
-TASK_TYPE = {"BBBP": "classification", "BACE": "classification", "ESOL": "regression",
-             "HIV": "classification"}  # HIV = harder/larger (~41k) ceiling-test task
+# Derived from the ONE registry of task types rather than hand-listed. The hand-written
+# version covered only BBBP/BACE/ESOL/HIV, and every caller resolved it with
+# `TASK_TYPE.get(ds, "classification")` — so QM7 and Lipophilicity (both regression)
+# silently trained with BCE on unbounded targets and were reported as ROC-AUC. Any task
+# added to config_v2 now shows up here with the right type automatically.
+TASK_TYPE = dict(MOLECULENET_TASKS_V2)
 
 
 class EncoderWithHead(nn.Module):
@@ -67,6 +72,14 @@ def finetune_one(encoder_path, tokenizer_path, ds_name, task_type, *, seed=0,
     loss_fn = nn.functional.binary_cross_entropy_with_logits if is_clf else nn.functional.mse_loss
 
     tr_s, tr_y, va_s, va_y, te_s, te_y = _load_moleculenet(ds_name)
+    # This module's head is a single Linear(hidden, 1) and it flattens labels, so a
+    # multi-label set (Tox21: 12 columns, mostly NaN) would silently be flattened into
+    # nonsense. Refuse instead — finetune_e2e_v2 is the multi-output/masked-loss path.
+    if tr_y.ndim > 1 and tr_y.shape[1] > 1:
+        raise ValueError(
+            f"{ds_name} has {tr_y.shape[1]} label columns; finetune_v2 is single-task only. "
+            "Use finetune_e2e_v2 (per-column masked loss)."
+        )
     tr_y = tr_y.reshape(-1).astype(np.float32)
     va_y = va_y.reshape(-1).astype(np.float32)
     te_y = te_y.reshape(-1).astype(np.float32)
@@ -129,7 +142,11 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     rows = []
     for ds in args.datasets:
-        tt = TASK_TYPE.get(ds, "classification")
+        if ds not in TASK_TYPE:
+            # Defaulting is how a regression task ends up trained with BCE and scored as
+            # ROC-AUC without anything looking wrong. Declare it in config_v2 instead.
+            raise SystemExit(f"{ds} has no declared task type in config_v2.MOLECULENET_TASKS_V2")
+        tt = TASK_TYPE[ds]
         t0 = time.time()
         metric = finetune_one(args.encoder, args.tokenizer, ds, tt, seed=args.seed)
         mm = "roc_auc" if tt == "classification" else "rmse"

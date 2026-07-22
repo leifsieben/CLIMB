@@ -38,6 +38,10 @@ else:
     ax.text(0.995,0.02,"no_pretrain (end-to-end): E1 runs pending",transform=ax.transAxes,
             ha="right",va="bottom",fontsize=STYLE["fs_annot"]-1.5,color="#B00020")
 ax.set_xticks(x); ax.set_xticklabels([TASKS[t]["pretty"] for t in CORE_TASKS])
+# The global style turns minor ticks on, which is right for a continuous axis and wrong here: this
+# x-axis is six categories, so the minor ticks mark positions that do not exist.
+ax.xaxis.set_minor_locator(ticker.NullLocator())
+ax.tick_params(axis="x", which="minor", bottom=False)
 ax.set_ylabel("lift over no_pretrain (%)"); label_all_yticks(ax)
 if not _have_b2:
     ax.text(0.5,1.02,"CORRUPTED ARMS NOT YET AVAILABLE — corrupt_mlm_8M / corrupt_mtr_8M still training",
