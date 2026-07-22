@@ -21,8 +21,15 @@ TOK=${TOK:-experiments/_tok_cvrep}
 TASKS=${TASKS:-"ESOL QM7 BBBP BACE Tox21 HIV"}     # Lipophilicity deliberately excluded: the eval
                                                    # blocklist predates it, so it is not deduped
 RECIPES="dense sparse_all dense_plus_sparse minimol_full mixed"
-RUNS="unsup_8M_s1 unsup_8M_s2"
-for r in $RECIPES; do RUNS="$RUNS skip_${r}_8M_s1 skip_${r}_8M_s2 u2s_${r}_from8M_s1 u2s_${r}_from8M_s2"; done
+# Seed 0 is included deliberately. Its CV already exists and its fold values are comparable (the
+# only eval_v2 changes since are additive), but it was scored before the per-(seed,fold) rows
+# existed -- so within one arm seed 0 would carry a different SCHEMA from seeds 1 and 2. Re-running
+# it costs one extra pass and makes every run behind an A1 bar come from one code version.
+RUNS="unsup_8M unsup_8M_s1 unsup_8M_s2"
+for r in $RECIPES; do
+  RUNS="$RUNS skip_${r}_8M skip_${r}_8M_s1 skip_${r}_8M_s2"
+  RUNS="$RUNS u2s_${r}_from8M u2s_${r}_from8M_s1 u2s_${r}_from8M_s2"
+done
 RUNS="$RUNS ecfp4_anchor fp_desc_anchor"
 
 aws s3 sync s3://climb-s3-bucket/tokenizer_10M "$TOK" --only-show-errors
