@@ -1281,13 +1281,59 @@ for fid,name,what in FIGS:
 print(f"\nFINAL - safe to quote: {', '.join(final) if final else '(none)'}")
 prov=[f for f,_,_ in FIGS if f not in final]
 if prov: print(f"PROVISIONAL - do NOT quote effect sizes yet: {', '.join(prov)}")
-stray=sorted(p.name for p in out.glob("*") if p.stem not in {n for _,n,_ in FIGS})
-print("stray files in figures_out (not one of the eight):", stray or "none")''')
+# Figures in figures_out/ that this notebook did not produce. They are NOT junk to delete --
+# another session may own them (on 2026-07-22 a parallel session's figA1a/figA1b/figA2a/figA2b
+# landed here). Report them as foreign, and leave them alone.
+foreign=sorted(p.name for p in out.glob("*") if p.stem not in {n for _,n,_ in FIGS})
+if foreign:
+    print("\nfigures in figures_out/ NOT produced by this notebook (another session may own "
+          "these - do not delete):")
+    for f in foreign: print("   ",f)''')
 
 nb = {"cells": cells,
       "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
                    "language_info": {"name": "python", "version": "3.9"}},
       "nbformat": 4, "nbformat_minor": 5}
-Path("climb_figures.ipynb").write_text(json.dumps(nb, indent=1))
+# ---- never clobber an edited notebook -------------------------------------------------------
+# This generator overwrites climb_figures.ipynb wholesale. On 2026-07-22 an automated rebuild did
+# exactly that to a notebook someone had edited by hand (it had produced figA1a/figA1b/figA2a/
+# figA2b minutes earlier); the rendered PNGs survived, the cells did not. So: always snapshot the
+# existing notebook first, and refuse to overwrite one this generator did not itself produce
+# unless the caller explicitly says to.
+import hashlib, os, shutil, sys, time
+
+TARGET = Path("climb_figures.ipynb")
+STAMP  = Path(".notebook_generator_hash")          # hash of the last notebook WE wrote
+new_text = json.dumps(nb, indent=1)
+
+if TARGET.exists():
+    backups = Path("notebook_backups"); backups.mkdir(exist_ok=True)
+    snap = backups / f"climb_figures_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.ipynb"
+    shutil.copy2(TARGET, snap)
+
+    # Compare only the SOURCE of each cell: executing the notebook rewrites outputs and
+    # execution counts, which are not edits and must not be mistaken for them.
+    def _src(path):
+        try:
+            d = json.loads(Path(path).read_text())
+        except Exception:
+            return None
+        return hashlib.sha256(
+            json.dumps([("".join(c["source"]), c["cell_type"]) for c in d["cells"]]).encode()
+        ).hexdigest()
+
+    cur = _src(TARGET)
+    known = STAMP.read_text().strip() if STAMP.exists() else None
+    if known and cur and cur != known and "--force" not in sys.argv:
+        print(f"REFUSING to overwrite climb_figures.ipynb: its cells differ from the last version\n"
+              f"this generator wrote, so it contains hand edits that would be destroyed.\n"
+              f"  a snapshot of it is at: {snap}\n"
+              f"  re-run with --force to overwrite anyway, after folding those edits into\n"
+              f"  scripts/build_figure_notebook.py so they survive the next rebuild.")
+        raise SystemExit(2)
+
+TARGET.write_text(new_text)
+Path(".notebook_generator_hash").write_text(hashlib.sha256(
+    json.dumps([("".join(c["source"]), c["cell_type"]) for c in nb["cells"]]).encode()).hexdigest())
 print(f"wrote climb_figures.ipynb: {len(cells)} cells "
       f"({sum(1 for c in cells if c['cell_type']=='code')} code)")
