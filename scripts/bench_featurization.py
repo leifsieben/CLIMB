@@ -274,6 +274,7 @@ def hardware_info() -> Dict:
     try:
         import torch
         info["torch"] = torch.__version__
+        info["torch_default_threads"] = torch.get_num_threads()
         info["cuda_available"] = torch.cuda.is_available()
         info["mps_available"] = bool(getattr(torch.backends, "mps", None) and torch.backends.mps.is_available())
         if torch.cuda.is_available():
@@ -311,6 +312,54 @@ def print_table(results: List[Dict]) -> None:
         print("  ".join(f"{v:<{w}}" for v, (_, w) in zip(row, cols)))
 
 
+# The paper table is transposed relative to the diagnostic one above: featurizer down the side,
+# hardware across the top, three stacked numbers per cell. Generated from the SAME json so the
+# manuscript can never drift from the measurement.
+LATEX_HARDWARE = [   # (column header, matcher(result) -> bool)
+    (r"CPU\\1 core",      lambda r: r["device"] == "cpu" and ("single core" in r["notes"]
+                                                              or "1 thread" in r["notes"])),
+    (r"CPU\\all cores",   lambda r: r["device"] == "cpu" and ("processes" in r["notes"]
+                                                              or "8 threads" in r["notes"])),
+    (r"GPU\\Apple MPS",   lambda r: r["device"] == "mps" and r["precision"] == "fp16"),
+    (r"GPU\\A10G bf16",   lambda r: r["device"] == "cuda" and r["precision"] == "bf16"),
+    (r"GPU\\A10G fp32",   lambda r: r["device"] == "cuda" and r["precision"] == "fp32"),
+]
+LATEX_ROWS = [("ecfp4", "ECFP4 (2048 bit)"), ("fp_desc", r"ECFP4 + 217 desc."),
+              ("encoder", "CLIMB encoder (41.4\\,M)")]
+LATEX_METRICS = [("ms_per_mol", "latency", lambda v: f"{v:,.3f} ms"),
+                 ("mol_per_s",  "throughput", lambda v: f"{v:,.0f} mol/s"),
+                 ("hours_1B",   "1B molecules", lambda v: f"{v:,.1f} h")]
+
+
+def latex_table(results: List[Dict]) -> str:
+    """Paper-ready table: rows = featurizer x metric, columns = hardware."""
+    rows = [r for r in results if r.get("padding", "longest") == "longest"]
+
+    def find(method, matches):
+        hits = [r for r in rows if r["method"] == method and matches(r)]
+        return hits[0] if hits else None
+
+    out = [r"\begin{table}[t]", r"\centering",
+           r"\caption{Featurization cost for 1000 molecules (mean of 5 timed repeats after one "
+           r"warm-up; batch 256, dynamic padding). RDKit fingerprints and descriptors have no GPU "
+           r"implementation. The 1B-molecule column is a linear extrapolation.}",
+           r"\label{tab:featurization_cost}",
+           r"\begin{tabular}{ll" + "r" * len(LATEX_HARDWARE) + "}", r"\toprule",
+           " & & " + " & ".join(f"\\makecell{{{h}}}" for h, _ in LATEX_HARDWARE) + r" \\",
+           r"\midrule"]
+    for mi, (method, pretty) in enumerate(LATEX_ROWS):
+        for j, (key, mlabel_, fmt) in enumerate(LATEX_METRICS):
+            lead = f"\\multirow{{{len(LATEX_METRICS)}}}{{*}}{{{pretty}}}" if j == 0 else ""
+            cells = []
+            for _, matches in LATEX_HARDWARE:
+                r = find(method, matches)
+                cells.append("\\textit{n/a}" if r is None else fmt(r[key]))
+            out.append(f"{lead} & {mlabel_} & " + " & ".join(cells) + r" \\")
+        out.append(r"\midrule" if mi < len(LATEX_ROWS) - 1 else r"\bottomrule")
+    out += [r"\end{tabular}", r"\end{table}"]
+    return "\n".join(out)
+
+
 # ---------- main ----------
 
 def main():
@@ -326,6 +375,10 @@ def main():
                    help="comma-separated torch devices for the encoder: cpu,mps,cuda")
     p.add_argument("--gpu_precisions", default="bf16,fp16,fp32",
                    help="precisions to try on cuda/mps (cpu is always fp32)")
+    p.add_argument("--cpu_threads", default="0,1",
+                   help="torch intra-op thread counts to benchmark on device=cpu "
+                        "(0 = torch default = all cores; 1 = single core, comparable to "
+                        "the single-core RDKit rows)")
     p.add_argument("--batch_size", type=int, default=256)
     p.add_argument("--max_length", type=int, default=256)
     p.add_argument("--paddings", default="longest,max_length",
@@ -344,10 +397,18 @@ def main():
                    help="merge results from another run's JSON into --out")
     p.add_argument("--merge_only", action="store_true",
                    help="only merge --merge_from into --out; run no benchmarks")
+    p.add_argument("--latex", action="store_true",
+                   help="print the paper table (LaTeX) from an existing --out json and exit")
     args = p.parse_args()
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.latex:
+        if not out_path.exists():
+            p.error(f"--latex needs an existing results json at {out_path}")
+        print(latex_table(json.loads(out_path.read_text())["results"]))
+        return
 
     if args.merge_only:
         if not args.merge_from:
@@ -358,8 +419,12 @@ def main():
         for r in incoming.get("results", []):
             merged[result_key(r)] = r
         base["results"] = list(merged.values())
-        base.setdefault("hardware", {})
-        base["hardware"][incoming.get("hardware_label", "merged")] = incoming.get("hardware", {})
+        # hardware is label-keyed once more than one machine contributes
+        hw = base.get("hardware", {})
+        if "platform" in hw:  # single-machine payload -> promote to label-keyed
+            hw = {base.get("hardware_label", "local"): hw}
+        hw[incoming.get("hardware_label", "merged")] = incoming.get("hardware", {})
+        base["hardware"] = hw
         out_path.write_text(json.dumps(base, indent=2))
         print(f"merged {len(incoming.get('results', []))} results into {out_path}")
         print_table(base["results"])
@@ -407,39 +472,52 @@ def main():
                 continue
             precisions = ["fp32"] if dev == "cpu" else [
                 x.strip() for x in args.gpu_precisions.split(",") if x.strip()]
+            # torch uses every core on CPU by default; the 1-thread setting is the row that
+            # is directly comparable to single-core RDKit.
+            thread_opts = ([int(t) for t in args.cpu_threads.split(",") if t.strip()]
+                           if dev == "cpu" else [0])
+            default_threads = torch.get_num_threads()
             for prec in precisions:
-                try:
-                    model, tokenizer, device = load_encoder(
-                        args.encoder_path, args.tokenizer_path, dev, prec)
-                except Exception as exc:
-                    print(f"[bench] encoder {dev}/{prec} failed to load: {exc}")
-                    continue
-                if tok_info is None:
-                    tok_info = token_stats(tokenizer, smiles, args.max_length)
-                    n_params = sum(q.numel() for q in model.parameters())
-                    print(f"[bench] encoder params {n_params/1e6:.1f}M; tokens/mol mean "
-                          f"{tok_info['mean']:.1f} (p95 {tok_info['p95']:.0f}, max {tok_info['max']:.0f})")
-                for padding in [x.strip() for x in args.paddings.split(",") if x.strip()]:
-                    print(f"[bench] encoder {dev}/{prec} bs={args.batch_size} pad={padding} ...")
+                for n_threads in thread_opts:
+                    torch.set_num_threads(n_threads or default_threads)
                     try:
-                        got = bench_encoder(model, tokenizer, device, smiles, args.batch_size,
-                                            args.max_length, padding, args.repeats)
+                        model, tokenizer, device = load_encoder(
+                            args.encoder_path, args.tokenizer_path, dev, prec)
                     except Exception as exc:
-                        print(f"[bench]   failed: {exc}")
+                        print(f"[bench] encoder {dev}/{prec} failed to load: {exc}")
                         continue
-                    pad_note = "dynamic pad" if padding == "longest" else f"pad to {args.max_length}"
-                    tok_mean = got["tokenize_s_mean"]
-                    results.append(summarize(
-                        "encoder", dev, prec, f"bs{args.batch_size}, {pad_note}",
-                        got["times"], len(smiles),
-                        extra={"tokenize_s_mean": round(tok_mean, 6),
-                               "tokenize_ms_per_mol": round(tok_mean / len(smiles) * 1e3, 6),
-                               "tokenize_frac": round(tok_mean / statistics.mean(got["times"]), 4),
-                               "batch_size": args.batch_size, "padding": padding,
-                               "max_length": args.max_length}))
-                del model
-                if dev == "cuda":
-                    torch.cuda.empty_cache()
+                    if tok_info is None:
+                        tok_info = token_stats(tokenizer, smiles, args.max_length)
+                        n_params = sum(q.numel() for q in model.parameters())
+                        print(f"[bench] encoder params {n_params/1e6:.1f}M; tokens/mol mean "
+                              f"{tok_info['mean']:.1f} (p95 {tok_info['p95']:.0f}, "
+                              f"max {tok_info['max']:.0f})")
+                    thr_note = (f"{torch.get_num_threads()} thread"
+                                f"{'s' if torch.get_num_threads() > 1 else ''}, " if dev == "cpu" else "")
+                    for padding in [x.strip() for x in args.paddings.split(",") if x.strip()]:
+                        print(f"[bench] encoder {dev}/{prec} bs={args.batch_size} "
+                              f"pad={padding} threads={torch.get_num_threads() if dev == 'cpu' else '-'} ...")
+                        try:
+                            got = bench_encoder(model, tokenizer, device, smiles, args.batch_size,
+                                                args.max_length, padding, args.repeats)
+                        except Exception as exc:
+                            print(f"[bench]   failed: {exc}")
+                            continue
+                        pad_note = "dynamic pad" if padding == "longest" else f"pad to {args.max_length}"
+                        tok_mean = got["tokenize_s_mean"]
+                        results.append(summarize(
+                            "encoder", dev, prec, f"{thr_note}bs{args.batch_size}, {pad_note}",
+                            got["times"], len(smiles),
+                            extra={"tokenize_s_mean": round(tok_mean, 6),
+                                   "tokenize_ms_per_mol": round(tok_mean / len(smiles) * 1e3, 6),
+                                   "tokenize_frac": round(tok_mean / statistics.mean(got["times"]), 4),
+                                   "batch_size": args.batch_size, "padding": padding,
+                                   "max_length": args.max_length,
+                                   "torch_threads": torch.get_num_threads() if dev == "cpu" else None}))
+                    del model
+                    if dev == "cuda":
+                        torch.cuda.empty_cache()
+            torch.set_num_threads(default_threads)
 
     payload = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
