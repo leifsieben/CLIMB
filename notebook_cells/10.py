@@ -190,41 +190,48 @@ print(f"alpha={ALPHA}. 'Best' = leader OR not separable from the leader, so co-b
       f"are ~15 epochs over ~0.5M molecules, not 8M unique ones.")
 print("-" * 112)
 
-# LaTeX for BOTH tables. A1.b is the one the paper's claims rest on, but A1.a is what the
-# hold-out figure shows, and a reader who checks one against the other should find both here
-# rather than have to re-derive the missing one.
-def _tex(df):
-    t=df.copy()
-    for c in t.columns:                       # escape by hand so the arrow survives
-        t[c]=t[c].astype(str).str.replace("_",r"\_",regex=False) \
-                             .str.replace("%",r"\%",regex=False) \
-                             .str.replace("→",r"$\to$",regex=False)
-    t.columns=[c.replace("_",r"\_").replace("%",r"\%") for c in t.columns]
-    return t
+# LaTeX for BOTH tables, in the paper's house style: booktabs rules, \makecell two-line headers,
+# tight \tabcolsep, [t] float. Emitted from here rather than hand-formatted so the numbers can
+# never drift from the notebook -- re-running after new data lands regenerates paste-ready LaTeX.
+# REQUIRES: \usepackage{booktabs, makecell}
+_TEX_ESC=[("\\","\\textbackslash{}"),("_",r"\_"),("%",r"\%"),("→",r"$\to$")]
+def _esc(v):
+    v=str(v)
+    for a,b in _TEX_ESC[1:]: v=v.replace(a,b)   # no literal backslashes in our cells
+    return v
+# Explicit two-line header splits: guessing where to break reads badly ("CLIMB-\nonly").
+_HDR={"unsup mols":("unsup","mols"), "sup mols (desc)":("sup mols","(desc)"),
+      "sup mols (assay)":("sup mols","(assay)"), "best x/n":("best","x/n"),
+      "CLIMB-only x/n":("CLIMB-only","x/n"),
+      "beats no_pretrain (frozen)":("beats no_pretrain","(frozen)"),
+      "beats no_pretrain (e2e)":("beats no_pretrain","(e2e)")}
+
+def latex_table(df, caption, label):
+    cols=list(df.columns); body=[[_esc(v) for v in r] for r in df.itertuples(index=False)]
+    w=[max(len(x) for x in [cols[j]]+[r[j] for r in body]) for j in range(len(cols))]
+    head=["model"]+[f" & \\makecell[r]{{{_esc(_HDR[c][0])}\\\\{_esc(_HDR[c][1])}}}" for c in cols[1:]]
+    rows=[" & ".join([body_r[0].ljust(w[0])]+[body_r[j].ljust(w[j]) for j in range(1,len(cols))])
+          + r" \\" for body_r in body]
+    return "\n".join([r"\begin{table}[t]", r"\centering", r"\footnotesize",
+                      r"\setlength{\tabcolsep}{4pt}", f"\\caption{{{caption}}}", f"\\label{{{label}}}",
+                      r"\begin{tabular}{@{}l" + " r"*(len(cols)-1) + r"@{}}", r"\toprule",
+                      "\n".join(head)+r" \\", r"\midrule", *rows,
+                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
 
 for _sub,_tag,_cap in [
         ("moleculenet",   "A1.a","single DeepChem scaffold hold-out"),
         ("moleculenet_cv","A1.b","pooled 5-fold scaffold cross-validation")]:
     _d,_,_,_st=a1_summary(_sub)
-    # A re-scoring pass rewrites moleculenet_cv wholesale, so a run caught mid-write drops every
-    # task at once and can collapse the complete-coverage set to one or two tasks. The counts stay
-    # arithmetically correct but become meaningless (everything reads 0/1 or 1/1), which is exactly
-    # the kind of table that gets pasted into a paper. Refuse to emit it silently.
-    if len(_st) < len(CORE_TASKS) - 1:
-        print(f"\n{'!'*100}\nTable {_tag}: NOT PAPER-READY -- only {len(_st)}/{len(CORE_TASKS)} "
-              f"tasks have complete arm coverage ({', '.join(_st) or 'none'}).\nArms still missing "
-              f"data: "
-              + ", ".join(sorted({ARMS[a]['label'] for t in CORE_TASKS for a in ARMS
-                                  if any(_scored(x, t, _sub) for x in ARMS)
-                                  and not _scored(a, t, _sub)
-                                  and any(_scored(a, u, _sub) for u in CORE_TASKS)}))
-              + f"\nThis is usually a re-scoring pass in flight. Re-run when it finishes.\n"
-              + "!"*100)
-    print(f"\n{'='*100}\nLaTeX -- Table {_tag}\n{'='*100}\n")
-    print(_tex(_d).to_latex(index=False,escape=False,column_format="l"+"r"*(len(_d.columns)-1),
-          caption=f"Fig.~{_tag} summary at the 8M forward-pass matched budget "
-                  f"({_cap}). ``Best\'\' = leader on a task or not statistically separable from it "
-                  f"(paired Wilcoxon on squared error for RMSE, DeLong paired-AUC for "
-                  f"classification/HIV, $\\alpha=0.05$); counted over the "
-                  f"{len(_st)} task(s) with complete arm coverage.",
-          label=f"tab:{_tag.replace('.','').lower()}_summary"))
+    if len(_st) < len(CORE_TASKS)-1:
+        print(f"\n{'!'*100}\nTable {_tag}: NOT PAPER-READY -- only {len(_st)}/{len(CORE_TASKS)} tasks "
+              f"have complete arm coverage ({', '.join(_st) or 'none'}). Usually a re-scoring pass "
+              f"in flight; re-run when it finishes.\n"+"!"*100)
+    print(f"\n{'='*100}\nLaTeX -- Table {_tag}   (needs \\usepackage{{booktabs, makecell}})\n{'='*100}\n")
+    print(latex_table(_d,
+          f"Fig.~{_tag} summary at the 8M forward-pass matched budget ({_cap}). "
+          f"``Best'' = leader on a task or not statistically separable from it (paired Wilcoxon on "
+          f"squared error for RMSE, DeLong paired-AUC for classification/HIV, $\\alpha=0.05$); "
+          f"counted over the {len(_st)} task(s) with complete arm coverage. "
+          f"``beats no\\_pretrain'' is reported against both baselines: the frozen random encoder "
+          f"and the same encoder fine-tuned end-to-end.",
+          f"tab:{_tag.replace('.','').lower()}_summary"))
