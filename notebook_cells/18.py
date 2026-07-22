@@ -35,15 +35,19 @@ for i,(key,lab,c) in enumerate(B2_SERIES):
     ys=[100*lift(arm_value(B2_DF,t,key),t,b2_floor(t)) for t in CORE_TASKS]
     ax.bar(x+(i-1.5)*w,ys,width=w,color=c,edgecolor="white",lw=0.4,label=lab)
     # Value on every bar. Four bars per task at this width are hard to read off the axis, and the
-    # interesting comparisons here are between adjacent bars (real vs corrupted), where a couple of
-    # points either way changes the conclusion. Rotated 45 deg so 24 labels fit without collisions;
-    # anchored at the bar END and flipped for negatives so a label never sits across its own bar.
+    # interesting comparisons are between ADJACENT bars (real vs corrupted), where a couple of
+    # points either way changes the conclusion.
+    # Vertical (90 deg), centred on the bar, rather than 45 deg: at 45 deg the text extends up and
+    # to the RIGHT, so a tall label ran across its neighbour -- ESOL's +27% bled onto the +35% bar
+    # next to it. Vertical text has zero horizontal extent, so no label can ever reach a
+    # neighbouring bar whatever the numbers turn out to be. Fixing the geometry rather than nudging
+    # the one label that collided today, since the collision moves when the data does.
     for _xi,_v in zip(x+(i-1.5)*w,ys):
         if not np.isfinite(_v): continue
         _lbl=f"{0.0 if abs(_v)<0.5 else _v:+.0f}%"          # avoid a stray "-0%"
-        ax.text(_xi,_v+(0.7 if _v>=0 else -0.7),_lbl,rotation=45,
-                ha="left" if _v>=0 else "right", va="bottom" if _v>=0 else "top",
-                fontsize=STYLE["fs_annot"]-1.5,color="#333333",clip_on=False)
+        ax.text(_xi,_v+(0.7 if _v>=0 else -0.7),_lbl,rotation=90,ha="center",
+                va="bottom" if _v>=0 else "top",
+                fontsize=STYLE["fs_annot"]-1.5,color="black",clip_on=False)
 ax.axhline(0,color=PALETTE["black"],lw=0.8)
 # "Skip pretraining and just fine-tune" is the reference that makes the corrupted/real contrast
 # actionable: a corrupted arm that clears no_pretrain but not this one has bought nothing real.
@@ -55,7 +59,7 @@ ax.tick_params(axis="x", which="minor", bottom=False)
 ax.set_ylabel(f"lift over {B2_FLOOR_LABEL} (%)"); label_all_yticks(ax)
 # Headroom for the rotated labels at both extremes, or the tallest/deepest ones are clipped.
 _lo,_hi=ax.get_ylim(); _sp=_hi-_lo
-ax.set_ylim(_lo-0.10*_sp,_hi+0.14*_sp)
+ax.set_ylim(_lo-0.16*_sp,_hi+0.20*_sp)   # vertical labels are taller than rotated ones
 if not _have_b2:
     ax.text(0.5,1.02,"CORRUPTED ARMS NOT YET AVAILABLE — corrupt_mlm_8M / corrupt_mtr_8M still training",
             transform=ax.transAxes,ha="center",va="bottom",fontsize=STYLE["fs_annot"],
