@@ -71,6 +71,14 @@ done
 wait "$WPID"; RC=$?
 say "worker exited rc=$RC"
 
+# Optional second stage, run BEFORE the upload-and-stop so its output is saved and the box is not
+# stopped out from under it (e.g. the 5-fold CV evaluation, which the wave worker does not do).
+if [ -n "${POST_HOOK:-}" ]; then
+    say "POST_HOOK: $POST_HOOK"
+    bash -c "$POST_HOOK" >> "$LOG" 2>&1
+    say "POST_HOOK exited rc=$?"
+fi
+
 save_everything
 
 # Report what actually completed, from the completion markers rather than from the exit code:

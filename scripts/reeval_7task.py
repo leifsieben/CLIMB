@@ -74,8 +74,18 @@ def run_eval(run: Path, scheme: str) -> bool:
     if not is_anchor and not (enc / "model.safetensors").exists():
         log(f"  {run.name}: no encoder — skip")
         return False
-    for d in glob.glob(os.path.join(tempfile.gettempdir(), "*-featurized")):
-        shutil.rmtree(d, ignore_errors=True)   # DeepChem cache collides across evals
+    # DeepChem's featurized cache collides across evals, so this used to wipe every *-featurized
+    # dir in tmp. That is only safe when this script is the ONLY eval on the machine: a parallel
+    # session running eval_v2 has its cache deleted mid-run. Skip the wipe when another eval_v2 is
+    # alive -- a stale cache is a slow eval, deleting someone else's is a corrupted one.
+    others = subprocess.run(["pgrep", "-f", "eval_v2.py"], capture_output=True, text=True)
+    alive = [p for p in others.stdout.split() if p.strip() and int(p) != os.getpid()]
+    if alive:
+        log(f"  another eval_v2 is running (pid {' '.join(alive)}) - NOT clearing the shared "
+            f"DeepChem cache")
+    else:
+        for d in glob.glob(os.path.join(tempfile.gettempdir(), "*-featurized")):
+            shutil.rmtree(d, ignore_errors=True)
 
     cmd = [PY, "eval_v2.py", "--output_dir", str(run / sub),
            "--head_seeds", "0", "1", "2", "--datasets", *CORE]
