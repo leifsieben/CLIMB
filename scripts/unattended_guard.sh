@@ -51,10 +51,17 @@ on_signal() {
 }
 trap on_signal INT TERM
 
-say "starting worker: manifest=$MANIFEST tag=$TAG deadline=${MAX_HOURS}h"
-setsid bash scripts/phase2_worker.sh "$MANIFEST" "$TAG" > "$LOG" 2>&1 < /dev/null &
-WPID=$!
-say "worker pid=$WPID"
+# ATTACH_PID lets the guard adopt a worker that is ALREADY running, so a guard can be replaced
+# (to add a POST_HOOK, say) without killing training and discarding partial runs.
+if [ -n "${ATTACH_PID:-}" ] && kill -0 "$ATTACH_PID" 2>/dev/null; then
+    WPID=$ATTACH_PID
+    say "attaching to running worker pid=$WPID (deadline=${MAX_HOURS}h from now)"
+else
+    say "starting worker: manifest=$MANIFEST tag=$TAG deadline=${MAX_HOURS}h"
+    setsid bash scripts/phase2_worker.sh "$MANIFEST" "$TAG" > "$LOG" 2>&1 < /dev/null &
+    WPID=$!
+    say "worker pid=$WPID"
+fi
 
 DEADLINE=$(( $(date +%s) + MAX_HOURS*3600 ))
 while kill -0 "$WPID" 2>/dev/null; do
@@ -68,7 +75,13 @@ while kill -0 "$WPID" 2>/dev/null; do
     fi
     sleep 120
 done
-wait "$WPID"; RC=$?
+if [ -n "${ATTACH_PID:-}" ]; then
+    RC=0            # an adopted worker is not our child, so its exit status is unavailable;
+                    # completion is judged from verified.json markers below, which is the
+                    # authoritative signal anyway.
+else
+    wait "$WPID"; RC=$?
+fi
 say "worker exited rc=$RC"
 
 # Optional second stage, run BEFORE the upload-and-stop so its output is saved and the box is not
