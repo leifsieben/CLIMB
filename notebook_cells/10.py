@@ -178,13 +178,27 @@ print(f"alpha={ALPHA}. 'Best' = leader OR not separable from the leader, so co-b
       f"are ~15 epochs over ~0.5M molecules, not 8M unique ones.")
 print("-" * 112)
 
-print("\nLaTeX (Table A1.b):\n")
-_tex = a1_summary("moleculenet_cv")[0].copy()
-for _c in _tex.columns:                       # escape by hand so the arrow survives
-    _tex[_c] = _tex[_c].astype(str).str.replace("_", r"\_", regex=False) \
-                                   .str.replace("%", r"\%", regex=False) \
-                                   .str.replace("→", r"$\to$", regex=False)
-_tex.columns = [c.replace("_", r"\_").replace("%", r"\%") for c in _tex.columns]
-print(_tex.to_latex(index=False, escape=False, column_format="l" + "r" * 9,
-                    caption="Fig.~A1.b summary at the 8M forward-pass matched budget "
-                            "(pooled 5-fold scaffold CV).", label="tab:a1b_summary"))
+# LaTeX for BOTH tables. A1.b is the one the paper's claims rest on, but A1.a is what the
+# hold-out figure shows, and a reader who checks one against the other should find both here
+# rather than have to re-derive the missing one.
+def _tex(df):
+    t=df.copy()
+    for c in t.columns:                       # escape by hand so the arrow survives
+        t[c]=t[c].astype(str).str.replace("_",r"\_",regex=False) \
+                             .str.replace("%",r"\%",regex=False) \
+                             .str.replace("→",r"$\to$",regex=False)
+    t.columns=[c.replace("_",r"\_").replace("%",r"\%") for c in t.columns]
+    return t
+
+for _sub,_tag,_cap in [
+        ("moleculenet",   "A1.a","single DeepChem scaffold hold-out"),
+        ("moleculenet_cv","A1.b","pooled 5-fold scaffold cross-validation")]:
+    _d,_,_,_st=a1_summary(_sub)
+    print(f"\n{'='*100}\nLaTeX -- Table {_tag}\n{'='*100}\n")
+    print(_tex(_d).to_latex(index=False,escape=False,column_format="l"+"r"*9,
+          caption=f"Fig.~{_tag} summary at the 8M forward-pass matched budget "
+                  f"({_cap}). ``Best\'\' = leader on a task or not statistically separable from it "
+                  f"(paired Wilcoxon on squared error for RMSE, DeLong paired-AUC for "
+                  f"classification/HIV, $\\alpha=0.05$); counted over the "
+                  f"{len(_st)} task(s) with complete arm coverage.",
+          label=f"tab:{_tag.replace('.','').lower()}_summary"))
