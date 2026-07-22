@@ -115,7 +115,15 @@ def a1_summary(sub):
     # a free win where its competitors were simply not evaluated, and x/n stops meaning the same
     # thing from row to row.
     scored_tasks = [t for t in CORE_TASKS if all(_scored(a, t, sub) for a in active)]
-    win = {a: 0 for a in active}; cwin = {a: 0 for a in climb}; bnp = {a: 0 for a in active}
+    # Two baselines, deliberately both reported. "beats no_pretrain (frozen)" is the easy bar --
+    # a frozen random encoder cannot adapt at all -- and "beats no_pretrain (end-to-end)" is the
+    # one a practitioner actually faces, matching B2/C1J1/I1. Showing them side by side is the
+    # point: the gap between the two columns IS how much of an arm's apparent value came from
+    # being compared against a baseline that could not learn.
+    BEATS = {"beats no_pretrain (frozen)": "no_pretrain",
+             "beats no_pretrain (e2e)":    "no_pretrain_e2e"}
+    win = {a: 0 for a in active}; cwin = {a: 0 for a in climb}
+    bnp = {lab: {a: 0 for a in active} for lab in BEATS}
     per_task, missing = [], []
     for t in CORE_TASKS:
         wa, la = _cobest(t, active, sub)
@@ -129,26 +137,30 @@ def a1_summary(sub):
         for a in active:
             win[a] += int(a in wa)
             if a in cwin: cwin[a] += int(a in wc)
-            if a == "no_pretrain": continue
-            p = _tbl_p(a, "no_pretrain", t, sub)
-            if not np.isfinite(p): continue
-            hb = TASKS[t]["higher_better"]
-            better = (_tbl_point(a, t, sub) > _tbl_point("no_pretrain", t, sub)) if hb else \
-                     (_tbl_point(a, t, sub) < _tbl_point("no_pretrain", t, sub))
-            bnp[a] += int(better and p < ALPHA)
+            for _lab, _base in BEATS.items():
+                if a == _base or _base not in active: continue
+                p = _tbl_p(a, _base, t, sub)
+                if not np.isfinite(p): continue
+                hb = TASKS[t]["higher_better"]
+                better = (_tbl_point(a, t, sub) > _tbl_point(_base, t, sub)) if hb else \
+                         (_tbl_point(a, t, sub) < _tbl_point(_base, t, sub))
+                bnp[_lab][a] += int(better and p < ALPHA)
     N = len(scored_tasks)
+    # Counts only, no percentages: x/n already carries the rate, and a second column restating it
+    # as a percent doubled the table's width without adding information.
     def cell(x, a, pool):
-        if a not in pool: return "n.d.", "n.d."
-        return f"{x[a]}/{N}", (f"{100*x[a]/N:.0f}%" if N else "n.d.")
+        return f"{x[a]}/{N}" if a in pool else "n.d."
     rows = []
     for a, v in ARMS.items():
-        w, wp = cell(win, a, active)
-        c, cp = cell(cwin, a, climb) if a in climb else (("n/a", "n/a") if a in active else ("n.d.", "n.d."))
-        b, bp = ("--", "--") if a == "no_pretrain" else cell(bnp, a, active)
-        rows.append({"model": v["label"], "unsup mols": _fmt_mol(v["unsup"]),
-                     "sup mols (desc)": _fmt_mol(v["dense"]), "sup mols (assay)": _fmt_mol(v["assay"]),
-                     "best x/n": w, "best %": wp, "CLIMB-only x/n": c, "CLIMB-only %": cp,
-                     "beats no_pretrain": b, "beats no_pretrain %": bp})
+        row = {"model": v["label"], "unsup mols": _fmt_mol(v["unsup"]),
+               "sup mols (desc)": _fmt_mol(v["dense"]), "sup mols (assay)": _fmt_mol(v["assay"]),
+               "best x/n": cell(win, a, active),
+               "CLIMB-only x/n": (cell(cwin, a, climb) if a in climb else
+                                  ("n/a" if a in active else "n.d."))}
+        for _lab, _base in BEATS.items():
+            row[_lab] = ("--" if a == _base else
+                         (cell(bnp[_lab], a, active) if _base in active else "n.d."))
+        rows.append(row)
     return pd.DataFrame(rows), pd.DataFrame(per_task), missing, scored_tasks
 
 for _sub, _tag, _title in [
@@ -209,7 +221,7 @@ for _sub,_tag,_cap in [
               + f"\nThis is usually a re-scoring pass in flight. Re-run when it finishes.\n"
               + "!"*100)
     print(f"\n{'='*100}\nLaTeX -- Table {_tag}\n{'='*100}\n")
-    print(_tex(_d).to_latex(index=False,escape=False,column_format="l"+"r"*9,
+    print(_tex(_d).to_latex(index=False,escape=False,column_format="l"+"r"*(len(_d.columns)-1),
           caption=f"Fig.~{_tag} summary at the 8M forward-pass matched budget "
                   f"({_cap}). ``Best\'\' = leader on a task or not statistically separable from it "
                   f"(paired Wilcoxon on squared error for RMSE, DeLong paired-AUC for "
