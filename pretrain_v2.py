@@ -515,6 +515,60 @@ def train(args) -> int:
                 model.save_encoder(str(encoder_save_path))
                 heartbeat("checkpoint")
 
+        # ---- top-up: the budget is FORWARD PASSES, not steps ----
+        # total_steps = total_fps // batch_size assumes every batch is exactly batch_size. It is
+        # not: a small `unsupervised_subset_fraction` exhausts its subset many times and each
+        # restart yields a short tail batch, so the run finishes all its steps having seen fewer
+        # forward passes than its budget. The H1 frac0p001 rung landed at 92% (canonical) and 97%
+        # (enumerated) of 2M FP -- an 8% compute shortfall that differed BETWEEN the two arms being
+        # compared, i.e. a confound in the very contrast the experiment measures.
+        #
+        # So: keep drawing batches until the budget is actually met. Runs that already reach it
+        # (every full-fraction run, and every wave before this) enter this loop zero times and are
+        # bit-identical to before. Top-up steps run at the scheduler's final LR -- the cosine
+        # schedule has completed -- which is recorded in metadata rather than hidden.
+        topup_steps = 0
+        if forward_passes_seen < total_fps:
+            cap = max(1, total_steps // 2)          # refuse to run away if batches are tiny
+            extra_iter = MultiObjectiveBatchIterator(
+                {"mlm": mlm_loader, "mtr": mtr_loader, "supervised": sup_loader},
+                objectives, total_batches=cap, seed=pretraining_seed + 10_000,
+            )
+            print(f"[topup] {forward_passes_seen}/{total_fps} FP after {total_steps} steps "
+                  f"({100*forward_passes_seen/total_fps:.1f}%) - continuing at final LR", flush=True)
+            for mode, batch in extra_iter:
+                if forward_passes_seen >= total_fps:
+                    break
+                batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
+                with torch.autocast(**autocast_kwargs) if use_amp else _NoCtx():
+                    if mode == "mlm":
+                        loss = model.forward_mlm(batch["input_ids"], batch["attention_mask"], batch["labels"])
+                    elif mode == "mtr":
+                        loss = model.forward_mtr(batch["input_ids"], batch["attention_mask"], batch["targets"])
+                    else:
+                        loss, _ = model.forward_supervised(
+                            batch["input_ids"], batch["attention_mask"], batch["targets"], batch["family"])
+                    if isinstance(loss, tuple):
+                        loss = loss[0]
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
+                optimizer.step()
+                forward_passes_seen += batch["input_ids"].shape[0]
+                topup_steps += 1
+            metrics_file.write(json.dumps({
+                "step": total_steps + topup_steps, "topup_steps": topup_steps,
+                "forward_passes_seen": forward_passes_seen,
+                "total_forward_passes_target": total_fps}) + "\n")
+            metrics_file.flush(); os.fsync(metrics_file.fileno())
+            print(f"[topup] +{topup_steps} steps -> {forward_passes_seen}/{total_fps} FP "
+                  f"({100*forward_passes_seen/total_fps:.1f}%)", flush=True)
+        # metadata.json is written before training starts, so persist the top-up count now --
+        # otherwise the field is set on a dict nobody ever serialises again.
+        metadata["topup_steps"] = topup_steps
+        metadata["final_forward_passes_seen"] = forward_passes_seen
+        metadata_path.write_text(json.dumps(metadata, indent=2))
+
         heartbeat("saving")
         model.save_encoder(str(encoder_save_path))
         # also copy the tokenizer next to the encoder so eval can load it self-contained
