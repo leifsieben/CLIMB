@@ -18,8 +18,13 @@ A2_KEYS = ["unsup_only", "unsup2sup:dense",
 # drawn here too, which put FOUR grey/near-grey horizontal lines behind five coloured ladders --
 # the panel became unreadable and the references stopped functioning as references. The
 # no_pretrain arms are still in A1.a/A1.b, where they are bars and can be read properly.
-A2_ANCHORS = [("ecfp4",   "#333333", (0, (6, 2)), "Morgan+XGBoost (ECFP4)"),
-              ("fp_desc", "#B3B3B3", (0, (2, 2)), "Morgan+desc+XGBoost")]
+A2_ANCHORS = [("ecfp4",   "#2B2B2B", (0, (6, 2)), "Morgan+XGBoost (ECFP4)"),
+              ("fp_desc", "#8F8F8F", (0, (2, 2)), "Morgan+desc+XGBoost")]
+# The anchor bands ARE the anchors' confidence intervals, so they have to be findable. At the
+# original lightness the fp_desc band was nearly invisible against the gridlines and the reader
+# could not tell where that anchor's uncertainty ended. Darker greys + a higher fill alpha; still
+# two clearly distinct shades so the two anchors remain separable where they overlap.
+A2_BAND_ALPHA = 0.26
 
 def ladder_cv(task, key):
     """CV mean + across-fold sd per budget, seed-0 runs only. Empty frame if nothing is scored."""
@@ -48,6 +53,10 @@ N_RUNGS = len(BUDG)
 # margin) also keeps the vertical scale comparable between panels, which matters when the reader
 # is judging "is this gap big?" across six tasks at once.
 A2_YPAD = 0.05
+# ESOL and BBBP still read as cramped at the shared pad -- ESOL because its ladders span a wide
+# RMSE range, BBBP because everything is squeezed into the top of the AUC scale. Extra headroom
+# for those two only, rather than loosening every panel and losing the shared vertical scale.
+A2_YPAD_EXTRA = {"ESOL": 0.05, "BBBP": 0.05}
 
 def draw_A2(xcol, tag, xlabel, extra_note, fname):
     ncol = 2; nrow = int(np.ceil(len(CORE_TASKS) / ncol))
@@ -68,7 +77,7 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             if not np.isfinite(v):
                 gaps.append(f"{_lab}: no CV data"); continue
             ax.axhline(v, color=col, ls=dsh, lw=1.1, zorder=2)
-            if np.isfinite(e): ax.axhspan(v - e, v + e, color=col, alpha=0.16, lw=0, zorder=0)
+            if np.isfinite(e): ax.axhspan(v - e, v + e, color=col, alpha=A2_BAND_ALPHA, lw=0, zorder=0)
         if xcol == "budget_fp":
             set_fp_axis(ax, BUDG); ax.set_xlim(1.6e6, 6.0e7)
         else:
@@ -81,8 +90,9 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             ax.axvline(UNSUP_CORPUS, color="#999", ls=(0, (1, 2)), lw=0.7, zorder=1)
         ax.set_title(ttitle(task, oneline=True), pad=6); ax.set_xlabel(xlabel)
         ax.set_ylabel(re.sub(r"\s*[↑↓]\s*$", "", mlabel(task)))   # arrow lives in the title
+        _pad = A2_YPAD + A2_YPAD_EXTRA.get(task, 0.0)
         _lo, _hi = ax.get_ylim()
-        ax.set_ylim(_lo - A2_YPAD, _hi + A2_YPAD)
+        ax.set_ylim(_lo - _pad, _hi + _pad)
         label_all_yticks(ax)
         # A line that simply stops short is indistinguishable from a line that plateaued. Name the gaps.
         if gaps:
