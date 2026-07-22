@@ -11,11 +11,9 @@
 # different from every other point on the same line.
 A2_KEYS = ["unsup_only", "unsup2sup:dense",
            "sup_only:dense", "sup_only:sparse_all", "sup_only:dense_plus_sparse"]
-# The classical anchors and the end-to-end baseline are compute-independent, so they are
-# horizontal references on BOTH axes, not ladders. Greys (not their A1 bar colours) so they read as
-# "the bar to clear" rather than as three more models competing with five coloured lines.
-# no_pretrain_e2e has ZERO pretraining -- it is the "skip pretraining, just fine-tune" reference,
-# and it populates automatically once the E1 runs land.
+# The classical anchors are compute-independent, so they are horizontal references on BOTH axes,
+# not ladders. Greys (not their A1 bar colours) so they read as "the bar to clear" rather than as
+# two more models competing with five coloured ladders.
 # Only the two classical anchors. Both no_pretrain references (frozen floor and end-to-end) were
 # drawn here too, which put FOUR grey/near-grey horizontal lines behind five coloured ladders --
 # the panel became unreadable and the references stopped functioning as references. The
