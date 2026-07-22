@@ -11,20 +11,10 @@
 # different from every other point on the same line.
 A2_KEYS = ["unsup_only", "unsup2sup:dense",
            "sup_only:dense", "sup_only:sparse_all", "sup_only:dense_plus_sparse"]
-# The classical anchors are compute-independent, so they are horizontal references on BOTH axes,
-# not ladders. Greys (not their A1 bar colours) so they read as "the bar to clear" rather than as
-# two more models competing with five coloured ladders.
-# Only the two classical anchors. Both no_pretrain references (frozen floor and end-to-end) were
-# drawn here too, which put FOUR grey/near-grey horizontal lines behind five coloured ladders --
-# the panel became unreadable and the references stopped functioning as references. The
-# no_pretrain arms are still in A1.a/A1.b, where they are bars and can be read properly.
-A2_ANCHORS = [("ecfp4",   "#2B2B2B", (0, (6, 2)), "Morgan+XGBoost (ECFP4)"),
-              ("fp_desc", "#8F8F8F", (0, (2, 2)), "Morgan+desc+XGBoost")]
-# The anchor bands ARE the anchors' confidence intervals, so they have to be findable. At the
-# original lightness the fp_desc band was nearly invisible against the gridlines and the reader
-# could not tell where that anchor's uncertainty ended. Darker greys + a higher fill alpha; still
-# two clearly distinct shades so the two anchors remain separable where they overlap.
-A2_BAND_ALPHA = 0.26
+# No horizontal reference lines at all. This panel carried up to four of them (two XGBoost
+# anchors plus two no_pretrain references); with five coloured ladders on top the greys stopped
+# functioning as reference and became clutter. The classical baselines are bars in A1.a/A1.b,
+# where they can be read against every arm at once, which is what they are for.
 
 def ladder_cv(task, key):
     """CV mean + across-fold sd per budget, seed-0 runs only. Empty frame if nothing is scored."""
@@ -72,12 +62,6 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             ax.errorbar(g[xcol], g.value, yerr=g.err, color=rc_color(key), ls=rc_ls(key),
                         lw=STYLE["lw"], marker=rc_marker(key), ms=STYLE["marker_size"], mec="white",
                         capsize=2, elinewidth=0.8, zorder=3)
-        for key, col, dsh, _lab in A2_ANCHORS:   # horizontal reference + its own fold-spread band
-            v, e = anchor_cv(task, key)
-            if not np.isfinite(v):
-                gaps.append(f"{_lab}: no CV data"); continue
-            ax.axhline(v, color=col, ls=dsh, lw=1.1, zorder=2)
-            if np.isfinite(e): ax.axhspan(v - e, v + e, color=col, alpha=A2_BAND_ALPHA, lw=0, zorder=0)
         if xcol == "budget_fp":
             set_fp_axis(ax, BUDG); ax.set_xlim(1.6e6, 6.0e7)
         else:
@@ -105,7 +89,6 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
 
     handles = [plt.Line2D([], [], color=rc_color(k), marker=rc_marker(k), ls=rc_ls(k), label=rc_label(k))
                for k in A2_KEYS]
-    handles += [plt.Line2D([], [], color=c, ls=d, lw=1.1, label=lab) for _, c, d, lab in A2_ANCHORS]
     if xcol == "mols":
         handles += [plt.Line2D([], [], color="#999", ls=(0, (1, 2)), lw=0.7,
                                label="corpus exhausted (12M molecules)")]
