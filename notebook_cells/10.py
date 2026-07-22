@@ -194,6 +194,20 @@ for _sub,_tag,_cap in [
         ("moleculenet",   "A1.a","single DeepChem scaffold hold-out"),
         ("moleculenet_cv","A1.b","pooled 5-fold scaffold cross-validation")]:
     _d,_,_,_st=a1_summary(_sub)
+    # A re-scoring pass rewrites moleculenet_cv wholesale, so a run caught mid-write drops every
+    # task at once and can collapse the complete-coverage set to one or two tasks. The counts stay
+    # arithmetically correct but become meaningless (everything reads 0/1 or 1/1), which is exactly
+    # the kind of table that gets pasted into a paper. Refuse to emit it silently.
+    if len(_st) < len(CORE_TASKS) - 1:
+        print(f"\n{'!'*100}\nTable {_tag}: NOT PAPER-READY -- only {len(_st)}/{len(CORE_TASKS)} "
+              f"tasks have complete arm coverage ({', '.join(_st) or 'none'}).\nArms still missing "
+              f"data: "
+              + ", ".join(sorted({ARMS[a]['label'] for t in CORE_TASKS for a in ARMS
+                                  if any(_scored(x, t, _sub) for x in ARMS)
+                                  and not _scored(a, t, _sub)
+                                  and any(_scored(a, u, _sub) for u in CORE_TASKS)}))
+              + f"\nThis is usually a re-scoring pass in flight. Re-run when it finishes.\n"
+              + "!"*100)
     print(f"\n{'='*100}\nLaTeX -- Table {_tag}\n{'='*100}\n")
     print(_tex(_d).to_latex(index=False,escape=False,column_format="l"+"r"*9,
           caption=f"Fig.~{_tag} summary at the 8M forward-pass matched budget "
