@@ -40,7 +40,16 @@ save_everything() {
     say "S3 push complete"
 }
 
-trap 'say "guard received a signal"; save_everything' INT TERM
+# Save, then EXIT. Without the explicit exit the handler returns, the main loop sees the worker
+# gone, and the guard falls straight through to `shutdown -h now` -- so killing the guard by hand
+# stopped the box, which is the opposite of what an operator killing it wants.
+on_signal() {
+    say "guard received a signal - saving and exiting WITHOUT stopping the instance"
+    kill -TERM "${WPID:-0}" 2>/dev/null
+    save_everything
+    exit 130
+}
+trap on_signal INT TERM
 
 say "starting worker: manifest=$MANIFEST tag=$TAG deadline=${MAX_HOURS}h"
 setsid bash scripts/phase2_worker.sh "$MANIFEST" "$TAG" > "$LOG" 2>&1 < /dev/null &
