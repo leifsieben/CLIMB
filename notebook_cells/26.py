@@ -41,8 +41,12 @@ BLOCKERS={
   "A2.a": ([f"{len(_missing_hiv_cv)} runs lack HIV in the CV eval"] if _missing_hiv_cv else [])
         +([] if _e2e_cv else ["no_pretrain_end_to_end has no CV eval yet "
                              "(only the hold-out half of the E1 wave has landed)"])
-        +["96M rung + unsup→sup 48M have no CV eval",
-          "~100M-molecule unsupervised rung (full PubChem still downloading)"],
+        # Derived, not asserted: this was a hardcoded string that kept claiming a gap after the
+        # runs had landed. A blocker that cannot clear itself is just a stale caption.
+        +([] if len(glob.glob("figure_data/climb_v2_phase2/skip_dense_96M/moleculenet_cv/suite_summary.json")
+                   +glob.glob("figure_data/climb_v2_phase2/u2s_*_from48M/moleculenet_cv/suite_summary.json"))>=6
+           else ["96M rung / unsup→sup 48M rung still lack a CV eval"])
+        +["~100M-molecule unsupervised rung (full PubChem still downloading)"],
   "A2.b": ([f"{len(_missing_hiv_cv)} runs lack HIV in the CV eval"] if _missing_hiv_cv else [])
         +([] if _e2e_cv else ["no_pretrain_end_to_end has no CV eval yet "
                              "(only the hold-out half of the E1 wave has landed)"])
