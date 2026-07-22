@@ -642,6 +642,26 @@ across runs (see §9.6); where a figure's error bar uses that axis instead, its 
 | **HIV (virtual screening)** | headline metric = **NEF1%** (top-1% enrichment), reported as mean ± std across folds; rigorous paired test = **DeLong paired-AUC** on the pooled OOF scores (a rank test that tracks early enrichment). Select NEF1% in `compare_models.compare` by passing the task as `('HIV', True, 'nef1')` |
 | Fold-level test | paired t across folds — reported but **flagged anti-conservative** (CV folds share training data; Bengio & Grandvalet 2004), so the molecule-level Wilcoxon/DeLong is the test of record |
 
+> **The error bar and the test answer different questions — overlapping bars do NOT mean "tied".**
+> This trips up every reader who checks a figure against a table, so it is stated here rather than
+> left to be inferred. The **error bar** is the spread of the whole-dataset average across the 5
+> scaffold splits: it asks *how stable is this model's score if the folds had been drawn
+> differently?* That variation is driven by which scaffolds landed in which fold, and it hits every
+> model **identically**. The **test** is paired per molecule: it takes the difference in error
+> between two models on the *same* molecule and asks whether those differences sit systematically
+> on one side of zero — so the shared split difficulty cancels exactly, and a molecule that is hard
+> for everyone contributes nothing.
+>
+> Two runners on five courses: their finishing-time distributions across courses can overlap
+> heavily while one still beats the other on every single course. Concretely, on QM7
+> `fp_desc` (0.819) vs `sup_only:dense` (0.851) have visibly overlapping fold error bars and a
+> paired p of 7.7e-17; on BACE, ECFP4 (0.882) vs `unsup_only` (0.866) likewise overlap with
+> p = 0.012.
+>
+> The corollary for anyone tempted to "make the table match the figure": don't. A fold-level test
+> (n = 5) is both underpowered and anti-conservative, as the row above says. Read the error bar for
+> split stability and the table for whether one model actually beats another.
+
 The canonical instance is **"does a CLM beat the toughest classical baseline (`fp_desc`)?"** run for
 each regime; a **non-descriptor CLM (`unsup_only`) is included as a control** so the descriptor-trained
 `dense` CLM's gap to `fp_desc` can be read against a CLM that never saw descriptors (isolates whether
