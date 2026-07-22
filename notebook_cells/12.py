@@ -43,6 +43,11 @@ def anchor_cv(task, key):
 # CV run, so both are absent here rather than silently interpolated. Stated in the caption.
 BUDG = [2e6, 8e6, 24e6, 48e6]
 N_RUNGS = len(BUDG)
+# Zoom OUT. Matplotlib auto-scales each panel to its own data, so every panel fills its axes and
+# differences that sit well inside one fold-spread band look dramatic. A FIXED pad (not a relative
+# margin) also keeps the vertical scale comparable between panels, which matters when the reader
+# is judging "is this gap big?" across six tasks at once.
+A2_YPAD = 0.05
 
 def draw_A2(xcol, tag, xlabel, extra_note, fname):
     ncol = 2; nrow = int(np.ceil(len(CORE_TASKS) / ncol))
@@ -76,6 +81,8 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             ax.axvline(UNSUP_CORPUS, color="#999", ls=(0, (1, 2)), lw=0.7, zorder=1)
         ax.set_title(ttitle(task, oneline=True), pad=6); ax.set_xlabel(xlabel)
         ax.set_ylabel(re.sub(r"\s*[↑↓]\s*$", "", mlabel(task)))   # arrow lives in the title
+        _lo, _hi = ax.get_ylim()
+        ax.set_ylim(_lo - A2_YPAD, _hi + A2_YPAD)
         label_all_yticks(ax)
         # A line that simply stops short is indistinguishable from a line that plateaued. Name the gaps.
         if gaps:
