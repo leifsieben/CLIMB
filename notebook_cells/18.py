@@ -37,18 +37,6 @@ for i,(key,lab,c) in enumerate(B2_SERIES):
 ax.axhline(0,color=PALETTE["black"],lw=0.8)
 # "Skip pretraining and just fine-tune" is the reference that makes the corrupted/real contrast
 # actionable: a corrupted arm that clears no_pretrain but not this one has bought nothing real.
-# Where the FROZEN random encoder sits on this axis. It is well below zero on most tasks, which
-# is the point: "beats a frozen random encoder" and "beats a fine-tuned one" are very different bars.
-_frz=[100*lift(npt_floor(B2_DF,t),t,b2_floor(t)) for t in CORE_TASKS]
-if any(np.isfinite(v) for v in _frz) and B2_FLOOR_LABEL.endswith("(end-to-end)"):
-    for xi,v in zip(x,_frz):
-        if np.isfinite(v):
-            ax.plot([xi-0.5,xi+0.5],[v,v],color=rc_color("no_pretrain"),ls=(0,(3,2)),lw=1.3,
-                    zorder=5,solid_capstyle="butt")
-    _e2e_h=[plt.Line2D([],[],color=rc_color("no_pretrain"),ls=(0,(3,2)),lw=1.3,
-                       label="no_pretrain (frozen)")]
-else:
-    _e2e_h=[]
 ax.set_xticks(x); ax.set_xticklabels([TASKS[t]["pretty"] for t in CORE_TASKS])
 # The global style turns minor ticks on, which is right for a continuous axis and wrong here: this
 # x-axis is six categories, so the minor ticks mark positions that do not exist.
@@ -70,11 +58,11 @@ elif not _b2_have_cv:
 # fills column-first, so the handles are reordered here to land as [TL, TR / BL, BR].
 _h,_l=ax.get_legend_handles_labels()
 _ord=[0,2,1,3]                       # -> col0 = (MLM real, MTR real); col1 = (MLM corr, MTR corr)
-# Column-major fill: with 5 entries and ncol=3 this lands as
-#   col0 = (MLM real, MTR real) | col1 = (MLM corrupted, MTR corrupted) | col2 = (reference)
+# Column-major fill: with 4 entries and ncol=2 this lands as
+#   col0 = (MLM real, MTR real) | col1 = (MLM corrupted, MTR corrupted)
 # so each real/corrupted pair reads across a row, which is the comparison the figure is about.
-fig.legend(handles=[_h[i] for i in _ord]+_e2e_h,labels=[_l[i] for i in _ord]+[h.get_label() for h in _e2e_h],
-           loc="upper center",bbox_to_anchor=(0.5,0.02),ncol=3,fontsize=STYLE["fs_legend"])
+fig.legend(handles=[_h[i] for i in _ord],labels=[_l[i] for i in _ord],
+           loc="upper center",bbox_to_anchor=(0.5,0.02),ncol=2,fontsize=STYLE["fs_legend"])
 fig.suptitle("Fig B2 - does content-free pretraining help just as much?",
              fontsize=STYLE["fs_title"],y=1.18)
 _b2note=(f"zero = {B2_FLOOR_LABEL}, i.e. skipping pretraining and just fine-tuning a random "
