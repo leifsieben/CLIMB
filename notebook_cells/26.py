@@ -26,20 +26,26 @@ FIG_SOURCES={
 _missing_hiv=sorted(set(DF.run)-set(DF[DF.task=="HIV"].run))
 _u2s_seeds=DF[(DF.regime=="unsup2sup")&(DF.budget_label==MATCHED_BUDGET)].seed.nunique()
 _missing_hiv_cv=sorted(set(DF_CV.run)-set(DF_CV[DF_CV.task=="HIV"].run))
-_e2e=len(DF[DF.regime=="no_pretrain_e2e"])
+# Scheme-aware: the hold-out half of the E1 wave landed before the CV half, so a single _e2e flag
+# computed from DF would clear A1.b/A2's blocker while their e2e bar is still absent.
+_e2e   =len(DF[DF.regime=="no_pretrain_e2e"])
+_e2e_cv=len(DF_CV[DF_CV.regime=="no_pretrain_e2e"])
 BLOCKERS={
   "A1.a": ([f"{len(_missing_hiv)} runs lack HIV NEF1%"] if _missing_hiv else [])
         +([f"unsup→sup has {_u2s_seeds} pretraining seed: its error bar is head-seed only"]
           if _u2s_seeds<2 else [])
         +([] if _e2e else ["no_pretrain_end_to_end (E1) not run"]),
   "A1.b": ([f"{len(_missing_hiv_cv)} runs lack HIV in the CV eval"] if _missing_hiv_cv else [])
-        +([] if _e2e else ["no_pretrain_end_to_end (E1) not run"]),
+        +([] if _e2e_cv else ["no_pretrain_end_to_end has no CV eval yet "
+                             "(only the hold-out half of the E1 wave has landed)"]),
   "A2.a": ([f"{len(_missing_hiv_cv)} runs lack HIV in the CV eval"] if _missing_hiv_cv else [])
-        +([] if _e2e else ["no_pretrain_end_to_end (E1) not run"])
+        +([] if _e2e_cv else ["no_pretrain_end_to_end has no CV eval yet "
+                             "(only the hold-out half of the E1 wave has landed)"])
         +["96M rung + unsup→sup 48M have no CV eval",
           "~100M-molecule unsupervised rung (full PubChem still downloading)"],
   "A2.b": ([f"{len(_missing_hiv_cv)} runs lack HIV in the CV eval"] if _missing_hiv_cv else [])
-        +([] if _e2e else ["no_pretrain_end_to_end (E1) not run"])
+        +([] if _e2e_cv else ["no_pretrain_end_to_end has no CV eval yet "
+                             "(only the hold-out half of the E1 wave has landed)"])
         +["~100M-molecule unsupervised rung (full PubChem still downloading)"],
   "B2": ([] if _have_b2 else ["corrupt_mlm_8M / corrupt_mtr_8M still training"]),
   "E1": list(_E1_PENDING and [f"sup_only ladder not fine-tuned yet: {', '.join(_E1_PENDING)}"] or []),
