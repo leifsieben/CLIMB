@@ -33,7 +33,7 @@ ck_gb = sum(float(r["encoder_s3_gb"] or 0) for r in rows)
 n_ck = sum(1 for r in rows if float(r["encoder_s3_gb"] or 0))
 
 L = [BEGIN, "",
-     "### 9.4 Model inventory (what exists, and what we hold for it)",
+     "### 9.6 Model inventory (what exists, and what we hold for it)",
      "",
      f"**{len(rows)} runs** across the four waves the paper draws on. Regenerate with",
      "`python scripts/reproducibility_audit.py --listing <s3 listing> --out audit/`; the per-run",
