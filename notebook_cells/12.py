@@ -24,9 +24,17 @@ def ladder_cv(task, key):
     else:                              s = d[(d.regime == "sup_only") & (d.recipe == key.split(":")[1])]
     s = s[~s.truncated]
     if not len(s): return s
-    g = (s.groupby(["budget_fp", "budget_label"]).agg(value=("value", "mean"), err=("std", "mean"))
-          .reset_index().sort_values("budget_fp"))
+    g = (s.groupby(["budget_fp", "budget_label"])
+           .agg(value=("value", "mean"), err=("std", "mean"), tok=("tokens_seen", "mean"))
+           .reset_index().sort_values("budget_fp"))
     g["mols"] = [unique_molecules(key, b, l) for b, l in zip(g.budget_fp, g.budget_label)]
+    # unsup->sup is a warm-start: its metrics.jsonl logs only the SFT stage, so add the MLM base's
+    # tokens (same logic as its FP budget, base_FP + 2M SFT). Base label is the "from{B}" budget.
+    if key.startswith("unsup2sup:"):
+        base_tok = {r.budget_label: r.tokens_seen for r in
+                    DF_CV[(DF_CV.regime == "unsup_only") & (DF_CV.seed == 0)]
+                    .drop_duplicates("budget_label").itertuples()}
+        g["tok"] = [t + base_tok.get(l, 0.0) for t, l in zip(g.tok, g.budget_label)]
     return g
 
 def anchor_cv(task, key):
@@ -64,7 +72,14 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             ax.errorbar(g[xcol], g.value, yerr=g.err, color=rc_color(key), ls=rc_ls(key),
                         lw=STYLE["lw"], marker=rc_marker(key), ms=STYLE["marker_size"], mec="white",
                         capsize=2, elinewidth=0.8, zorder=3)
-        if xcol == "budget_fp":
+        if xcol == "tok":
+            ax.set_xscale("log")
+            ax.xaxis.set_major_locator(ticker.LogLocator(base=10, numticks=12))
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+                lambda v, _: f"{v/1e9:g}B" if v >= 1e9 else f"{v/1e6:g}M"))
+            ax.xaxis.set_minor_locator(ticker.NullLocator()); ax.tick_params(axis="x", which="minor", bottom=False)
+            ax.set_xlim(6e7, 6e9)
+        elif xcol == "budget_fp":
             set_fp_axis(ax, BUDG); ax.set_xlim(1.6e6, 6.0e7)
         else:
             ax.set_xscale("log"); ax.set_xlim(3.5e5, 1.6e7)
@@ -98,20 +113,21 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
                fontsize=STYLE["fs_legend"], columnspacing=1.2)
     fig.suptitle(f"Fig {tag} - scaling of the primary regimes in {xlabel}",
                  fontsize=STYLE["fs_title"], y=1.075)
-    note = ("pooled 5-fold scaffold CV ONLY  ·  error bars on the ladders and the shaded band "
-            "around each classical anchor are both ±1 sd across the 5 folds "
-            "(no head-seed, no pretraining-seed spread), so every interval means the same thing  ·  "
-            "the no_pretrain references are omitted here to keep the panels readable; see A1.a/A1.b  ·  "
-            "the 96M rung and unsup→sup's 48M rung are hold-out-only, so they are absent rather "
-            "than interpolated  ·  " + extra_note)
+    note = ("pooled 5-fold scaffold CV  ·  error bars = ±1 sd across the 5 folds (no head-seed, no "
+            "pretraining-seed spread), so every interval means the same thing  ·  the classical "
+            "anchors and no_pretrain baselines are omitted for legibility — they are bars in "
+            "A1.a/A1.b  ·  where a ladder is missing a rung the panel says so (top-left)  ·  "
+            + extra_note)
     fig.text(0.5, 0.995, "\n".join(_tw.wrap(note, 120)), ha="center", va="top",
              fontsize=STYLE["fs_annot"] - 0.5, color="#666")
     fig.subplots_adjust(top=0.88, bottom=0.10, hspace=0.62, wspace=0.30)
     save_fig(fig, fname); plt.show()
 
-draw_A2("budget_fp", "A2.a", "forward passes",
-        "unsup→sup is at its TRUE total (MLM base + 2M-FP SFT)",
-        "figA2a_scaling_forward_passes")
+draw_A2("tok", "A2.a", "training tokens",
+        "x = tokens actually processed (trainer's own non-padding count from metrics.jsonl, per "
+        "run — NOT forward passes × a constant; that ratio varies 40.0–42.9 tok/seq across "
+        "corpora)  ·  unsup→sup = MLM-base tokens + SFT tokens",
+        "figA2a_scaling_tokens")
 draw_A2("mols", "A2.b", "unique molecules seen",
         "x = unique molecules, so a ladder that runs VERTICAL is spending compute on repetition, "
         "not on new chemistry; the sparse SFT pool caps at ~0.52M and the unsupervised corpus at 12M",

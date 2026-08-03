@@ -77,7 +77,7 @@ BLOCKERS={
 
 FIGS=[("A1.a","figA1a_best_model_headline_holdout","which model performs best (8M, single scaffold hold-out)"),
       ("A1.b","figA1b_best_model_headline_cv","which model performs best (8M, pooled 5-fold scaffold CV)"),
-      ("A2.a","figA2a_scaling_forward_passes","scaling in pretraining compute"),
+      ("A2.a","figA2a_scaling_tokens","scaling in training tokens"),
       ("A2.b","figA2b_scaling_unique_molecules","scaling in unique molecules seen"),
       ("B1p1","figB1p1_label_efficiency_train_test","label-efficiency + fit/generalize mechanism"),
       ("E1","figE1_H5_eval_ceiling","H5: is the sup/unsup ordering a frozen-probe artifact?"),

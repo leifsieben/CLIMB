@@ -15,6 +15,22 @@ def _achieved_fp(run_dir):
     try: return float(json.loads(last).get("forward_passes_seen",0) or 0)
     except Exception: return None
 
+def _achieved_tokens(run_dir):
+    """Last tokens_seen in metrics.jsonl (trainer's own non-padding token count); nan if absent.
+    The honest scaling x-axis: real tokens processed per run, not FP x a guessed constant -- and
+    that ratio genuinely varies (12M corpus ~42.9 tok/seq, RDKit-canonical 124M ~40.4, sparse
+    SFT ~40.0)."""
+    m=run_dir/"metrics.jsonl"
+    if not m.exists(): return np.nan
+    last=""
+    try:
+        with m.open() as fh:
+            for line in fh:
+                if line.strip(): last=line
+    except OSError: return np.nan
+    try: return float(json.loads(last).get("tokens_seen", np.nan))
+    except Exception: return np.nan
+
 def run_completion(run_dir,budget_fp,tol=0.98):
     """-> (status, achieved_fp); status in {complete, truncated, unknown, n/a}."""
     if (run_dir/"verified.json").exists(): return "complete",budget_fp
@@ -92,7 +108,8 @@ def build_table(sub):
                     rows.append(dict(wave=wave,run=rd.name,task=task,value=suite[(sk,"mean")],
                                      std=suite.get((sk,"std"),np.nan),truncated=(st=="truncated"),
                                      evaluated_at=_eval_mtime(rd,sub),
-                                     achieved_fp=(fp if np.isfinite(fp) else meta["budget_fp"]),**meta))
+                                     achieved_fp=(fp if np.isfinite(fp) else meta["budget_fp"]),
+                                     tokens_seen=_achieved_tokens(rd),**meta))
     return pd.DataFrame(rows)
 
 # DEFAULT for every bar/ladder figure: the single DeepChem scaffold hold-out. It puts the RAREST
