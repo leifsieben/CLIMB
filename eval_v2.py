@@ -217,7 +217,9 @@ def evaluate(
     # per-molecule dump is append-mode within a run (one call per dataset); clear any prior
     # run's file first so re-evaluating the same output_dir cannot accumulate duplicate rows.
     (out / "test_predictions.csv").unlink(missing_ok=True)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available()
+                          else "mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
+                          else "cpu")
 
     encoder = tokenizer = None
     if featurizer == "encoder":
