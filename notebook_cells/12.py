@@ -52,15 +52,30 @@ N_RUNGS = len(BUDG)
 # differences that sit well inside one fold-spread band look dramatic. A FIXED pad (not a relative
 # margin) also keeps the vertical scale comparable between panels, which matters when the reader
 # is judging "is this gap big?" across six tasks at once.
-A2_YPAD = 0.05
-# ESOL and BBBP still read as cramped at the shared pad -- ESOL because its ladders span a wide
-# RMSE range, BBBP because everything is squeezed into the top of the AUC scale. Extra headroom
-# for those two only, rather than loosening every panel and losing the shared vertical scale.
-A2_YPAD_EXTRA = {"ESOL": 0.05, "BBBP": 0.05}
+# Y-axis: one shared HEIGHT per metric family (RMSE / ROC-AUC / NEF1%), each panel centred on its
+# own data. Same vertical span => a given rise means the same delta in every panel of that family,
+# which is what makes the ladders comparable across tasks; and it is as zoomed-in as the
+# widest-ranging panel in the family allows. A2_YMARGIN is the fraction of headroom above the
+# tightest fit (small = maximally zoomed).
+A2_YMARGIN = 0.18
 
 def draw_A2(xcol, tag, xlabel, extra_note, fname):
     ncol = 2; nrow = int(np.ceil(len(CORE_TASKS) / ncol))
     fig, axes = plt.subplots(nrow, ncol, figsize=(STYLE["col2"], 2.05 * nrow)); axes = axes.ravel()
+    # --- data range per task, then the widest range within each metric family ---
+    _rng = {}
+    for task in CORE_TASKS:
+        vs = []
+        for key in A2_KEYS:
+            gg = ladder_cv(task, key)
+            if len(gg):
+                e = gg.err.fillna(0.0)
+                vs += list(gg.value - e) + list(gg.value + e)
+        if vs: _rng[task] = (min(vs), max(vs))
+    _fam = {}
+    for task, (lo, hi) in _rng.items():
+        m = TASKS[task]["metric"]; _fam[m] = max(_fam.get(m, 0.0), hi - lo)
+    _fam = {m: sp * (1 + A2_YMARGIN) for m, sp in _fam.items()}   # shared height per family
     for i, (ax, task) in enumerate(zip(axes, CORE_TASKS)):
         drew = False; gaps = []
         for key in A2_KEYS:
@@ -68,7 +83,6 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             if not len(g):
                 gaps.append(f"{rc_label(key)}: no CV data"); continue
             drew = True
-            if len(g) < N_RUNGS: gaps.append(f"{rc_label(key)}: {len(g)}/{N_RUNGS} rungs")
             ax.errorbar(g[xcol], g.value, yerr=g.err, color=rc_color(key), ls=rc_ls(key),
                         lw=STYLE["lw"], marker=rc_marker(key), ms=STYLE["marker_size"], mec="white",
                         capsize=2, elinewidth=0.8, zorder=3)
@@ -91,16 +105,10 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             ax.axvline(UNSUP_CORPUS, color="#999", ls=(0, (1, 2)), lw=0.7, zorder=1)
         ax.set_title(ttitle(task, oneline=True), pad=6); ax.set_xlabel(xlabel)
         ax.set_ylabel(re.sub(r"\s*[↑↓]\s*$", "", mlabel(task)))   # arrow lives in the title
-        _pad = A2_YPAD + A2_YPAD_EXTRA.get(task, 0.0)
-        _lo, _hi = ax.get_ylim()
-        ax.set_ylim(_lo - _pad, _hi + _pad)
+        if task in _rng:                       # centre on this panel's data, family-wide height
+            lo, hi = _rng[task]; c = (lo + hi) / 2; S = _fam[TASKS[task]["metric"]]
+            ax.set_ylim(c - S / 2, c + S / 2)
         label_all_yticks(ax)
-        # A line that simply stops short is indistinguishable from a line that plateaued. Name the gaps.
-        if gaps:
-            ax.set_ylim(top=ax.get_ylim()[1] * (1.06 + 0.07 * int(np.ceil(len(gaps) / 2))))
-            ax.text(0.02, 0.98, "incomplete:\n" + "\n".join(gaps), transform=ax.transAxes,
-                    ha="left", va="top", fontsize=STYLE["fs_annot"] - 2, color="#B00020",
-                    linespacing=1.2, bbox=dict(fc="white", ec="none", alpha=0.85, pad=1.0))
         if not drew: no_data_watermark(ax, "no CV-scored runs")
     for ax in axes[len(CORE_TASKS):]: ax.axis("off")
 
@@ -116,7 +124,7 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
     note = ("pooled 5-fold scaffold CV  ·  error bars = ±1 sd across the 5 folds (no head-seed, no "
             "pretraining-seed spread), so every interval means the same thing  ·  the classical "
             "anchors and no_pretrain baselines are omitted for legibility — they are bars in "
-            "A1.a/A1.b  ·  where a ladder is missing a rung the panel says so (top-left)  ·  "
+            "A1.a/A1.b  ·  "
             + extra_note)
     fig.text(0.5, 0.995, "\n".join(_tw.wrap(note, 120)), ha="center", va="top",
              fontsize=STYLE["fs_annot"] - 0.5, color="#666")
