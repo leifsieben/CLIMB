@@ -1,4 +1,4 @@
-# ---------- Table A1 · win counts + data cost, ready to paste into LaTeX ----------
+# ---------- Table A1 · win counts + data cost (plain text; copy the numbers by hand) ----------
 # "Best on a task" = leader by point estimate PLUS everyone not significantly different from the
 # leader (README §8.1: Wilcoxon on per-molecule squared error for RMSE, DeLong paired-AUC for
 # AUC/HIV). Ties count as a win for every arm in the tie set -- that is the point of the
@@ -190,48 +190,14 @@ print(f"alpha={ALPHA}. 'Best' = leader OR not separable from the leader, so co-b
       f"are ~15 epochs over ~0.5M molecules, not 8M unique ones.")
 print("-" * 112)
 
-# LaTeX for BOTH tables, in the paper's house style: booktabs rules, \makecell two-line headers,
-# tight \tabcolsep, [t] float. Emitted from here rather than hand-formatted so the numbers can
-# never drift from the notebook -- re-running after new data lands regenerates paste-ready LaTeX.
-# REQUIRES: \usepackage{booktabs, makecell}
-_TEX_ESC=[("\\","\\textbackslash{}"),("_",r"\_"),("%",r"\%"),("→",r"$\to$")]
-def _esc(v):
-    v=str(v)
-    for a,b in _TEX_ESC[1:]: v=v.replace(a,b)   # no literal backslashes in our cells
-    return v
-# Explicit two-line header splits: guessing where to break reads badly ("CLIMB-\nonly").
-_HDR={"unsup mols":("unsup","mols"), "sup mols (desc)":("sup mols","(desc)"),
-      "sup mols (assay)":("sup mols","(assay)"), "best x/n":("best","x/n"),
-      "CLIMB-only x/n":("CLIMB-only","x/n"),
-      "beats no_pretrain (frozen)":("beats no_pretrain","(frozen)"),
-      "beats no_pretrain (e2e)":("beats no_pretrain","(e2e)")}
-
-def latex_table(df, caption, label):
-    cols=list(df.columns); body=[[_esc(v) for v in r] for r in df.itertuples(index=False)]
-    w=[max(len(x) for x in [cols[j]]+[r[j] for r in body]) for j in range(len(cols))]
-    head=["model"]+[f" & \\makecell[r]{{{_esc(_HDR[c][0])}\\\\{_esc(_HDR[c][1])}}}" for c in cols[1:]]
-    rows=[" & ".join([body_r[0].ljust(w[0])]+[body_r[j].ljust(w[j]) for j in range(1,len(cols))])
-          + r" \\" for body_r in body]
-    return "\n".join([r"\begin{table}[t]", r"\centering", r"\footnotesize",
-                      r"\setlength{\tabcolsep}{4pt}", f"\\caption{{{caption}}}", f"\\label{{{label}}}",
-                      r"\begin{tabular}{@{}l" + " r"*(len(cols)-1) + r"@{}}", r"\toprule",
-                      "\n".join(head)+r" \\", r"\midrule", *rows,
-                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
-
-for _sub,_tag,_cap in [
-        ("moleculenet",   "A1.a","single DeepChem scaffold hold-out"),
-        ("moleculenet_cv","A1.b","pooled 5-fold scaffold cross-validation")]:
-    _d,_,_,_st=a1_summary(_sub)
-    if len(_st) < len(CORE_TASKS)-1:
-        print(f"\n{'!'*100}\nTable {_tag}: NOT PAPER-READY -- only {len(_st)}/{len(CORE_TASKS)} tasks "
-              f"have complete arm coverage ({', '.join(_st) or 'none'}). Usually a re-scoring pass "
-              f"in flight; re-run when it finishes.\n"+"!"*100)
-    print(f"\n{'='*100}\nLaTeX -- Table {_tag}   (needs \\usepackage{{booktabs, makecell}})\n{'='*100}\n")
-    print(latex_table(_d,
-          f"Fig.~{_tag} summary at the 8M forward-pass matched budget ({_cap}). "
-          f"``Best'' = leader on a task or not statistically separable from it (paired Wilcoxon on "
-          f"squared error for RMSE, DeLong paired-AUC for classification/HIV, $\\alpha=0.05$); "
-          f"counted over the {len(_st)} task(s) with complete arm coverage. "
-          f"``beats no\\_pretrain'' is reported against both baselines: the frozen random encoder "
-          f"and the same encoder fine-tuned end-to-end.",
-          f"tab:{_tag.replace('.','').lower()}_summary"))
+# Per-task completeness guard, printed loudly: the win counts are only meaningful over tasks where
+# EVERY active arm is scored. If a re-scoring pass is mid-flight and some arm x task cells are
+# missing, say so here rather than letting the reader trust an x/n whose n silently shrank.
+for _sub, _tag in [("moleculenet", "A1.a"), ("moleculenet_cv", "A1.b")]:
+    _d, _, _missing, _st = a1_summary(_sub)
+    if len(_st) == len(CORE_TASKS):
+        print(f"Table {_tag}: COMPLETE -- all {len(CORE_TASKS)} tasks have every arm scored.")
+    else:
+        print(f"Table {_tag}: INCOMPLETE -- only {len(_st)}/{len(CORE_TASKS)} tasks fully scored "
+              f"({', '.join(_st) or 'none'}); {len(_missing)} arm x task cells still missing. "
+              f"x/n counts exclude the incomplete tasks; re-run once the scoring pass lands.")
