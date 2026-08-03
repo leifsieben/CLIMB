@@ -61,6 +61,28 @@ def main():
         problems.append("notebook / cells / hash have uncommitted changes -- commit them so the "
                         "version on disk is the version in git history.")
 
+    # 5) the local figure_data matches the snapshot the committed figures were built from.
+    # figure_data/ is gitignored, so identical CODE can still read different DATA; this is what
+    # catches "my table counts 6 tasks, yours counts 1" (a missing OOF-prediction cell).
+    man = Path("figure_data_manifest.json")
+    if not man.exists():
+        problems.append("no figure_data_manifest.json -- the data behind the figures is not "
+                        "fingerprinted. Run scripts/build_data_manifest.py.")
+    else:
+        try:
+            if "scripts" not in sys.path:
+                sys.path.insert(0, "scripts")
+            import build_data_manifest as bdm
+            want = json.loads(man.read_text())["snapshot_hash"]
+            have = bdm.build()["snapshot_hash"]
+            if want != have:
+                problems.append(f"figure_data does NOT match the committed manifest "
+                                f"({want[:12]} != {have[:12]}). Your local data differs from the "
+                                f"snapshot figures_out/ was built from -- run "
+                                f"`python scripts/build_data_manifest.py --check` for the per-cell diff.")
+        except Exception as e:
+            problems.append(f"could not verify figure_data manifest ({e}).")
+
     if problems:
         print("NOTEBOOK SYNC: FAIL")
         for p in problems:
