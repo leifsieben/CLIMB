@@ -46,11 +46,13 @@ BLOCKERS={
         +([] if len(glob.glob("figure_data/climb_v2_phase2/skip_dense_96M/moleculenet_cv/suite_summary.json")
                    +glob.glob("figure_data/climb_v2_phase2/u2s_*_from48M/moleculenet_cv/suite_summary.json"))>=6
            else ["96M rung / unsup→sup 48M rung still lack a CV eval"])
-        +["~100M-molecule unsupervised rung (full PubChem still downloading)"],
+        +([] if glob.glob("figure_data/climb_v2_phase2/unsup_100M/moleculenet_cv/suite_summary.json")
+           else ["~100M-molecule unsupervised rung not yet scored"]),
   "A2.b": ([f"{len(_missing_hiv_cv)} runs lack HIV in the CV eval"] if _missing_hiv_cv else [])
         +([] if _e2e_cv else ["no_pretrain_end_to_end has no CV eval yet "
                              "(only the hold-out half of the E1 wave has landed)"])
-        +["~100M-molecule unsupervised rung (full PubChem still downloading)"],
+        +([] if glob.glob("figure_data/climb_v2_phase2/unsup_100M/moleculenet_cv/suite_summary.json")
+           else ["~100M-molecule unsupervised rung not yet scored"]),
   "B2": ([] if _have_b2 else ["corrupt_mlm_8M / corrupt_mtr_8M still training"]),
   "E1": list(_E1_PENDING and [f"sup_only ladder not fine-tuned yet: {', '.join(_E1_PENDING)}"] or []),
   # A figure is not FINAL just because its files are consistent -- a declared arm with no runs is
