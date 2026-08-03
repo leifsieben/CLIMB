@@ -48,21 +48,19 @@ def anchor_cv(task, key):
 BUDG = [2e6, 8e6, 24e6, 48e6] + [b for b in (50e6, 100e6)
         if len(DF_CV[(DF_CV.regime == "unsup_only") & (DF_CV.budget_fp == b)])]
 N_RUNGS = len(BUDG)
-# Zoom OUT. Matplotlib auto-scales each panel to its own data, so every panel fills its axes and
-# differences that sit well inside one fold-spread band look dramatic. A FIXED pad (not a relative
-# margin) also keeps the vertical scale comparable between panels, which matters when the reader
-# is judging "is this gap big?" across six tasks at once.
-# Y-axis: one shared HEIGHT per metric family (RMSE / ROC-AUC / NEF1%), each panel centred on its
-# own data. Same vertical span => a given rise means the same delta in every panel of that family,
-# which is what makes the ladders comparable across tasks; and it is as zoomed-in as the
-# widest-ranging panel in the family allows. A2_YMARGIN is the fraction of headroom above the
-# tightest fit (small = maximally zoomed).
+# Y-axis: each panel is zoomed TIGHT to its OWN data, with a consistent fractional margin
+# (A2_YMARGIN) on each side; AUC panels are hard-capped at 1.0 because values above it are
+# meaningless. One shared HEIGHT per metric family was tried first, but a near-ceiling,
+# low-variance task (BBBP, range ~0.065) then took a window ~3x its data that spilled past
+# AUC=1.0 and read as mostly-empty. Per-panel zoom keeps every task legible; the trade is that a
+# given vertical rise no longer means the same delta across tasks, so slopes are compared WITHIN a
+# panel, not between panels (the caption says so).
 A2_YMARGIN = 0.18
 
 def draw_A2(xcol, tag, xlabel, extra_note, fname):
     ncol = 2; nrow = int(np.ceil(len(CORE_TASKS) / ncol))
     fig, axes = plt.subplots(nrow, ncol, figsize=(STYLE["col2"], 2.05 * nrow)); axes = axes.ravel()
-    # --- data range per task, then the widest range within each metric family ---
+    # --- data range per task (value +/- fold sd); each panel is zoomed to its own range below ---
     _rng = {}
     for task in CORE_TASKS:
         vs = []
@@ -72,10 +70,6 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
                 e = gg.err.fillna(0.0)
                 vs += list(gg.value - e) + list(gg.value + e)
         if vs: _rng[task] = (min(vs), max(vs))
-    _fam = {}
-    for task, (lo, hi) in _rng.items():
-        m = TASKS[task]["metric"]; _fam[m] = max(_fam.get(m, 0.0), hi - lo)
-    _fam = {m: sp * (1 + A2_YMARGIN) for m, sp in _fam.items()}   # shared height per family
     for i, (ax, task) in enumerate(zip(axes, CORE_TASKS)):
         drew = False; gaps = []
         for key in A2_KEYS:
@@ -105,9 +99,11 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             ax.axvline(UNSUP_CORPUS, color="#999", ls=(0, (1, 2)), lw=0.7, zorder=1)
         ax.set_title(ttitle(task, oneline=True), pad=6); ax.set_xlabel(xlabel)
         ax.set_ylabel(re.sub(r"\s*[↑↓]\s*$", "", mlabel(task)))   # arrow lives in the title
-        if task in _rng:                       # centre on this panel's data, family-wide height
-            lo, hi = _rng[task]; c = (lo + hi) / 2; S = _fam[TASKS[task]["metric"]]
-            ax.set_ylim(c - S / 2, c + S / 2)
+        if task in _rng:                       # tight per-panel zoom, consistent fractional margin
+            lo, hi = _rng[task]; pad = A2_YMARGIN * max(hi - lo, 1e-6)
+            y0, y1 = lo - pad, hi + pad
+            if "AUC" in TASKS[task]["metric"]: y1 = min(y1, 1.0)   # AUC ceiling; nothing above it
+            ax.set_ylim(y0, y1)
         label_all_yticks(ax)
         if not drew: no_data_watermark(ax, "no CV-scored runs")
     for ax in axes[len(CORE_TASKS):]: ax.axis("off")
@@ -122,9 +118,10 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
     fig.suptitle(f"Fig {tag} - scaling of the primary regimes in {xlabel}",
                  fontsize=STYLE["fs_title"], y=1.075)
     note = ("pooled 5-fold scaffold CV  ·  error bars = ±1 sd across the 5 folds (no head-seed, no "
-            "pretraining-seed spread), so every interval means the same thing  ·  the classical "
-            "anchors and no_pretrain baselines are omitted for legibility — they are bars in "
-            "A1.a/A1.b  ·  "
+            "pretraining-seed spread), so every interval means the same thing  ·  each panel is "
+            "zoomed to its own y-range (AUC capped at 1.0), so compare slopes WITHIN a panel, not "
+            "between panels  ·  the classical anchors and no_pretrain baselines are omitted for "
+            "legibility — they are bars in A1.a/A1.b  ·  "
             + extra_note)
     fig.text(0.5, 0.995, "\n".join(_tw.wrap(note, 120)), ha="center", va="top",
              fontsize=STYLE["fs_annot"] - 0.5, color="#666")

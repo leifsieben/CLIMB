@@ -58,7 +58,15 @@ else:
 
     def e1_random(task,col):
         s=C[(C.regime=="no_pretrain")&(C.task==task)]
-        return s[col].mean() if len(s) else np.nan
+        v=s[col].mean() if len(s) else np.nan
+        if col=="frozen" and not np.isfinite(v):
+            # The eval-ceiling CSV carries no frozen value for the random-init runs on HIV, so the
+            # no_pretrain FROZEN reference vanished there. Recover it from the SAME frozen-probe
+            # summaries the pretrained ladder is read from (identical scorer), so HIV gets its line.
+            fz=[x for rid in ("random_baseline_00","random_baseline_01","random_baseline_02")
+                  for x in _frozen_seeds(rid,task)]
+            v=float(np.mean(fz)) if fz else np.nan
+        return v
 
     E1_STYLE={k:dict(c=rc_color(k),m=rc_marker(k) or "o") for k in E1_REGIMES}
     ncol=len(e1_tasks)
@@ -165,9 +173,9 @@ else:
            f"solid/filled = ±1 sd over {nseed} fine-tuning seeds, which re-randomise the head AND "
            f"the encoder optimisation, so the two are not the same quantity. HIV is scored by "
            f"ROC-AUC here (the fine-tuning harness's metric), not the NEF1% used in A1/A2. "
-           f"The no_pretrain FROZEN reference is absent on HIV only: the eval-ceiling CSV has no "
-           f"frozen HIV value for the random-init runs. Its end-to-end reference is present on all "
-           f"four tasks.")
+           f"The no_pretrain FROZEN reference on HIV is recovered from the random-init runs' "
+           f"frozen-probe summaries (the eval-ceiling CSV lacks a frozen HIV value); elsewhere it "
+           f"comes from that CSV. Both no_pretrain references are present on all four tasks.")
     fig.subplots_adjust(top=0.88,bottom=0.24)
     fig.text(0.5,0.085,"\n".join(_tw.wrap(_note,132)),ha="center",va="top",
              fontsize=STYLE["fs_annot"]-0.5,color="#666")
