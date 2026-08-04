@@ -103,7 +103,7 @@ else:
 axE.set_xlabel("max ECFP4 Tanimoto to corpus (bin mean)\nright = MORE similar →")
 axE.set_ylabel(_ylabI); label_all_yticks(axE); panel_tag(axE,"e",dx=-0.18)
 
-figF.suptitle("Fig C1J1+I1 — supervised-label transfer (a–c) and who benefits from MLM "
+_suptitle(figF, "Fig C1J1+I1 — supervised-label transfer (a–c) and who benefits from MLM "
               "pretraining (d–e)",fontsize=STYLE["fs_title"],y=0.995)
 figF.subplots_adjust(left=0.155,right=0.945,top=0.945,bottom=0.055)
 save_fig(figF,"figC1J1_I1_combined"); plt.show()

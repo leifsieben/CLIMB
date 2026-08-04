@@ -56,9 +56,9 @@ def draw_A1(df, sub, tag, scheme_note, err_note, fname):
              + (f" ({_multi} arms have pretraining-seed replicates)" if _multi else "")
              + "  ·  classical anchors: 3 XGBoost seeds  ·  no_pretrain (frozen) = random-init "
                "encoder, features frozen; no_pretrain (end-to-end) = same encoder fine-tuned on the task")
-    fig.suptitle(f"Fig {tag} - which model performs best? (matched at {MATCHED_BUDGET} forward passes)",
+    _suptitle(fig, f"Fig {tag} - which model performs best? (matched at {MATCHED_BUDGET} forward passes)",
                  fontsize=STYLE["fs_title"], y=1.10)
-    fig.text(0.5, 0.995, "\n".join(_tw.wrap(_note, 125)), ha="center", va="top",
+    _caption(fig, 0.5, 0.995, "\n".join(_tw.wrap(_note, 125)), ha="center", va="top",
              fontsize=STYLE["fs_annot"] - 0.5, color="#666")
     fig.subplots_adjust(top=0.82, bottom=0.13, hspace=0.42, wspace=0.42)
     save_fig(fig, fname); plt.show()

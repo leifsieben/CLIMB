@@ -44,9 +44,9 @@ fig.legend(handles=handles,loc="upper center",bbox_to_anchor=(0.5,0.02),ncol=2,f
 _h1scheme=("pooled 5-fold scaffold CV" if H1_SUB=="moleculenet_cv" else
            "single scaffold hold-out (113-204 test molecules) - this wave has NO CV eval and its "
            "encoders were never saved; the ten runs are being RETRAINED so this can move to CV")
-fig.suptitle("Fig H1 - does SMILES enumeration beat canonical repetition? (unsup_only)",
+_suptitle(fig, "Fig H1 - does SMILES enumeration beat canonical repetition? (unsup_only)",
              fontsize=STYLE["fs_title"],y=1.06)
-fig.text(0.5,0.995,"\n".join(_tw.wrap(f"SCHEME: {_h1scheme}",110)),ha="center",va="top",
+_caption(fig, 0.5,0.995,"\n".join(_tw.wrap(f"SCHEME: {_h1scheme}",110)),ha="center",va="top",
          fontsize=STYLE["fs_annot"]-0.5,color=("#666" if H1_SUB=="moleculenet_cv" else "#B00020"))
 fig.subplots_adjust(top=0.90,bottom=0.14,hspace=0.55,wspace=0.36)
 save_fig(fig,"figH1_canonical_vs_enumerated"); plt.show()

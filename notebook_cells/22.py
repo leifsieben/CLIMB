@@ -107,10 +107,10 @@ else:
 ax1.set_xlabel("max ECFP4 Tanimoto to corpus (bin mean)\nright = MORE similar →")
 ax1.set_ylabel(_ylab); label_all_yticks(ax1); panel_tag(ax1,"b",dx=-0.18)
 
-fig.suptitle("Fig I1 - memorization or representation? Who benefits from MLM pretraining",
+_suptitle(fig, "Fig I1 - memorization or representation? Who benefits from MLM pretraining",
              fontsize=STYLE["fs_title"],y=1.04)
 fig.subplots_adjust(top=0.88,bottom=0.30,wspace=0.35)
-fig.text(0.5,0.05,f"baseline = {_I1_BASE_LABEL[I1_BASE_KEY]}, on the pooled 5-fold CV. Regression "
+_caption(fig, 0.5,0.05,f"baseline = {_I1_BASE_LABEL[I1_BASE_KEY]}, on the pooled 5-fold CV. Regression "
          "tasks only (needs a per-molecule error). Corpus similarity is max Tanimoto to a SAMPLE "
          "of the corpus, so it is a lower bound.",
          ha="center",va="top",fontsize=STYLE["fs_annot"],color="#555")

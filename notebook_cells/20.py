@@ -166,7 +166,7 @@ else:
     axC.set_ylabel(f"lift over {C1J1_FLOOR_LABEL} (%)")
 panel_tag(axC,"c",dx=-0.09)
 
-fig.suptitle("Fig C1J1 - supervised pretraining data: which type helps, how much, and does it "
+_suptitle(fig, "Fig C1J1 - supervised pretraining data: which type helps, how much, and does it "
              "follow chemistry?",fontsize=STYLE["fs_title"],y=1.03)
 _c1note=(f"deduped wave: the SFT blocklist drops 34,301 eval molecules, so no arm trains on "
          f"eval-test molecules. Arms are unsup→sup from one shared 2M-FP MLM base, all lifted "
@@ -174,7 +174,7 @@ _c1note=(f"deduped wave: the SFT blocklist drops 34,301 eval molecules, so no ar
          f"one, since clearing a frozen random encoder is close to automatic. SCHEME: {C1J1_SCHEME}. "
          f"(c) omits dense (MTR) and dense+sparse: descriptor regression has no family molecule set "
          f"to measure similarity against. Families are sampled, so similarities are lower bounds.")
-fig.text(0.5,0.035,"\n".join(_tw.wrap(_c1note,150)),
+_caption(fig, 0.5,0.035,"\n".join(_tw.wrap(_c1note,150)),
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
 fig.subplots_adjust(top=0.87,bottom=0.14)
 save_fig(fig,"figC1J1_sft_family_transfer"); plt.show()

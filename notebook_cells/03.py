@@ -88,8 +88,19 @@ def no_data_watermark(ax,need):
             fontsize=STYLE["fs_annot"]+1,color="#B00020",fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.4",fc="#FCE8E8",ec="#B00020",lw=0.8),zorder=5)
     for s in ax.spines.values(): s.set_linestyle((0,(3,3)))
+# Figure "chrome" = the on-figure suptitle and the gray caption/note blocks. For the paper these
+# belong in the LaTeX \caption, not baked into the PNG, so they are OFF by default. Every suptitle
+# and caption in the notebook is routed through these two helpers, so this one flag turns them on
+# or off EVERYWHERE (flip to True for a self-contained draft).
+SHOW_FIG_CHROME=False
+def _suptitle(fig,*a,**k):
+    if SHOW_FIG_CHROME: fig.suptitle(*a,**k)
+def _caption(fig,*a,**k):
+    if SHOW_FIG_CHROME: fig.text(*a,**k)
 def save_fig(fig,name):
-    for ext in STYLE["save_formats"]: fig.savefig(f'{STYLE["outdir"]}/{name}.{ext}')
+    # bbox_inches="tight": with the chrome off, crop the freed top/bottom band instead of leaving a
+    # blank margin, and match the inline (already-tight) render.
+    for ext in STYLE["save_formats"]: fig.savefig(f'{STYLE["outdir"]}/{name}.{ext}',bbox_inches="tight")
     print("saved",name)
 
 import numpy as np

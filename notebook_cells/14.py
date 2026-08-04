@@ -71,13 +71,13 @@ sty_h=[plt.Line2D([],[],color="#444",marker="o",ls="-",label="test"),
        plt.Line2D([],[],color="#444",marker="^",ls=(0,(4,2)),label="train")]
 fig.legend(handles=reg_h+sty_h,loc="upper center",bbox_to_anchor=(0.5,0.0),ncol=6,
            fontsize=STYLE["fs_legend"])
-fig.suptitle("Fig B1p1 - label-efficiency and mechanism: does the frozen probe fit, or generalize?",
+_suptitle(fig, "Fig B1p1 - label-efficiency and mechanism: does the frozen probe fit, or generalize?",
              fontsize=STYLE["fs_title"],y=1.075)
 _b1note=("frozen probe re-fit at each label budget on the 8M encoders  ·  both SFT arms are the "
          "SAME `dense` (RDKit-MTR) recipe, so sup_only vs unsup→sup differs only in the MLM stage "
          "-- neither is an average over recipes  ·  3 subsample draws × 3 head seeds per point  ·  "
          "HIV scored by ROC-AUC here so train and test share a metric")
-fig.text(0.5,0.995,"\n".join(_tw.wrap(_b1note,120)),
+_caption(fig, 0.5,0.995,"\n".join(_tw.wrap(_b1note,120)),
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
 fig.subplots_adjust(top=0.86,bottom=0.12,hspace=0.48,wspace=0.34)
 save_fig(fig,"figB1p1_label_efficiency_train_test"); plt.show()

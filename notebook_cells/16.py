@@ -26,7 +26,7 @@ _E1_PENDING=[k for k in ("unsup_only",f"sup_only:{E1_SUP_RECIPE}") if k not in E
 if not len(C):
     fig,ax=plt.subplots(figsize=(STYLE["col15"],2.6))
     no_data_watermark(ax,"run scripts/run_e1_gpu.sh")
-    fig.suptitle("Fig E1 (H5) [NO DATA]",fontsize=STYLE["fs_title"])
+    _suptitle(fig, "Fig E1 (H5) [NO DATA]",fontsize=STYLE["fs_title"])
     save_fig(fig,"figE1_H5_eval_ceiling"); plt.show()
 else:
     nseed=C.seed.nunique()
@@ -158,7 +158,7 @@ else:
                          label="no_pretrain (end-to-end)")]
     fig.legend(handles=handles,loc="upper center",bbox_to_anchor=(0.5,0.155),ncol=3,
                fontsize=STYLE["fs_legend"])
-    fig.suptitle("Fig E1 (H5) - is the sup_only / unsup_only ordering a frozen-probe artifact?",
+    _suptitle(fig, "Fig E1 (H5) - is the sup_only / unsup_only ordering a frozen-probe artifact?",
                  fontsize=STYLE["fs_title"],y=0.99)
     # One figure-level pending note: per-panel boxes landed on the data in all four panels, and
     # the missing arm is missing everywhere, so saying it four times bought nothing.
@@ -177,7 +177,7 @@ else:
            f"frozen-probe summaries (the eval-ceiling CSV lacks a frozen HIV value); elsewhere it "
            f"comes from that CSV. Both no_pretrain references are present on all four tasks.")
     fig.subplots_adjust(top=0.88,bottom=0.24)
-    fig.text(0.5,0.085,"\n".join(_tw.wrap(_note,132)),ha="center",va="top",
+    _caption(fig, 0.5,0.085,"\n".join(_tw.wrap(_note,132)),ha="center",va="top",
              fontsize=STYLE["fs_annot"]-0.5,color="#666")
     save_fig(fig,"figE1_H5_eval_ceiling"); plt.show()
 

@@ -115,7 +115,7 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
                                label="corpus exhausted (12M molecules)")]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.0), ncol=3,
                fontsize=STYLE["fs_legend"], columnspacing=1.2)
-    fig.suptitle(f"Fig {tag} - scaling of the primary regimes in {xlabel}",
+    _suptitle(fig, f"Fig {tag} - scaling of the primary regimes in {xlabel}",
                  fontsize=STYLE["fs_title"], y=1.075)
     note = ("pooled 5-fold scaffold CV  ·  error bars = ±1 sd across the 5 folds (no head-seed, no "
             "pretraining-seed spread), so every interval means the same thing  ·  each panel is "
@@ -123,7 +123,7 @@ def draw_A2(xcol, tag, xlabel, extra_note, fname):
             "between panels  ·  the classical anchors and no_pretrain baselines are omitted for "
             "legibility — they are bars in A1.a/A1.b  ·  "
             + extra_note)
-    fig.text(0.5, 0.995, "\n".join(_tw.wrap(note, 120)), ha="center", va="top",
+    _caption(fig, 0.5, 0.995, "\n".join(_tw.wrap(note, 120)), ha="center", va="top",
              fontsize=STYLE["fs_annot"] - 0.5, color="#666")
     fig.subplots_adjust(top=0.88, bottom=0.10, hspace=0.62, wspace=0.30)
     save_fig(fig, fname); plt.show()

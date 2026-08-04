@@ -80,12 +80,12 @@ _ord=[0,2,1,3]                       # -> col0 = (MLM real, MTR real); col1 = (M
 # so each real/corrupted pair reads across a row, which is the comparison the figure is about.
 fig.legend(handles=[_h[i] for i in _ord],labels=[_l[i] for i in _ord],
            loc="upper center",bbox_to_anchor=(0.5,0.02),ncol=2,fontsize=STYLE["fs_legend"])
-fig.suptitle("Fig B2 - does content-free pretraining help just as much?",
+_suptitle(fig, "Fig B2 - does content-free pretraining help just as much?",
              fontsize=STYLE["fs_title"],y=1.18)
 _b2note=(f"zero = {B2_FLOOR_LABEL}, i.e. skipping pretraining and just fine-tuning a random "
          f"encoder  ·  {B2_SCHEME}. Each corrupted arm is matched to its real counterpart in "
          f"objective, data volume, compute and schedule; only chemical content is destroyed.")
-fig.text(0.5,1.06,"\n".join(_tw.wrap(_b2note,112)),
+_caption(fig, 0.5,1.06,"\n".join(_tw.wrap(_b2note,112)),
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
 fig.subplots_adjust(bottom=0.28)
 save_fig(fig,"figB2_corrupted_control"+("" if _have_b2 else "_PLACEHOLDER")); plt.show()
