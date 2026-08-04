@@ -873,9 +873,9 @@ The **RDKit version is part of the experiment definition**, not an implementatio
 - the contents of `configs/descriptor_stats.json` and every precomputed descriptor shard,
 - the feature width of the `rdkit_desc` / `fp_desc` classical anchors.
 
-⚠️ `requirements.txt` currently pins `rdkit-pypi==2022.9.5`, whose `descList` length **differs** from
-217. A reproducer installing from `requirements.txt` would silently build a different-width MTR head
-and different anchors. This pin must be corrected to the version actually used before release.
+✅ **Fixed (2026-08-05):** `requirements.txt` now pins `rdkit==2025.9.2` (217 descriptors), the
+version the runs used. The earlier `rdkit-pypi==2022.9.5` pin had a different `descList` length, so a
+reproducer would have silently built a different-width MTR head and different anchors; do not revert it.
 
 ### 9.2 Configs
 `configs/v2_phase2.yaml` (the 5-arm scaling matrix), `configs/v2_ablation.yaml` (dense-vs-sparse),

@@ -15,21 +15,42 @@ There are two ways to reproduce, cheapest first:
 
 ## 0. Get the artifacts (the access gate)
 
-`figure_data/` (~17 GB of results) and the encoder checkpoints (~12 GB) are **git-ignored** — the repo
+`figure_data/` (~17 GB of results) and the encoder checkpoints (~19 GB) are **git-ignored** — the repo
 ships code, the executed notebook, and `figure_data_manifest.json` (a content fingerprint), but **not**
-the data. To reproduce you must obtain:
+the data. Everything you need is on the Hugging Face Hub in three repos:
 
-| Artifact | Hugging Face (public) | Working S3 location (private) |
+| Artifact | Hugging Face repo (private) | Place it at |
 |---|---|---|
-| **Checkpoints** (+ byte-BPE tokenizer) | `<org>/climb-encoders` (model) | `s3://climb-s3-bucket/experiments/<wave>/<run>/encoder/`, `.../tokenizer_10M/` |
-| **Raw results** (`figure_data/`) | `<org>/climb-results` (dataset) | `s3://climb-s3-bucket/experiments/<wave>/<run>/` |
-| **Pre-training data** (corpus, descriptors, SFT table, blocklist) | `<org>/climb-pretrain-data` (dataset) | `s3://climb-s3-bucket/tokenized*/`, `.../configs/` |
+| **Checkpoints** (+ byte-BPE tokenizer) | [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders) (model) | `figure_data/<wave>/<run>/encoder/`, `figure_data/_tokenizer/` |
+| **Raw results** (`figure_data/`) | [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results) (dataset) | `figure_data/<wave>/<run>/` |
+| **Pre-training data** (12M corpus, 217 descriptors, SFT table, blocklist, tokenizer) | [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data) (dataset) | anywhere; point configs at it |
 
-> **Reviewers:** until the public archive above is live, reproduction needs read access to the S3
-> bucket. Request it from the authors. Everything below assumes the artifacts are placed at the paths
-> `figure_data/<wave>/<run>/...` and `figure_data/_tokenizer/` (the layout the notebook expects).
+> **These repos are private.** The author grants access via each repo's **Settings → sharing** (a
+> reviewer link or your HF username). Once you have access, log in and download with a token that can
+> read them: `python3 -c "from huggingface_hub import login; login()"`.
 
-Per-run S3 layout: `<wave>/<run>/{encoder/model.safetensors, metrics.jsonl, moleculenet/, moleculenet_cv/}`
+**Download (Path A needs only the results + tokenizer):**
+
+```bash
+python3 - <<'PY'
+from huggingface_hub import snapshot_download
+# raw eval results -> figure_data/  (this is all Path A needs, ~17 GB)
+snapshot_download("lsieben/climb-results", repo_type="dataset", local_dir="figure_data")
+# the tokenizer the notebook expects at figure_data/_tokenizer
+snapshot_download("lsieben/climb-encoders", repo_type="model",
+                  allow_patterns="tokenizer/*", local_dir="figure_data/_hf_enc")
+PY
+mkdir -p figure_data/_tokenizer && cp figure_data/_hf_enc/tokenizer/* figure_data/_tokenizer/
+# Path B also needs the encoders (~19 GB): snapshot_download("lsieben/climb-encoders", repo_type="model", local_dir="figure_data/_enc")
+# then move each <wave>/<run>/ into figure_data/<wave>/<run>/encoder/  (mirrors the results layout)
+```
+
+The **~124M full PubChem corpus** used by the `unsup_50M`/`unsup_100M` scaling runs is **not** re-hosted;
+it is the upstream dataset
+[`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC),
+re-canonicalized by `scripts/download_pubchem_full.sh` (only needed to *retrain* those two rungs, §5).
+
+Per-repo run layout: `<wave>/<run>/{encoder/model.safetensors, metrics.jsonl, moleculenet/, moleculenet_cv/}`
 where `moleculenet*/` hold `suite_summary.json` + per-molecule `test_predictions.csv`.
 
 ---
@@ -114,5 +135,35 @@ command in §1 to (re)write `moleculenet_cv/` (and `moleculenet/` for the hold-o
 - Regenerate the inventory with `scripts/reproducibility_audit.py --listing <aws s3 ls output>`.
 
 Known non-issues: the two Morgan anchors have no encoder (they are XGBoost on fingerprints);
-`unsup_8M_c124` is a notation-bridge diagnostic not used in any figure; superseded waves
-(`climb_v2`, `climb_v2_ablation`, `climb_v2_labeleff`) are kept for provenance only.
+`unsup_8M_c124` is a corpus-size control (same 8M budget on the 124M corpus) not shown in a main
+figure; superseded waves (`climb_v2`, `climb_v2_ablation`, `climb_v2_labeleff`) are kept for provenance
+only.
+
+---
+
+## 5. Path C — retrain / reimplement from scratch (GPU, hours–days)
+
+To rebuild an encoder rather than just re-evaluate it, everything you need is in the code + the
+pre-training data repo; **the full method is README §5 (architecture), §6 (data), §7 (training).**
+
+1. **Environment.** `pip install -r requirements.txt` (pins `rdkit==2025.9.2`, which fixes the 217
+   descriptor targets — do **not** substitute another RDKit, see README §9.1c). GPU env vars:
+   `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, `TORCHDYNAMO_DISABLE=1`.
+2. **Data.** Pull `lsieben/climb-pretrain-data` (12M filtered corpus + 217-descriptor targets + 5.38M-row
+   supervised table + `eval_blocklist.json` + `descriptor_stats.json` + tokenizer). For the `unsup_50M` /
+   `unsup_100M` rungs only, build the ~124M corpus with `scripts/download_pubchem_full.sh` (it fetches
+   `hheiden/PubChem-124M-...` and re-canonicalizes to match the tokenizer).
+3. **Train.** Each run ships the exact config it was trained with, at
+   `figure_data/<wave>/<run>/config.yaml` (in the results repo). Feed it straight back:
+   ```bash
+   python pretrain_v2.py --run_dir <out_dir> --config figure_data/<wave>/<run>/config.yaml
+   ```
+   The config's `unsupervised_raw_smiles_paths` selects the corpus (12M vs 124M), `selection.objectives`
+   the objective mix (MLM / MTR / supervised), and `total_forward_passes` the budget. A run is complete
+   only when achieved forward passes reach ≥98% of budget (`verified.json`, README §9.1b) — not when a
+   file appears.
+4. **Evaluate** the resulting `encoder/` with the §1 command, then Path A for figures.
+
+The SI vocabulary-size study (`climb_v2_vocab`, README §7.2) is retrained the same way, but each run
+uses its own tokenizer — rebuild the eight with `scripts/build_vocab_tokenizers.py` and drive the wave
+with `scripts/vocab_wave.sh`.

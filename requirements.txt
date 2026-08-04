@@ -66,7 +66,11 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
 PyYAML==6.0.3
 pyzmq==27.1.0
-rdkit-pypi==2022.9.5
+# RDKit is part of the experiment definition: descriptors_v2 derives the 217 MTR targets from
+# len(Descriptors.descList), so the version fixes the descriptor width, the precomputed shards, and the
+# fp_desc/rdkit_desc anchors. The runs used 2025.09.2 (217 descriptors). The old rdkit-pypi==2022.9.5
+# pin produced a DIFFERENT count and must not be used. See README §9.1c.
+rdkit==2025.9.2
 pytest==8.3.5
 pytest-timeout==2.4.0
 regex==2025.11.3
