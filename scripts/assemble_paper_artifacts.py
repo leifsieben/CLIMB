@@ -39,10 +39,14 @@ KEEP = ["config.yaml", "metadata.json", "metrics.jsonl", "verified.json", "run_s
         "moleculenet_cv/test_predictions.csv"]
 
 FIGURE_DOC = [
-    ("A1", "figA1_best_model_headline", "Which model performs best across datasets?",
+    ("A1a", "figA1a_best_model_headline_holdout", "Which model performs best (headline scaffold hold-out)?",
      "climb_v2_phase2 @ 8M, DeepChem scaffold hold-out"),
-    ("A2", "figA2_scaling_forward_passes", "How does pretraining scale in forward passes?",
-     "climb_v2_phase2, 2M/8M/24M/48M/96M"),
+    ("A1b", "figA1b_best_model_headline_cv", "Which model performs best (5-fold scaffold CV)?",
+     "climb_v2_phase2 @ 8M, 5-fold scaffold CV"),
+    ("A2a", "figA2a_scaling_tokens", "How does pretraining scale in tokens seen?",
+     "climb_v2_phase2, 2M/8M/24M/48M/96M (+50M/100M)"),
+    ("A2b", "figA2b_scaling_unique_molecules", "How does pretraining scale in unique molecules?",
+     "climb_v2_phase2 scaling rungs, 5-fold CV"),
     ("B1p1", "figB1p1_label_efficiency_train_test", "Does pretraining help small datasets more, and how?",
      "climb_v2_labeleff_v2, frozen probe, train vs test"),
     ("E1", "figE1_H5_eval_ceiling", "Is the sup/unsup ordering a frozen-probe artifact?",
@@ -53,6 +57,8 @@ FIGURE_DOC = [
      "climb_v2_ablation_dedup + derived/_tanimoto"),
     ("I1", "figI1_memorization_vs_representation", "Do corpus-similar or novel molecules benefit?",
      "climb_v2_phase2 CV predictions + derived/_tanimoto"),
+    ("C1J1+I1", "figC1J1_I1_combined", "Combined SFT-transfer + memorization panel (paper layout)",
+     "reuses climb_v2_ablation_dedup + climb_v2_phase2 + derived/_tanimoto"),
     ("H1", "figH1_canonical_vs_enumerated", "Does enumeration beat canonical repetition?",
      "climb_v2_h1 (retrained, 3 seeds)"),
 ]
@@ -183,8 +189,9 @@ them individually rather than mirroring them.
   climb_figures.ipynb`. The notebook's last cell reports, per figure, whether it is FINAL or
   still PROVISIONAL and exactly what is blocking it.
 - **An evaluation**: `python eval_v2.py --encoder <encoder dir> --tokenizer derived/tokenizer
-  --output_dir <out> --datasets ESOL Lipophilicity QM7 BBBP BACE Tox21 HIV --head_seeds 0 1 2`
-  (add `--cv_folds 5` for the CV scheme).
+  --output_dir <out> --datasets ESOL QM7 BBBP BACE Tox21 HIV --head_seeds 0 1 2`
+  (add `--cv_folds 5` for the CV scheme). Lipophilicity is excluded everywhere — the eval
+  blocklist predates it.
 - **A model**: every run's `config.yaml` is the exact config it was trained with; feed it back to
   `pretrain_v2.py --run_dir <dir> --config <config.yaml>`.
 

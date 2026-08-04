@@ -308,7 +308,9 @@ paper** (model-size scaling / E10 dropped).
 - **Fixed across every run** (HPO, pretraining, SFT, evaluation) so vocabulary/segmentation never
   confounds a comparison. Training sequences are capped at 128 tokens (>99% of SMILES fit; bounds
   padding memory), separate from the 256 RoPE position cap. Tokenizer training is reproducible via
-  `train_tokenizer.py` (provenance only; the artifact is prebuilt).
+  `train_tokenizer.py` (provenance only; the artifact is prebuilt). *The single deliberate exception
+  is the SI vocabulary-size scaling sweep (§7.2), which varies the tokenizer on purpose and is scored
+  separately.*
 
 ### 6.3 Supervised corpus (SFT source) — the "wide" parquet
 - **Path:** `s3://climb-s3-bucket/tokenized/supervised_wide_parquet/`.
@@ -533,6 +535,47 @@ input↔label pairing survives, targets permuted and never the identity).
 
 This is the experiment that decides whether the persistent part of B1's `unsup_only` advantage
 (clearest on ESOL/BACE) is real chemistry or an optimization artifact.
+
+### 7.2 Vocabulary-size scaling law (SI, wave `climb_v2_vocab`)
+
+A supplementary sweep asking a single question: **for unsupervised (MLM-only) pretraining, how does
+downstream quality depend on tokenizer vocabulary size, and does the tokenizer *algorithm* matter?**
+Vocabulary is the only thing that varies; corpus, compute, schedule, model depth/width and evaluation
+are all held to the main-run values.
+
+- **Two tokenizer families, matched vocab points** (`scripts/build_vocab_tokenizers.py`):
+  - **Byte-level BPE** — the same family as the main paper (§6.2), min_frequency=1 to reach as high a
+    vocab as the alphabet allows.
+  - **Unigram-LM** — SentencePiece-style unigram, a different sub-word *algorithm* at matched vocab,
+    with a `ByteLevel` pre-tokenizer so its alphabet is closed exactly like BPE's (no molecule ever
+    becomes `<unk>` for one family but not the other).
+  Both are wrapped as `PreTrainedTokenizerFast` with the identical five special tokens, so
+  `pretrain_v2` loads them unchanged.
+- **SMILES tokenization saturates**, so vocab points are the four *reachable, distinct* sizes per
+  family rather than even decades. Trained on an **8M-SMILES sample of the same PubChem corpus**, the
+  achieved vocabularies are **BPE {261, 1000, 3000, 12000}** and **Unigram {261, 700, 876, 3000}**
+  (261 = the byte floor + specials = no merges/pieces; nominal targets above a family's ceiling simply
+  cap there). The **actual** vocab a run reports — not the nominal target — is the x-axis (e.g. the
+  Unigram-1200 target resolves to 876).
+- **One pretraining run per tokenizer** (`scripts/vocab_write_config.py` patches the `unsup_2M`
+  template): MLM-only (`{mlm:1}`), **2M forward passes**, canonical SMILES tokenized on the fly
+  (`augmentation="canonical_raw"`), pretraining seed 0. Everything else is byte-identical to the main
+  `unsup_only` runs. The token embedding and MLM softmax **auto-size to the loaded tokenizer**
+  (`vocab_size = tokenizer.vocab_size`), so **parameter count grows with vocab** (≈41.4M at vocab
+  1000 → ≈47.1M at vocab 12000) — this is the one dimension deliberately allowed to move; all other
+  model dimensions are fixed. Completion is gated the same way as every other run (`verified.json` at
+  ≥98% of the 2M-FP budget).
+- **Evaluation is the identical frozen-probe 5-fold scaffold CV of §8** on the **six core tasks**
+  (ESOL, QM7, BBBP, BACE, Tox21, HIV; Lipophilicity excluded, §6.6), 3 head seeds averaged per fold.
+- **Comparability.** Same pretraining corpus, same 2M-FP budget, same eval for all eight runs, so the
+  only differences between points are (i) vocabulary size and (ii) tokenizer family — with the caveat,
+  stated in the SI, that larger vocab also means more embedding parameters (vocab size and parameter
+  count are confounded by construction; this is inherent to a vocab sweep and is disclosed rather than
+  removed).
+- **Artifacts.** Encoders + evals under `experiments/climb_v2_vocab/<family>_<vocab>/`; the eight
+  tokenizers under `s3://climb-s3-bucket/tokenizers_vocab/`. Driver `scripts/vocab_wave.sh` runs the
+  eight fast-first (high vocab = shorter sequences first) on one box, train → CV → upload per run,
+  self-terminating on completion.
 
 ## 8. Evaluation protocol (frozen featurizer)
 
@@ -830,7 +873,7 @@ Each maps onto the working S3 layout `s3://climb-s3-bucket/`:
 |---|---|---|
 | `<org>/climb-encoders` (model) | per-run `encoder/model.safetensors` + `config.json`; byte-BPE tokenizer (vocab 1000) | `experiments/<wave>/<run>/encoder/`, `tokenizer_10M/` |
 | `<org>/climb-results` (dataset) | per-run `moleculenet/` + `moleculenet_cv/` (`suite_summary.json`, per-molecule `test_predictions.csv`), `metrics.jsonl` | `experiments/<wave>/<run>/` |
-| `<org>/climb-pretrain-data` (dataset) | ~12M-SMILES tokenized corpus (12 shards), 217-descriptor companions, 5.38M-row supervised wide table, `eval_blocklist.json` (34,301 leaked molecules), `descriptor_stats.json`, persisted eval ECFP4 fingerprints | `tokenized_sources/*`, `tokenized/*`, `configs/*` |
+| `<org>/climb-pretrain-data` (dataset) | ~12M-SMILES tokenized corpus (12 shards), 217-descriptor companions, 5.38M-row supervised wide table, `eval_blocklist.json` (34,301 leaked molecules), `descriptor_stats.json` | `tokenized_sources/*`, `tokenized/*`, `configs/*` |
 
 Full download + run instructions: **[`REPRODUCE.md`](REPRODUCE.md)**.
 
@@ -846,41 +889,42 @@ exact-identity "seen" key (C17)**.
 
 ### 9.6 Model inventory (what exists, and what we hold for it)
 
-**137 runs** across the four waves the paper draws on. Regenerate with
+**168 runs** across the four waves the paper draws on. Regenerate with
 `python scripts/reproducibility_audit.py --listing <s3 listing> --out audit/`; the per-run
 breakdown is `paper_artifacts/INVENTORY.md`.
 
 | Pretraining type | Budgets | Seeds | Runs | ckpt | curve | proof | single-split | 5-fold CV | CV preds |
 |---|---|---|--:|--:|--:|--:|--:|--:|--:|
-| `corrupted control (mlm: content destroyed)` | 8M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `corrupted control (mtr: content destroyed)` | 8M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `no_pretrain (random init, frozen)` | — | 0,1,2 | 6 | 6 | n/a | n/a | 6 | 3 | 3 |
-| `sup_only: dense` | 2M, 8M, 24M, 48M, 96M | 0,1,2 | 7 | 7 | 7 | 7 | 7 | 4 | 4 |
-| `sup_only: dense_plus_sparse` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 4 | 4 |
-| `sup_only: minimol_full` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 4 | 4 |
-| `sup_only: mixed` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 4 | 4 |
-| `sup_only: sparse_all` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 4 | 4 |
-| `unsup->sup (ablation): dense_plus_sparse` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `unsup->sup (ablation): l1000` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `unsup->sup (ablation): mtr` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `unsup->sup (ablation): pcba` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `unsup->sup (ablation): pcqm` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `unsup->sup (ablation): sparse_all` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
-| `unsup->sup: dense` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 3 | 3 |
-| `unsup->sup: dense_plus_sparse` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 3 | 3 |
-| `unsup->sup: minimol_full` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 3 | 3 |
-| `unsup->sup: mixed` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 3 | 3 |
-| `unsup->sup: sparse_all` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 3 | 3 |
-| `unsup_only (MLM)` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 4 | 4 |
-| `unsup_only, canonical SMILES` | 2M @ frac0p3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `classical: Morgan+XGBoost` | — | 0 | 2 | n/a | n/a | n/a | 2 | 1 | 1 |
+| `corrupted control (mlm: content destroyed)` | 8M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `corrupted control (mtr: content destroyed)` | 8M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `no_pretrain (random init, frozen)` | — | 0,1,2 | 6 | 6 | n/a | n/a | 6 | 6 | 6 |
+| `sup_only: dense` | 2M, 8M, 24M, 48M, 96M | 0,1,2 | 7 | 7 | 7 | 7 | 7 | 7 | 7 |
+| `sup_only: dense_plus_sparse` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `sup_only: minimol_full` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `sup_only: mixed` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `sup_only: sparse_all` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup (ablation): dense_plus_sparse` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): l1000` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): mtr` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): pcba` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): pcqm` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): sparse_all` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup: dense` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: dense_plus_sparse` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: minimol_full` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: mixed` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: sparse_all` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup_only (MLM)` | 2M, 8M, 24M, 48M, 50M, 100M | 0,1,2 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| `unsup_only, canonical SMILES` | 2M @ frac0p3, 2M @ fracfull, 2M @ frac0p01, 2M @ frac0p1, 2M @ frac0p001 | 0,1,2 | 15 | 15 | 15 | 15 | 15 | 15 | 15 |
+| `unsup_only, enumerated SMILES` | 2M @ frac0p3, 2M @ fracfull, 2M @ frac0p01, 2M @ frac0p1, 2M @ frac0p001 | 0,1,2 | 15 | 15 | 15 | 15 | 15 | 15 | 15 |
+| `classical: Morgan+XGBoost` | — | 0 | 2 | n/a | n/a | n/a | 2 | 2 | 2 |
 | `classical: Morgan+desc+XGBoost` | — | 0 | 1 | n/a | n/a | n/a | 1 | 1 | 1 |
 | `label-efficiency probe: random` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
 | `label-efficiency probe: sup` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
 | `label-efficiency probe: unsup` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
 | `label-efficiency probe: unsup2sup` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
 
-**81 encoder checkpoints, 13.4 GB**, indexed in `paper_artifacts/checkpoints.csv`
+**113 encoder checkpoints, 18.8 GB**, indexed in `paper_artifacts/checkpoints.csv`
 with `fetch_checkpoint.sh <run>` to pull one. They are not mirrored to laptops.
 
 **Columns.** `ckpt` = encoder weights in S3 · `curve` = `metrics.jsonl` training curve ·
