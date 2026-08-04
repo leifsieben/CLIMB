@@ -25,8 +25,12 @@ mkdir -p "$ROOT"
 # fast-first, family-interleaved
 RUNS="bpe_12000 unigram_3000 bpe_3000 unigram_1200 bpe_1000 unigram_700 bpe_261 unigram_261"
 
-# ---- step 0: tokenizers (idempotent; uploads to S3, leaves local) ----
-say "building tokenizers"
+# ---- step 0: tokenizers ----
+# Pull any already-built tokenizers from S3 first; build only fills gaps. On a fresh/rebooted box
+# this avoids rebuilding all 8 (and regenerating the 8M sample) when they are already in S3.
+mkdir -p "$TOKROOT"
+aws s3 sync "$TOKS3" "$TOKROOT" --only-show-errors || true
+say "building tokenizers (skips those already synced from S3)"
 $PY scripts/build_vocab_tokenizers.py --sample 8000000 --out "$TOKROOT" --s3 "$TOKS3" || { say "TOKENIZER BUILD FAILED"; exit 1; }
 
 # ---- template config ----
