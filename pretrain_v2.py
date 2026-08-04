@@ -355,12 +355,17 @@ def train(args) -> int:
     mlm_loader = None
     if "mlm" in objectives:
         mlm_max_length = min(train_cfg.train_max_length, model_cfg.max_position_embeddings)
-        if augmentation == "enumerated":
+        # "canonical_raw": canonical SMILES tokenized ON THE FLY with this run's tokenizer,
+        # instead of reading the vocab-1000-baked pre-tokenized cache. Needed for the vocab-size
+        # sweep, where every run has a different tokenizer/vocab: the cache cannot be used, and we
+        # do NOT want enumeration (that would confound vocab with augmentation), so randomize=False.
+        if augmentation in ("enumerated", "canonical_raw"):
             if not raw_paths:
-                raise ValueError("augmentation='enumerated' requires 'unsupervised_raw_smiles_paths'")
+                raise ValueError(f"augmentation='{augmentation}' requires 'unsupervised_raw_smiles_paths'")
             mlm_dataset = make_raw_smiles_dataset(raw_paths, subset_fraction=mlm_subset_fraction, subset_seed=pretraining_seed)
             mlm_collator = RawSmilesMLMCollator(
-                tokenizer, mlm_probability=train_cfg.mlm_probability, randomize=True,
+                tokenizer, mlm_probability=train_cfg.mlm_probability,
+                randomize=(augmentation == "enumerated"),
                 max_length=mlm_max_length, special_tokens=special_tokens,
             )
         else:
