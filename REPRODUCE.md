@@ -54,6 +54,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | `figH1_canonical_vs_enumerated` | 26 | `climb_v2_h1` (3 seeds) | 5-fold CV |
 | Figure inventory | 28 | all waves | — |
 | Head-ablation table (FFN vs XGBoost) | 30 | `climb_v2_phase2` + `analysis/head_ablation` | 5-fold CV |
+| `figSV_vocab_scaling` / `figSV_vocab_effect` (SI) | 32 | `climb_v2_vocab` (8 tokenizer runs) | 5-fold CV |
 
 The exact command that produced each `<wave>/<run>/moleculenet_cv/` (only `--head`/`--featurizer`
 change between model types):
