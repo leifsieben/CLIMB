@@ -70,7 +70,7 @@ L += ["",
       "carries NEF1% (top-1% enrichment).",
       "",
       "**Storage.** Working bucket `s3://climb-s3-bucket`; independent versioned backup at",
-      "`s3://climb-paper-backup-075120018132` (no expiry lifecycle, copy-only). The old",
+      "`s3://climb-paper-backup-<acct>` (no expiry lifecycle, copy-only). The old",
       "`experiments/robust_matrix` wave (3.7 TB, 98.9% of it per-epoch fine-tuning checkpoints, read",
       "by no figure) is lifecycled to Glacier Deep Archive: ~$86/month → ~$4/month, data retained.",
       "", END]
