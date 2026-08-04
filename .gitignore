@@ -84,3 +84,4 @@ figure_data/
 # The scripts that build it are versioned; the bundle itself is not.
 paper_artifacts/
 notebook_backups/
+operational-state.local.md

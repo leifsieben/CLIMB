@@ -19,12 +19,11 @@ There are two ways to reproduce, cheapest first:
 ships code, the executed notebook, and `figure_data_manifest.json` (a content fingerprint), but **not**
 the data. To reproduce you must obtain:
 
-| Artifact | Current location (private) | Public archive (fill in once published) |
+| Artifact | Hugging Face (public) | Working S3 location (private) |
 |---|---|---|
-| Encoder checkpoints | `s3://climb-s3-bucket/experiments/<wave>/<run>/encoder/` | Hugging Face: `<org>/climb-<run>` |
-| Tokenizer (byte-BPE, vocab 1000) | `s3://climb-s3-bucket/tokenizer_10M/` | HF: `<org>/climb-tokenizer` |
-| Datasets (tokenized corpus, eval sets, blocklist) | `s3://climb-s3-bucket/tokenized*/`, `.../configs/` | HF Datasets: `<org>/climb-*` |
-| Results (`figure_data/`) | `s3://climb-s3-bucket/experiments/` | Zenodo record `10.5281/zenodo.<id>` |
+| **Checkpoints** (+ byte-BPE tokenizer) | `<org>/climb-encoders` (model) | `s3://climb-s3-bucket/experiments/<wave>/<run>/encoder/`, `.../tokenizer_10M/` |
+| **Raw results** (`figure_data/`) | `<org>/climb-results` (dataset) | `s3://climb-s3-bucket/experiments/<wave>/<run>/` |
+| **Pre-training data** (corpus, descriptors, SFT table, blocklist) | `<org>/climb-pretrain-data` (dataset) | `s3://climb-s3-bucket/tokenized*/`, `.../configs/` |
 
 > **Reviewers:** until the public archive above is live, reproduction needs read access to the S3
 > bucket. Request it from the authors. Everything below assumes the artifacts are placed at the paths
