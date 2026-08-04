@@ -2,7 +2,7 @@
  "note": "content fingerprint of the figure_data snapshot the committed figures were built from; mtime is informational and excluded from all hashes",
  "data_root": "figure_data",
  "n_files": 924,
- "snapshot_hash": "6e0c9ca868c20ed0b84373c9eda5d5f2cd4d1f945d8f219150d9dec027b2de74",
+ "snapshot_hash": "e95faafd92d33f2345fd28ccb2724db9c4a6fbfdd2c2efcf0aabb99c51dad06a",
  "files": {
   "climb_v2/ecfp4_anchor/moleculenet/suite_summary.json": {
    "bytes": 357,
@@ -5154,16 +5154,16 @@
    }
   },
   "climb_v2_phase2/ecfp4_anchor/moleculenet_cv/test_predictions.csv": {
-   "bytes": 35132280,
-   "sha256": "279e3917c5ccc8c4a431c5d07cb7903ca8c8c12bd17070e48a7dbbb76c5efd57",
-   "mtime": "2026-07-23T00:53",
+   "bytes": 18292471,
+   "sha256": "51194b21ff930f7291f45a68b25b8bc77797f005189c718b5d09e3907e822af3",
+   "mtime": "2026-08-04T11:56",
    "rows_by_dataset": {
     "BACE": 1513,
     "BBBP": 2039,
     "ESOL": 1128,
-    "HIV": 82254,
+    "HIV": 41127,
     "QM7": 6838,
-    "Tox21": 187944
+    "Tox21": 93972
    }
   },
   "climb_v2_phase2/fp_desc_anchor/moleculenet/test_predictions.csv": {
@@ -5181,16 +5181,16 @@
    }
   },
   "climb_v2_phase2/fp_desc_anchor/moleculenet_cv/test_predictions.csv": {
-   "bytes": 35184435,
-   "sha256": "b26db7f1cb5a40415aca7a9537318f7649f2a99eaa7f39d052748860e63cc874",
-   "mtime": "2026-07-23T01:20",
+   "bytes": 18318087,
+   "sha256": "4879d6a1a468063efab04825c9553318bf2dbc310d2d1cc30d0591d4cc8237b4",
+   "mtime": "2026-08-04T11:56",
    "rows_by_dataset": {
     "BACE": 1513,
     "BBBP": 2039,
     "ESOL": 1128,
-    "HIV": 82254,
+    "HIV": 41127,
     "QM7": 6838,
-    "Tox21": 187944
+    "Tox21": 93972
    }
   },
   "climb_v2_phase2/random_baseline_00/moleculenet/test_predictions.csv": {
