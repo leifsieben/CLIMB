@@ -24,10 +24,17 @@ def _vtitle(task, metric):
     pretty = {"rmse": "RMSE", "roc_auc": "ROC-AUC", "nef1": "NEF1%"}[metric]
     return f'{TASKS[task]["pretty"]} — {pretty} {arrow}'
 
-# ----- figSV_vocab_scaling : per-task metric vs actual vocab, BPE vs Unigram -----
-ncol = 3; nrow = int(np.ceil(len(VOCAB_PANELS) / ncol))
-figV, axesV = plt.subplots(nrow, ncol, figsize=(STYLE["col2"], 2.15 * nrow)); axesV = axesV.ravel()
-for ax, (task, metric, lower) in zip(axesV, VOCAB_PANELS):
+# ----- one combined figure: (a) per-task scaling grid, (b) effect-size summary -----
+# Stacked like figC1J1_I1_combined: rows 0-1 hold the six task panels (2x3), row 2 is the
+# full-width effect-size summary. Both read the SAME data, so panel b can never disagree with a.
+figV = plt.figure(figsize=(STYLE["col2"], 8.7))
+_outer = figV.add_gridspec(3, 1, height_ratios=[1.0, 1.0, 0.86], hspace=0.55)
+_g0 = _outer[0].subgridspec(1, 3, wspace=0.34); _g1 = _outer[1].subgridspec(1, 3, wspace=0.34)
+_taxes = [figV.add_subplot(_g0[j]) for j in range(3)] + [figV.add_subplot(_g1[j]) for j in range(3)]
+axE = figV.add_subplot(_outer[2])
+
+# ----- (a) per-task metric vs actual vocab, BPE vs Unigram -----
+for ax, (task, metric, lower) in zip(_taxes, VOCAB_PANELS):
     for fam, sty in VOCAB_FAMILY.items():
         x, y, e = _vseries(fam, task, metric)
         if not len(x): continue
@@ -40,25 +47,12 @@ for ax, (task, metric, lower) in zip(axesV, VOCAB_PANELS):
     ax.xaxis.set_minor_locator(ticker.NullLocator()); ax.tick_params(axis="x", which="minor", bottom=False)
     ax.set_title(_vtitle(task, metric), pad=6); ax.set_xlabel("tokenizer vocab (actual, log)")
     ax.margins(x=0.10); label_all_yticks(ax)
-for ax in axesV[len(VOCAB_PANELS):]: ax.axis("off")
-axesV[0].legend(loc="best", fontsize=STYLE["fs_legend"])
-_suptitle(figV, "Fig SV.a - vocabulary size barely affects unsupervised (MLM) pretraining "
-                "(frozen-probe 5-fold scaffold CV, matched 2M forward passes)",
-          fontsize=STYLE["fs_title"], y=1.02)
-_vnote = ("frozen-probe pooled 5-fold scaffold CV  ·  error bars = ±1 std across the 5 held-out "
-          "scaffold folds  ·  x = actual tokenizer vocab (not the nominal target)  ·  single "
-          "pretraining seed  ·  vocab and embedding-param count are confounded by construction "
-          "(larger vocab ⇒ more params); disclosed, not removed")
-_caption(figV, 0.5, 0.995, "\n".join(_tw.wrap(_vnote, 120)), ha="center", va="top",
-         fontsize=STYLE["fs_annot"] - 0.5, color="#666")
-figV.subplots_adjust(top=0.90, bottom=0.11, hspace=0.55, wspace=0.34)
-save_fig(figV, "figSV_vocab_scaling"); plt.show()
+_taxes[0].legend(loc="best", fontsize=STYLE["fs_legend"])
 
-# ----- figSV_vocab_effect : largest-vocab change vs the vocab-261 baseline, in fold-std units -----
+# ----- (b) largest-vocab change vs the vocab-261 baseline, in fold-std units -----
 # One number per family/task: how far the LARGEST reachable vocab moves the metric away from the
 # character-level (261) baseline, signed so + = better, divided by that task's fold std at the large
 # vocab. |effect| < 1 (inside the shaded band) means "within evaluation noise".
-figE, axE = plt.subplots(figsize=(STYLE["col15"], 3.6))
 _dodge = {"bpe": -0.16, "unigram": +0.16}
 for fam, sty in VOCAB_FAMILY.items():
     for k, (task, metric, lower) in enumerate(VOCAB_PANELS):
@@ -70,23 +64,24 @@ for fam, sty in VOCAB_FAMILY.items():
         if not np.isfinite(eff): continue
         xp = k + _dodge[fam]
         axE.plot([xp, xp], [0, eff], color=sty["color"], lw=2.4, zorder=2, solid_capstyle="round")
-        axE.plot([xp], [eff], color=sty["color"], marker=sty["marker"], ms=7, mec="white",
-                 label=(sty["label"] if k == 0 else None), zorder=3)
+        axE.plot([xp], [eff], color=sty["color"], marker=sty["marker"], ms=7, mec="white", zorder=3)
 axE.axhspan(-1, 1, color="#888888", alpha=0.13, zorder=0)
 axE.axhline(0, color=PALETTE["black"], lw=0.9)
 axE.set_xticks(range(len(VOCAB_PANELS))); axE.set_xticklabels([p[0] for p in VOCAB_PANELS])
 axE.set_ylabel("largest vocab vs vocab-261\n(fold-std units, + = better)")
+axE.set_title("effect size: largest reachable vocab vs the character-level (261) baseline "
+              "— shaded band = ±1 fold std (within noise)", pad=6)
 axE.set_ylim(-2.6, 2.6); axE.margins(x=0.05); label_all_yticks(axE)
-axE.legend(loc="upper right", fontsize=STYLE["fs_legend"])
-_suptitle(figE, "Fig SV.b - does enlarging the vocabulary help? Largest reachable vocab vs the "
-                "character-level (261) baseline; shaded band = ±1 fold std (within-noise)",
-          fontsize=STYLE["fs_title"], y=1.02)
-_caption(figE, 0.5, 0.995, "\n".join(_tw.wrap(
-    "effect = (metric at the largest reachable vocab − metric at vocab 261), signed so positive is "
-    "better, in units of that task's across-fold std at the large vocab. Markers inside the shaded "
-    "±1σ band are within evaluation noise.", 118)), ha="center", va="top",
-    fontsize=STYLE["fs_annot"] - 0.5, color="#666")
-figE.subplots_adjust(top=0.90, bottom=0.12); save_fig(figE, "figSV_vocab_effect"); plt.show()
+
+_suptitle(figV, "Fig SV - vocabulary size barely affects unsupervised (MLM) pretraining "
+                "(frozen-probe 5-fold scaffold CV, matched 2M forward passes)",
+          fontsize=STYLE["fs_title"], y=0.995)
+figV.subplots_adjust(left=0.10, right=0.965, top=0.945, bottom=0.055)
+# a/b block tags, flush-left above the scaling grid and the effect panel (figC1J1_I1 pattern)
+for _ax, _t in [(_taxes[0], "a"), (axE, "b")]:
+    figV.text(0.012, _ax.get_position().y1 + 0.008, _t, fontsize=STYLE["fs_panel_tag"],
+              fontweight="bold", va="bottom", ha="left")
+save_fig(figV, "figSV_vocab"); plt.show()
 
 # ----- printed readout: the near-null result, stated in numbers -----
 print("\nVocabulary-size effect (largest reachable vocab vs vocab-261, in fold-std units; "
