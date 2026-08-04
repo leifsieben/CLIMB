@@ -78,7 +78,7 @@ if pairs:
     sim=float(np.mean([v[0][0] for _,v in pairs])); nov=float(np.mean([v[1][0] for _,v in pairs]))
     _se=lambda k: float(np.sqrt(np.sum([((v[k][2]-v[k][1])/2/len(pairs))**2 for _,v in pairs])))
     se_s,se_n=_se(0),_se(1)
-    ax0.bar([0,1],[sim,nov],color=[PALETTE["purple"],PALETTE["teal"]],width=0.6,
+    ax0.bar([0,1],[sim,nov],color=["#1b5e20","#66bb6a"],width=0.6,      # dark green = most-similar, light green = most-novel
             yerr=[se_s,se_n],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
     for xi,v,e in zip([0,1],[sim,nov],[se_s,se_n]):
         ax0.text(xi,v+e+0.6,f"{v:+.1f}%",ha="center",fontsize=STYLE["fs_annot"])

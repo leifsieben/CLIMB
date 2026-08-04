@@ -70,16 +70,11 @@ elif not _b2_have_cv:
             "on the small single hold-out; HIV especially is unreliable here",
             transform=ax.transAxes,ha="center",va="bottom",fontsize=STYLE["fs_annot"]-1,
             color="#B00020",bbox=dict(boxstyle="round,pad=0.3",fc="#FCE8E8",ec="#B00020",lw=0.8))
-# Column-major fill: this order puts MLM-real top-left, MLM-corrupted top-right, MTR-real
-# bottom-left, MTR-corrupted bottom-right, so each pair is read down a column... no: matplotlib
-# fills column-first, so the handles are reordered here to land as [TL, TR / BL, BR].
-_h,_l=ax.get_legend_handles_labels()
-_ord=[0,2,1,3]                       # -> col0 = (MLM real, MTR real); col1 = (MLM corr, MTR corr)
-# Column-major fill: with 4 entries and ncol=2 this lands as
-#   col0 = (MLM real, MTR real) | col1 = (MLM corrupted, MTR corrupted)
-# so each real/corrupted pair reads across a row, which is the comparison the figure is about.
-fig.legend(handles=[_h[i] for i in _ord],labels=[_l[i] for i in _ord],
-           loc="upper center",bbox_to_anchor=(0.5,0.02),ncol=2,fontsize=STYLE["fs_legend"])
+# Legend INSIDE, upper-right: the tall bars are ESOL on the left and HIV on the right is small, so
+# the top-right corner is empty. This removes the wasted band under the figure and, by dropping the
+# reserved bottom margin, re-centres the axes so the long y-label stops overflowing the top on export.
+# Natural order keeps each real/corrupted pair adjacent (MLM pair, then MTR pair).
+ax.legend(loc="upper right",ncol=1,fontsize=STYLE["fs_legend"],framealpha=0.9,borderaxespad=0.5)
 _suptitle(fig, "Fig B2 - does content-free pretraining help just as much?",
              fontsize=STYLE["fs_title"],y=1.18)
 _b2note=(f"zero = {B2_FLOOR_LABEL}, i.e. skipping pretraining and just fine-tuning a random "
@@ -87,7 +82,6 @@ _b2note=(f"zero = {B2_FLOOR_LABEL}, i.e. skipping pretraining and just fine-tuni
          f"objective, data volume, compute and schedule; only chemical content is destroyed.")
 _caption(fig, 0.5,1.06,"\n".join(_tw.wrap(_b2note,112)),
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
-fig.subplots_adjust(bottom=0.28)
 save_fig(fig,"figB2_corrupted_control"+("" if _have_b2 else "_PLACEHOLDER")); plt.show()
 
 if _have_b2:

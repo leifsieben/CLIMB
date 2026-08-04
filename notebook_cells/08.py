@@ -47,7 +47,7 @@ def draw_A1(df, sub, tag, scheme_note, err_note, fname):
 
     handles = [mpl.patches.Patch(facecolor=rc_color(k), label=rc_label(k)) for k in A1_ORDER]
     handles += [plt.Line2D([], [], color="#999999", ls=(0, (1, 1.5)), lw=1.0, label="random (chance)")]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.0), ncol=4,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.05), ncol=4,
                fontsize=STYLE["fs_legend"], handlelength=1.5, columnspacing=1.3)
 
     # replication note; the count of replicated arms is read from the data so it cannot go stale
@@ -60,7 +60,7 @@ def draw_A1(df, sub, tag, scheme_note, err_note, fname):
                  fontsize=STYLE["fs_title"], y=1.10)
     _caption(fig, 0.5, 0.995, "\n".join(_tw.wrap(_note, 125)), ha="center", va="top",
              fontsize=STYLE["fs_annot"] - 0.5, color="#666")
-    fig.subplots_adjust(top=0.82, bottom=0.13, hspace=0.42, wspace=0.42)
+    fig.subplots_adjust(top=0.96, bottom=0.11, hspace=0.42, wspace=0.42)
     save_fig(fig, fname); plt.show()
 
     print(f"\n{tag} mean lift over no_pretrain at {MATCHED_BUDGET} (tasks scored / {len(CORE_TASKS)}):")

@@ -26,7 +26,6 @@ axA.axvline(0,color="#333",lw=0.8)
 axA.set_yticks(range(len(ARM_ORDER))); axA.set_yticklabels(ARM_ORDER); axA.invert_yaxis()
 axA.set_xlabel(f"avg lift over {C1J1_FLOOR_LABEL} (%)")
 axA.set_title("Which SFT label type helps?\n(all arms: unsup→sup from one 2M-FP MLM base)",pad=6)
-panel_tag(axA,"a",dx=-0.62)
 
 # ----- (b) SFT-family transfer matrix (C1J1 data) -----
 _im=axB.imshow(H.values,cmap="PuOr_r",norm=_norm,aspect="auto")
@@ -69,12 +68,11 @@ else:
     no_data_watermark(axC,"run scripts/compute_family_task_similarity.py")
     axC.set_xlabel("family–task Tanimoto similarity  —  right = MORE similar →")
     axC.set_ylabel(f"lift over {C1J1_FLOOR_LABEL} (%)")
-panel_tag(axC,"c",dx=-0.09)
 
 # ----- (d) I1 quartile lift: most-similar vs most-novel (I1 data) -----
 _ylabI=f"lift over {_I1_BASE_LABEL[I1_BASE_KEY]} (%)"
 if pairs:
-    axD.bar([0,1],[sim,nov],color=[PALETTE["purple"],PALETTE["teal"]],width=0.6,
+    axD.bar([0,1],[sim,nov],color=["#1b5e20","#66bb6a"],width=0.6,      # dark green = most-similar, light green = most-novel
             yerr=[se_s,se_n],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
     for _xi,_v,_e in zip([0,1],[sim,nov],[se_s,se_n]):
         axD.text(_xi,_v+_e+0.6,f"{_v:+.1f}%",ha="center",fontsize=STYLE["fs_annot"])
@@ -85,7 +83,7 @@ else:
     axD.set_ylim(-5,15); no_data_watermark(axD,_I1_NEED)
 axD.set_xticks([0,1])
 axD.set_xticklabels(["most corpus-similar\n(top quartile)","most novel\n(bottom quartile)"])
-axD.set_ylabel(_ylabI); label_all_yticks(axD); panel_tag(axD,"d",dx=-0.20)
+axD.set_ylabel(_ylabI); label_all_yticks(axD)
 
 # ----- (e) I1 lift vs corpus similarity (I1 data) -----
 _drew=False
@@ -106,6 +104,15 @@ axE.set_ylabel(_ylabI); label_all_yticks(axE); panel_tag(axE,"e",dx=-0.18)
 _suptitle(figF, "Fig C1J1+I1 — supervised-label transfer (a–c) and who benefits from MLM "
               "pretraining (d–e)",fontsize=STYLE["fs_title"],y=0.995)
 figF.subplots_adjust(left=0.155,right=0.945,top=0.945,bottom=0.055)
+# Left-align the three left-column panels. Panel a is a horizontal bar chart whose long arm-name
+# labels overhang further left than c/d's y-axis labels, so on a tight-cropped export a reads as
+# flush-left while c/d sit indented. Indent a's axes so its label block lands in the same left band,
+# then stack the a/c/d tags in one flush-left column at a shared figure-x.
+_shift=0.085
+_pa=axA.get_position(); axA.set_position([_pa.x0+_shift,_pa.y0,_pa.width-_shift,_pa.height])
+for _ax,_t in [(axA,"a"),(axC,"c"),(axD,"d")]:
+    figF.text(0.015,_ax.get_position().y1+0.006,_t,fontsize=STYLE["fs_panel_tag"],
+              fontweight="bold",va="bottom",ha="left")
 save_fig(figF,"figC1J1_I1_combined"); plt.show()
 print("combined C1J1+I1 panel: a–c reuse the C1J1 cell's data, d–e reuse the I1 cell's data "
       "-> identical to the standalone figures by construction.")
