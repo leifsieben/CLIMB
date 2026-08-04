@@ -85,3 +85,7 @@ figure_data/
 paper_artifacts/
 notebook_backups/
 operational-state.local.md
+
+# HF publish staging (large, transient)
+.hf_staging/
+figures_vocab/

@@ -60,8 +60,9 @@ for the figure → data → command map.
 
 - Evaluation is a frozen featurizer (masked-mean-pooled CLIMB embeddings → z-score → head), plus
   Morgan+XGBoost / Morgan+desc+XGBoost classical anchors. Protocol: paper §8, `eval_v2.py`.
-- Downstream tasks are MoleculeNet (DeepChem loaders); all training molecules are deduplicated against
-  the eval sets at the InChIKey level (34,301-molecule blocklist, shipped with the pre-training data).
+- Downstream tasks are MoleculeNet (DeepChem loaders); all supervised training molecules are
+  deduplicated against the eval sets by **RDKit canonical SMILES of the largest fragment** (salt-stripped;
+  34,301-molecule blocklist, shipped with the pre-training data). Details in paper §6.6.
 
 ## Citation
 
