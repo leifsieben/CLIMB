@@ -83,3 +83,4 @@ figure_data/
 # Paper artifact bundle: 2 GB of copied results, mirrored to the backup bucket.
 # The scripts that build it are versioned; the bundle itself is not.
 paper_artifacts/
+notebook_backups/

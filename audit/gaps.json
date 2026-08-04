@@ -1,14 +1,1 @@
-{
-  "NO ENCODER IN S3 - cannot be re-evaluated or released": [
-    "climb_v2_h1/scaling_canonical_frac0p3_s2"
-  ],
-  "no training curve (metrics.jsonl)": [
-    "climb_v2_h1/scaling_canonical_frac0p3_s2"
-  ],
-  "no completion proof (verified.json)": [
-    "climb_v2_h1/scaling_canonical_frac0p3_s2"
-  ],
-  "never evaluated": [
-    "climb_v2_h1/scaling_canonical_frac0p3_s2"
-  ]
-}
+{}
