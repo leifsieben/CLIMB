@@ -19,10 +19,10 @@ Everything needed to (re)train the CLIMB encoders: the tokenized PubChem corpus 
 modeling, the descriptor targets for multi-task regression, the supervised fine-tuning table, and the
 eval-leakage blocklist. Companion to the checkpoints and results repos.
 
-- 📄 Paper: `<CITATION / arXiv link>`
-- 💻 Code (`pretrain_v2.py`, `finetune_v2.py`) + `REPRODUCE.md`: `https://github.com/<org>/CLIMB`
-- 🧠 Checkpoints: [`<org>/climb-encoders`](https://huggingface.co/<org>/climb-encoders)
-- 📊 Raw results: [`<org>/climb-results`](https://huggingface.co/datasets/<org>/climb-results)
+- 📄 Paper: preprint in preparation (link via the GitHub repo)
+- 💻 Code (`pretrain_v2.py`, `finetune_v2.py`) + `REPRODUCE.md`: `https://github.com/leifsieben/CLIMB`
+- 🧠 Checkpoints: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
+- 📊 Raw results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
 
 ## Components
 
@@ -61,7 +61,7 @@ shipped here so those results are self-contained.
 
 ```python
 from datasets import load_dataset
-mlm = load_dataset("<org>/climb-pretrain-data", data_dir="tokenized_sources/pubchem_filtered", split="train")
+mlm = load_dataset("lsieben/climb-pretrain-data", data_dir="tokenized_sources/pubchem_filtered", split="train")
 ```
 
 To pretrain end-to-end, point `pretrain_v2.py` at these paths (see `REPRODUCE.md` §3 and README §7).
@@ -70,8 +70,13 @@ The tokenizer here is the same one shipped with the checkpoints repo.
 ## Citation
 
 ```bibtex
-<BIBTEX — fill in>
+@misc{climb2026,
+  title  = {CLIMB: does unsupervised pretraining help a chemical language model?},
+  author = {Sieben, Leif},          % TODO: finalize author list before the preprint
+  year   = {2026},
+  note   = {Preprint in preparation},
+  url    = {https://github.com/leifsieben/CLIMB}
+}
 ```
 
-License: CC-BY-4.0 for the derived/tokenized corpus. PubChem source data is public; please confirm
-redistribution terms for the assay sources (PCBA/L1000/PCQM/WONG) before release.
+License: **CC-BY-4.0** (derived/tokenized corpus). Source: PubChem (public) + public assay datasets (PCBA/L1000/PCQM/WONG); cite the original sources per their terms.

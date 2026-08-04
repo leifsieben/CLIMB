@@ -18,10 +18,10 @@ The exact per-model evaluation outputs behind every figure and table in the CLIM
 unsupervised SMILES pretraining help a chemical language model?). This is the `figure_data/` snapshot:
 feed it to the figure notebook and you regenerate the paper's figures **byte-for-byte**.
 
-- 📄 Paper: `<CITATION / arXiv link>`
-- 💻 Code + `REPRODUCE.md`: `https://github.com/<org>/CLIMB`
-- 🧠 Checkpoints: [`<org>/climb-encoders`](https://huggingface.co/<org>/climb-encoders)
-- 🧪 Pre-training data: [`<org>/climb-pretrain-data`](https://huggingface.co/datasets/<org>/climb-pretrain-data)
+- 📄 Paper: preprint in preparation (link via the GitHub repo)
+- 💻 Code + `REPRODUCE.md`: `https://github.com/leifsieben/CLIMB`
+- 🧠 Checkpoints: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
+- 🧪 Pre-training data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
 
 ## What's inside
 
@@ -44,7 +44,7 @@ One directory per run, per wave, mirroring the checkpoints repo:
 ## How the figures are regenerated
 
 ```bash
-git clone https://github.com/<org>/CLIMB && cd CLIMB
+git clone https://github.com/leifsieben/CLIMB && cd CLIMB
 # place this dataset at figure_data/
 python scripts/build_data_manifest.py --check     # confirm your copy == the paper snapshot
 python scripts/build_figure_notebook.py
@@ -67,8 +67,13 @@ for the figure → data → command map.
 ## Citation
 
 ```bibtex
-<BIBTEX — fill in>
+@misc{climb2026,
+  title  = {CLIMB: does unsupervised pretraining help a chemical language model?},
+  author = {Sieben, Leif},          % TODO: finalize author list before the preprint
+  year   = {2026},
+  note   = {Preprint in preparation},
+  url    = {https://github.com/leifsieben/CLIMB}
+}
 ```
 
-License: CC-BY-4.0 for these derived results. Downstream label sources are MoleculeNet / public assays;
-please confirm attribution requirements before release.
+License: **CC-BY-4.0** (derived results). Downstream label sources are public MoleculeNet / assay datasets; cite the original sources per their terms.

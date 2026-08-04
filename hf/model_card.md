@@ -18,10 +18,10 @@ Frozen-featurizer **ModernBERT encoders (~41M params)** for every run in the CLI
 versus training supervised-from-scratch. Model, tokenizer, optimizer and evaluation are held fixed
 across runs so the only thing that varies is the *pretraining strategy*.
 
-- 📄 Paper: `<CITATION / arXiv link>`
-- 💻 Code + full methods: `https://github.com/<org>/CLIMB` (see `REPRODUCE.md`)
-- 📊 Raw results: [`<org>/climb-results`](https://huggingface.co/datasets/<org>/climb-results)
-- 🧪 Pre-training data: [`<org>/climb-pretrain-data`](https://huggingface.co/datasets/<org>/climb-pretrain-data)
+- 📄 Paper: preprint in preparation (link via the GitHub repo)
+- 💻 Code + full methods: `https://github.com/leifsieben/CLIMB` (see `REPRODUCE.md`)
+- 📊 Raw results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
+- 🧪 Pre-training data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
 
 ## Repository layout
 
@@ -40,7 +40,7 @@ climb_v2_h1/scaling_{canonical,enumerated}_*_s{0,1,2}/   # enumeration study, 3 
 ```
 
 The classical Morgan+XGBoost baselines have **no encoder** (they are fingerprints + XGBoost); see the
-results repo. `<org>/climb-encoders` is checkpoints only — pair it with the results and data repos.
+results repo. `lsieben/climb-encoders` is checkpoints only — pair it with the results and data repos.
 
 ## Regimes
 
@@ -57,9 +57,9 @@ results repo. `<org>/climb-encoders` is checkpoints only — pair it with the re
 from transformers import ModernBertModel, PreTrainedTokenizerFast
 import torch
 
-tok = PreTrainedTokenizerFast.from_pretrained("<org>/climb-encoders", subfolder="tokenizer")
+tok = PreTrainedTokenizerFast.from_pretrained("lsieben/climb-encoders", subfolder="tokenizer")
 enc = ModernBertModel.from_pretrained(
-    "<org>/climb-encoders", subfolder="climb_v2_phase2/unsup_8M",
+    "lsieben/climb-encoders", subfolder="climb_v2_phase2/unsup_8M",
     attn_implementation="sdpa", reference_compile=False).eval()
 
 smiles = ["CCO", "c1ccccc1O"]
@@ -78,7 +78,7 @@ The exact protocol and per-run eval commands are in `eval_v2.py` and `REPRODUCE.
 - ~41M-param ModernBERT encoder; byte-level BPE tokenizer, **vocab 1000** (zero-UNK on SMILES).
 - Objectives across runs: masked-language-modeling (MLM), multi-task descriptor regression (MTR),
   and supervised assay heads; see the paper §5, §7.
-- Trained on the tokenized PubChem corpus in [`<org>/climb-pretrain-data`](https://huggingface.co/datasets/<org>/climb-pretrain-data).
+- Trained on the tokenized PubChem corpus in [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data).
 - `metrics.jsonl` (token counts, loss curves) for each run ships in the results repo.
 
 ## Intended use & limitations
@@ -91,7 +91,13 @@ the study). Do not use for clinical/safety decisions.
 ## Citation
 
 ```bibtex
-<BIBTEX — fill in>
+@misc{climb2026,
+  title  = {CLIMB: does unsupervised pretraining help a chemical language model?},
+  author = {Sieben, Leif},          % TODO: finalize author list before the preprint
+  year   = {2026},
+  note   = {Preprint in preparation},
+  url    = {https://github.com/leifsieben/CLIMB}
+}
 ```
 
-License: Apache-2.0 for the weights. Please confirm before release.
+License: **Apache-2.0** (encoder weights).

@@ -187,9 +187,18 @@ The **5 SFT recipes** used in E2 (each gets a full sup_only + unsup→sup ladder
 **Two corpora, one axis.** The base ladder trains on the ~12M-molecule filtered corpus, so budgets
 ≥ 12M there are **multi-epoch** (24M ≈ 2 epochs) — repetition, which is exactly why H8 (repetition vs
 augmentation) is a distinct question. The 50M/100M long runs instead draw from the ~124M-molecule full
-corpus, so at those budgets *molecules seen ≈ unique molecules* (< 1 epoch, no repetition). The scaling
-figures plot against **both** forward passes (A2.a) and **unique molecules seen** (A2.b) precisely so the
-two regimes are never conflated.
+corpus (§6.1b), so at those budgets *molecules seen ≈ unique molecules* (< 1 epoch, no repetition). The
+scaling figures plot against **both** forward passes (A2.a) and **unique molecules seen** (A2.b)
+precisely so the two regimes are never conflated. Which corpus each `unsup_only` rung uses:
+
+| `unsup_only` rung (forward passes) | 2M | 8M | 24M | 48M | **50M** | **100M** |
+|---|---|---|---|---|---|---|
+| corpus | 12M filtered | 12M | 12M | 12M | **124M full** | **124M full** |
+| unique molecules seen | 2M | 8M | ~12M (cap) | ~12M (cap) | **50M** | **100M** |
+
+The 24M/48M rungs re-read the 12M corpus (≈2×, ≈4×); the 50M/100M rungs are the *only* way the study
+sees >12M distinct molecules, so they are what the "does more **data** keep helping?" reading of A2
+rests on. (`sup_only:dense` separately extends to 96M FP on corpus (a) as the H2 catch-up candidate.)
 
 ---
 
@@ -298,21 +307,30 @@ paper** (model-size scaling / E10 dropped).
 
 ## 6. Datasets (provenance, curation, deduplication)
 
-### 6.1 Unsupervised corpus (MLM / MTR source)
-- **Source:** PubChem (derived from the PubChem-124M SMILES/SELFIES/InChI/IUPAC dataset), filtered.
-- **As used:** `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/` — **12 parquet shards ×
-  1,000,000 rows = ~12M molecules**, column `SMILES_canonical`. (A pre-tokenized pickle mirror
-  exists at `.../pubchem_filtered_tokenized_pkl/` for the fast canonical MLM stream.)
-- **Implication:** one epoch = ~12M molecules. Forward-pass budgets above 12M *on this corpus* are
-  multi-epoch.
-- **Full corpus for the long scaling runs.** The 50M/100M `unsup` scaling points (and the `*_c124`
-  controls) instead stream the **un-filtered ~124M-molecule PubChem set**,
-  `s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/` (pickle mirror `..._tokenized_pkl/`), so
-  50M/100M molecule-presentations stay **under one epoch** — genuinely distinct molecules, not repeats
-  of the 12M set. This is the only place the corpus differs across runs, and it is what lets the scaling
-  curve reach **100M *unique* molecules**.
+### 6.1 Unsupervised corpora (MLM / MTR source)
+
+**Two** PubChem-derived corpora are used, and **which one a run streams is part of that run's
+definition** (recorded in its `config.yaml` as `unsupervised_raw_smiles_paths`). Both are canonicalized
+with the same RDKit pipeline and read with the same tokenizer, so they differ only in *coverage*.
+
+**(a) Base corpus — ~12M filtered (`pubchem_filtered`).** `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
+— **12 parquet shards × 1,000,000 rows = ~12M molecules**, column `SMILES_canonical` (pre-tokenized
+pickle mirror at `.../pubchem_filtered_tokenized_pkl/`). Derived from PubChem by validity/size/element
+filtering. **Every headline run and the whole 2M–48M base ladder trains on this corpus.** One epoch =
+~12M molecules, so forward-pass budgets ≥ 12M on it are **multi-epoch** (24M ≈ 2 epochs, 48M ≈ 4).
+
+**(b) Full superset — ~124M unfiltered (`pubchem_124m_full`).** `s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/`
+(pickle mirror `..._tokenized_pkl/`) — the full **PubChem-124M** set, i.e. the *superset* the ~12M base
+corpus was subsampled from (upstream
+[`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC),
+re-canonicalized to match the tokenizer; rebuild with `scripts/download_pubchem_full.sh`). **Only the
+long scaling runs use it:** `unsup_50M`, `unsup_100M`, and the `*_c124` same-budget controls. Because
+100M < 124M, these stay **under one epoch** — their extra molecule-presentations are genuinely new
+molecules, not repeats of the 12M set. This is the *only* corpus difference across runs, and it is what
+lets the A2 scaling curve reach **100M *unique* molecules** rather than saturating at the 12M subset.
+
 - Streaming is deterministic given `subset_seed` (worker-sharded, hash-based subset membership), so
-  every run sees the same molecule order and the ladders are nested subsets.
+  every run sees the same molecule order and the base ladder points are nested subsets of (a).
 - ⚠️ **Not implemented: held-out MLM val/test loss.** An earlier plan (C5) called for a hash-based
   corpus holdout giving per-run MLM validation/test loss, which would have exposed the H8 mechanism
   directly (canonical repetition overfitting while enumeration keeps generalizing). **No such holdout
