@@ -1,8 +1,8 @@
 {
  "note": "content fingerprint of the figure_data snapshot the committed figures were built from; mtime is informational and excluded from all hashes",
  "data_root": "figure_data",
- "n_files": 924,
- "snapshot_hash": "e95faafd92d33f2345fd28ccb2724db9c4a6fbfdd2c2efcf0aabb99c51dad06a",
+ "n_files": 948,
+ "snapshot_hash": "f4b0ac1e64295d72885dab70cc95b0b98f68eef62fb05d92d6f215965af9886a",
  "files": {
   "climb_v2/ecfp4_anchor/moleculenet/suite_summary.json": {
    "bytes": 357,
@@ -2133,6 +2133,46 @@
    "bytes": 697,
    "sha256": "76c052d25928785dee7e3621ef61131efb226fe515e4893431f3bc87274ec8eb",
    "mtime": "2026-07-22T18:17"
+  },
+  "climb_v2_vocab/bpe_1000/moleculenet_cv/suite_summary.json": {
+   "bytes": 699,
+   "sha256": "094e8499e4177755287ec8046744a493d30049bdb8dd65a64112821f1424a490",
+   "mtime": "2026-08-04T16:10"
+  },
+  "climb_v2_vocab/bpe_12000/moleculenet_cv/suite_summary.json": {
+   "bytes": 696,
+   "sha256": "f8269bff3973c31a240568b7f5a707bc808fb3d2ab7d8b5da8275e2ffe018800",
+   "mtime": "2026-08-04T12:17"
+  },
+  "climb_v2_vocab/bpe_261/moleculenet_cv/suite_summary.json": {
+   "bytes": 697,
+   "sha256": "518e1f4b50227e400a313874411f7ff1c875c1e6ed550ccc38c19ae8d84bcf6f",
+   "mtime": "2026-08-04T18:06"
+  },
+  "climb_v2_vocab/bpe_3000/moleculenet_cv/suite_summary.json": {
+   "bytes": 681,
+   "sha256": "6f1f882984cb59a7d33626ba5b3259e51940d74c3f6ca707895141e9329e4a24",
+   "mtime": "2026-08-04T14:15"
+  },
+  "climb_v2_vocab/unigram_1200/moleculenet_cv/suite_summary.json": {
+   "bytes": 700,
+   "sha256": "0706aefd91497a2cbf5a3a87e00234a88b473777c3d1c23b6d414699791c0465",
+   "mtime": "2026-08-04T15:13"
+  },
+  "climb_v2_vocab/unigram_261/moleculenet_cv/suite_summary.json": {
+   "bytes": 684,
+   "sha256": "3df17d40f6dd25ca2d90d889e677991b2b8ebefe7e323240daed57ca112fa116",
+   "mtime": "2026-08-04T19:04"
+  },
+  "climb_v2_vocab/unigram_3000/moleculenet_cv/suite_summary.json": {
+   "bytes": 694,
+   "sha256": "baa181b2a8148f6f158017ff77997aaf0524851d321a0d19a33bd69e10e8c49e",
+   "mtime": "2026-08-04T13:18"
+  },
+  "climb_v2_vocab/unigram_700/moleculenet_cv/suite_summary.json": {
+   "bytes": 694,
+   "sha256": "b1f07a583aeaf75ae25ffb3fb4862398317be63185354fd57c0ecf967e95db09",
+   "mtime": "2026-08-04T17:08"
   },
   "climb_v2_ablation_dedup/ecfp4_anchor/moleculenet/test_predictions.csv": {
    "bytes": 2200061,
@@ -7204,6 +7244,110 @@
     "Tox21": 187944
    }
   },
+  "climb_v2_vocab/bpe_1000/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18159925,
+   "sha256": "7f03501e54083f7e3bb85474013dff69a96d229f9d147e6484785ad490e0b196",
+   "mtime": "2026-08-04T16:10",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/bpe_12000/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18159340,
+   "sha256": "39ba5813bdaf0c1f8be1df4b7d381460ce1789ea20fe9cdda31129b2ef001ab5",
+   "mtime": "2026-08-04T12:17",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/bpe_261/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18159909,
+   "sha256": "2f75ec4611f5500f070d1acc15fae89b9192d7677363897fcc27e017a5602000",
+   "mtime": "2026-08-04T18:06",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/bpe_3000/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18160186,
+   "sha256": "23354e35b3bee592c1ed732ecadab3234f3539eb3c0cddb4eb4308ef2f078a15",
+   "mtime": "2026-08-04T14:15",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/unigram_1200/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18159540,
+   "sha256": "752fd7563eaaf9cd3b7cd1ac471c6c113050619bcb4eaf722627edcc955196b3",
+   "mtime": "2026-08-04T15:13",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/unigram_261/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18160172,
+   "sha256": "09e00db5670ada1d315c0e69da170cfeb8dc671d5f3d6fe2372ab0ab8bdda9be",
+   "mtime": "2026-08-04T19:04",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/unigram_3000/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18159577,
+   "sha256": "05c9a13fee1c62fbad798f63c739424d73665151126af0de75ab9ddfea04a980",
+   "mtime": "2026-08-04T13:18",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
+  "climb_v2_vocab/unigram_700/moleculenet_cv/test_predictions.csv": {
+   "bytes": 18159897,
+   "sha256": "d4387c7ebd7baad92b53fc7b81bc372ae2e48a0c2e690e13563c1cce99b124d4",
+   "mtime": "2026-08-04T17:08",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41127,
+    "QM7": 6838,
+    "Tox21": 93972
+   }
+  },
   "climb_v2_ablation/seq_dense_plus_sparse/metrics.jsonl": {
    "bytes": 53793,
    "sha256": "50e656dc78aa3fce1f21fc3b64e31282faeb154553e9bad9038bdcdb19c38ccf",
@@ -7813,6 +7957,46 @@
    "bytes": 164553,
    "sha256": "cf58dae0af99af23e5d095ccf95248957c9871d1884cd3b31131dbf29dd5e15b",
    "mtime": "2026-07-21T11:19"
+  },
+  "climb_v2_vocab/bpe_1000/metrics.jsonl": {
+   "bytes": 41159,
+   "sha256": "ad4aac721c04ed01f992dff7030f95cb32588821cbfdd416ece52e3ff7810538",
+   "mtime": "2026-08-04T16:10"
+  },
+  "climb_v2_vocab/bpe_12000/metrics.jsonl": {
+   "bytes": 41119,
+   "sha256": "81d6b5daee4f96241157cffe5810bb04c53e2c0d1907199b6f945ab31003edc4",
+   "mtime": "2026-08-04T12:17"
+  },
+  "climb_v2_vocab/bpe_261/metrics.jsonl": {
+   "bytes": 41199,
+   "sha256": "b97d5cc9cf7ffb8dc9de1eaa399a3b00f5cc4af27fe0c9b7b6298385f3fafa0a",
+   "mtime": "2026-08-04T18:06"
+  },
+  "climb_v2_vocab/bpe_3000/metrics.jsonl": {
+   "bytes": 41165,
+   "sha256": "0a87e2546dd1204fc840c404631a0d2004609c06d77b97954912a5a8ad69fc39",
+   "mtime": "2026-08-04T14:15"
+  },
+  "climb_v2_vocab/unigram_1200/metrics.jsonl": {
+   "bytes": 41186,
+   "sha256": "546b42dd69766d16bfc9dd803fca82f22b77d88113c75a81f812f3ea733814f2",
+   "mtime": "2026-08-04T15:13"
+  },
+  "climb_v2_vocab/unigram_261/metrics.jsonl": {
+   "bytes": 41205,
+   "sha256": "b39524df2b7ac1cddce6964019fff71ccc69c2ae4d784f3d9efcad47641770c9",
+   "mtime": "2026-08-04T19:04"
+  },
+  "climb_v2_vocab/unigram_3000/metrics.jsonl": {
+   "bytes": 41199,
+   "sha256": "99f8108e2aa8b0a98567250715f8c40e455318105ccf3b5f763ce87634923d07",
+   "mtime": "2026-08-04T13:18"
+  },
+  "climb_v2_vocab/unigram_700/metrics.jsonl": {
+   "bytes": 41194,
+   "sha256": "62dd44d0ff1eb895a6d5b5b388e1a6921ecb0d3e2473314cf950c544ce32054d",
+   "mtime": "2026-08-04T17:08"
   },
   "_tanimoto/corpus_similarity.csv": {
    "bytes": 3792979,
