@@ -26,7 +26,10 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 SPECIAL = ["<s>", "<pad>", "</s>", "<unk>", "<mask>"]
-VOCABS = [261, 1000, 10000, 100000]
+# Per-family targets, chosen to be 4 DISTINCT points within each family's reachable range
+# (SMILES saturates: BPE ~10k on an 8M sample with min_frequency=1, Unigram lower). Targets above
+# a family's ceiling simply cap there; the actual vocab is what the run reports and plots against.
+FAMILY_VOCABS = {"bpe": [261, 1000, 3000, 12000], "unigram": [261, 700, 1200, 3000]}
 RAW_SMILES_S3 = "s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/"
 
 
@@ -79,7 +82,7 @@ def wrap_and_save(tk, out: Path):
 def train_bpe(txt: Path, vocab: int, out: Path) -> int:
     from tokenizers import ByteLevelBPETokenizer
     tk = ByteLevelBPETokenizer()
-    tk.train(files=[str(txt)], vocab_size=vocab, min_frequency=2, special_tokens=SPECIAL)
+    tk.train(files=[str(txt)], vocab_size=vocab, min_frequency=1, special_tokens=SPECIAL)  # min_freq=1 stretches the BPE ceiling
     return wrap_and_save(tk, out)
 
 
@@ -100,7 +103,7 @@ def train_unigram(txt: Path, vocab: int, out: Path) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sample", type=int, default=2_000_000)
+    ap.add_argument("--sample", type=int, default=8_000_000)
     ap.add_argument("--out", default="experiments/_vocab_tok")
     ap.add_argument("--s3", default="s3://climb-s3-bucket/tokenizers_vocab")
     ap.add_argument("--only", default="", help="comma list like bpe_1000,unigram_261 to (re)build a subset")
@@ -109,7 +112,7 @@ def main() -> int:
     txt = sample_smiles(a.sample, root)
 
     only = set(x for x in a.only.split(",") if x)
-    plan = [(fam, v) for fam in ("bpe", "unigram") for v in VOCABS]
+    plan = [(fam, v) for fam in ("bpe", "unigram") for v in FAMILY_VOCABS[fam]]
     for fam, v in plan:
         name = f"{fam}_{v}"
         if only and name not in only:

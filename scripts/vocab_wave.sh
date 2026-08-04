@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # SI vocab-size scaling law (wave climb_v2_vocab), all on ONE box.
 #
-# BPE and Unigram, each at vocab {261, 1000, 10000, 100000}, MLM/unsup only, 2M FP, one seed.
-# Runs are ordered FAST-FIRST and the middle of the curve is interleaved across families, so the
-# most informative + lowest-risk points (1k/10k, both families) land first and a partial figure is
-# interpretable within a few hours; the token-heavy (261) and OOM-prone (100k) endpoints come last.
+# BPE {261,1000,3000,~10k} and Unigram {261,700,1200,~2k} -- 4 DISTINCT points each within the
+# family's reachable range (SMILES tokenization saturates; larger nominal vocabs are unreachable).
+# MLM/unsup only, 2M FP, one seed, SAME pretraining corpus and SAME eval for every run.
+# Ordered FAST-FIRST (high vocab = shorter sequences = quicker), families interleaved so a partial
+# curve for both lands within a couple of hours; the token-heavy 261 points come last.
 #
 # Each run does train -> 5-fold CV -> upload BEFORE the next starts, so results stream to S3 as
 # they finish. CV is a standalone eval here, NOT a guard post-hook -- phase2_worker's self-stop
@@ -22,11 +23,11 @@ say(){ echo "[vocab $(date -u +%H:%M:%S)] $*"; }
 
 mkdir -p "$ROOT"
 # fast-first, family-interleaved
-RUNS="bpe_10000 unigram_10000 bpe_1000 unigram_1000 bpe_261 unigram_261 bpe_100000 unigram_100000"
+RUNS="bpe_12000 unigram_3000 bpe_3000 unigram_1200 bpe_1000 unigram_700 bpe_261 unigram_261"
 
 # ---- step 0: tokenizers (idempotent; uploads to S3, leaves local) ----
 say "building tokenizers"
-$PY scripts/build_vocab_tokenizers.py --sample 2000000 --out "$TOKROOT" --s3 "$TOKS3" || { say "TOKENIZER BUILD FAILED"; exit 1; }
+$PY scripts/build_vocab_tokenizers.py --sample 8000000 --out "$TOKROOT" --s3 "$TOKS3" || { say "TOKENIZER BUILD FAILED"; exit 1; }
 
 # ---- template config ----
 aws s3 cp "$S3/../climb_v2_phase2/unsup_2M/config.yaml" /tmp/tmpl.yaml >/dev/null 2>&1 || \
@@ -82,6 +83,6 @@ done
 for f in vocab_wave.log; do [ -f "$f" ] && aws s3 cp "$f" "$S3/_logs/$f" --only-show-errors; done
 bash scripts/notify.sh "$([ "$ok" -ge 8 ] && echo DONE || echo ALERT)" \
     "vocab-size scaling wave: $ok/8 complete" \
-    "BPE + Unigram x {261,1k,10k,100k}, 2M FP, CV on 6 tasks. Results in $S3. Box terminating."
+    "BPE + Unigram vocab sweep (4 real points each), 2M FP, CV on 6 tasks. Results in $S3. Box terminating."
 say "VOCAB_WAVE_DONE $ok/8"
 sudo shutdown -h now
