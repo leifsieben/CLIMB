@@ -173,14 +173,23 @@ The **5 SFT recipes** used in E2 (each gets a full sup_only + unsup→sup ladder
 (PCQM+PCBA+L1000+WONG, the faithful MiniMol LargeMix + Wong) · `mixed` (descriptors + minimol_full).
 
 ### Compute ladders (E2)
-- **unsup_only ladder:** MLM from scratch at **2M → 8M → 24M → 48M** forward passes (→96M if still
-  rising, stop-when-flat: extend while Δ > ~2% per doubling).
+- **unsup_only base ladder:** MLM from scratch at **2M → 8M → 24M → 48M** forward passes on the
+  **~12M-molecule filtered corpus** (stop-when-flat: extend while Δ > ~2% per doubling).
+- **unsup_only long runs (→100M molecules):** dedicated longer runs at **50M and 100M**
+  molecule-presentations drawn from the **full ~124M-molecule PubChem corpus** (`pubchem_124m_full`),
+  so the high end keeps seeing *new* molecules — still under one epoch — instead of re-reading the 12M
+  set. A matched **8M-FP run on the same 124M corpus** (`unsup_8M_c124`) isolates corpus size from
+  training length.
 - **unsup→sup[recipe]:** warm-start each ladder checkpoint on the recipe with a fixed 2M-FP SFT.
 - **sup_only[recipe]:** random init + SFT at a per-recipe budget ladder; `dense` goes to **96M**
   (the catch-up candidate for H2), the others to 48M.
 
-Because the corpus is ~12M molecules (§6.1), forward-pass budgets ≥ 12M are **multi-epoch**
-(24M ≈ 2 epochs, 96M ≈ 8), which is why H8 (repetition vs augmentation) is a distinct question.
+**Two corpora, one axis.** The base ladder trains on the ~12M-molecule filtered corpus, so budgets
+≥ 12M there are **multi-epoch** (24M ≈ 2 epochs) — repetition, which is exactly why H8 (repetition vs
+augmentation) is a distinct question. The 50M/100M long runs instead draw from the ~124M-molecule full
+corpus, so at those budgets *molecules seen ≈ unique molecules* (< 1 epoch, no repetition). The scaling
+figures plot against **both** forward passes (A2.a) and **unique molecules seen** (A2.b) precisely so the
+two regimes are never conflated.
 
 ---
 
@@ -294,7 +303,14 @@ paper** (model-size scaling / E10 dropped).
 - **As used:** `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/` — **12 parquet shards ×
   1,000,000 rows = ~12M molecules**, column `SMILES_canonical`. (A pre-tokenized pickle mirror
   exists at `.../pubchem_filtered_tokenized_pkl/` for the fast canonical MLM stream.)
-- **Implication:** one epoch = ~12M molecules. Forward-pass budgets above 12M are multi-epoch.
+- **Implication:** one epoch = ~12M molecules. Forward-pass budgets above 12M *on this corpus* are
+  multi-epoch.
+- **Full corpus for the long scaling runs.** The 50M/100M `unsup` scaling points (and the `*_c124`
+  controls) instead stream the **un-filtered ~124M-molecule PubChem set**,
+  `s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/` (pickle mirror `..._tokenized_pkl/`), so
+  50M/100M molecule-presentations stay **under one epoch** — genuinely distinct molecules, not repeats
+  of the 12M set. This is the only place the corpus differs across runs, and it is what lets the scaling
+  curve reach **100M *unique* molecules**.
 - Streaming is deterministic given `subset_seed` (worker-sharded, hash-based subset membership), so
   every run sees the same molecule order and the ladders are nested subsets.
 - ⚠️ **Not implemented: held-out MLM val/test loss.** An earlier plan (C5) called for a hash-based
@@ -478,7 +494,9 @@ molecule (§9.5) so a reviewer can see which molecules each classifies as overla
   from the labels, not declared (`data_v2.py`). MAE/BCE in the bullet above therefore act on
   z-scored and inferred-type targets respectively.
 - **Compute accounting.** Everything is measured in **forward passes** (molecule-presentations).
-  Within one epoch (≤12M) forward passes = #unique molecules; beyond that they diverge (repetition).
+  Forward passes = #unique molecules only within one epoch of the corpus in use (≤12M for the filtered
+  corpus, ≤~124M for the full corpus of the 50M/100M long runs); beyond that they diverge (repetition).
+  Fig A2.b re-plots against unique molecules so this never confounds the scaling readout.
 - **Canonical vs enumerated.** Primary runs use canonical SMILES (one presentation per molecule);
   enumeration (on-the-fly RDKit randomization) is the H8 lever for the beyond-one-epoch regime.
   ⚠️ **Known limitation — the enumeration RNG is not captured, so enumerated runs are not
@@ -962,10 +980,11 @@ by no figure) is lifecycled to Glacier Deep Archive: ~$86/month → ~$4/month, d
   first, targeted seed replicates only where CV leaves a headline contrast ambiguous.
 - **Frozen-probe ceiling:** the probe under-resolves encoder quality (MLM loss 0.14 vs 0.39 → same
   downstream), so "sup_only ≈ unsup_only" risks a Type-II error; Fig D is the test.
-- **Scale:** ladders reach ≤8 epochs of a ~12M corpus, well below MoLFormer's token budget; absolute
-  and "global plateau" claims are scoped to this model/compute. **Model-size scaling is out of scope
-  for this paper** (E10 dropped); the only scaling view is a descriptive recycling plot (§4) from
-  runs collected anyway, which makes no scaling-law claim.
+- **Scale:** the base ladder reaches ≤4 epochs of the ~12M-molecule filtered corpus (48M FP), and the
+  dedicated long runs reach **100M molecules** (≈4B tokens) drawn from the ~124M-molecule full corpus —
+  still well below MoLFormer's token budget, so absolute and "global plateau" claims are scoped to this
+  model/compute. **Model-size scaling is out of scope for this paper** (E10 dropped); the only scaling
+  view is a descriptive recycling plot (§4) from runs collected anyway, which makes no scaling-law claim.
 - **SFT data quality:** PCQM-dominated; L1000 small and near-unlearnable; Kendall weighting can drive
   L1000 toward zero, so "sparse" is effectively PCBA(+WONG).
 - **Eval breadth:** 5–6 small MoleculeNet tasks with known label noise (esp. BBBP) and high-variance
