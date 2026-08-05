@@ -48,8 +48,9 @@ for ax,task in zip(axes,CORE_TASKS):
         ax.errorbar(xs,te,yerr=ee,color=c,marker="o",ms=3.4,lw=STYLE["lw"],mec="white",
                     capsize=2,elinewidth=0.8,zorder=3)
         ax.plot(xs,tr,color=c,marker="^",ms=3.0,lw=STYLE["lw_thin"],ls=(0,(4,2)),alpha=0.85,zorder=2)
-    # HIV is scored by ROC-AUC in this figure (train has no NEF1% counterpart) -- the title has
-    # to say so, or it silently contradicts the axis.
+    # HIV keeps ROC-AUC in THIS figure: it is the train-vs-test-gap (fit/generalize) panel, and NEF1%
+    # has no train-set counterpart, so a shared train/test metric is required. NEF1% is the HIV
+    # headline in the screening figures (A1/A2); here ROC-AUC keeps the train line.
     _t=("HIV (ROC-AUC ↑)" if task=="HIV" else ttitle(task,oneline=True))
     ax.set_xscale("log"); ax.set_title(_t,pad=6)
     ax.set_xlabel("# training labels")
@@ -73,10 +74,11 @@ fig.legend(handles=reg_h+sty_h,loc="upper center",bbox_to_anchor=(0.5,0.0),ncol=
            fontsize=STYLE["fs_legend"])
 _suptitle(fig, "Fig B1p1 - label-efficiency and mechanism: does the frozen probe fit, or generalize?",
              fontsize=STYLE["fs_title"],y=1.075)
-_b1note=("frozen probe re-fit at each label budget on the 8M encoders  ·  both SFT arms are the "
-         "SAME `dense` (RDKit-MTR) recipe, so sup_only vs unsup→sup differs only in the MLM stage "
-         "-- neither is an average over recipes  ·  3 subsample draws × 3 head seeds per point  ·  "
-         "HIV scored by ROC-AUC here so train and test share a metric")
+_b1note=("frozen probe re-fit at each label budget on the 8M encoders, single scaffold hold-out  ·  "
+         "both SFT arms are the SAME `dense` (RDKit-MTR) recipe, so sup_only vs unsup→sup differs only "
+         "in the MLM stage -- neither is an average over recipes  ·  3 subsample draws × 3 head seeds "
+         "per point  ·  HIV keeps ROC-AUC here because this is the train-vs-test-gap panel and NEF1% "
+         "has no train-set counterpart; NEF1% is the HIV headline in A1/A2")
 _caption(fig, 0.5,0.995,"\n".join(_tw.wrap(_b1note,120)),
          ha="center",va="top",fontsize=STYLE["fs_annot"]-0.5,color="#666")
 fig.subplots_adjust(top=0.86,bottom=0.12,hspace=0.48,wspace=0.34)
