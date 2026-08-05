@@ -109,11 +109,18 @@ def merge(dest: Path, tmp: Path, tasks: list[str]):
         pd.concat([dd2[~dd2.dataset.isin(tasks)], nn2[nn2.dataset.isin(tasks)]], ignore_index=True).to_csv(dtp, index=False)
 
 
-def process_run(wave: str, run_dir: Path, force: bool, dry: bool) -> str:
+def process_run(wave: str, run_dir: Path, force: bool, dry: bool, tok_per_run: bool = False) -> str:
     run = run_dir.name
     if "e2e" in run:
         return "skip-e2e"
     enc = resolve_encoder(wave, run)
+    # Per-run tokenizer (the vocab-scaling wave: each run trained its own tokenizer). Falls back
+    # to the shared tokenizer if a run has no per-run one.
+    tok = TOK_DEFAULT
+    if tok_per_run:
+        for cand in (run_dir / "tokenizer", DATA / wave / run / "tokenizer"):
+            if (cand / "tokenizer.json").exists():
+                tok = cand; break
     did = []
     for split, cv in (("moleculenet_cv", True), ("moleculenet", False)):
         sd = run_dir / split
@@ -129,7 +136,7 @@ def process_run(wave: str, run_dir: Path, force: bool, dry: bool) -> str:
             did.append(f"{split}:would-run[{cfg['featurizer']}/{cfg['head']} {cfg['datasets']}]"); continue
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
-            ok = run_eval(sd, cfg, enc, TOK_DEFAULT, cv, tmp)
+            ok = run_eval(sd, cfg, enc, tok, cv, tmp)
             if not ok:
                 return f"FAIL:{split}"
             merge(sd, tmp, cfg["datasets"])
@@ -143,6 +150,8 @@ def main():
     ap.add_argument("--waves", nargs="+", required=True)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--tok-per-run", action="store_true",
+                    help="resolve each run's own tokenizer (vocab-scaling wave)")
     ap.add_argument("--limit", type=int, default=None, help="process at most N runs (debug)")
     args = ap.parse_args()
 
@@ -155,7 +164,7 @@ def main():
             if args.limit and n >= args.limit:
                 print("(limit reached)"); return
             t0 = time.time()
-            status = process_run(wave, rd, args.force, args.dry_run)
+            status = process_run(wave, rd, args.force, args.dry_run, args.tok_per_run)
             print(f"[{wave}] {rd.name:42} {status:28} ({time.time()-t0:.0f}s)", flush=True)
             n += 1
     print(f"\ndone: {n} runs processed", flush=True)
