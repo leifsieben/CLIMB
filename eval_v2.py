@@ -60,10 +60,26 @@ def _load_moleculenet(name: str):
     # returns a corrupt/ragged dataset. Raw featurizer is cheap, so recomputing is fine.
     tasks, datasets, _ = loaders[name](featurizer="Raw", splitter="scaffold", reload=False)
     train_ds, val_ds, test_ds = datasets
+
+    def _y_masked(ds):
+        # DeepChem encodes MISSING multitask labels (e.g. Tox21's sparse 12-column matrix)
+        # as y=0 with w=0 -- NOT as NaN. This loader used to return only `.y`, so those
+        # missing entries (16,012 for Tox21) were indistinguishable from true inactives and
+        # were fed as real negatives into head training, validation early-stopping, ROC-AUC,
+        # NEF and the paired tests. The whole downstream pipeline masks missing labels by NaN
+        # (heads_v2 / compute_metric / _dump_test_predictions all use ~isnan), so we convert
+        # the zero-weight entries to NaN here and every existing mask starts working. Single-
+        # task datasets (ESOL/BBBP/BACE/QM7/HIV/Lipo) have all-ones w, so this is a no-op.
+        y = np.asarray(ds.y, dtype=np.float32).copy()
+        w = np.asarray(ds.w, dtype=np.float32)
+        if w.shape == y.shape:
+            y[w == 0] = np.nan
+        return y
+
     return (
-        [str(s) for s in train_ds.ids], np.asarray(train_ds.y, dtype=np.float32),
-        [str(s) for s in val_ds.ids], np.asarray(val_ds.y, dtype=np.float32),
-        [str(s) for s in test_ds.ids], np.asarray(test_ds.y, dtype=np.float32),
+        [str(s) for s in train_ds.ids], _y_masked(train_ds),
+        [str(s) for s in val_ds.ids], _y_masked(val_ds),
+        [str(s) for s in test_ds.ids], _y_masked(test_ds),
     )
 
 
