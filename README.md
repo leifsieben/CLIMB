@@ -230,7 +230,7 @@ invented data.
 | **I1** | H9 | (a) lift for the most corpus-similar vs most novel quartile, (b) lift vs Tanimoto distance, binned, with bootstrap CIs. Lift is over **no_pretrain (end-to-end)**; the frozen contrast is printed alongside. Regression tasks only (needs a per-molecule error) | 2 panels, 5-fold CV | ✅ complete |
 | **J1** | H10 | *(fused into C1J1 above — panels b and c)* rows = single-family unsup→sup arms, cols = eval task, cell = lift over no_pretrain (end-to-end); domain tags | heatmap | ✅ (ρ = +0.08, p = 0.70 — no evidence transfer tracks similarity) |
 | **S1** | — | every collected point: metric vs forward passes, coloured by regime/recipe — descriptive, **no fitted law** | scatter | ✅ |
-| **T1** | H1 | CLM vs toughest classical baseline (fp_desc = Morgan+descriptors→XGBoost): `dense` (trained on descriptors) + `unsup_only` (control, never saw descriptors), each with per-task Δ, fold-t, and the rigorous point test (Wilcoxon sq-err for RMSE / DeLong paired-AUC for classification) — protocol in §8.1 | paired-significance table | ✅ (8M single-seed×5-fold; refreshes on the 3-seed×5-fold pass) |
+| **T1** | H1 | CLM vs toughest classical baseline (fp_desc = Morgan+descriptors→XGBoost): `dense` (trained on descriptors) + `unsup_only` (control, never saw descriptors), each with per-task Δ, the **scaffold cluster-bootstrap CI** (headline uncertainty), BH-FDR-corrected molecule-level p (indicative), and fold-t (context) — protocol in §8.1 | paired-significance table | ✅ (8M; 3 pretraining seeds on the principal arms) |
 | **T2** | H1 | `unsup→sup` (MLM→SFT) decomposed at the 8M base: **Q1** vs `sup_only` (does the MLM base help the SFT?) → adds ~0, 0/5 tasks significant, worse on `dense_plus_sparse`; **Q2** vs `unsup_only` (does SFT help on top of MLM?) → significantly helps regression (ESOL/QM7), hurts bioactivity (BBBP/BACE). Reinforces "skip unsupervised pretraining." | paired-significance table | ✅ (8M) |
 
 **Two distinct baselines (do not conflate):** **random** is the dumb chance model — 0.5 ROC-AUC, or
@@ -721,13 +721,15 @@ across runs (see §9.6); where a figure's error bar uses that axis instead, its 
 | Element | Specification |
 |---|---|
 | Points per model | **5** — one metric per scaffold-CV fold, each computed from the 3-head-seed-averaged prediction |
-| Error bar | mean ± std across the **5 folds** = scaffold-split variance. Head-seed variance is inside the averaged prediction; pretraining-seed variance is a separate axis (§9.6) |
+| Error bar | mean ± std across the **5 folds** = scaffold-split variance. Head-seed variance is inside the averaged prediction; **pretraining-seed** variance is a separate axis — for the principal 8M arms it is now measured across seeds 0/1/2 (§9.6, §10) and can be material (ESOL ≈ 0.02, comparable to the between-arm gaps), so headline claims must not rest on a single-seed fold band alone |
 | Pairing | all models share one scaffold fold partition per seed → fold- and molecule-paired |
-| Effect | Δ(metric) and relative % |
-| **RMSE tasks** (ESOL/QM7/Lipo) | rigorous test = molecule-level **paired Wilcoxon** on per-molecule squared error over the pooled out-of-fold predictions (large n) |
-| **AUC tasks** (BBBP/BACE/Tox21) | rigorous test = **DeLong paired-AUC** on the pooled OOF scores (per label column for multi-task Tox21, then summarised) |
-| **HIV (virtual screening)** | headline metric = **NEF1%** (top-1% enrichment), reported as mean ± std across folds; rigorous paired test = **DeLong paired-AUC** on the pooled OOF scores (a rank test that tracks early enrichment). Select NEF1% in `compare_models.compare` by passing the task as `('HIV', True, 'nef1')` |
-| Fold-level test | paired t across folds — reported but **flagged anti-conservative** (CV folds share training data; Bengio & Grandvalet 2004), so the molecule-level Wilcoxon/DeLong is the test of record |
+| Effect | Δ(metric) and relative %, with a **95% scaffold cluster-bootstrap CI** as the headline uncertainty (below) |
+| **Primary uncertainty — scaffold cluster bootstrap** | resample whole Bemis–Murcko **scaffolds** (not molecules), recompute the paired metric difference, report the percentile CI + two-sided bootstrap p (`compare_models.cluster_bootstrap_diff`, `n_boot≥1000`). This respects that scaffold-mates and overlapping-fold OOF predictions are **not** independent, and it applies to any metric — so **NEF1% gets its own CI** rather than borrowing AUC's. A CI spanning 0 = no difference detectable. |
+| Molecule-level point tests (indicative only) | **paired Wilcoxon** on per-molecule squared error (RMSE tasks) / **DeLong paired-AUC** on pooled OOF scores (classification; per Tox21 column, then summarised). ⚠️ These assume independent molecules; with scaffold clustering + fold overlap they are **anti-conservative** (p too small), so they are indicative, *not* the test of record. The cluster-bootstrap CI is. |
+| **Multiplicity** | many arms × 6 tasks are compared, so p-values are **Benjamini–Hochberg FDR-corrected across the whole family** (`compare_models.bh_fdr` / `compare_many`), reported as `point_q` / `boot_q`. |
+| **HIV** | reported with **both** ROC-AUC and NEF1% (top-1% enrichment), each mean ± std across folds. DeLong tests the AUC endpoint; NEF1% is tested by its own cluster-bootstrap CI (not by AUC — the two can order models differently). |
+| Fold-level test | paired t across folds — reported but **anti-conservative** (CV folds share training data; Bengio & Grandvalet 2004), so it is context only. |
+| "Best" / "on par" | reported as effect size + CI, **not** as failure-to-reject. Non-significance is *not* evidence of equivalence — an arm with a wide CI is labelled "no difference detectable at this power", never "equivalent". |
 
 > **The error bar and the test answer different questions — overlapping bars do NOT mean "tied".**
 > This trips up every reader who checks a figure against a table, so it is stated here rather than
@@ -991,11 +993,20 @@ by no figure) is lifecycled to Glacier Deep Archive: ~$86/month → ~$4/month, d
   Pretrain overlap (0–7%) is disclosed, not removed (standard for the field, and conservative).
 - **SFT-LR confound (H5):** warm-start uses the pretraining LR; the E3 sweep tests whether the
   "SFT ≤ MLM base" ablation finding is an LR artifact.
-- **Error bars / seeds.** Bar figures now carry **scaffold k-fold CV** error bars (fold spread, §8),
-  which capture the split variance that dominates on these small tasks. **Pretraining-seed** replication
-  (3 seeds) is a separate, still-deferred axis — so any gap smaller than the CV band, or plausibly
-  within pretraining-seed noise, is not yet claimed (e.g. the dense-vs-sparse ablation gap). Plan: CV
-  first, targeted seed replicates only where CV leaves a headline contrast ambiguous.
+- **Error bars / seeds.** Bar figures carry **scaffold k-fold CV** error bars (fold spread, §8), which
+  capture the split variance that dominates on these small tasks. **Pretraining-seed** replication is a
+  *separate* axis: the four **principal 8M arms** (`unsup_only`, `sup_only:dense`, `sup_only:mixed`,
+  `unsup→sup:dense`) each have **3 independent pretraining seeds** (0/1/2), fully CV'd, and their
+  across-seed spread is reported (§9.6; `scripts/rigor_report.py`). It is small on most tasks but
+  **material on ESOL** (across-seed std ≈ 0.016–0.026 RMSE, on the order of the between-arm gaps) — so a
+  single-seed fold band there understates uncertainty, and no ESOL-scale contrast is claimed on one
+  seed. Arms *outside* the principal set are still single-seed and any sub-band gap on them is not
+  claimed (e.g. the dense-vs-sparse ablation).
+- **Significance testing (§8.1).** The molecule-level Wilcoxon/DeLong tests are **anti-conservative**
+  (scaffold clustering + fold-overlap violate independence), so the headline uncertainty is a
+  **scaffold cluster-bootstrap CI** and p-values are **BH-FDR corrected** across the (arm × task) family.
+  "No difference" claims are made from CIs/effect sizes, never from failure-to-reject (non-significance
+  ≠ equivalence). HIV's NEF1% is tested by its own bootstrap CI, not by the AUC test.
 - **Frozen-probe ceiling:** the probe under-resolves encoder quality (MLM loss 0.14 vs 0.39 → same
   downstream), so "sup_only ≈ unsup_only" risks a Type-II error; Fig D is the test.
 - **Scale:** the base ladder reaches ≤4 epochs of the ~12M-molecule filtered corpus (48M FP), and the
