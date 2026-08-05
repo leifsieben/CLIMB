@@ -697,21 +697,24 @@ extract one embedding per molecule, train a small head on those embeddings.
   **tougher SI variant**, from the same encoder features:
   1. **Scaffold 5-fold cross-validation — DEFAULT (`--cv_folds 5`).** Partition molecules into **5
      scaffold-disjoint folds** (each Bemis–Murcko scaffold in exactly one fold; ring-less molecules
-     are singletons so they distribute and keep folds balanced), greedily balanced by size. Each fold
-     is tested against a head trained on the other four (with a 10% validation carve-out for early
-     stopping); report **mean ± std across the 5 folds**. This is the primary error bar because the
-     dominant uncertainty on these ~1–8k-molecule tasks is *which molecules land in test*, and CV
-     measures exactly that. Nearly free — encoder features are computed once and sliced per fold (no
-     re-pretraining) — and it yields a **complete out-of-fold per-molecule prediction set** (feeds
-     H9/mechanism figures, C16).
+     are singletons so they distribute and keep folds balanced), greedily balanced by size. ⚠️ **The
+     scaffold→fold assignment is deterministic** — on the RDKit path `_scaffold_kfold_indices` ignores
+     its seed argument, so there is *one* fixed partition, not a random draw; `--subsample_seed`
+     governs only the 10% early-stopping **validation carve-out**, which is molecule-level (**not**
+     scaffold-disjoint from the training folds — a known limitation). Each fold is tested against a head
+     trained on the other four; we plot **mean ± std across the 5 folds**. That std is the *descriptive
+     spread across the 5 fixed folds* (heterogeneity of the subsets), **not** a resampling confidence
+     interval — the inferential uncertainty for model comparisons is the scaffold cluster-bootstrap CI
+     (§8.1). CV is nearly free (encoder features computed once, sliced per fold) and yields a
+     **complete out-of-fold per-molecule prediction set** (feeds H9/mechanism figures, C16).
   2. **DeepChem single scaffold hold-out — TOUGHER SI VARIANT (default splitter, no `--cv_folds`).**
      One 80/10/10 split where DeepChem sorts scaffolds by frequency and sends the **rarest** scaffolds
      to test — a deliberately adversarial "generalize to novel chemistry" stress test. Systematically
      **lower and noisier** than CV (one draw; its error bar is head-seed spread, not split variance).
-  **Fold pairing.** The CV partition and the 10% validation carve-out are both drawn from
-  `--subsample_seed` (default **0**). Every run that must be compared molecule-for-molecule — including
-  the end-to-end arm — has to use the same value, or the folds do not align and the paired tests in
-  §8.1 silently compare different molecule sets.
+  **Fold pairing.** The scaffold→fold partition is deterministic (identical across runs by
+  construction); only the 10% validation carve-out is drawn from `--subsample_seed` (default **0**).
+  Every run compared molecule-for-molecule — including the end-to-end arm — therefore shares the same
+  partition, so the paired tests in §8.1 align by construction.
   **Convention (revised 2026-07-22).** The **DeepChem single scaffold hold-out is the headline
   scheme**, and CV-5 is reported alongside it. The convention was originally the other way round and
   was reversed on evidence: the balanced CV split saturates — an *untrained* random encoder reaches
@@ -788,9 +791,10 @@ across runs (see §9.6); where a figure's error bar uses that axis instead, its 
 > **The error bar and the test answer different questions — overlapping bars do NOT mean "tied".**
 > This trips up every reader who checks a figure against a table, so it is stated here rather than
 > left to be inferred. The **error bar** is the spread of the whole-dataset average across the 5
-> scaffold splits: it asks *how stable is this model's score if the folds had been drawn
-> differently?* That variation is driven by which scaffolds landed in which fold, and it hits every
-> model **identically**. The **test** is paired per molecule: it takes the difference in error
+> **fixed** scaffold folds — how much the score varies between those particular subsets (driven by
+> which scaffolds sit in each fold), and it hits every model **identically**. It is a *descriptive*
+> spread, **not** a resampling CI (the folds are deterministic); the resampling interval for
+> comparisons is the scaffold cluster-bootstrap (§8.1). The **test** is paired per molecule: it takes the difference in error
 > between two models on the *same* molecule and asks whether those differences sit systematically
 > on one side of zero — so the shared split difficulty cancels exactly, and a molecule that is hard
 > for everyone contributes nothing.

@@ -1,0 +1,7 @@
+task,sigma_pretrain,unsup_minus_dense_gap,reliable_on_one_seed
+ESOL,0.01939,0.13513,True
+QM7,0.55953,4.35759,True
+BBBP,0.00234,0.00804,True
+BACE,0.00701,0.00832,False
+Tox21,0.002,0.00058,False
+HIV,0.00599,0.00107,False
