@@ -38,11 +38,32 @@ verify their download byte-for-byte with `python scripts/verify_notebook_sync.py
   pass** (§8.1) — scaffold cluster-bootstrap CIs as the headline uncertainty, BH-FDR across the
   arm×task family, and measured **pretraining-seed variance** for the four principal 8M arms
   (`scripts/rigor_report.py`, `analysis/rigor/`).
-- **Outstanding (notebook session owns `climb_figures.ipynb`):** regenerate the significance tables
-  (T1/T2) and headline bars with the updated `compare_models.py` (cluster-bootstrap CI + FDR) and add
-  pretraining-seed error bars where they matter (ESOL) — recipe in
-  [`notes/stats-rigor-2026-08-05.md`](notes/stats-rigor-2026-08-05.md). Manuscript (Overleaf) wording
-  for seeds and the two corpora still needs syncing to this README.
+- **⚠️ Data-correctness fixes landed (notebook session, 2026-08-05) — full recipe in
+  [`notes/corrections-tox21-regression-2026-08-05.md`](notes/corrections-tox21-regression-2026-08-05.md).**
+  Two loader bugs in `eval_v2._load_moleculenet` (also inherited by `finetune_e2e_v2`):
+  1. **Tox21 missing labels were fake negatives** — DeepChem encodes missing multitask labels as `y=0,
+     w=0` (not NaN) and the loader dropped `w`, so ~16,012 missing cells were trained/scored as true
+     inactives. Fixed (`y[w==0]=NaN`); Tox21 AUC moves **~+0.015–0.020 per arm**. Test:
+     `tests/test_moleculenet_labels.py`.
+  2. **Regression targets** now load in **native units** (`transformers=[]`) with a **per-fold target
+     scaler** (fit on train only, predictions inverse-transformed) — removes the cross-fold
+     normalization leakage and the normalized-vs-physical unit mislabel. ESOL RMSE is now **log mol/L**
+     (~1.03, was 0.49 normalized), QM7 native (~197, was 0.87). Rankings unchanged; HIV/BBBP/BACE
+     untouched (single-task, both fixes are no-ops there).
+- **Re-run in progress (from local checkpoints, no retraining; `scripts/rerun_corrected_tasks.py`):**
+  re-evaluates only Tox21/ESOL/QM7 per run and **merges** into each run's existing outputs, preserving
+  HIV/BBBP/BACE. Frozen waves `climb_v2_phase2` + `climb_v2_ablation_dedup` + `climb_v2_h1` running;
+  e2e arms (`_eval_ceiling*`, `e2e_random_0*` — only ESOL affected) and the vocab wave (compute
+  session's) pending.
+- **Outstanding (notebook session owns `climb_figures.ipynb`) — one unified pass AFTER the re-run:**
+  (a) recompute the rigor stats (`rigor_report.py` / `compare_many(n_boot=1000)`) on the **corrected**
+  `figure_data` — the current `analysis/rigor/*` are pre-fix and stale; (b) regenerate every affected
+  figure/table (see §4) with corrected point estimates **and** the cluster-bootstrap-CI + FDR headline
+  (recipe in [`notes/stats-rigor-2026-08-05.md`](notes/stats-rigor-2026-08-05.md)); (c) drop the
+  HIV-NEF1% "classical beats CLM" annotation and the BACE `u2s_dense` vs `skip_dense` claim (both
+  single-task, unaffected by the fixes, and both wash out under FDR); (d) add ESOL pretraining-seed
+  error bars. Then reconcile `v2-redux` ↔ `main`. Until this pass lands, figures/tables and any numbers
+  quoted below are **pre-correction**.
 
 ---
 
@@ -72,7 +93,7 @@ compute. **Canonical regime vocabulary (used identically in the README and every
 
 | Regime | Definition | Question it answers |
 |---|---|---|
-| **random** | dumb chance model — 0.5 ROC-AUC / predict-the-mean RMSE (≈1.0 on DeepChem-normalized targets). A reference, not a trained model. | The floor any real model must clear. |
+| **random** | dumb chance model — 0.5 ROC-AUC / predict-the-mean RMSE (= the target's native standard deviation, e.g. ~2.07 log mol/L on ESOL, since targets are now scored in native units — §8). A reference, not a trained model. | The floor any real model must clear. |
 | **no_pretrain** | random-init ModernBERT, **no pretraining**, **frozen** features → head trained on the eval set. (Formerly the "random floor" — but it is a real ~41M model, often non-trivially above chance.) | What do random encoder features alone give? |
 | **no_pretrain_end_to_end** | random-init ModernBERT **finetuned end-to-end** (encoder unfrozen) on each eval task. The from-scratch finetune baseline. **Run 2026-07-22** (`e2e_random_00/01/02`, both eval schemes, predictions pair 1:1 with `random_baseline_00`). This is now **the baseline lift is measured against** in B2, C1J1 and I1: clearing the *frozen* random encoder is close to automatic, since it cannot adapt to the task at all, so lift over it flatters every arm. Tables A1.a/A1.b report both baselines side by side — the gap between those two columns is how much of an arm's apparent value came from being compared against a model that could not learn. | Does finetuning a random encoder beat freezing it — and does any pretraining beat *it*? |
 | **sup_only** | random init → supervised fine-tune (SFT). Never sees MLM. *(formerly "skip-unsup")* | Can you skip unsupervised pretraining entirely? |
@@ -253,7 +274,8 @@ invented data.
 | **T2** | H1 | `unsup→sup` (MLM→SFT) decomposed at the 8M base: **Q1** vs `sup_only` (does the MLM base help the SFT?) → adds ~0, 0/5 tasks significant, worse on `dense_plus_sparse`; **Q2** vs `unsup_only` (does SFT help on top of MLM?) → significantly helps regression (ESOL/QM7), hurts bioactivity (BBBP/BACE). Reinforces "skip unsupervised pretraining." | paired-significance table | ✅ (8M) |
 
 **Two distinct baselines (do not conflate):** **random** is the dumb chance model — 0.5 ROC-AUC, or
-predict-the-mean RMSE (≈1.0 on DeepChem-normalized targets); it is a reference line, not a trained
+predict-the-mean RMSE (= the target's native standard deviation now that regression is scored in native
+units, §8, e.g. ~2.07 log mol/L on ESOL); it is a reference line, not a trained
 run. **no_pretrain** is a random-parameter ModernBERT run through the *same* frozen-feature + head
 pipeline as every other arm (neither MLM nor SFT) — a real ~41M model that is often **non-trivially
 above chance** (e.g. BBBP no_pretrain ≈0.695 vs Morgan+XGBoost ≈0.657, both well above the 0.5 random
@@ -650,6 +672,13 @@ extract one embedding per molecule, train a small head on those embeddings.
   standardization leakage). **Exception:** the classical anchors (`ecfp4`, `rdkit_desc`, `fp_desc`)
   are forced to `std_method="none"` — z-scoring sparse binary fingerprint bits is meaningless and
   hurts the tree models.
+- **Regression targets (revised 2026-08-05):** loaded in **native units** (`transformers=[]`, no
+  DeepChem `NormalizationTransformer`) and standardized by a **per-split target scaler fit on the train
+  labels only**, with predictions **inverse-transformed before scoring** — so RMSE is reported in
+  physical units (ESOL log mol/L, QM7 native) with no cross-fold normalization leakage. **Tox21
+  missing labels** (`w==0`) are set to NaN at load time so the head/metric NaN-masks actually apply
+  (previously they were scored as inactive). See
+  [`notes/corrections-tox21-regression-2026-08-05.md`](notes/corrections-tox21-regression-2026-08-05.md).
 - **Head:** small **MLP** by default (also `linear`, `xgb`), trained with **3 head seeds**.
   Full hyperparameters (`heads_v2.HEAD_HPARAMS`) — **MLP:** hidden 256, dropout 0.2, Adam lr 1e-3,
   weight-decay 1e-4, batch 64, ≤100 epochs, early-stopping patience 15 on val.
