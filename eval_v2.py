@@ -58,7 +58,17 @@ def _load_moleculenet(name: str):
     # reload=False: skip DeepChem's on-disk featurization cache. Loading several datasets
     # in one process otherwise collides on a shared cache dir ("No Metadata found ...") and
     # returns a corrupt/ragged dataset. Raw featurizer is cheap, so recomputing is fine.
-    tasks, datasets, _ = loaders[name](featurizer="Raw", splitter="scaffold", reload=False)
+    #
+    # transformers=[]: return RAW targets in native units. DeepChem's default for the regression
+    # sets (ESOL/QM7/Lipo) is a NormalizationTransformer fit on ITS scaffold-train split; combined
+    # with our downstream concatenate-and-re-split into custom CV folds, that both (a) leaks the
+    # normalization stats across folds and (b) leaves RMSE in standardized units mislabelled as
+    # log mol/L / physical. We instead scale targets PER FOLD (fit on that fold's train only) and
+    # inverse-transform predictions before scoring, so RMSE is native-unit and leakage-free. For
+    # classification this drops the BalancingTransformer, which is a no-op here (the heads never
+    # used sample weights, and ROC-AUC/NEF are rank-based hence transform-invariant).
+    tasks, datasets, _ = loaders[name](featurizer="Raw", splitter="scaffold", reload=False,
+                                       transformers=[])
     train_ds, val_ds, test_ds = datasets
 
     def _y_masked(ds):
@@ -89,6 +99,34 @@ def _load_moleculenet_full(name: str):
     smiles = list(tr_s) + list(va_s) + list(te_s)
     y = np.concatenate([tr_y, va_y, te_y], axis=0)
     return smiles, y
+
+
+# ---- per-split target standardization (regression only) ------------------------------------
+# Rigorous replacement for DeepChem's global NormalizationTransformer: the scaler is fit ONLY on
+# the current split's training labels, targets are standardized for head training (helps the MLP
+# optimize; harmless for XGBoost), and predictions are inverse-transformed back to native units
+# BEFORE any metric so RMSE is reported in log mol/L (ESOL) / physical units (QM7) with no
+# cross-fold leakage. Classification returns None -> identity, so class labels are never scaled.
+def _fit_target_scaler(y_train: np.ndarray, task_type: str):
+    if task_type != "regression":
+        return None
+    y = np.asarray(y_train, dtype=np.float64)
+    mu = np.nanmean(y, axis=0)
+    sd = np.nanstd(y, axis=0)
+    sd = np.where(np.isfinite(sd) & (sd > 0), sd, 1.0)   # guard constant/empty columns
+    return (mu, sd)
+
+
+def _scale_targets(y: np.ndarray, sc):
+    if sc is None:
+        return y
+    return (np.asarray(y, dtype=np.float64) - sc[0]) / sc[1]
+
+
+def _unscale_preds(p: np.ndarray, sc):
+    if sc is None:
+        return p
+    return np.asarray(p, dtype=np.float64) * sc[1] + sc[0]
 
 
 def _scaffold_kfold_indices(smiles: List[str], k: int, seed: int = 0):
@@ -318,10 +356,12 @@ def evaluate(
                 tr_idx = train_pool[perm[n_va:]]
                 sp = fit_standardizer(X_all[tr_idx], std_method)
                 trx, vax, tex = (apply_standardizer(X_all[ix], sp) for ix in (tr_idx, va_idx, test_idx))
+                ysc = _fit_target_scaler(y_all[tr_idx], task_type)   # regression: fit on THIS fold's train only
                 seed_preds = []
                 for seed in head_seeds:
-                    hd = make_head(head, task_type, n_outputs, seed).fit(trx, y_all[tr_idx], vax, y_all[va_idx])
-                    sp_pred = np.asarray(hd.predict(tex), dtype=np.float64)
+                    hd = make_head(head, task_type, n_outputs, seed).fit(
+                        trx, _scale_targets(y_all[tr_idx], ysc), vax, _scale_targets(y_all[va_idx], ysc))
+                    sp_pred = _unscale_preds(np.asarray(hd.predict(tex), dtype=np.float64), ysc)  # back to native units
                     seed_preds.append(sp_pred)
                     # Per-(seed, fold) metric. The seed-averaged rows below stay exactly as they
                     # were -- this only ADDS the un-averaged cells. Without them the CV scheme can
@@ -375,13 +415,15 @@ def evaluate(
         va_x = apply_standardizer(va_x, std_params)
         te_x = apply_standardizer(te_x, std_params)
 
+        ysc = _fit_target_scaler(tr_y, task_type)   # regression: fit on the hold-out TRAIN split only
         per_seed = []
         per_seed_nef = []
         seed_preds = []
         per_seed_train = []
         for seed in head_seeds:
-            hd = make_head(head, task_type, n_outputs, seed).fit(tr_x, tr_y, va_x, va_y)
-            te_pred = hd.predict(te_x)
+            hd = make_head(head, task_type, n_outputs, seed).fit(
+                tr_x, _scale_targets(tr_y, ysc), va_x, _scale_targets(va_y, ysc))
+            te_pred = _unscale_preds(np.asarray(hd.predict(te_x), dtype=np.float64), ysc)  # native units
             seed_preds.append(np.asarray(te_pred, dtype=np.float64))
             metric = compute_metric(te_pred, te_y, task_type)
             per_seed.append(metric)
@@ -391,7 +433,7 @@ def evaluate(
             # rmse/roc_auc) ignores it. Needed for the label-efficiency train-vs-test panel:
             # test alone cannot separate "the head cannot FIT this many labels" from "it fits
             # and fails to GENERALISE", which is the whole question at small N.
-            tr_pred = hd.predict(tr_x)
+            tr_pred = _unscale_preds(np.asarray(hd.predict(tr_x), dtype=np.float64), ysc)
             tr_metric = compute_metric(tr_pred, tr_y, task_type)
             per_seed_train.append(tr_metric)
             rows.append(_row(ds_name, task_type, f"{main_metric}_train", seed, n_train, tr_metric, t0))
