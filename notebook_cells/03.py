@@ -36,16 +36,19 @@ rc_color=lambda k:REGIME[k][0]; rc_marker=lambda k:REGIME[k][1]
 rc_ls   =lambda k:REGIME[k][2]; rc_label =lambda k:REGIME[k][3]
 
 TASKS = {
-    "ESOL"          :dict(metric="RMSE",   higher_better=False,pretty="ESOL", domain="solubility"),
+    # `chance` on regression tasks = predict-the-mean RMSE in NATIVE units (= DeepChem train-split
+    # std): ESOL 2.067 log mol/L, QM7 228.66, Lipo 1.211. Since eval_v2 now scores in native units
+    # (transformers=[] + per-fold scaler), the old hardcoded 1.0 (normalized) chance line is wrong.
+    "ESOL"          :dict(metric="RMSE",   higher_better=False,pretty="ESOL", domain="solubility", chance=2.066724),
     "BBBP"          :dict(metric="ROC-AUC",higher_better=True, pretty="BBBP", domain="ADMET"),
     "BACE"          :dict(metric="ROC-AUC",higher_better=True, pretty="BACE", domain="binding"),
     "Tox21"         :dict(metric="ROC-AUC",higher_better=True, pretty="Tox21",domain="toxicity"),
-    "QM7"           :dict(metric="RMSE",   higher_better=False,pretty="QM7",  domain="quantum"),
+    "QM7"           :dict(metric="RMSE",   higher_better=False,pretty="QM7",  domain="quantum", chance=228.656034),
     # HIV is scored by NEF1% (top-1% early enrichment) -- the virtual-screening readout. Chance is
     # the active fraction (1443/41120), not 0.5.
     "HIV"           :dict(metric="NEF1%",  higher_better=True, pretty="HIV",  domain="virtual screening",
                           suite_key="HIV_nef1", chance=0.0351),
-    "Lipophilicity" :dict(metric="RMSE",   higher_better=False,pretty="Lipo.",domain="ADMET"),
+    "Lipophilicity" :dict(metric="RMSE",   higher_better=False,pretty="Lipo.",domain="ADMET", chance=1.210993),
 }
 CORE_TASKS=["ESOL","BBBP","BACE","Tox21","QM7","HIV"]
 BUDGET_FP={"2M":2e6,"8M":8e6,"24M":24e6,"48M":48e6,"96M":96e6,"50M":50e6,"100M":100e6}
