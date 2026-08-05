@@ -715,19 +715,21 @@ extract one embedding per molecule, train a small head on those embeddings.
   construction); only the 10% validation carve-out is drawn from `--subsample_seed` (default **0**).
   Every run compared molecule-for-molecule — including the end-to-end arm — therefore shares the same
   partition, so the paired tests in §8.1 align by construction.
-  **Convention (revised 2026-07-22).** The **DeepChem single scaffold hold-out is the headline
-  scheme**, and CV-5 is reported alongside it. The convention was originally the other way round and
-  was reversed on evidence: the balanced CV split saturates — an *untrained* random encoder reaches
-  ≈0.94 ROC-AUC on BBBP under CV versus ≈0.70 in the literature — and compresses the between-regime
-  gaps by 2-3× (BACE: +0.056 CV vs +0.146 hold-out), i.e. it suppresses exactly the effect the paper
-  measures. CV is retained for the two jobs it does better: it is the only scheme whose error bar
-  reflects **split variance**, and the only one that yields a **complete out-of-fold per-molecule
-  prediction set** (required by Fig I1). The code default follows this — `eval_v2.py`'s `--cv_folds`
-  defaults to `None` (hold-out) and the wave launcher never passes it; CV is produced by explicit
-  after-the-fact passes (`scripts/cv_eval_local.py`, `scripts/h1_cv_eval.sh`).
-  The two are stored side by side (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within
-  one panel** — every bar in a figure uses the same scheme. Absolute numbers differ markedly between schemes (e.g. BBBP ≈0.95
-  CV vs ≈0.74 single-split), which is expected and disclosed; model *rankings* are what transfer.
+  **Convention.** The **pooled 5-fold scaffold CV is the headline scheme** (Fig A1.b and the tables the
+  claims rest on); the **DeepChem single scaffold hold-out** is reported alongside as a **tougher
+  robustness variant** (rarest scaffolds sent to test). CV is the headline because it is better powered
+  (five test folds vs one draw), its error bar reflects **split variance**, and it is the only scheme
+  yielding a **complete out-of-fold per-molecule prediction set** — required by Fig I1 and by the
+  cluster-bootstrap / FDR significance tests (§8.1), which run on the CV OOF predictions. ⚠️ **Caveat:**
+  the balanced CV split **saturates on the easiest task** — an *untrained* random encoder reaches
+  ≈0.94 ROC-AUC on BBBP under CV vs ≈0.70 in the literature — so the BBBP-CV panel is marked saturated
+  and read with care, and the hold-out serves as the check that a CV result is not hiding such a
+  collapse. (Implementation note: `eval_v2.py`'s `--cv_folds` *defaults* to `None`, i.e. the code's
+  default splitter is the hold-out; the headline CV numbers are produced by explicit passes —
+  `scripts/cv_eval_local.py`, `scripts/h1_cv_eval.sh`.) The two schemes are stored side by side
+  (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within one panel**. Absolute numbers
+  differ markedly between them (BBBP ≈0.95 CV vs ≈0.74 hold-out), which is expected and disclosed;
+  model *rankings* are what transfer.
 - **Metrics:** absolute **per task** — RMSE for ESOL/QM7/Lipophilicity, ROC-AUC for BBBP/BACE/Tox21,
   and **NEF1% (top-1% normalized enrichment) as the headline for HIV** (the virtual-screening task; ROC-AUC
   kept secondary) — see §6.5 for the NEF1% definition. Never z-scored or averaged across tasks.
