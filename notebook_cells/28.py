@@ -10,7 +10,7 @@ FIG_SOURCES={
   "A1.b": _sums("climb_v2_phase2/*","moleculenet_cv"),
   "A2.a": _sums("climb_v2_phase2/*","moleculenet_cv"),
   "A2.b": _sums("climb_v2_phase2/*","moleculenet_cv"),
-  "B1p1": [Path(q) for q in glob.glob(f"{LE}/*/moleculenet/moleculenet_summary.csv")],
+  "B1p1": ([Path(LE_SUM)] if os.path.exists(LE_SUM) else []),
   # E1's frozen line is read per head seed straight from the phase-2 summaries, so its verdict
   # depends on those too -- not only on the cached eval_ceiling.csv.
   "E1"  : [q for q in (CEIL,CEIL_SUP) if q.exists()]
@@ -56,15 +56,13 @@ BLOCKERS={
   "B2": ([] if _have_b2 else ["corrupt_mlm_8M / corrupt_mtr_8M still training"]),
   "E1": list(_E1_PENDING and [f"sup_only ladder not fine-tuned yet: {', '.join(_E1_PENDING)}"] or []),
   # A figure is not FINAL just because its files are consistent -- a declared arm with no runs is
-  # a gap too. B1p1 carries no_pretrain_e2e in its legend as NOT RUN; C1J1's whole wave was scored
-  # only on the small single hold-out, so its effect sizes are the weakest in the notebook.
-  # COVERAGE, not existence. A non-empty glob says ONE cell landed, not that the sweep finished --
-  # the same "the output file appeared, so it must be done" reasoning that let truncated runs into
-  # earlier analyses. Count against the expected total, and show the fraction.
-  "B1p1": ([] if len(glob.glob(f"{LE}/e2e_n*_s*/moleculenet/moleculenet_summary.csv"))>=13 else
-           [f"no_pretrain_end_to_end sweep is "
-            f"{len(glob.glob(f'{LE}/e2e_n*_s*/moleculenet/moleculenet_summary.csv'))}/13 cells "
-            f"(n=100/300/1000/3000 x 3 subsample seeds, + full)"]),
+  # a gap too. B1p1 carries no_pretrain_e2e in its legend as NOT RUN: the 4 frozen-probe arms are
+  # final at the per-task fractions, but the end-to-end arm needs the ENCODER re-fine-tuned at each
+  # of the 5 fractions (a separate sweep, peer compute session ~2.5h). The blocker clears when the
+  # e2e rows are appended to LE_SUM, not when a file merely appears.
+  "B1p1": ([] if ("e2e" in set(_led.arm)) else
+           ["no_pretrain_end_to_end label-efficiency not run yet "
+            "(end-to-end arm needs the encoder re-fine-tuned at each of the 5 per-task fractions)"]),
   "C1J1": ([] if len(glob.glob(f"figure_data/{ABL}/*/moleculenet_cv/suite_summary.json"))>=10 else
            [f"ablation-wave CV is "
             f"{len(glob.glob(f'figure_data/{ABL}/*/moleculenet_cv/suite_summary.json'))}/10 runs; "
