@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED / DO NOT RE-RUN — kept for provenance only. Writes the ABSOLUTE-budget e2e data
+# (climb_v2_labeleff_v2/e2e_n*), which caps on small tasks. Superseded by
+# scripts/label_eff_fractions_e2e.py (per-task fractions 5/10/25/50/100%). See README §E12 / Fig B1p1.
+#
 # B1p1 label-efficiency, the `no_pretrain_end_to_end` series -- the one arm b1_replicates_v2.sh
 # could not produce.
 #

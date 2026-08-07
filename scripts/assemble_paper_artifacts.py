@@ -48,7 +48,7 @@ FIGURE_DOC = [
     ("A2b", "figA2b_scaling_unique_molecules", "How does pretraining scale in unique molecules?",
      "climb_v2_phase2 scaling rungs, 5-fold CV"),
     ("B1p1", "figB1p1_label_efficiency_train_test", "Does pretraining help small datasets more, and how?",
-     "climb_v2_labeleff_v2, frozen probe, train vs test"),
+     "analysis/rigor/label_efficiency_fractions_all_summary.csv — per-task fractions 5/10/25/50/100%, 5 arms, native-unit regression"),
     ("E1", "figE1_H5_eval_ceiling", "Is the sup/unsup ordering a frozen-probe artifact?",
      "climb_v2_phase2 + derived/_eval_ceiling{,_sup}"),
     ("B2", "figB2_corrupted_control", "Does content-free pretraining help just as much?",

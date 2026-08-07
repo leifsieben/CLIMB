@@ -1,5 +1,10 @@
 """One cell of the B1p1 label-efficiency grid for the `no_pretrain_end_to_end` arm.
 
+⚠️ DEPRECATED / DO NOT RE-RUN — kept for provenance only. Writes absolute-budget e2e cells
+(climb_v2_labeleff_v2/e2e_n*), which cap on small tasks. Superseded by
+scripts/label_eff_fractions_e2e.py (per-task fractions). See README §E12 / Fig B1p1.
+
+
 Fig B1p1 plots four series that are all *frozen probes* re-fit at each label budget
 (`scripts/b1_replicates_v2.sh`), plus a fifth, `e2e`, that its legend has carried as
 "NOT RUN" -- because that arm needs the ENCODER re-fine-tuned at every budget, which the

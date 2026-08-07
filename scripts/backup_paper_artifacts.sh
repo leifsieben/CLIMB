@@ -21,8 +21,11 @@ log(){ echo "[backup $(date -u +%H:%M:%S)] $*"; }
 
 # Waves every figure is built from, plus the derived analysis products and the tokenizer/corpora
 # needed to retrain or re-evaluate any of them from scratch.
+# climb_v2_labeleff_v2_frac_e2e = the CURRENT label-efficiency e2e data (per-task fractions).
+# climb_v2_labeleff / climb_v2_labeleff_v2 are SUPERSEDED (absolute budgets) — backed up for
+# provenance only; the live B1p1 figure reads analysis/rigor/label_efficiency_fractions_*.csv.
 WAVES="climb_v2_phase2 climb_v2_ablation_dedup climb_v2_ablation climb_v2 climb_v2_h1
-       climb_v2_headline climb_v2_labeleff climb_v2_labeleff_v2 climb_v2_lrsweep"
+       climb_v2_headline climb_v2_labeleff climb_v2_labeleff_v2 climb_v2_labeleff_v2_frac_e2e climb_v2_lrsweep"
 
 for w in $WAVES; do
     log "experiments/$w"
