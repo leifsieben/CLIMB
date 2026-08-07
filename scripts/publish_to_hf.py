@@ -34,8 +34,20 @@ REPO_TYPE = {"encoders": "model", "results": "dataset", "pretrain": "dataset"}
 REPO_NAME = {"encoders": "climb-encoders", "results": "climb-results", "pretrain": "climb-pretrain-data"}
 
 # Only these waves' encoders/results are part of the release (paper-critical + SI vocab).
-PAPER_WAVES = ["climb_v2_phase2", "climb_v2_ablation_dedup", "climb_v2_labeleff_v2",
+# NOTE: the label-efficiency data is `climb_v2_labeleff_v2_frac_e2e` (per-task fractions, e2e raw
+# per-cell) PLUS the canonical fraction CSVs staged by stage_labeleff_csvs() below — NOT the old
+# absolute-budget `climb_v2_labeleff_v2` (superseded; must be deleted from the HF repo if present).
+PAPER_WAVES = ["climb_v2_phase2", "climb_v2_ablation_dedup", "climb_v2_labeleff_v2_frac_e2e",
                "climb_v2_h1", "climb_v2_vocab"]
+# Superseded wave paths to DELETE from the HF results repo (uploaded by an earlier release).
+RESULTS_STALE_DELETE = ["climb_v2_labeleff_v2"]
+# Canonical label-efficiency figure inputs (aggregated fraction CSVs) staged under label_efficiency/.
+LABELEFF_CSVS = ["analysis/rigor/label_efficiency_fractions_all.csv",
+                 "analysis/rigor/label_efficiency_fractions_all_summary.csv",
+                 "analysis/rigor/label_efficiency_fractions.csv",
+                 "analysis/rigor/label_efficiency_fractions_summary.csv",
+                 "analysis/rigor/label_efficiency_fractions_e2e.csv",
+                 "analysis/rigor/label_efficiency_fractions_e2e_summary.csv"]
 # raw per-run eval files that belong in climb-results (NO analysis on top):
 RESULT_KEEP = ["config.yaml", "metadata.json", "metrics.jsonl", "verified.json",
                "moleculenet/suite_summary.json", "moleculenet/moleculenet_summary.csv",
@@ -88,7 +100,16 @@ def stage_results(stage: Path, execute: bool) -> dict:
                         dst = stage / wave / run.name / rel
                         dst.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(f, dst)
-    return {"files": n, "source": "local figure_data/ (raw eval only; no _tanimoto/_eval_ceiling/figures)"}
+    # Canonical label-efficiency figure inputs (aggregated fraction CSVs) under label_efficiency/.
+    for rel in LABELEFF_CSVS:
+        f = Path(rel)
+        if f.exists():
+            n += 1
+            if execute:
+                dst = stage / "label_efficiency" / f.name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, dst)
+    return {"files": n, "source": "local figure_data/ raw eval + analysis/rigor label-efficiency CSVs"}
 
 
 def stage_encoders(stage: Path, execute: bool) -> dict:
@@ -154,8 +175,17 @@ def publish_one(kind: str, org: str, execute: bool):
     if not execute:
         print("    [dry-run] would create_repo(private=True) + upload_folder. Pass --execute to do it.")
         return
-    from huggingface_hub import create_repo, upload_folder
+    from huggingface_hub import create_repo, upload_folder, delete_folder, list_repo_files
     create_repo(repo_id, repo_type=rtype, private=True, exist_ok=True)
+    # Delete superseded folders first (upload_folder only adds/updates; it never removes stale paths,
+    # which is how a "competing version" survives on the Hub). Only the results dataset has any.
+    if kind == "results":
+        existing = set(list_repo_files(repo_id, repo_type=rtype))
+        for stale in RESULTS_STALE_DELETE:
+            if any(p.startswith(f"{stale}/") for p in existing):
+                print(f"    🗑  deleting superseded '{stale}/' from {repo_id}")
+                delete_folder(path_in_repo=stale, repo_id=repo_id, repo_type=rtype,
+                              commit_message=f"remove superseded {stale} (replaced by per-task fractions)")
     upload_folder(folder_path=str(stage), repo_id=repo_id, repo_type=rtype,
                   commit_message="CLIMB release upload")
     print(f"    ✅ uploaded {stage} -> https://huggingface.co/{'datasets/' if rtype=='dataset' else ''}{repo_id}")

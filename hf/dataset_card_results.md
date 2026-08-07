@@ -41,6 +41,19 @@ One directory per run, per wave, mirroring the checkpoints repo:
 - **`test_predictions.csv`** columns: `dataset, task_type, mol_index, canonical_key, raw_smiles,
   output_index, y_true, y_pred` — enough to recompute every metric and every paired significance test.
 
+**Label-efficiency (Fig B1p1).** Kept separate because it is a per-task **fraction** sweep, not a
+single run:
+```
+label_efficiency/label_efficiency_fractions_all_summary.csv   # THE figure input: 5 arms × 7 tasks × 5 fractions
+label_efficiency/label_efficiency_fractions_all.csv           # raw per-cell (every subsample × head/ft seed)
+climb_v2_labeleff_v2_frac_e2e/<cell>/moleculenet/...          # raw per-cell eval for the e2e (fine-tuned) arm
+```
+Each task is subsampled at **5/10/25/50/100 % of its own training split** (distinct without-replacement
+subsets — no capping/duplicate points). Arms: `random`, `unsup`, `sup`, `unsup2sup` (frozen probes) +
+`e2e` (end-to-end fine-tuned). Regression is in **native units**. Columns:
+`arm, task, task_type, metric, split, fraction, pct, n_train, mean, std, n_cells`. This **supersedes**
+the old absolute-budget `climb_v2_labeleff_v2` directory (removed from this repo).
+
 ## How the figures are regenerated
 
 ```bash
