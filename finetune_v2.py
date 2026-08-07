@@ -26,7 +26,7 @@ import torch
 import torch.nn as nn
 
 from config_v2 import MOLECULENET_TASKS_V2
-from eval_v2 import _load_moleculenet
+from eval_v2 import _fit_target_scaler, _load_moleculenet, _scale_targets, _unscale_preds
 from featurize_v2 import pool
 from heads_v2 import compute_metric
 
@@ -84,6 +84,15 @@ def finetune_one(encoder_path, tokenizer_path, ds_name, task_type, *, seed=0,
     va_y = va_y.reshape(-1).astype(np.float32)
     te_y = te_y.reshape(-1).astype(np.float32)
 
+    # Standardize regression targets (fit on TRAIN only); _load_moleculenet returns NATIVE units
+    # now (transformers=[]), so without this the MSE head cannot reach a large target offset
+    # (e.g. QM7 ~-1531) and collapses to predicting ~0. Predictions are unscaled before scoring so
+    # RMSE stays in native units. No-op for classification (ysc is None).
+    ysc = _fit_target_scaler(tr_y, task_type)
+    if ysc is not None:
+        tr_y = _scale_targets(tr_y, ysc).astype(np.float32)
+        va_y = _scale_targets(va_y, ysc).astype(np.float32)
+
     best_val, best_state, wait = float("inf"), None, 0
     order = np.arange(len(tr_s))
     rng = np.random.default_rng(seed)
@@ -126,6 +135,8 @@ def finetune_one(encoder_path, tokenizer_path, ds_name, task_type, *, seed=0,
             ids, mask = _batch_smiles(tokenizer, te_s[i:i + batch_size], max_length, device)
             preds.append(model(ids, mask).cpu().numpy())
     preds = np.concatenate(preds, axis=0).reshape(-1)
+    if ysc is not None:                      # back to native units for a comparable RMSE
+        preds = _unscale_preds(preds, ysc)
     return compute_metric(preds, te_y, task_type)
 
 

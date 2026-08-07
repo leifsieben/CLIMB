@@ -31,11 +31,12 @@ What it adds over `finetune_v2`:
     `TASKS["HIV"]["suite_key"] == "HIV_nef1"`;
   - **both split schemes** — single DeepChem scaffold hold-out and 5-fold scaffold CV.
 
-Targets are NOT rescaled here. DeepChem's molnet loaders already apply a
-`NormalizationTransformer` fitted on the train split to the regression sets (verified:
-QM7 and ESOL train targets come back mean 0 / sd 1), so the frozen arm's RMSE is
-already in normalized units. Re-standardizing would change the units and silently
-break comparability with every existing bar.
+Regression targets ARE standardized here (fit on the train split, predictions unscaled back
+to native units), via the same eval_v2._fit_target_scaler the frozen arm uses. This was added
+after `_load_moleculenet` switched to `transformers=[]` (native units): its earlier behavior
+returned mean-0/sd-1 targets, so the e2e head trained fine without scaling, but on native units
+QM7's ~-1531 offset made the MSE head collapse to predicting ~0 (RMSE ~1500, worse than the
+mean). Unscaling on return keeps the reported RMSE in native units, comparable to the frozen arm.
 
 Usage:
     python finetune_e2e_v2.py --encoder <dir> --tokenizer <dir> --output_dir <out> \
@@ -57,8 +58,9 @@ import torch
 import torch.nn as nn
 
 from config_v2 import MOLECULENET_TASKS_V2
-from eval_v2 import (_dump_test_predictions, _load_moleculenet, _load_moleculenet_full,
-                     _scaffold_kfold_indices, _subsample_train)
+from eval_v2 import (_dump_test_predictions, _fit_target_scaler, _load_moleculenet,
+                     _load_moleculenet_full, _scale_targets, _scaffold_kfold_indices,
+                     _subsample_train, _unscale_preds)
 from featurize_v2 import pool
 from heads_v2 import compute_metric, compute_nef
 
@@ -177,6 +179,18 @@ def finetune_predict(
         va_y = va_y[:, None]
     n_outputs = tr_y.shape[1]
 
+    # Standardize regression targets (fit on TRAIN only), exactly as the frozen arm does via
+    # eval_v2._fit_target_scaler. This is NOT optional: _load_moleculenet now returns NATIVE-unit
+    # targets (transformers=[]), so QM7's ~-1531 mean is fed raw to an MSE head that cannot reach
+    # that offset in a few epochs and collapses to predicting ~0 (RMSE ~1500, worse than the mean).
+    # The docstring's old "molnet loaders pre-normalize" assumption no longer holds. Predictions are
+    # unscaled back to native units before returning, so the reported RMSE stays comparable to the
+    # frozen arm and the rest of the paper (ysc is None for classification -> a no-op there).
+    ysc = _fit_target_scaler(tr_y, task_type)
+    if ysc is not None:
+        tr_y = _scale_targets(tr_y, ysc).astype(np.float32)
+        va_y = _scale_targets(va_y, ysc).astype(np.float32)
+
     model = EncoderWithHead(encoder, encoder.config.hidden_size, n_outputs).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     is_clf = task_type == "classification"
@@ -254,6 +268,10 @@ def finetune_predict(
     del model, encoder
     if device.type == "cuda":
         torch.cuda.empty_cache()
+    # Back to native units for regression, so the caller's compute_metric(pred, te_y) is a
+    # native-unit RMSE matching the frozen arm (no-op when ysc is None, i.e. classification logits).
+    if ysc is not None:
+        outs = [_unscale_preds(o, ysc) for o in outs]
     return outs
 
 
