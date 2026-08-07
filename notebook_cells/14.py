@@ -1,12 +1,17 @@
 # ---------- B1p1 · label-efficiency, train vs test (per-task FRACTION sweep) ----------
-LE_SUM="analysis/rigor/label_efficiency_fractions_summary.csv"
-# Frozen-probe label-efficiency at per-task FRACTIONS of each task's own hold-out train split
-# {5,10,25,50,100%}. This REPLACES the earlier shared-absolute-budget sweep {100,300,1k,3k,full},
-# which CAPPED on small tasks -- ESOL n=1000/3000/full were the identical 902 molecules, BACE/BBBP
+LE_SUM="analysis/rigor/label_efficiency_fractions_all_summary.csv"
+# Label-efficiency at per-task FRACTIONS of each task's own hold-out train split {5,10,25,50,100%}.
+# Four frozen-probe arms + the end-to-end arm, all from one combined file (frozen arms REGENERATED
+# on the GPU box so their n_train matches the e2e arm exactly at every (task,pct) -- an earlier
+# local RDKit had dropped 5-6 HIV/Tox21 molecules; HIV full is now 32901, Tox21 full 6264, matching
+# Table A1). This REPLACES the earlier shared-absolute-budget sweep {100,300,1k,3k,full}, which
+# CAPPED on small tasks -- ESOL n=1000/3000/full were the identical 902 molecules, BACE/BBBP
 # n=3000==full -- so the old figure plotted the same result 2-3x (reviewer-flagged). The x-axis is
 # now n_train, which is per-task, so points sit at different x per task: that is the fix, not a bug.
 # Regression is NATIVE units, matching the A1/A2 native-units fix (old label-eff RMSEs were in
-# normalized units, ~2x smaller); classification (roc_auc/nef1) is unchanged.
+# normalized units, ~2x smaller); classification (roc_auc/nef1) is unchanged. The e2e regression
+# arm scales targets like the frozen arms do -- without that, QM7's ~-1531 mean is unreachable by an
+# MSE head and it predicted ~0 (RMSE ~1500, 6x worse than chance); fixed, QM7 e2e is now ~200.
 # Arm keys mirror the A1/A2 encoders (scripts/label_eff_fractions.py, bit-identical to the
 # eval_v2.evaluate single-hold-out path -- same _subsample_train rng, zscore standardizer fit on the
 # subsample, target scaler, MLP head, native-unit unscale):
@@ -18,10 +23,10 @@ LE_REGIMES=[("random","no_pretrain (frozen)",rc_color("no_pretrain")),
             ("unsup","unsup_only (MLM, no labels)",rc_color("unsup_only")),
             ("sup","sup_only: dense (MTR)",rc_color("sup_only:dense")),
             ("unsup2sup","unsup→sup: dense (MTR)",rc_color("unsup2sup:dense")),
-            # Declared so its absence is visible. It cannot come from this frozen-probe wave: every
-            # series above is a frozen probe re-fit at each budget, whereas the end-to-end arm needs
-            # the ENCODER re-fine-tuned at each budget -- a separate sweep re-run at the SAME 5
-            # fractions (peer compute session, ~2.5h). Its rows will be appended to LE_SUM.
+            # Unlike the four frozen probes above, this arm re-FINE-TUNES the whole encoder (random
+            # init) at each budget rather than re-fitting a frozen head, so it is the true
+            # end-to-end baseline. Run at the SAME 5 per-task fractions; error bar is over 3
+            # fine-tune seeds x 3 subsample draws (vs head x subsample for the frozen arms).
             ("e2e","no_pretrain (end-to-end)",rc_color("no_pretrain_e2e"))]
 
 _led=pd.read_csv(LE_SUM) if os.path.exists(LE_SUM) else pd.DataFrame(
