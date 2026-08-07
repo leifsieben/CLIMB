@@ -1,5 +1,10 @@
 """Exp D — label-efficiency curves.
 
+⚠️ DEPRECATED / DO NOT RE-RUN — kept for provenance only. Uses absolute SUBSAMPLES
+[100,300,1000,3000,None], which cap on small tasks (duplicate points). Superseded by
+scripts/label_eff_fractions.py (per-task fractions 5/10/25/50/100%). See README §E12 / Fig B1p1.
+
+
 Reuses the exploratory-wave encoders (no new pretraining). For each featurizer and
 each downstream train-set size, trains the frozen-featurizer head and records the
 per-task metric. Produces the "money plot": performance vs #labeled molecules, one

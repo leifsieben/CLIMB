@@ -204,7 +204,7 @@ metrics, lift over a random-encoder floor.
 | E8 | **Beyond-one-epoch (H8)** | canonical repetition vs enumerated augmentation past one pass | ✅ done (Fig H1; retrained 3 seeds, CV) |
 | E9 | **Molecule-overlap matrix (H9)** | performance by (seen-in-unsup × seen-in-sup) group | ✅ done (Fig I1) |
 | ~~E10~~ | **Model-size / Chinchilla scaling — DROPPED** | model-size scaling (13M/50M/100M/200M) and any compute-optimal / IsoFLOP scaling-law analysis are **out of scope for this paper**; no new runs. A descriptive compute/data plot is recycled from existing runs (§4) | ❌ dropped |
-| E12 | **Label-efficiency sweep (H2 mechanism)** | retrain the frozen probe on 5/10/25/50/100% of each eval **train** split, per regime + per task; report the train–test gap. No new pretraining (cached embeddings) | ✅ done (Fig B1p1; all label budgets incl. n=3000) |
+| E12 | **Label-efficiency sweep (H2 mechanism)** | retrain the probe on **per-task fractions 5/10/25/50/100%** of each eval **train** split (so every point is a distinct without-replacement subset — no capping/duplicate points on small tasks), per regime + per task; report the train–test gap. Frozen arms cache embeddings (no new pretraining); the `no_pretrain_end_to_end` arm fine-tunes. Regression in **native units**. | ✅ done (Fig B1p1; 5 arms × 7 tasks × 5 fractions; `scripts/label_eff_fractions{,_e2e}.py`) |
 | E13 | **Corrupted-pretraining control (H2c)** | two arms at the 8M matched budget: `corrupt_mlm_8M` (**shuffled-token MLM**) and `corrupt_mtr_8M` (**shuffled-target MTR**) — same objective/compute, zero chemical content. See §7.1. | ✅ **done** — both arms trained and verified 2026-07-22 |
 
 The **5 SFT recipes** used in E2 (each gets a full sup_only + unsup→sup ladder):
@@ -258,7 +258,7 @@ invented data.
 | **A2.a** | H1·H4 | unsup_only · unsup→sup:dense · sup_only ×3 ladders. CV only; **no reference lines** (they are bars in A1) | vs forward passes (log) | ✅ (unsup_only now reaches the 100M rung) |
 | **A2.b** | H1·H4 | the same runs against **unique molecules seen**, which forward passes hide: `sup_only:sparse_all` gains +13.4% while its ladder is *vertical* — its pool caps at 0.52M, so every rung above 2M FP is repetition | vs unique molecules (log) | ✅ (unsup_only now reaches the 100M rung) |
 | **A3** | H1 | round-1 exploratory: no_pretrain · unsup_only · sup_only · unsup→sup · Morgan+XGBoost | grouped bars | ✅ |
-| **B1p1** | H2 | label-efficiency **and** the train–test gap: no_pretrain (frozen) · no_pretrain (end-to-end) · unsup_only · sup_only:dense · unsup→sup:dense vs #labels. Both SFT arms are the *same* `dense` recipe, so they differ only in the MLM stage | vs label count (log) | ✅ complete (13/13 cells; n=3000 filled) |
+| **B1p1** | H2 | label-efficiency **and** the train–test gap: no_pretrain (frozen) · no_pretrain (end-to-end) · unsup_only · sup_only:dense · unsup→sup:dense vs #labels. Both SFT arms are the *same* `dense` recipe, so they differ only in the MLM stage | vs label count (log), per-task fractions 5/10/25/50/100% | ✅ complete (5 arms × 7 tasks × 5 fractions; frozen+e2e on identical molecule sets; native-unit regression) |
 | **B2** | H2c | four bars per task — real vs corrupted for each objective (MLM vs `unsup_only`; MTR vs `sup_only:dense`). **Zero = no_pretrain (end-to-end)**, not a bar. Separates H2(c) "adds information" from H2(a/b) "init/regularization"; see §7.1 | control bars, 5-fold CV | ✅ real (both control arms verified 2026-07-22) |
 | **C1J1** | H3·H10 | fused: (a) per-arm lift, (b) family→task transfer matrix, (c) the H10 similarity test. 6 unsup→sup arms warm-started from one 2M MLM base, all lifted over **no_pretrain (end-to-end)**. Arms are prefixed `u2s:` — they share recipe names with A1's `sup_only` arms but are a different regime, budget and wave | bars + heatmap + scatter | ✅ deduped, 5-fold CV |
 | **E1** | H5 | eval-ceiling: frozen probe vs end-to-end finetune per checkpoint, **both regimes** (`unsup_only` and `sup_only:dense`), so an ordering flip has something to flip against. Both no_pretrain references drawn | vs compute | ✅ complete |
@@ -281,8 +281,8 @@ pipeline as every other arm (neither MLM nor SFT) — a real ~41M model that is 
 above chance** (e.g. BBBP no_pretrain ≈0.695 vs Morgan+XGBoost ≈0.657, both well above the 0.5 random
 line). The separate **no_pretrain_end_to_end** baseline (random encoder **unfrozen**, finetuned
 directly on each eval task) is the eval-ceiling (E1) case — **now run** (`finetune_e2e_v2`; the
-`e2e_n*` series in `climb_v2_labeleff_v2` and the E1 eval-ceiling data), so it is a real bar in Figs
-A1/B1p1/E1, not a placeholder.
+`e2e` arm of the per-task-fraction label-efficiency data in `analysis/rigor/label_efficiency_fractions_*.csv`
+and the E1 eval-ceiling data), so it is a real bar in Figs A1/B1p1/E1, not a placeholder.
 
 Metric conventions: ESOL/QM7/Lipophilicity = RMSE (lower better); BBBP/BACE/Tox21 = ROC-AUC (higher
 better); **HIV = NEF1% (top-1% enrichment, higher better)** as the virtual-screening headline (ROC-AUC
@@ -897,7 +897,7 @@ any current figure.
 | `scripts/cv_eval_local.py`, `scripts/cv_all_budgets.sh`, `scripts/h1_cv_eval.sh` | all 5-fold CV numbers and the `fp_desc` anchor |
 | `scripts/reeval_7task.py` | the 7-task (incl. HIV NEF1%) re-scoring of existing encoders |
 | `scripts/run_eval_ceiling.py`, `scripts/run_e1_gpu.sh`, `scripts/run_e1_sup_gpu.sh` | Fig E1 |
-| `scripts/b1_e2e_v2.sh`, `scripts/run_b1_e2e_cell.py`, `scripts/run_label_efficiency.py` | Fig B1p1 |
+| `scripts/label_eff_fractions.py`, `scripts/label_eff_fractions_e2e.py`, `scripts/build_label_eff_combined.py` | **Fig B1p1** (per-task fractions 5/10/25/50/100%) — supersedes the absolute-budget drivers `b1_replicates_v2.sh` / `b1_e2e_v2.sh` / `run_b1_e2e_cell.py` / `run_label_efficiency.py` (kept for provenance only; do **not** re-run — they write the capped `climb_v2_labeleff_v2` data) |
 | `scripts/run_e2e_random.py`, `scripts/run_e2e_wave.sh` | the e2e random-init replicates |
 | `scripts/make_e13_manifest.py` | Fig B2 corrupted controls |
 | `scripts/build_h1_rescale_manifest.py` | Fig H1 (3-seed retrain) |
@@ -1020,10 +1020,11 @@ breakdown is `paper_artifacts/INVENTORY.md`.
 | `unsup_only, enumerated SMILES` | 2M @ frac0p3, 2M @ fracfull, 2M @ frac0p01, 2M @ frac0p1, 2M @ frac0p001 | 0,1,2 | 15 | 15 | 15 | 15 | 15 | 15 | 15 |
 | `classical: Morgan+XGBoost` | — | 0 | 2 | n/a | n/a | n/a | 2 | 2 | 2 |
 | `classical: Morgan+desc+XGBoost` | — | 0 | 1 | n/a | n/a | n/a | 1 | 1 | 1 |
-| `label-efficiency probe: random` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
-| `label-efficiency probe: sup` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
-| `label-efficiency probe: unsup` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
-| `label-efficiency probe: unsup2sup` | n=0, n=100, n=1000, n=300, n=3000 | 0,1,2 | 13 | n/a | n/a | n/a | 13 | 0 | 0 |
+| `label-efficiency probe: random` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency probe: sup` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency probe: unsup` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency probe: unsup2sup` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency: no_pretrain_end_to_end (e2e)` | 5/10/25/50/100% per-task frac | 0,1,2 (fine-tune) | e2e | n/a | n/a | n/a | eval | 0 | 0 |
 
 **113 encoder checkpoints, 18.8 GB**, indexed in `paper_artifacts/checkpoints.csv`
 with `fetch_checkpoint.sh <run>` to pull one. They are not mirrored to laptops.

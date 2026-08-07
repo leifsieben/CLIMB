@@ -1,4 +1,9 @@
 #!/bin/bash
+# ⚠️ DEPRECATED / DO NOT RE-RUN — kept for provenance only.
+# This writes the ABSOLUTE-budget {100,300,1000,3000,full} label-efficiency data (climb_v2_labeleff_v2),
+# which CAPS on small tasks (duplicate points). Superseded by scripts/label_eff_fractions.py (per-task
+# fractions 5/10/25/50/100%). See README §E12 / Fig B1p1. Re-running this re-introduces the capped data.
+#
 # B1 / B1.1 label-efficiency, v2 — PRIMARY regimes, 7 tasks, train AND test metrics.
 #
 # Changes from b1_replicates.sh:

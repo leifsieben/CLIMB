@@ -66,7 +66,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | `figA1b_best_model_headline_cv` | 8 | `climb_v2_phase2` | 5-fold scaffold CV |
 | Table A1.a / A1.b | 10 | `climb_v2_phase2` | both |
 | `figA2a_scaling_tokens` / `figA2b_scaling_unique_molecules` | 12 | `climb_v2_phase2` (2M→100M rungs) | 5-fold CV |
-| `figB1p1_label_efficiency_train_test` | 14 | `climb_v2_labeleff_v2` (+ `climb_v2_phase2`) | frozen probe, label-subsampled |
+| `figB1p1_label_efficiency_train_test` | 14 | `analysis/rigor/label_efficiency_fractions_all_summary.csv` | per-task fractions 5/10/25/50/100%; 4 frozen arms + e2e; native-unit regression |
 | `figE1_H5_eval_ceiling` | 16 | `_eval_ceiling`, `_eval_ceiling_sup`, `climb_v2_phase2` | frozen probe + end-to-end finetune |
 | `figB2_corrupted_control` | 18 | `climb_v2_phase2` (`corrupt_*` arms) | 5-fold CV |
 | `figC1J1_sft_family_transfer` | 20 | `climb_v2_ablation_dedup` (+ `_tanimoto`) | 5-fold CV |
@@ -95,7 +95,9 @@ python eval_v2.py --encoder figure_data/<wave>/<run>/encoder --tokenizer figure_
 ```
 
 Helper scripts that batch these: `scripts/cv_all_budgets.sh` (all encoders × CV),
-`scripts/b1_replicates_v2.sh` (label-efficiency), `scripts/run_head_ablation.sh` (FFN-vs-XGB).
+`scripts/label_eff_fractions.py` + `scripts/label_eff_fractions_e2e.py` → `scripts/build_label_eff_combined.py`
+(label-efficiency, per-task fractions; supersedes `b1_replicates_v2.sh`/`b1_e2e_v2.sh`),
+`scripts/run_head_ablation.sh` (FFN-vs-XGB).
 
 ---
 
@@ -136,8 +138,10 @@ command in §1 to (re)write `moleculenet_cv/` (and `moleculenet/` for the hold-o
 
 Known non-issues: the two Morgan anchors have no encoder (they are XGBoost on fingerprints);
 `unsup_8M_c124` is a corpus-size control (same 8M budget on the 124M corpus) not shown in a main
-figure; superseded waves (`climb_v2`, `climb_v2_ablation`, `climb_v2_labeleff`) are kept for provenance
-only.
+figure; superseded waves (`climb_v2`, `climb_v2_ablation`, `climb_v2_labeleff`, and the absolute-budget
+`climb_v2_labeleff_v2` — replaced by the per-task-fraction label-efficiency data in
+`analysis/rigor/label_efficiency_fractions_*.csv` + `climb_v2_labeleff_v2_frac_e2e`) are kept for
+provenance only.
 
 ---
 
