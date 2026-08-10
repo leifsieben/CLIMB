@@ -72,9 +72,9 @@ else:
 # ----- (d) I1 quartile lift (non-memorized) + the excluded corpus-match group (I1 data) -----
 _ylabI=f"lift over {_I1_BASE_LABEL[I1_BASE_KEY]} (%)"
 if pairs:
-    _barsD=[("most corpus-similar\n(top quartile,\nnon-memorized)",sim,se_s,"#1b5e20"),
+    _barsD=[("most corpus-similar\n(top quartile,\nnot identical)",sim,se_s,"#1b5e20"),
             ("most novel\n(bottom quartile)",nov,se_n,"#66bb6a")]
-    if mpairs: _barsD.append(("corpus match\n(excluded from\ntrend)",mem,se_m,"#9e9e9e"))
+    if mpairs: _barsD.append(("corpus-identical\n(Tanimoto=1.0,\nexcluded)",mem,se_m,"#9e9e9e"))
     _xpD=list(range(len(_barsD)))
     axD.bar(_xpD,[b[1] for b in _barsD],color=[b[3] for b in _barsD],width=0.6,
             yerr=[b[2] for b in _barsD],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
@@ -102,7 +102,7 @@ if _drew:
     axE.axhline(0,color=PALETTE["black"],lw=0.6); axE.legend(loc="best",fontsize=STYLE["fs_legend"])
 else:
     axE.set_ylim(-5,15); no_data_watermark(axE,_I1_NEED)
-axE.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  matches (≥0.95) excluded")
+axE.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  corpus-identical (Tani=1.0) excluded")
 axE.set_ylabel(_ylabI); label_all_yticks(axE); panel_tag(axE,"e",dx=-0.18)
 
 _suptitle(figF, "Fig C1J1+I1 — supervised-label transfer (a–c) and who benefits from MLM "

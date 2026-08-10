@@ -1,19 +1,23 @@
 # ---------- I1 · memorization vs representation ----------
 # Reviewer point (Note C): the top-Tanimoto bin could mix interpolation with outright memorization,
-# because molecules literally in the corpus sit in that bin by construction. We defuse this two ways:
+# because molecules IDENTICAL to a corpus molecule sit in that bin by construction. This is real and
+# material for ESOL -- 41.9% of ESOL eval molecules are ECFP4-identical (Tanimoto=1.0) to a corpus
+# molecule (QM7 only 15.7%; its median max-Tanimoto is 0.63, so QM7 is the clean control). The number
+# that matters is fingerprint-identity, NOT the literal exact-match rate (1.3% ESOL / 1.9% QM7): Fig I1
+# BINS on ECFP4 Tanimoto, so what saturates the top bin is fingerprint identity, not SMILES identity.
+# We defuse the circularity two ways:
 #   (1) similarity is the TRUE max ECFP4 Tanimoto to the FULL 12M corpus (full_corpus_similarity_i1.csv),
 #       not the old 500k-subsample lower bound; and
-#   (2) molecules that are literally in the corpus -- an exact isomeric-canonical match (exact_nosalt;
-#       1.3% ESOL / 1.9% QM7) OR fingerprint-indistinguishable from a corpus molecule (max Tanimoto
-#       >= 0.95, which folds in the many stereo/salt/tautomer forms the exact key misses: 42% of ESOL
-#       is fp-identical at Tanimoto=1.0) -- are REMOVED from the similarity bins and reported on their
-#       own. So the trend below is computed only on molecules that are demonstrably NOT in the corpus.
+#   (2) corpus-IDENTICAL molecules (ECFP4 Tanimoto = 1.0, or a literal isomeric-canonical match) are
+#       REMOVED from the similarity bins and reported as their own bar. Near-duplicates (0.95<=T<1.0 --
+#       salt/tautomer/stereo variants) are DISTINCT inputs to the model, so they stay in the trend as
+#       the genuine interpolation regime; excluding them too does not change the conclusion.
 # The salt-stripped "73%" overlap is an artifact (toluene/pyridine as the largest fragment of unrelated
-# PubChem mixtures) and is deliberately NOT used. The conclusion is robust to the exclusion rule.
+# PubChem mixtures) and is deliberately NOT used.
 DEDUP=Path("analysis/dedup_i1")
 TANI=DEDUP/"full_corpus_similarity_i1.csv"        # true max Tanimoto to the full 12M corpus
 EXACT=DEDUP/"exact_match_per_molecule.csv"        # literal isomeric-canonical corpus match
-NEARDUP_THR=0.95                                  # fingerprint-identical / near-dup => treated as in-corpus
+IDENTICAL_THR=0.99999                             # ECFP4 Tanimoto = 1.0 => corpus-identical (the circularity)
 I1_MODEL=f"unsup_{MATCHED_BUDGET}"
 # BASELINE CHOICE IS THE WHOLE POINT OF THIS PANEL.
 # Lift over the FROZEN random encoder is close to trivial: that baseline cannot adapt to the task
@@ -51,7 +55,9 @@ def _simframe():
         s=s.merge(e,on=["raw_smiles","dataset"],how="left")
     s["exact_nosalt"]=s.get("exact_nosalt",0)
     s["exact_nosalt"]=s.exact_nosalt.fillna(0).astype(int)
-    s["memorized"]=(s.exact_nosalt==1)|(s.max_tanimoto_to_corpus>=NEARDUP_THR)
+    # "memorized" here == corpus-IDENTICAL (ECFP4 Tanimoto = 1.0, or a literal match). Near-dups
+    # (0.95<=T<1.0) are deliberately NOT flagged -- they are distinct inputs and stay in the trend.
+    s["memorized"]=(s.exact_nosalt==1)|(s.max_tanimoto_to_corpus>=IDENTICAL_THR)
     return s
 _SIM=_simframe()
 
@@ -136,11 +142,11 @@ def _agg(getter,items):                                       # mean over tasks 
     return val,se
 if pairs:
     sim,se_s=_agg(lambda v:v[0],pairs); nov,se_n=_agg(lambda v:v[1],pairs)
-    bars=[("most corpus-similar\n(top quartile,\nnon-memorized)",sim,se_s,"#1b5e20"),
+    bars=[("most corpus-similar\n(top quartile,\nnot identical)",sim,se_s,"#1b5e20"),
           ("most novel\n(bottom quartile)",nov,se_n,"#66bb6a")]
-    if mpairs:                                                 # excluded corpus-match group, shown apart
+    if mpairs:                                                 # excluded corpus-identical group, shown apart
         mem,se_m=_agg(lambda v:v,mpairs)
-        bars.append(("corpus match\n(excluded from\ntrend)",mem,se_m,"#9e9e9e"))
+        bars.append(("corpus-identical\n(Tanimoto=1.0,\nexcluded)",mem,se_m,"#9e9e9e"))
     xpos=list(range(len(bars)))
     ax0.bar(xpos,[b[1] for b in bars],color=[b[3] for b in bars],width=0.6,
             yerr=[b[2] for b in bars],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
@@ -169,36 +175,39 @@ if drew:
     ax1.legend(loc="best",fontsize=STYLE["fs_legend"])
 else:
     ax1.set_ylim(-5,15); no_data_watermark(ax1,_I1_NEED)
-ax1.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  corpus matches (≥0.95) excluded")
+ax1.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  corpus-identical (Tani=1.0) excluded")
 ax1.set_ylabel(_ylab); label_all_yticks(ax1); panel_tag(ax1,"b",dx=-0.18)
 
 _suptitle(fig, "Fig I1 - memorization or representation? Who benefits from MLM pretraining",
              fontsize=STYLE["fs_title"],y=1.04)
 fig.subplots_adjust(top=0.88,bottom=0.34,wspace=0.35)
 _caption(fig, 0.5,0.02,f"baseline = {_I1_BASE_LABEL[I1_BASE_KEY]}, pooled 5-fold CV, regression tasks "
-         "only. Similarity = TRUE max ECFP4 Tanimoto to the full 12M corpus. Molecules literally in the "
-         "corpus -- exact isomeric-canonical match (1.3% ESOL / 1.9% QM7) or fingerprint near-dup "
-         "(Tanimoto ≥ 0.95) -- are excluded from the bins and shown separately in (a); the trend is over "
-         "molecules demonstrably NOT in the corpus. Conclusion is unchanged across exclusion rules.",
+         "only. Similarity = TRUE max ECFP4 Tanimoto to the full 12M corpus. Corpus-IDENTICAL molecules "
+         "(ECFP4 Tanimoto = 1.0; 41.9% of ESOL, 15.7% of QM7) are excluded from the bins and shown "
+         "separately in (a); near-duplicates (0.95≤T<1.0) are kept as the interpolation regime. The trend "
+         "is over molecules that are NOT fingerprint-identical to any corpus molecule; the conclusion is "
+         "unchanged if the near-dup band is also excluded.",
          ha="center",va="top",fontsize=STYLE["fs_annot"],color="#555")
 save_fig(fig,"figI1_memorization_vs_representation"); plt.show()
 
 for t,v in pairs:
-    print(f"I1 {t} (vs {_I1_BASE_LABEL[I1_BASE_KEY]}, non-memorized): most-similar {v[0][0]:+.1f}% "
+    print(f"I1 {t} (vs {_I1_BASE_LABEL[I1_BASE_KEY]}, excl. corpus-identical): most-similar {v[0][0]:+.1f}% "
           f"[{v[0][1]:+.1f},{v[0][2]:+.1f}]   most-novel {v[1][0]:+.1f}% "
           f"[{v[1][1]:+.1f},{v[1][2]:+.1f}]  (95% bootstrap CI)")
 for t,v in mpairs:
-    print(f"   {t} corpus-match group (excluded): {v[0]:+.1f}% [{v[1]:+.1f},{v[2]:+.1f}]  (n={v[3]})")
+    print(f"   {t} corpus-identical group (Tani=1.0, excluded): {v[0]:+.1f}% [{v[1]:+.1f},{v[2]:+.1f}]  (n={v[3]})")
 if pairs:
     # The verdict is DERIVED, not asserted. The previous version printed "overlapping CIs => no
     # evidence" unconditionally, so it would have claimed that even when the intervals separated.
     _sep=[t for t,v in pairs if v[0][1]>v[1][2] or v[1][1]>v[0][2]]
     if _sep:
-        print(f"Non-overlapping CIs on {', '.join(_sep)} => among non-memorized molecules the gain "
+        print(f"Non-overlapping CIs on {', '.join(_sep)} => even among non-identical molecules the gain "
               f"DOES depend on corpus similarity there.")
     else:
-        print("CIs overlap on every task, even after removing corpus matches => no evidence the gain "
-              "concentrates on corpus-similar molecules; consistent with representation, not memorization.")
+        print("Once corpus-identical molecules are removed, no task shows the lift concentrating on "
+              "corpus-similar molecules (CIs overlap; if anything the novel quartile benefits more). The "
+              "apparent top-bin advantage -- most visible for ESOL -- is carried by the corpus-identical "
+              "group in (a): memorization of in-corpus structures, not genuine interpolation.")
     # Same analysis against the weak frozen baseline, printed for contrast so the effect of the
     # baseline choice on the headline number is visible rather than argued about.
     if _base_preds("no_pretrain") is not None:
