@@ -142,11 +142,12 @@ def _agg(getter,items):                                       # mean over tasks 
     return val,se
 if pairs:
     sim,se_s=_agg(lambda v:v[0],pairs); nov,se_n=_agg(lambda v:v[1],pairs)
-    bars=[("most corpus-similar\n(top quartile,\nnot identical)",sim,se_s,"#1b5e20"),
-          ("most novel\n(bottom quartile)",nov,se_n,"#66bb6a")]
-    if mpairs:                                                 # excluded corpus-identical group, shown apart
-        mem,se_m=_agg(lambda v:v,mpairs)
-        bars.append(("corpus-identical\n(Tanimoto=1.0,\nexcluded)",mem,se_m,"#9e9e9e"))
+    bars=[]                                                   # left -> right = MORE -> LESS similar
+    if mpairs:                                                 # corpus-identical (Tani=1.0) is the MOST
+        mem,se_m=_agg(lambda v:v,mpairs)                       # similar, so it leads; it is excluded from
+        bars.append(("corpus-identical\n(Tanimoto=1.0,\nexcluded)",mem,se_m,"#9e9e9e"))  # the trend though
+    bars+=[("most corpus-similar\n(top quartile,\nnot identical)",sim,se_s,"#1b5e20"),
+           ("most novel\n(bottom quartile)",nov,se_n,"#66bb6a")]
     xpos=list(range(len(bars)))
     ax0.bar(xpos,[b[1] for b in bars],color=[b[3] for b in bars],width=0.6,
             yerr=[b[2] for b in bars],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
@@ -176,7 +177,7 @@ if drew:
 else:
     ax1.set_ylim(-5,15); no_data_watermark(ax1,_I1_NEED)
 ax1.set_xlabel("max ECFP4 Tanimoto to corpus (bin mean)")
-ax1.set_ylabel(_ylab); label_all_yticks(ax1); panel_tag(ax1,"b",dx=-0.18)
+ax1.set_ylabel(_ylab); label_all_yticks(ax1); panel_tag(ax1,"b",dx=-0.235,dy=1.05)
 
 _suptitle(fig, "Fig I1 - memorization or representation? Who benefits from MLM pretraining",
              fontsize=STYLE["fs_title"],y=1.04)
