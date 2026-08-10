@@ -2,7 +2,7 @@
 # Re-draws the five subfigures already built above -- (a,b,c) from the C1J1 cell and (d,e) from the
 # I1 cell -- into one stacked, left-aligned figure for the paper. It deliberately REUSES the data
 # those cells computed (avg, H, _norm/_vmax, MAT_ROWS, pts + X/Y/TK/tcol/a/b/r/rho/p for C1J1;
-# pairs, sim/nov/se_s/se_n, binned_lift for I1; the H10 fit line is recomputed locally from
+# pairs, sim/nov/se_s/se_n, mpairs/mem/se_m, binned_lift for I1; the H10 fit line is recomputed from
 # X/Y because C1J1's global `a` is later reused as a loop variable) instead of recomputing, so
 # this panel can never
 # disagree with the standalone figures. It MUST run after both of them.
@@ -69,20 +69,24 @@ else:
     axC.set_xlabel("family–task Tanimoto similarity  —  right = MORE similar →")
     axC.set_ylabel(f"lift over {C1J1_FLOOR_LABEL} (%)")
 
-# ----- (d) I1 quartile lift: most-similar vs most-novel (I1 data) -----
+# ----- (d) I1 quartile lift (non-memorized) + the excluded corpus-match group (I1 data) -----
 _ylabI=f"lift over {_I1_BASE_LABEL[I1_BASE_KEY]} (%)"
 if pairs:
-    axD.bar([0,1],[sim,nov],color=["#1b5e20","#66bb6a"],width=0.6,      # dark green = most-similar, light green = most-novel
-            yerr=[se_s,se_n],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
-    for _xi,_v,_e in zip([0,1],[sim,nov],[se_s,se_n]):
-        axD.text(_xi,_v+_e+0.6,f"{_v:+.1f}%",ha="center",fontsize=STYLE["fs_annot"])
+    _barsD=[("most corpus-similar\n(top quartile,\nnon-memorized)",sim,se_s,"#1b5e20"),
+            ("most novel\n(bottom quartile)",nov,se_n,"#66bb6a")]
+    if mpairs: _barsD.append(("corpus match\n(excluded from\ntrend)",mem,se_m,"#9e9e9e"))
+    _xpD=list(range(len(_barsD)))
+    axD.bar(_xpD,[b[1] for b in _barsD],color=[b[3] for b in _barsD],width=0.6,
+            yerr=[b[2] for b in _barsD],capsize=STYLE["cap_size"],error_kw=dict(lw=STYLE["lw_thin"]))
+    for _xi,_b in zip(_xpD,_barsD):
+        axD.text(_xi,_b[1]+_b[2]+0.6,f"{_b[1]:+.1f}%",ha="center",fontsize=STYLE["fs_annot"])
     axD.axhline(0,color=PALETTE["black"],lw=0.6)
-    _lo,_hi=min(0,sim-se_s,nov-se_n),max(0,sim+se_s,nov+se_n)
+    _dv=[b[1] for b in _barsD]; _de=[b[2] for b in _barsD]
+    _lo,_hi=min(0,*(v-e for v,e in zip(_dv,_de))),max(0,*(v+e for v,e in zip(_dv,_de)))
     axD.set_ylim(_lo-abs(_lo)*0.35-2,_hi+abs(_hi)*0.35+3)
+    axD.set_xticks(_xpD); axD.set_xticklabels([b[0] for b in _barsD],fontsize=STYLE["fs_annot"]-0.5)
 else:
-    axD.set_ylim(-5,15); no_data_watermark(axD,_I1_NEED)
-axD.set_xticks([0,1])
-axD.set_xticklabels(["most corpus-similar\n(top quartile)","most novel\n(bottom quartile)"])
+    axD.set_ylim(-5,15); no_data_watermark(axD,_I1_NEED); axD.set_xticks([])
 axD.set_ylabel(_ylabI); label_all_yticks(axD)
 
 # ----- (e) I1 lift vs corpus similarity (I1 data) -----
@@ -98,7 +102,7 @@ if _drew:
     axE.axhline(0,color=PALETTE["black"],lw=0.6); axE.legend(loc="best",fontsize=STYLE["fs_legend"])
 else:
     axE.set_ylim(-5,15); no_data_watermark(axE,_I1_NEED)
-axE.set_xlabel("max ECFP4 Tanimoto to corpus (bin mean)\nright = MORE similar →")
+axE.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  matches (≥0.95) excluded")
 axE.set_ylabel(_ylabI); label_all_yticks(axE); panel_tag(axE,"e",dx=-0.18)
 
 _suptitle(figF, "Fig C1J1+I1 — supervised-label transfer (a–c) and who benefits from MLM "

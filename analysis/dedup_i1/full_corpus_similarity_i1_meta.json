@@ -1,0 +1,23 @@
+{
+  "corpus": "pubchem_filtered, ALL 12 shards (full)",
+  "corpus_molecules": 11996074,
+  "fingerprint": "ECFP4 (Morgan r=2, 2048 bits) \u2014 identical to compute_tanimoto_novelty.py",
+  "tasks": [
+    "ESOL",
+    "QM7"
+  ],
+  "n_scored": 7956,
+  "near_dup_band": [
+    0.95,
+    1.0
+  ],
+  "columns": {
+    "max_tanimoto_to_corpus_full": "true max ECFP4 Tanimoto to the full 12M corpus (NOT a lower bound)",
+    "n_corpus_identical": "count of corpus molecules with Tanimoto==1.0 (fingerprint-identical)",
+    "n_corpus_neardup_0p95": "count of corpus molecules with Tanimoto in [0.95,1.0)"
+  },
+  "median_max_tanimoto": {
+    "ESOL": 0.9444444179534912,
+    "QM7": 0.625
+  }
+}
