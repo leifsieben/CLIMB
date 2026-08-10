@@ -175,7 +175,7 @@ if drew:
     ax1.legend(loc="best",fontsize=STYLE["fs_legend"])
 else:
     ax1.set_ylim(-5,15); no_data_watermark(ax1,_I1_NEED)
-ax1.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  corpus-identical (Tani=1.0) excluded")
+ax1.set_xlabel("max ECFP4 Tanimoto to corpus (bin mean)")
 ax1.set_ylabel(_ylab); label_all_yticks(ax1); panel_tag(ax1,"b",dx=-0.18)
 
 _suptitle(fig, "Fig I1 - memorization or representation? Who benefits from MLM pretraining",

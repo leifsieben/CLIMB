@@ -102,7 +102,7 @@ if _drew:
     axE.axhline(0,color=PALETTE["black"],lw=0.6); axE.legend(loc="best",fontsize=STYLE["fs_legend"])
 else:
     axE.set_ylim(-5,15); no_data_watermark(axE,_I1_NEED)
-axE.set_xlabel("max ECFP4 Tanimoto to full 12M corpus (bin mean)\nright = MORE similar →  ·  corpus-identical (Tani=1.0) excluded")
+axE.set_xlabel("max ECFP4 Tanimoto to corpus (bin mean)")
 axE.set_ylabel(_ylabI); label_all_yticks(axE); panel_tag(axE,"e",dx=-0.18)
 
 _suptitle(figF, "Fig C1J1+I1 — supervised-label transfer (a–c) and who benefits from MLM "
