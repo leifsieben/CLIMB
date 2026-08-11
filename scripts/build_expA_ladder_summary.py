@@ -31,25 +31,35 @@ BUCKET = "s3://climb-s3-bucket/experiments"
 FOLD_RE = re.compile(r"^fold\d+$")
 
 # (arm label, run_id, pretraining_seed, wave)
+# UNITS: the frozen comparators MUST come from the native-unit re-eval under
+# climb_v2_expA/_baselines (scripts/expA_baselines_native_eval.sh), NOT the phase2 moleculenet_cv,
+# which is in normalized units for regression (QM7 rmse ~0.87 vs native ~200). Mixing the two
+# silently corrupts the regression ladder. unigram/shuffle_s1s2/bigram are already native (expA wave).
+BASE = "climb_v2_expA/_baselines"   # native re-eval of the phase2 frozen comparators
 ARMS = [
-    ("real (unsup_only)", "unsup_8M", 0, "climb_v2_phase2"),
-    ("real (unsup_only)", "unsup_8M_s1", 1, "climb_v2_phase2"),
-    ("real (unsup_only)", "unsup_8M_s2", 2, "climb_v2_phase2"),
-    ("shuffle_tokens", "corrupt_mlm_8M", 0, "climb_v2_phase2"),
+    ("real (unsup_only)", "unsup_8M", 0, BASE),
+    ("real (unsup_only)", "unsup_8M_s1", 1, BASE),
+    ("real (unsup_only)", "unsup_8M_s2", 2, BASE),
+    ("shuffle_tokens", "corrupt_mlm_8M", 0, BASE),
     ("shuffle_tokens", "corrupt_mlm_8M_s1", 1, "climb_v2_expA"),
     ("shuffle_tokens", "corrupt_mlm_8M_s2", 2, "climb_v2_expA"),
     ("unigram_resample", "unigram_8M", 0, "climb_v2_expA"),
     ("unigram_resample", "unigram_8M_s1", 1, "climb_v2_expA"),
     ("unigram_resample", "unigram_8M_s2", 2, "climb_v2_expA"),
-    ("no_pretrain (frozen)", "random_baseline_00", 0, "climb_v2_phase2"),
-    ("no_pretrain (frozen)", "random_baseline_01", 1, "climb_v2_phase2"),
-    ("no_pretrain (frozen)", "random_baseline_02", 2, "climb_v2_phase2"),
+    ("bigram_resample", "bigram_8M", 0, "climb_v2_expA"),
+    ("bigram_resample", "bigram_8M_s1", 1, "climb_v2_expA"),
+    ("bigram_resample", "bigram_8M_s2", 2, "climb_v2_expA"),
+    ("no_pretrain (frozen)", "random_baseline_00", 0, BASE),
+    ("no_pretrain (frozen)", "random_baseline_01", 1, BASE),
+    ("no_pretrain (frozen)", "random_baseline_02", 2, BASE),
+    # e2e is end-to-end (different protocol) and its phase2 regression is NORMALIZED units — keep for
+    # classification context only; do not read its regression as native-comparable.
     ("no_pretrain (e2e)", "e2e_random_00", 0, "climb_v2_phase2"),
     ("no_pretrain (e2e)", "e2e_random_01", 1, "climb_v2_phase2"),
     ("no_pretrain (e2e)", "e2e_random_02", 2, "climb_v2_phase2"),
 ]
 
-ARM_ORDER = ["real (unsup_only)", "unigram_resample", "shuffle_tokens",
+ARM_ORDER = ["real (unsup_only)", "shuffle_tokens", "bigram_resample", "unigram_resample",
              "no_pretrain (frozen)", "no_pretrain (e2e)"]
 
 
