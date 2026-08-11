@@ -62,6 +62,27 @@ unigram_resample,unigram_8M_s2,2,climb_v2_expA,HIV,classification,roc_auc,0.7471
 unigram_resample,unigram_8M_s2,2,climb_v2_expA,Lipophilicity,regression,rmse,0.9933276414871216,5
 unigram_resample,unigram_8M_s2,2,climb_v2_expA,QM7,regression,rmse,205.75252380371094,5
 unigram_resample,unigram_8M_s2,2,climb_v2_expA,Tox21,classification,roc_auc,0.7699645366973636,5
+bigram_resample,bigram_8M,0,climb_v2_expA,BACE,classification,roc_auc,0.8265913206908229,5
+bigram_resample,bigram_8M,0,climb_v2_expA,BBBP,classification,roc_auc,0.9393752079245707,5
+bigram_resample,bigram_8M,0,climb_v2_expA,ESOL,regression,rmse,1.1474896669387817,5
+bigram_resample,bigram_8M,0,climb_v2_expA,HIV,classification,roc_auc,0.7521740339751574,5
+bigram_resample,bigram_8M,0,climb_v2_expA,Lipophilicity,regression,rmse,0.9259124279022217,5
+bigram_resample,bigram_8M,0,climb_v2_expA,QM7,regression,rmse,206.26370849609376,5
+bigram_resample,bigram_8M,0,climb_v2_expA,Tox21,classification,roc_auc,0.773478178405343,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,BACE,classification,roc_auc,0.8272455507484328,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,BBBP,classification,roc_auc,0.9397078936296183,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,ESOL,regression,rmse,1.1976976633071899,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,HIV,classification,roc_auc,0.7546627964737572,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,Lipophilicity,regression,rmse,0.931831669807434,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,QM7,regression,rmse,207.23793334960936,5
+bigram_resample,bigram_8M_s1,1,climb_v2_expA,Tox21,classification,roc_auc,0.7715477713955332,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,BACE,classification,roc_auc,0.8235586949059496,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,BBBP,classification,roc_auc,0.9358555091305243,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,ESOL,regression,rmse,1.1321068286895752,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,HIV,classification,roc_auc,0.7579209662322043,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,Lipophilicity,regression,rmse,0.9349498510360718,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,QM7,regression,rmse,209.07702026367187,5
+bigram_resample,bigram_8M_s2,2,climb_v2_expA,Tox21,classification,roc_auc,0.7743304580161268,5
 no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8090574308181517,5
 no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9393920245140462,5
 no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,ESOL,regression,rmse,1.365984606742859,5

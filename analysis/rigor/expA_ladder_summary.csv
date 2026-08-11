@@ -1,4 +1,11 @@
 arm,dataset,task_type,metric,mean,std,n_seeds
+bigram_resample,BACE,classification,roc_auc,0.8257985221150683,0.0019671359096670614,3
+bigram_resample,BBBP,classification,roc_auc,0.9383128702282377,0.00213462821540488,3
+bigram_resample,ESOL,regression,rmse,1.1590980529785158,0.034301681683183295,3
+bigram_resample,HIV,classification,roc_auc,0.7549192655603729,0.002882037453966173,3
+bigram_resample,Lipophilicity,regression,rmse,0.9308979829152425,0.004590488278445948,3
+bigram_resample,QM7,regression,rmse,207.526220703125,1.4286402535439524,3
+bigram_resample,Tox21,classification,roc_auc,0.7731188026056678,0.0014257276847812954,3
 no_pretrain (e2e),BACE,classification,roc_auc,0.7781305698102399,0.01489152926596352,3
 no_pretrain (e2e),BBBP,classification,roc_auc,0.9321698323531539,0.0008310027742164019,3
 no_pretrain (e2e),HIV,classification,roc_auc,0.7606305898512188,0.01005100950335912,3
