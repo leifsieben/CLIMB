@@ -76,6 +76,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | Figure inventory | 28 | all waves | — |
 | Head-ablation table (FFN vs XGBoost) | 30 | `climb_v2_phase2` + `analysis/head_ablation` | 5-fold CV |
 | `figSV_vocab` (SI; panel a = scaling, panel b = effect size) | 32 | `climb_v2_vocab` (8 tokenizer runs) | 5-fold CV |
+| `figSA` (SI; synthetic-statistics ladder, README §7.3) | 38 | `analysis/rigor/expA_ladder_summary.csv` (wave `climb_v2_expA` + `_baselines`) | frozen-probe 5-fold CV, **native-unit** regression |
 
 The exact command that produced each `<wave>/<run>/moleculenet_cv/` (only `--head`/`--featurizer`
 change between model types):
@@ -171,3 +172,10 @@ pre-training data repo; **the full method is README §5 (architecture), §6 (dat
 The SI vocabulary-size study (`climb_v2_vocab`, README §7.2) is retrained the same way, but each run
 uses its own tokenizer — rebuild the eight with `scripts/build_vocab_tokenizers.py` and drive the wave
 with `scripts/vocab_wave.sh`.
+
+The SI synthetic-statistics ladder (`climb_v2_expA`, README §7.3) is retrained by first materializing
+the synthetic corpora — `scripts/build_synthetic_corpus.py --mode {unigram,bigram}` (certifies
+token-frequency KL≈0 before spending GPU) — then `scripts/build_expA_manifest.py` →
+`scripts/expA_run.sh` / `scripts/expA_bigram_run.sh` (pretrain + 5-fold CV). The frozen comparators
+must be re-scored in **native** units via `scripts/expA_baselines_native_eval.sh` (never mix with the
+normalized phase-2 `moleculenet_cv`), and `scripts/build_expA_ladder_summary.py` writes the tidy ladder.

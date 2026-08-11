@@ -660,6 +660,57 @@ are all held to the main-run values.
   eight fast-first (high vocab = shorter sequences first) on one box, train → CV → upload per run,
   self-terminating on completion.
 
+### 7.3 Synthetic-statistics ladder (Experiment A → Fig SA, wave `climb_v2_expA`)
+
+§7.1 shows *that* order-scrambling barely hurts (`shuffle_tokens ≈ real`); this experiment turns that
+one control into a **graded ladder** to localize *which statistic* of the corpus a masked-LM actually
+uses. We pretrain on synthetic corpora that each preserve **less** structure, holding everything else
+byte-identical to `unsup_8M` (8M FP, model, schedule, mask rate, 3 pretraining seeds, frozen-probe eval):
+
+| Arm | What survives | What's destroyed |
+|---|---|---|
+| `real` (unsup_only) | everything | — |
+| `shuffle_tokens` | each molecule's exact token **multiset** | token order → grammar, ring/branch matching, adjacency |
+| `bigram_resample` | corpus token frequencies **+ local adjacency** (a 1st-order Markov chain fit on the corpus) | the per-molecule multiset (composition), long-range structure |
+| `unigram_resample` | only the corpus token **marginal** | per-molecule composition, order, adjacency |
+| `no_pretrain` | nothing (random encoder) | — |
+
+- **Materialized corpora** (`scripts/build_synthetic_corpus.py`): unlike `shuffle_tokens` (on-the-fly
+  in the collator), the unigram/bigram statistics are *corpus-level*, so each is estimated over the full
+  ~12M corpus and a synthetic corpus is emitted **1:1** — one sequence per real molecule, **same length**
+  (so sequence count, length marginal and non-padding token count match by construction). The
+  pre-tokenized corpus stores **pure content tokens** (no BOS/EOS/PAD; min id 7), so the synthetic
+  sequences do too — matching the real convention exactly. Uploaded to
+  `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_{unigram,bigram}_pkl/` (gen seed 12345).
+  **Corruption is certified before any GPU spend:** token-frequency `KL(real‖synth)` = 7.5e-7 (unigram)
+  / 2.6e-4 (bigram) ≈ 0, and the unigram arm's MLM train loss plateaus at the unigram entropy (3.07
+  nats) while the bigram arm reaches ~1.4 nats (it exploits the Markov structure — a live check that the
+  arms differ as intended). `bag_swap` is **not** run: length-matched multiset-swapping is
+  distribution-identical to `shuffle_tokens` (an MLM sees only token sequences), so it cannot add
+  information beyond it.
+- **Arms & seeds.** `unigram_8M{,_s1,_s2}` and `bigram_8M{,_s1,_s2}` are new; `shuffle_tokens` reuses
+  `corrupt_mlm_8M` (§7.1) plus two new seeds `corrupt_mlm_8M_s{1,2}`; `real`/`no_pretrain` reuse the
+  phase-2 `unsup_8M{,_s1,_s2}` / `random_baseline_0*` encoders. Built by `scripts/build_expA_manifest.py`;
+  driven by `scripts/expA_run.sh` (pretrain + single-split eval + `verified.json`, then 5-fold CV).
+- **Native-unit consistency (load-bearing).** Regression targets in the new arms are in **native units**
+  (current `eval_v2`), but the phase-2 `moleculenet_cv` summaries are **normalized** (QM7 rmse ≈ 0.87 vs
+  native ≈ 200) — mixing them is invalid. The frozen comparators are therefore **re-evaluated native**
+  (`scripts/expA_baselines_native_eval.sh` → `experiments/climb_v2_expA/_baselines/<run>/`, leaving the
+  paper's phase-2 artifacts untouched), so **every rung shares one eval version**.
+  `scripts/build_expA_ladder_summary.py` stitches the tidy ladder (`analysis/rigor/expA_ladder_*.csv`).
+- **Result.** Uniform across the tasks with real spread: `shuffle_tokens ≈ real` and
+  `unigram_resample ≈ no_pretrain`, so token **order** barely matters and the **marginal** buys ~nothing
+  over random init — the benefit lives in the per-molecule **composition**. `bigram_resample` is
+  **intermediate** (recovering ~30–60% of the composition gap on ESOL/BACE/Tox21, matching shuffle on
+  Lipophilicity, at the floor on QM7; BBBP/HIV are saturated), so **local adjacency carries a partial,
+  task-dependent share** on top of composition. The mechanism is graded, not binary — and §3.7's
+  "relative token frequencies" understates it: it is composition first, with a secondary
+  local-co-occurrence contribution.
+- **Artifacts.** Encoders + evals under `experiments/climb_v2_expA/<run>/`; native-unit baselines under
+  `…/_baselines/<run>/`; ladder CSVs `analysis/rigor/expA_ladder_{summary,per_run}.csv`; collaborator
+  bundle via `scripts/package_expA_bundle.py`. Provisional (may be promoted from SI Fig SA to a main
+  result).
+
 ## 8. Evaluation protocol (frozen featurizer)
 
 The **primary** protocol mirrors real deployment of molecular foundation models: freeze the encoder,
@@ -902,6 +953,8 @@ any current figure.
 | `scripts/make_e13_manifest.py` | Fig B2 corrupted controls |
 | `scripts/build_h1_rescale_manifest.py` | Fig H1 (3-seed retrain) |
 | `scripts/compute_tanimoto_novelty.py`, `scripts/compute_family_task_similarity.py` | Figs I1, C1J1 |
+| `scripts/dedup_i1_reanalysis.py` | **Fig I1 de-dup reanalysis** — exact-match + full-12M-corpus max-Tanimoto of ESOL/QM7 (the memorization-vs-interpolation split at Tanimoto=1.0) |
+| `scripts/build_synthetic_corpus.py`, `scripts/build_expA_manifest.py`, `scripts/expA_run.sh`, `scripts/expA_bigram_run.sh`, `scripts/expA_baselines_native_eval.sh`, `scripts/build_expA_ladder_summary.py` | **Fig SA** (Experiment A synthetic-statistics ladder, wave `climb_v2_expA`; §7.3). `scripts/package_expA_bundle.py` builds the collaborator zip |
 | `scripts/compare_models.py`, `scripts/verify_e2e_pairing.py` | §8.1 paired tests and their pairing check |
 | `scripts/backfill_verified.py`, `scripts/reproducibility_audit.py`, `scripts/gen_readme_inventory.py` | completion markers, the audit, and §9.6 |
 
