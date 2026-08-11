@@ -38,7 +38,11 @@ REPO_NAME = {"encoders": "climb-encoders", "results": "climb-results", "pretrain
 # per-cell) PLUS the canonical fraction CSVs staged by stage_labeleff_csvs() below — NOT the old
 # absolute-budget `climb_v2_labeleff_v2` (superseded; must be deleted from the HF repo if present).
 PAPER_WAVES = ["climb_v2_phase2", "climb_v2_ablation_dedup", "climb_v2_labeleff_v2_frac_e2e",
-               "climb_v2_h1", "climb_v2_vocab"]
+               "climb_v2_h1", "climb_v2_vocab",
+               # Experiment A — synthetic-statistics ladder (unigram/bigram/shuffle arms). Provisional
+               # (friend experiments; may be promoted to a main result). Its `_baselines/` subdir holds
+               # native re-evals of phase2 encoders and is skipped by stage_encoders (no encoder there).
+               "climb_v2_expA"]
 # Superseded wave paths to DELETE from the HF results repo (uploaded by an earlier release).
 RESULTS_STALE_DELETE = ["climb_v2_labeleff_v2"]
 # Canonical label-efficiency figure inputs (aggregated fraction CSVs) staged under label_efficiency/.
@@ -48,6 +52,9 @@ LABELEFF_CSVS = ["analysis/rigor/label_efficiency_fractions_all.csv",
                  "analysis/rigor/label_efficiency_fractions_summary.csv",
                  "analysis/rigor/label_efficiency_fractions_e2e.csv",
                  "analysis/rigor/label_efficiency_fractions_e2e_summary.csv"]
+# Experiment A ladder result CSVs (staged under experiment_a/ in climb-results).
+EXPA_CSVS = ["analysis/rigor/expA_ladder_per_run.csv",
+             "analysis/rigor/expA_ladder_summary.csv"]
 # raw per-run eval files that belong in climb-results (NO analysis on top):
 RESULT_KEEP = ["config.yaml", "metadata.json", "metrics.jsonl", "verified.json",
                "moleculenet/suite_summary.json", "moleculenet/moleculenet_summary.csv",
@@ -107,6 +114,15 @@ def stage_results(stage: Path, execute: bool) -> dict:
             n += 1
             if execute:
                 dst = stage / "label_efficiency" / f.name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, dst)
+    # Experiment A ladder result CSVs under experiment_a/.
+    for rel in EXPA_CSVS:
+        f = Path(rel)
+        if f.exists():
+            n += 1
+            if execute:
+                dst = stage / "experiment_a" / f.name
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(f, dst)
     return {"files": n, "source": "local figure_data/ raw eval + analysis/rigor label-efficiency CSVs"}
