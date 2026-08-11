@@ -43,9 +43,11 @@ if EXPA_TASKS and EXPA_ARMS:
               fontsize=STYLE["fs_title"],y=1.02)
     _note=("frozen probe (5-fold scaffold CV, 3 seeds), native units, each corpus bit-cloned from "
            "unsup_8M. Lift over the random-init frozen floor (0). shuffle keeps the per-molecule token "
-           "multiset but destroys order; unigram keeps only the corpus token marginal. shuffle≈real and "
-           "unigram≈floor on every task => the benefit is per-molecule composition, not order or corpus "
-           "frequency. HIV = ROC-AUC here (NEF1% is its headline elsewhere).")
+           "multiset but destroys order; bigram keeps only local token adjacency; unigram keeps only the "
+           "corpus token marginal. shuffle≈real and unigram≈floor => the benefit is per-molecule "
+           "composition; bigram is intermediate on tasks with real spread (ESOL/BACE/Tox21/Lipo), so "
+           "local adjacency carries a partial, task-dependent share. BBBP/HIV are saturated (all arms "
+           "within ~0.01), so the ladder is clearest on ESOL/Lipo/BACE/Tox21/QM7. HIV = ROC-AUC.")
     _caption(fig,0.5,-0.30,"\n".join(_tw.wrap(_note,120)),ha="center",va="top",
              fontsize=STYLE["fs_annot"],color="#555")
     fig.subplots_adjust(bottom=0.20)
