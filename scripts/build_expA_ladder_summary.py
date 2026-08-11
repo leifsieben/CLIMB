@@ -82,6 +82,11 @@ def main() -> int:
         fold = df[df.head_seed.astype(str).map(lambda s: bool(FOLD_RE.match(s)))]
         for ds, g in fold.groupby("dataset"):
             ttype = g.task_type.iloc[0]
+            # e2e regression in phase2 is NORMALIZED units (QM7 ~0.85) and end-to-end (different
+            # protocol) — not comparable on the native frozen-probe axis. Keep e2e for classification
+            # only, so the regression ladder stays unit-consistent.
+            if arm == "no_pretrain (e2e)" and ttype == "regression":
+                continue
             primary = "rmse" if ttype == "regression" else "roc_auc"
             gg = g[g.main_metric == primary]
             if gg.empty:

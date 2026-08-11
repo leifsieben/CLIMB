@@ -1,0 +1,33 @@
+arm,dataset,task_type,metric,mean,std,n_seeds
+no_pretrain (e2e),BACE,classification,roc_auc,0.7781305698102399,0.01489152926596352,3
+no_pretrain (e2e),BBBP,classification,roc_auc,0.9321698323531539,0.0008310027742164019,3
+no_pretrain (e2e),HIV,classification,roc_auc,0.7606305898512188,0.01005100950335912,3
+no_pretrain (e2e),Tox21,classification,roc_auc,0.7535814768191628,0.003140667134135825,3
+no_pretrain (frozen),BACE,classification,roc_auc,0.806093161921943,0.0031570237233521314,3
+no_pretrain (frozen),BBBP,classification,roc_auc,0.937989803707768,0.001493241658496551,3
+no_pretrain (frozen),ESOL,regression,rmse,1.3813021977742512,0.020864748772530396,3
+no_pretrain (frozen),HIV,classification,roc_auc,0.7499043766402157,0.003610204885979913,3
+no_pretrain (frozen),Lipophilicity,regression,rmse,0.9749140898386637,0.0027596350200482906,3
+no_pretrain (frozen),QM7,regression,rmse,205.27342732747397,0.1020161447350629,3
+no_pretrain (frozen),Tox21,classification,roc_auc,0.7700353742501959,0.00044223482342238866,3
+real (unsup_only),BACE,classification,roc_auc,0.8581090508557176,0.01404795729247132,3
+real (unsup_only),BBBP,classification,roc_auc,0.9503418103260689,0.004195639066250547,3
+real (unsup_only),ESOL,regression,rmse,1.0357513387997945,0.04208217539490061,3
+real (unsup_only),HIV,classification,roc_auc,0.7688657407319218,0.008740803054908325,3
+real (unsup_only),Lipophilicity,regression,rmse,0.8833314696947734,0.016658355031653495,3
+real (unsup_only),QM7,regression,rmse,199.3930908203125,0.4686906247383462,3
+real (unsup_only),Tox21,classification,roc_auc,0.7949475213435795,0.0043960780019193044,3
+shuffle_tokens,BACE,classification,roc_auc,0.8390365425250225,0.007676934798939765,3
+shuffle_tokens,BBBP,classification,roc_auc,0.9485873737844036,0.0015242260316057237,3
+shuffle_tokens,ESOL,regression,rmse,0.9959282080332438,0.0344011761762345,3
+shuffle_tokens,HIV,classification,roc_auc,0.7522446937226924,0.003463052505807757,3
+shuffle_tokens,Lipophilicity,regression,rmse,0.9438362240791321,0.0041520664955921344,3
+shuffle_tokens,QM7,regression,rmse,197.36847432454428,0.536069146914669,3
+shuffle_tokens,Tox21,classification,roc_auc,0.7817184114064023,0.0011316070588551787,3
+unigram_resample,BACE,classification,roc_auc,0.8159200140771549,0.0015691228500053168,3
+unigram_resample,BBBP,classification,roc_auc,0.9385103663404953,0.0027001891841211376,3
+unigram_resample,ESOL,regression,rmse,1.3832468668619793,0.0874704377553011,3
+unigram_resample,HIV,classification,roc_auc,0.7470558047782555,0.00023643631402346115,3
+unigram_resample,Lipophilicity,regression,rmse,0.9918559551239013,0.0060101691344425145,3
+unigram_resample,QM7,regression,rmse,205.49146016438803,0.7468909261559541,3
+unigram_resample,Tox21,classification,roc_auc,0.7686282464710529,0.001544557033367121,3

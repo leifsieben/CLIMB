@@ -1,0 +1,97 @@
+arm,run_id,seed,wave,dataset,task_type,metric,cv_value,n_folds
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8694014834088846,5
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9535518815103001,5
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,ESOL,regression,rmse,0.9983701705932617,5
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7789250100550886,5
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.9024818301200866,5
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,QM7,regression,rmse,199.3327667236328,5
+real (unsup_only),unsup_8M,0,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.7999363980442943,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8625477653853038,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.94559432832735,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,ESOL,regression,rmse,1.0813286423683166,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7645502233980176,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.8753210783004761,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,QM7,regression,rmse,199.88902282714844,5
+real (unsup_only),unsup_8M_s1,1,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.7932647687376801,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8423779037729645,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9518792211405567,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,ESOL,regression,rmse,1.0275552034378053,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7631219887426592,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.8721915006637573,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,QM7,regression,rmse,198.95748291015624,5
+real (unsup_only),unsup_8M_s2,2,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.7916413972487638,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8302465408240618,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9468663430730064,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,ESOL,regression,rmse,1.0164126873016357,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7483555088558786,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.9390674352645874,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,QM7,regression,rmse,196.90542297363282,5
+shuffle_tokens,corrupt_mlm_8M,0,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.7827190876892218,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,BACE,classification,roc_auc,0.8444251381017386,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,BBBP,classification,roc_auc,0.9497669580405697,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,ESOL,regression,rmse,0.9562117338180542,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,HIV,classification,roc_auc,0.7549945274005667,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,Lipophilicity,regression,rmse,0.9457920789718628,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,QM7,regression,rmse,197.95574951171875,5
+shuffle_tokens,corrupt_mlm_8M_s1,1,climb_v2_expA,Tox21,classification,roc_auc,0.7819457543547582,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,BACE,classification,roc_auc,0.8424379486492672,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,BBBP,classification,roc_auc,0.9491288202396344,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,ESOL,regression,rmse,1.0151602029800415,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,HIV,classification,roc_auc,0.7533840449116319,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,Lipophilicity,regression,rmse,0.9466491580009461,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,QM7,regression,rmse,197.24425048828124,5
+shuffle_tokens,corrupt_mlm_8M_s2,2,climb_v2_expA,Tox21,classification,roc_auc,0.7804903921752266,5
+unigram_resample,unigram_8M,0,climb_v2_expA,BACE,classification,roc_auc,0.817666922285959,5
+unigram_resample,unigram_8M,0,climb_v2_expA,BBBP,classification,roc_auc,0.9355233017294774,5
+unigram_resample,unigram_8M,0,climb_v2_expA,ESOL,regression,rmse,1.427784538269043,5
+unigram_resample,unigram_8M,0,climb_v2_expA,HIV,classification,roc_auc,0.7467828140825027,5
+unigram_resample,unigram_8M,0,climb_v2_expA,Lipophilicity,regression,rmse,0.9969935894012452,5
+unigram_resample,unigram_8M,0,climb_v2_expA,QM7,regression,rmse,206.0727783203125,5
+unigram_resample,unigram_8M,0,climb_v2_expA,Tox21,classification,roc_auc,0.7669371630642436,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,BACE,classification,roc_auc,0.8154629495750706,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,BBBP,classification,roc_auc,0.9407779176297819,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,ESOL,regression,rmse,1.2824708700180054,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,HIV,classification,roc_auc,0.7471892685237048,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,Lipophilicity,regression,rmse,0.9852466344833374,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,QM7,regression,rmse,204.64907836914062,5
+unigram_resample,unigram_8M_s1,1,climb_v2_expA,Tox21,classification,roc_auc,0.7689830396515512,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,BACE,classification,roc_auc,0.8146301703704351,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,BBBP,classification,roc_auc,0.9392298796622267,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,ESOL,regression,rmse,1.4394851922988892,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,HIV,classification,roc_auc,0.7471953317285591,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,Lipophilicity,regression,rmse,0.9933276414871216,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,QM7,regression,rmse,205.75252380371094,5
+unigram_resample,unigram_8M_s2,2,climb_v2_expA,Tox21,classification,roc_auc,0.7699645366973636,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8090574308181517,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9393920245140462,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,ESOL,regression,rmse,1.365984606742859,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7521163060561451,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.9772260308265686,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,QM7,regression,rmse,205.28558959960938,5
+no_pretrain (frozen),random_baseline_00,0,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.769821121678192,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8027734662577058,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9364197265282215,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,ESOL,regression,rmse,1.3728561401367188,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7457383293332084,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.9718589663505555,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,QM7,regression,rmse,205.16587524414064,5
+no_pretrain (frozen),random_baseline_01,1,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.7705439273858101,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,BACE,classification,roc_auc,0.8064485886899714,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,BBBP,classification,roc_auc,0.9381576600810364,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,ESOL,regression,rmse,1.4050658464431762,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,HIV,classification,roc_auc,0.7518584945312934,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,Lipophilicity,regression,rmse,0.9756572723388672,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,QM7,regression,rmse,205.3688171386719,5
+no_pretrain (frozen),random_baseline_02,2,climb_v2_expA/_baselines,Tox21,classification,roc_auc,0.7697410736865853,5
+no_pretrain (e2e),e2e_random_00,0,climb_v2_phase2,BACE,classification,roc_auc,0.7724154128897811,5
+no_pretrain (e2e),e2e_random_00,0,climb_v2_phase2,BBBP,classification,roc_auc,0.9320872971390772,5
+no_pretrain (e2e),e2e_random_00,0,climb_v2_phase2,HIV,classification,roc_auc,0.7490727904578124,5
+no_pretrain (e2e),e2e_random_00,0,climb_v2_phase2,Tox21,classification,roc_auc,0.7538272316469019,5
+no_pretrain (e2e),e2e_random_01,1,climb_v2_phase2,BACE,classification,roc_auc,0.7950330897053756,5
+no_pretrain (e2e),e2e_random_01,1,climb_v2_phase2,BBBP,classification,roc_auc,0.9313831769175225,5
+no_pretrain (e2e),e2e_random_01,1,climb_v2_phase2,HIV,classification,roc_auc,0.7654952975971002,5
+no_pretrain (e2e),e2e_random_01,1,climb_v2_phase2,Tox21,classification,roc_auc,0.7565920469428982,5
+no_pretrain (e2e),e2e_random_02,2,climb_v2_phase2,BACE,classification,roc_auc,0.766943206835563,5
+no_pretrain (e2e),e2e_random_02,2,climb_v2_phase2,BBBP,classification,roc_auc,0.9330390230028618,5
+no_pretrain (e2e),e2e_random_02,2,climb_v2_phase2,HIV,classification,roc_auc,0.7673236814987436,5
+no_pretrain (e2e),e2e_random_02,2,climb_v2_phase2,Tox21,classification,roc_auc,0.7503251518676881,5
