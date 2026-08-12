@@ -1,0 +1,523 @@
+{
+  "length": {
+    "smiles": {
+      "median": 37,
+      "mean": 45.986,
+      "p95": 97
+    },
+    "note_wiki_matched_by_construction": "wiki chunk lengths are SAMPLED from this distribution"
+  },
+  "token_marginal_divergence": {
+    "js_divergence_bits": 0.9326,
+    "kl_smiles_wiki_bits": 8.4163,
+    "kl_wiki_smiles_bits": 20.8598,
+    "interpretation": "same tokenizer, matched lengths, but the token MARGINALS are far apart"
+  },
+  "vocabulary": {
+    "smiles_support": 800,
+    "wiki_support": 510,
+    "shared": 365,
+    "smiles_only_count": 435,
+    "wiki_only_count": 145,
+    "smiles_only_tokens_top": [
+      {
+        "id": 270,
+        "token": "@@",
+        "count": 517526
+      },
+      {
+        "id": 276,
+        "token": ")(=",
+        "count": 232917
+      },
+      {
+        "id": 282,
+        "token": "]([",
+        "count": 154888
+      },
+      {
+        "id": 289,
+        "token": "CCOC",
+        "count": 120346
+      },
+      {
+        "id": 288,
+        "token": "CCCCC",
+        "count": 95503
+      },
+      {
+        "id": 294,
+        "token": "+](=",
+        "count": 84103
+      },
+      {
+        "id": 297,
+        "token": "CCNC",
+        "count": 60771
+      },
+      {
+        "id": 298,
+        "token": "@@]",
+        "count": 50187
+      },
+      {
+        "id": 299,
+        "token": "CCOCC",
+        "count": 45199
+      },
+      {
+        "id": 302,
+        "token": "@]",
+        "count": 44541
+      },
+      {
+        "id": 309,
+        "token": "CCCNC",
+        "count": 28314
+      },
+      {
+        "id": 314,
+        "token": "+](",
+        "count": 27859
+      },
+      {
+        "id": 313,
+        "token": "])[",
+        "count": 27224
+      },
+      {
+        "id": 315,
+        "token": "].[",
+        "count": 25966
+      },
+      {
+        "id": 316,
+        "token": "CCCCN",
+        "count": 24461
+      },
+      {
+        "id": 311,
+        "token": "COCC",
+        "count": 22247
+      },
+      {
+        "id": 320,
+        "token": "CCNCC",
+        "count": 21997
+      },
+      {
+        "id": 323,
+        "token": "CCCOC",
+        "count": 17902
+      },
+      {
+        "id": 325,
+        "token": "CCCO",
+        "count": 16483
+      },
+      {
+        "id": 334,
+        "token": "-].[",
+        "count": 16470
+      },
+      {
+        "id": 326,
+        "token": "CCCCCCC",
+        "count": 15999
+      },
+      {
+        "id": 286,
+        "token": "CCCCCCCC",
+        "count": 15649
+      },
+      {
+        "id": 338,
+        "token": "OCCO",
+        "count": 13086
+      },
+      {
+        "id": 345,
+        "token": "COCCN",
+        "count": 11961
+      },
+      {
+        "id": 346,
+        "token": "NCCN",
+        "count": 11485
+      }
+    ],
+    "wiki_only_tokens_top": [
+      {
+        "id": 225,
+        "token": "\u0120",
+        "count": 67107125
+      },
+      {
+        "id": 77,
+        "token": "i",
+        "count": 24535807
+      },
+      {
+        "id": 203,
+        "token": "\u010a",
+        "count": 4660223
+      },
+      {
+        "id": 91,
+        "token": "w",
+        "count": 4594547
+      },
+      {
+        "id": 16,
+        "token": ",",
+        "count": 4254287
+      },
+      {
+        "id": 90,
+        "token": "v",
+        "count": 3208009
+      },
+      {
+        "id": 6,
+        "token": "\"",
+        "count": 796760
+      },
+      {
+        "id": 92,
+        "token": "x",
+        "count": 685335
+      },
+      {
+        "id": 11,
+        "token": "'",
+        "count": 605318
+      },
+      {
+        "id": 46,
+        "token": "J",
+        "count": 516054
+      },
+      {
+        "id": 163,
+        "token": "\u00e2",
+        "count": 470029
+      },
+      {
+        "id": 227,
+        "token": "\u0122",
+        "count": 467779
+      },
+      {
+        "id": 94,
+        "token": "z",
+        "count": 456149
+      },
+      {
+        "id": 43,
+        "token": "G",
+        "count": 442337
+      },
+      {
+        "id": 246,
+        "token": "\u0135",
+        "count": 380879
+      },
+      {
+        "id": 30,
+        "token": ":",
+        "count": 351494
+      },
+      {
+        "id": 78,
+        "token": "j",
+        "count": 338105
+      },
+      {
+        "id": 85,
+        "token": "q",
+        "count": 273000
+      },
+      {
+        "id": 132,
+        "token": "\u00c3",
+        "count": 239944
+      },
+      {
+        "id": 96,
+        "token": "|",
+        "count": 175547
+      },
+      {
+        "id": 31,
+        "token": ";",
+        "count": 136459
+      },
+      {
+        "id": 131,
+        "token": "\u00c2",
+        "count": 95502
+      },
+      {
+        "id": 259,
+        "token": "\u0142",
+        "count": 88540
+      },
+      {
+        "id": 62,
+        "token": "Z",
+        "count": 74394
+      },
+      {
+        "id": 53,
+        "token": "Q",
+        "count": 58427
+      }
+    ]
+  },
+  "most_divergent_shared": {
+    "smiles_over_wiki": [
+      {
+        "id": 291,
+        "token": "CCCN",
+        "smiles_freq": 0.00085,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 296,
+        "token": "-])",
+        "smiles_freq": 0.0007,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 267,
+        "token": "](",
+        "smiles_freq": 0.00571,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 307,
+        "token": "=[",
+        "smiles_freq": 0.0003,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 308,
+        "token": "CCCCCC",
+        "smiles_freq": 0.00028,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 327,
+        "token": "CNCC",
+        "smiles_freq": 0.00022,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 262,
+        "token": "(=",
+        "smiles_freq": 0.04787,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 332,
+        "token": ")\\",
+        "smiles_freq": 0.00018,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 336,
+        "token": "(\\",
+        "smiles_freq": 0.00017,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 272,
+        "token": ")[",
+        "smiles_freq": 0.00421,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 342,
+        "token": "-].",
+        "smiles_freq": 0.00015,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 306,
+        "token": "NCCC",
+        "smiles_freq": 0.0003,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 405,
+        "token": "OCOC",
+        "smiles_freq": 4e-05,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 266,
+        "token": "CCCC",
+        "smiles_freq": 0.00197,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 279,
+        "token": "-]",
+        "smiles_freq": 0.0008,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 427,
+        "token": "OCCCN",
+        "smiles_freq": 3e-05,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 273,
+        "token": "CCN",
+        "smiles_freq": 0.00302,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 275,
+        "token": "COC",
+        "smiles_freq": 0.00273,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 274,
+        "token": "OCC",
+        "smiles_freq": 0.00177,
+        "wiki_freq": 0.0
+      },
+      {
+        "id": 347,
+        "token": "CCl",
+        "smiles_freq": 0.00012,
+        "wiki_freq": 0.0
+      }
+    ],
+    "wiki_over_smiles": [
+      {
+        "id": 82,
+        "token": "n",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.05689
+      },
+      {
+        "id": 72,
+        "token": "d",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.02849
+      },
+      {
+        "id": 69,
+        "token": "a",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.06425
+      },
+      {
+        "id": 87,
+        "token": "s",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.04851
+      },
+      {
+        "id": 88,
+        "token": "t",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.06198
+      },
+      {
+        "id": 84,
+        "token": "p",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01423
+      },
+      {
+        "id": 75,
+        "token": "g",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01423
+      },
+      {
+        "id": 74,
+        "token": "f",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01565
+      },
+      {
+        "id": 79,
+        "token": "k",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.00496
+      },
+      {
+        "id": 76,
+        "token": "h",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.03323
+      },
+      {
+        "id": 83,
+        "token": "o",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.05445
+      },
+      {
+        "id": 49,
+        "token": "M",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.00252
+      },
+      {
+        "id": 73,
+        "token": "e",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.08911
+      },
+      {
+        "id": 86,
+        "token": "r",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.05054
+      },
+      {
+        "id": 89,
+        "token": "u",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01954
+      },
+      {
+        "id": 93,
+        "token": "y",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01192
+      },
+      {
+        "id": 70,
+        "token": "b",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01049
+      },
+      {
+        "id": 71,
+        "token": "c",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.02376
+      },
+      {
+        "id": 54,
+        "token": "R",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.00125
+      },
+      {
+        "id": 81,
+        "token": "m",
+        "smiles_freq": 0.0,
+        "wiki_freq": 0.01828
+      }
+    ]
+  }
+}
