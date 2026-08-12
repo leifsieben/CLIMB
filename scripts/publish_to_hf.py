@@ -42,7 +42,10 @@ PAPER_WAVES = ["climb_v2_phase2", "climb_v2_ablation_dedup", "climb_v2_labeleff_
                # Experiment A — synthetic-statistics ladder (unigram/bigram/shuffle arms). Provisional
                # (friend experiments; may be promoted to a main result). Its `_baselines/` subdir holds
                # native re-evals of phase2 encoders and is skipped by stage_encoders (no encoder there).
-               "climb_v2_expA"]
+               "climb_v2_expA",
+               # Experiment B — Wikipedia-transfer (wiki_real arms). Provisional (SI/fun). Comparators
+               # reuse climb_v2_expA/_baselines (already published).
+               "climb_v2_expB"]
 # Superseded wave paths to DELETE from the HF results repo (uploaded by an earlier release).
 RESULTS_STALE_DELETE = ["climb_v2_labeleff_v2"]
 # Canonical label-efficiency figure inputs (aggregated fraction CSVs) staged under label_efficiency/.
@@ -55,6 +58,9 @@ LABELEFF_CSVS = ["analysis/rigor/label_efficiency_fractions_all.csv",
 # Experiment A ladder result CSVs (staged under experiment_a/ in climb-results).
 EXPA_CSVS = ["analysis/rigor/expA_ladder_per_run.csv",
              "analysis/rigor/expA_ladder_summary.csv"]
+# Experiment B wiki-transfer result + guards (staged under experiment_b/ in climb-results).
+EXPB_CSVS = ["analysis/rigor/expB_wiki_per_run.csv", "analysis/rigor/expB_wiki_summary.csv",
+             "analysis/rigor/wiki_coverage.json", "analysis/rigor/wiki_vs_smiles_stats.json"]
 # raw per-run eval files that belong in climb-results (NO analysis on top):
 RESULT_KEEP = ["config.yaml", "metadata.json", "metrics.jsonl", "verified.json",
                "moleculenet/suite_summary.json", "moleculenet/moleculenet_summary.csv",
@@ -123,6 +129,15 @@ def stage_results(stage: Path, execute: bool) -> dict:
             n += 1
             if execute:
                 dst = stage / "experiment_a" / f.name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, dst)
+    # Experiment B wiki-transfer result + guards under experiment_b/.
+    for rel in EXPB_CSVS:
+        f = Path(rel)
+        if f.exists():
+            n += 1
+            if execute:
+                dst = stage / "experiment_b" / f.name
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(f, dst)
     return {"files": n, "source": "local figure_data/ raw eval + analysis/rigor label-efficiency CSVs"}

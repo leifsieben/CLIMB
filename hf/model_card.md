@@ -39,6 +39,7 @@ climb_v2_h1/scaling_{canonical,enumerated}_*_s{0,1,2}/   # enumeration study, 3 
 climb_v2_vocab/{bpe,unigram}_*/             # SI vocabulary-size sweep (per-run tokenizer)
 climb_v2_expA/{unigram,bigram}_8M{,_s1,_s2} # SI synthetic-statistics ladder (unigram/bigram arms)
 climb_v2_expA/corrupt_mlm_8M_s{1,2}         #   + the two extra shuffle_tokens seeds
+climb_v2_expB/wiki_real_8M{,_s1,_s2}        # SI Wikipedia-transfer arm (English via SMILES tokenizer)
 ...
 ```
 

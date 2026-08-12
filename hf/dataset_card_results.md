@@ -67,6 +67,18 @@ experiment_a/expA_ladder_per_run.csv    # per-run CV metric feeding the summary
 Arms: `real` (unsup_8M), `shuffle_tokens` (corrupt_mlm_8M+seeds), `bigram_resample`, `unigram_resample`,
 `no_pretrain` (random_baseline). Encoders for the new arms are in `lsieben/climb-encoders/climb_v2_expA/`.
 
+**Wikipedia-transfer (Fig SB, Experiment B).** Does a NON-chemical corpus transfer? `wiki_real` = English
+Wikipedia tokenized with the frozen SMILES BPE, chunked to match the SMILES length distribution; frozen
+probe, 3 seeds. Per-run eval under `climb_v2_expB/<run>/`; comparators (`real`, `no_pretrain`) reuse the
+`climb_v2_expA/_baselines` native re-evals. Analysis under `experiment_b/`:
+```
+experiment_b/expB_wiki_summary.csv       # wiki_real vs real vs no_pretrain, native 5-fold CV
+experiment_b/wiki_coverage.json          # confound guard: 96.9% of eval-token MASS trained by wiki
+experiment_b/wiki_vs_smiles_stats.json   # same tokenizer + matched lengths, JS=0.93-bit marginal divergence
+```
+Result: wiki_real beats no_pretrain on 6/7 tasks and matches real SMILES on QM7 — the benefit is
+substantially domain-general. Encoders in `lsieben/climb-encoders/climb_v2_expB/`.
+
 ## How the figures are regenerated
 
 ```bash

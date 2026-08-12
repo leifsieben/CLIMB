@@ -711,6 +711,33 @@ byte-identical to `unsup_8M` (8M FP, model, schedule, mask rate, 3 pretraining s
   bundle via `scripts/package_expA_bundle.py`. Provisional (may be promoted from SI Fig SA to a main
   result).
 
+### 7.4 Wikipedia-transfer test (Experiment B → Fig SB, wave `climb_v2_expB`)
+
+A TILT-style test (Papadimitriou & Jurafsky): does a **non-chemical** corpus with rich higher-order
+structure transfer to the chemistry suite? Arm **`wiki_real`** pretrains on **English Wikipedia**
+(`wikimedia/wikipedia`) tokenized with the **frozen SMILES byte-level BPE** (byte-level never OOVs;
+English just fragments into short pieces), chunked to **match the SMILES token-length distribution**
+(chunk lengths sampled from the real corpus — so length is a controlled variable, not confounded with
+structure; `scripts/build_wiki_corpus.py`). 8M FP, 3 seeds, otherwise byte-identical to `unsup_8M`;
+comparators `real`/`no_pretrain` reuse the §7.3 native `_baselines`.
+
+- **Two guards make a null (or a positive) interpretable.** (i) *Coverage* — a wiki-pretrained encoder
+  only trains embeddings for tokens Wikipedia uses. `scripts/wiki_coverage_report.py` reports that
+  **96.9% of the eval molecules' token MASS was trained ≥1×** (88.6% ≥1000×): the shared tokens are the
+  common atoms/bonds that carry most mass, so a null would be a real "no transfer", not undertrained
+  embeddings. (ii) *Corpus divergence* — `scripts/wiki_vs_smiles_stats.py`: same tokenizer, lengths
+  matched (median 37 both), but the token **marginals are near-maximally divergent (JS = 0.93 of 1.0
+  bits)**; SMILES uses 800 token types, Wikipedia 510 (shared 365), and **435 chemistry-only tokens go
+  unfilled** (incl. stereo `@@`/`@` and carbon chains), 145 English-only (byte-level space/newline).
+- **Result.** `wiki_real` **beats `no_pretrain` on 6/7 tasks and matches `real` SMILES on QM7** (which,
+  notably, has the *lowest* coverage yet transfers fully). English — zero chemical content, an orthogonal
+  token marginal — recovers a task-dependent share of the pretraining benefit, so the benefit is
+  substantially **domain-general**, not chemistry-specific (and, per §3.7/§7.3, not the token marginal).
+- **Artifacts.** Encoders + evals `experiments/climb_v2_expB/<run>/`; result
+  `analysis/rigor/expB_wiki_{summary,per_run}.csv` + `wiki_coverage.json` + `wiki_vs_smiles_stats.json`;
+  bundle `scripts/package_expB_bundle.py`. Provisional (SI Fig SB). Excluded (noted follow-ups):
+  `wiki_shuffled`/`wiki_unigram`/flat-parens controls, 2M/24M budgets, embedding-unfreeze eval.
+
 ## 8. Evaluation protocol (frozen featurizer)
 
 The **primary** protocol mirrors real deployment of molecular foundation models: freeze the encoder,
@@ -955,6 +982,7 @@ any current figure.
 | `scripts/compute_tanimoto_novelty.py`, `scripts/compute_family_task_similarity.py` | Figs I1, C1J1 |
 | `scripts/dedup_i1_reanalysis.py` | **Fig I1 de-dup reanalysis** — exact-match + full-12M-corpus max-Tanimoto of ESOL/QM7 (the memorization-vs-interpolation split at Tanimoto=1.0) |
 | `scripts/build_synthetic_corpus.py`, `scripts/build_expA_manifest.py`, `scripts/expA_run.sh`, `scripts/expA_bigram_run.sh`, `scripts/expA_baselines_native_eval.sh`, `scripts/build_expA_ladder_summary.py` | **Fig SA** (Experiment A synthetic-statistics ladder, wave `climb_v2_expA`; §7.3). `scripts/package_expA_bundle.py` builds the collaborator zip |
+| `scripts/build_wiki_corpus.py`, `scripts/build_expB_manifest.py`, `scripts/expB_run.sh` (or `expB_seed.sh` per-seed), `scripts/wiki_coverage_report.py`, `scripts/wiki_vs_smiles_stats.py`, `scripts/build_expB_summary.py` | **Fig SB** (Experiment B Wikipedia-transfer, wave `climb_v2_expB`; §7.4). `scripts/package_expB_bundle.py` builds the collaborator zip |
 | `scripts/compare_models.py`, `scripts/verify_e2e_pairing.py` | §8.1 paired tests and their pairing check |
 | `scripts/backfill_verified.py`, `scripts/reproducibility_audit.py`, `scripts/gen_readme_inventory.py` | completion markers, the audit, and §9.6 |
 

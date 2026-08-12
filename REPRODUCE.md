@@ -77,6 +77,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | Head-ablation table (FFN vs XGBoost) | 30 | `climb_v2_phase2` + `analysis/head_ablation` | 5-fold CV |
 | `figSV_vocab` (SI; panel a = scaling, panel b = effect size) | 32 | `climb_v2_vocab` (8 tokenizer runs) | 5-fold CV |
 | `figSA` (SI; synthetic-statistics ladder, README §7.3) | 38 | `analysis/rigor/expA_ladder_summary.csv` (wave `climb_v2_expA` + `_baselines`) | frozen-probe 5-fold CV, **native-unit** regression |
+| `figSB` (SI; Wikipedia-transfer, README §7.4) | — | `analysis/rigor/expB_wiki_summary.csv` (wave `climb_v2_expB`; comparators from `climb_v2_expA/_baselines`) | frozen-probe 5-fold CV, native units; + `wiki_coverage.json`, `wiki_vs_smiles_stats.json` guards |
 
 The exact command that produced each `<wave>/<run>/moleculenet_cv/` (only `--head`/`--featurizer`
 change between model types):
@@ -179,3 +180,10 @@ token-frequency KL≈0 before spending GPU) — then `scripts/build_expA_manifes
 `scripts/expA_run.sh` / `scripts/expA_bigram_run.sh` (pretrain + 5-fold CV). The frozen comparators
 must be re-scored in **native** units via `scripts/expA_baselines_native_eval.sh` (never mix with the
 normalized phase-2 `moleculenet_cv`), and `scripts/build_expA_ladder_summary.py` writes the tidy ladder.
+
+The SI Wikipedia-transfer test (`climb_v2_expB`, README §7.4) is retrained by first materializing the
+wiki corpus — `scripts/build_wiki_corpus.py` (streams `wikimedia/wikipedia`, frozen SMILES BPE,
+length-matched chunks; needs `pip install datasets`) — then `scripts/build_expB_manifest.py` →
+`scripts/expB_run.sh` (or one seed per box via `scripts/expB_seed.sh`). Comparators reuse the
+`climb_v2_expA/_baselines` native re-evals; `scripts/build_expB_summary.py` writes the tidy result and
+`scripts/wiki_coverage_report.py` / `scripts/wiki_vs_smiles_stats.py` produce the two guards.
