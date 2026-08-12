@@ -1,0 +1,78 @@
+{
+  "what": "fraction of eval-molecule token mass covered by the Wikipedia pretraining corpus",
+  "thresholds": [
+    1,
+    10,
+    100,
+    1000
+  ],
+  "overall_coverage_at_threshold": {
+    "1": 0.9688,
+    "10": 0.964,
+    "100": 0.9269,
+    "1000": 0.8862
+  },
+  "per_task": {
+    "ESOL": {
+      "token_mass": 20305,
+      "distinct_tokens": 155,
+      "coverage_at_threshold": {
+        "1": 0.99,
+        "10": 0.9866,
+        "100": 0.9698,
+        "1000": 0.9202
+      }
+    },
+    "QM7": {
+      "token_mass": 224279,
+      "distinct_tokens": 66,
+      "coverage_at_threshold": {
+        "1": 0.8491,
+        "10": 0.8475,
+        "100": 0.7235,
+        "1000": 0.7134
+      }
+    },
+    "BBBP": {
+      "token_mass": 83238,
+      "distinct_tokens": 243,
+      "coverage_at_threshold": {
+        "1": 0.9703,
+        "10": 0.9665,
+        "100": 0.9142,
+        "1000": 0.8635
+      }
+    },
+    "BACE": {
+      "token_mass": 84665,
+      "distinct_tokens": 126,
+      "coverage_at_threshold": {
+        "1": 0.9839,
+        "10": 0.9822,
+        "100": 0.9564,
+        "1000": 0.9233
+      }
+    },
+    "Tox21": {
+      "token_mass": 217841,
+      "distinct_tokens": 459,
+      "coverage_at_threshold": {
+        "1": 0.9659,
+        "10": 0.9592,
+        "100": 0.9139,
+        "1000": 0.8615
+      }
+    },
+    "HIV": {
+      "token_mass": 1532905,
+      "distinct_tokens": 560,
+      "coverage_at_threshold": {
+        "1": 0.9855,
+        "10": 0.9803,
+        "100": 0.9569,
+        "1000": 0.9138
+      }
+    }
+  },
+  "note": "High coverage => a null transfer result is clean. Low coverage => SMILES-specific tokens were undertrained on Wikipedia, so the embedding-unfreeze control (follow-up) is needed to interpret a null."
+}
