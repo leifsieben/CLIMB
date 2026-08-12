@@ -54,6 +54,19 @@ subsets — no capping/duplicate points). Arms: `random`, `unsup`, `sup`, `unsup
 `arm, task, task_type, metric, split, fraction, pct, n_train, mean, std, n_cells`. This **supersedes**
 the old absolute-budget `climb_v2_labeleff_v2` directory (removed from this repo).
 
+**Synthetic-statistics ladder (Fig SA, Experiment A).** A mechanism experiment (SI; may be promoted)
+asking *which statistic of the corpus* an MLM uses — pretrain on corpora that preserve progressively
+less structure, frozen-probe 5-fold CV, 3 seeds. Per-run eval is under `climb_v2_expA/<run>/` in the
+standard layout above; the native-unit re-evals of the frozen comparators are under
+`climb_v2_expA/_baselines/<run>/moleculenet_cv/` (kept separate so the ladder is unit-consistent —
+regression is **native**, never mixed with the normalized phase-2 numbers). The headline result:
+```
+experiment_a/expA_ladder_summary.csv    # per (arm, task): mean±std over 3 seeds  (THE Fig SA input)
+experiment_a/expA_ladder_per_run.csv    # per-run CV metric feeding the summary
+```
+Arms: `real` (unsup_8M), `shuffle_tokens` (corrupt_mlm_8M+seeds), `bigram_resample`, `unigram_resample`,
+`no_pretrain` (random_baseline). Encoders for the new arms are in `lsieben/climb-encoders/climb_v2_expA/`.
+
 ## How the figures are regenerated
 
 ```bash

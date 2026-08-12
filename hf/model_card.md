@@ -36,6 +36,9 @@ climb_v2_phase2/u2s_dense_from8M/           # unsup -> sup warm-start
 climb_v2_phase2/unsup_{2M,24M,48M,50M,100M} # the scaling ladder
 climb_v2_ablation_dedup/seq_*/              # SFT-family ablation (leakage-deduped)
 climb_v2_h1/scaling_{canonical,enumerated}_*_s{0,1,2}/   # enumeration study, 3 seeds
+climb_v2_vocab/{bpe,unigram}_*/             # SI vocabulary-size sweep (per-run tokenizer)
+climb_v2_expA/{unigram,bigram}_8M{,_s1,_s2} # SI synthetic-statistics ladder (unigram/bigram arms)
+climb_v2_expA/corrupt_mlm_8M_s{1,2}         #   + the two extra shuffle_tokens seeds
 ...
 ```
 
