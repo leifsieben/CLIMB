@@ -266,7 +266,7 @@ invented data.
 | **F1** | H6 | eval-test overlap % with pretrain / L1000 / PCBA / WONG / PCQM | heatmap (§6.5) | ✅ |
 | **G1** | H7 | metric before/after post-hoc MLM (sup→unsup forgetting) | bars | ❌ dummy (no sup→unsup run) |
 | **H1** | H8 | canonical vs enumerated (unsup_only): downstream metric *(MLM val/test loss panel missing — never emitted, §6.1)*. Retrained as `climb_v2_h1` (3 pretraining seeds) and CV-scored | vs unique-mol fraction | ✅ complete (climb_v2_h1, 3 seeds, CV) |
-| **I1** | H9 | (a) lift for the most corpus-similar vs most novel quartile, (b) lift vs Tanimoto distance, binned, with bootstrap CIs. Lift is over **no_pretrain (end-to-end)**; the frozen contrast is printed alongside. Regression tasks only (needs a per-molecule error) | 2 panels, 5-fold CV | ✅ complete |
+| **I1** | H9 | (a) lift for the most corpus-similar vs most novel quartile, with corpus-**identical** molecules (ECFP4 Tanimoto = 1.0 to the full 12M corpus) split into their own bar and excluded from the trend; (b) lift vs Tanimoto distance over the non-identical molecules, binned, with bootstrap CIs. Lift is over **no_pretrain (end-to-end)**; the frozen contrast is printed alongside. Regression tasks only (needs a per-molecule error) | 2 panels, 5-fold CV | ✅ complete (de-dup reanalysis, §9.1 `dedup_i1_reanalysis.py`) |
 | **J1** | H10 | *(fused into C1J1 above — panels b and c)* rows = single-family unsup→sup arms, cols = eval task, cell = lift over no_pretrain (end-to-end); domain tags | heatmap | ✅ (ρ = +0.08, p = 0.70 — no evidence transfer tracks similarity) |
 | **S1** | — | every collected point: metric vs forward passes, coloured by regime/recipe — descriptive, **no fitted law** | scatter | ✅ |
 | **S2** | — | **vocabulary-size scaling (SI, §7.2)**: frozen-probe CV vs tokenizer vocab, byte-BPE vs Unigram, 6 tasks. Result: near-null — vocab size barely matters in the reachable range, character-level (261) already competitive | vs vocab (log) | ✅ (`climb_v2_vocab`, 8 runs; notebook cells 31/32) |
@@ -701,17 +701,19 @@ byte-identical to `unsup_8M` (8M FP, model, schedule, mask rate, 3 pretraining s
 - **Result.** Uniform across the tasks with real spread: `shuffle_tokens ≈ real` and
   `unigram_resample ≈ no_pretrain`, so token **order** barely matters and the **marginal** buys ~nothing
   over random init — the benefit lives in the per-molecule **composition**. `bigram_resample` is
-  **intermediate** (recovering ~30–60% of the composition gap on ESOL/BACE/Tox21, matching shuffle on
-  Lipophilicity, at the floor on QM7; BBBP/HIV are saturated), so **local adjacency carries a partial,
+  **intermediate** (recovering ~30–60% of the composition gap on ESOL/BACE/Tox21, at the floor on QM7;
+  BBBP/HIV are saturated), so **local adjacency carries a partial,
   task-dependent share** on top of composition. The mechanism is graded, not binary — and §3.7's
   "relative token frequencies" understates it: it is composition first, with a secondary
   local-co-occurrence contribution.
 - **Artifacts.** Encoders + evals under `experiments/climb_v2_expA/<run>/`; native-unit baselines under
   `…/_baselines/<run>/`; ladder CSVs `analysis/rigor/expA_ladder_{summary,per_run}.csv`; collaborator
   bundle via `scripts/package_expA_bundle.py`. Provisional (may be promoted from SI Fig SA to a main
-  result).
+  result). **Fig SA (cell 38) plots the 6 core tasks (Lipophilicity excluded, as in every other
+  figure) and overlays Experiment B's Wikipedia arm (§7.4) as a red bar** on the far right of each task,
+  with each bar labelled by its lift; the notebook cell also prints the lift + recovery tables.
 
-### 7.4 Wikipedia-transfer test (Experiment B → Fig SB, wave `climb_v2_expB`)
+### 7.4 Wikipedia-transfer test (Experiment B → Fig SA Wikipedia arm, wave `climb_v2_expB`)
 
 A TILT-style test (Papadimitriou & Jurafsky): does a **non-chemical** corpus with rich higher-order
 structure transfer to the chemistry suite? Arm **`wiki_real`** pretrains on **English Wikipedia**
@@ -735,7 +737,8 @@ comparators `real`/`no_pretrain` reuse the §7.3 native `_baselines`.
   substantially **domain-general**, not chemistry-specific (and, per §3.7/§7.3, not the token marginal).
 - **Artifacts.** Encoders + evals `experiments/climb_v2_expB/<run>/`; result
   `analysis/rigor/expB_wiki_{summary,per_run}.csv` + `wiki_coverage.json` + `wiki_vs_smiles_stats.json`;
-  bundle `scripts/package_expB_bundle.py`. Provisional (SI Fig SB). Excluded (noted follow-ups):
+  bundle `scripts/package_expB_bundle.py`. Provisional (SI; plotted as the red **Wikipedia arm in
+  Fig SA**, §7.3 — not a separate Fig SB). Excluded (noted follow-ups):
   `wiki_shuffled`/`wiki_unigram`/flat-parens controls, 2M/24M budgets, embedding-unfreeze eval.
 
 ## 8. Evaluation protocol (frozen featurizer)
@@ -982,7 +985,7 @@ any current figure.
 | `scripts/compute_tanimoto_novelty.py`, `scripts/compute_family_task_similarity.py` | Figs I1, C1J1 |
 | `scripts/dedup_i1_reanalysis.py` | **Fig I1 de-dup reanalysis** — exact-match + full-12M-corpus max-Tanimoto of ESOL/QM7 (the memorization-vs-interpolation split at Tanimoto=1.0) |
 | `scripts/build_synthetic_corpus.py`, `scripts/build_expA_manifest.py`, `scripts/expA_run.sh`, `scripts/expA_bigram_run.sh`, `scripts/expA_baselines_native_eval.sh`, `scripts/build_expA_ladder_summary.py` | **Fig SA** (Experiment A synthetic-statistics ladder, wave `climb_v2_expA`; §7.3). `scripts/package_expA_bundle.py` builds the collaborator zip |
-| `scripts/build_wiki_corpus.py`, `scripts/build_expB_manifest.py`, `scripts/expB_run.sh` (or `expB_seed.sh` per-seed), `scripts/wiki_coverage_report.py`, `scripts/wiki_vs_smiles_stats.py`, `scripts/build_expB_summary.py` | **Fig SB** (Experiment B Wikipedia-transfer, wave `climb_v2_expB`; §7.4). `scripts/package_expB_bundle.py` builds the collaborator zip |
+| `scripts/build_wiki_corpus.py`, `scripts/build_expB_manifest.py`, `scripts/expB_run.sh` (or `expB_seed.sh` per-seed), `scripts/wiki_coverage_report.py`, `scripts/wiki_vs_smiles_stats.py`, `scripts/build_expB_summary.py` | Experiment B Wikipedia-transfer (wave `climb_v2_expB`; §7.4) — plotted as the Wikipedia arm in **Fig SA**. `scripts/package_expB_bundle.py` builds the collaborator zip |
 | `scripts/compare_models.py`, `scripts/verify_e2e_pairing.py` | §8.1 paired tests and their pairing check |
 | `scripts/backfill_verified.py`, `scripts/reproducibility_audit.py`, `scripts/gen_readme_inventory.py` | completion markers, the audit, and §9.6 |
 
