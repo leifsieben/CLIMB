@@ -36,9 +36,15 @@ if EXPA_TASKS and EXPA_ARMS:
     fig,ax=plt.subplots(figsize=(STYLE["col2"],3.3))
     x=np.arange(len(EXPA_TASKS)); n=len(EXPA_ARMS); w=0.8/n
     for i,(arm,lab,c) in enumerate(EXPA_ARMS):
+        xb=x+(i-(n-1)/2)*w
         ys=[_expa_lift(arm,t)[0] for t in EXPA_TASKS]; es=[_expa_lift(arm,t)[1] for t in EXPA_TASKS]
-        ax.bar(x+(i-(n-1)/2)*w,ys,width=w,color=c,edgecolor="white",lw=0.4,
+        ax.bar(xb,ys,width=w,color=c,edgecolor="white",lw=0.4,
                yerr=es,capsize=1.8,error_kw=dict(lw=0.7),label=lab)
+        for xi,v,e in zip(xb,ys,es):     # write each bar's lift value on the bar (vertical, above the cap)
+            if not np.isfinite(v): continue
+            yt=(v+e+0.4) if v>=0 else (v-e-0.4)
+            ax.text(xi,yt,f"{v:.1f}",rotation=90,ha="center",va="bottom" if v>=0 else "top",
+                    fontsize=STYLE["fs_annot"]-2.5,color="#333")
     ax.axhline(0,color=PALETTE["black"],lw=0.8)   # 0 = no_pretrain (frozen)
     ax.set_xticks(x); ax.set_xticklabels([TASKS[t]["pretty"] for t in EXPA_TASKS])
     ax.set_ylabel("lift over no_pretrain (frozen) (%)")
