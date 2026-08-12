@@ -1,0 +1,64 @@
+arm,run_id,seed,dataset,task_type,metric,cv_value
+wiki_real,wiki_real_8M,0,BACE,classification,roc_auc,0.8167485933343585
+wiki_real,wiki_real_8M,0,BBBP,classification,roc_auc,0.937455919671752
+wiki_real,wiki_real_8M,0,ESOL,regression,rmse,1.2901243209838866
+wiki_real,wiki_real_8M,0,HIV,classification,roc_auc,0.7613476779788244
+wiki_real,wiki_real_8M,0,Lipophilicity,regression,rmse,0.9421422123908997
+wiki_real,wiki_real_8M,0,QM7,regression,rmse,199.02998046875
+wiki_real,wiki_real_8M,0,Tox21,classification,roc_auc,0.7723535302125193
+wiki_real,wiki_real_8M_s1,1,BACE,classification,roc_auc,0.8297806369816563
+wiki_real,wiki_real_8M_s1,1,BBBP,classification,roc_auc,0.9363745282403025
+wiki_real,wiki_real_8M_s1,1,ESOL,regression,rmse,1.3584843635559083
+wiki_real,wiki_real_8M_s1,1,HIV,classification,roc_auc,0.7595179353781111
+wiki_real,wiki_real_8M_s1,1,Lipophilicity,regression,rmse,0.9383037090301514
+wiki_real,wiki_real_8M_s1,1,QM7,regression,rmse,198.939501953125
+wiki_real,wiki_real_8M_s1,1,Tox21,classification,roc_auc,0.7729945066989963
+wiki_real,wiki_real_8M_s2,2,BACE,classification,roc_auc,0.818776166959428
+wiki_real,wiki_real_8M_s2,2,BBBP,classification,roc_auc,0.9346067055369114
+wiki_real,wiki_real_8M_s2,2,ESOL,regression,rmse,1.3387111186981202
+wiki_real,wiki_real_8M_s2,2,HIV,classification,roc_auc,0.7664596801387129
+wiki_real,wiki_real_8M_s2,2,Lipophilicity,regression,rmse,0.9284970045089722
+wiki_real,wiki_real_8M_s2,2,QM7,regression,rmse,200.34180297851563
+wiki_real,wiki_real_8M_s2,2,Tox21,classification,roc_auc,0.7748985357396196
+real (unsup_only),unsup_8M,0,BACE,classification,roc_auc,0.8694014834088846
+real (unsup_only),unsup_8M,0,BBBP,classification,roc_auc,0.9535518815103001
+real (unsup_only),unsup_8M,0,ESOL,regression,rmse,0.9983701705932617
+real (unsup_only),unsup_8M,0,HIV,classification,roc_auc,0.7789250100550886
+real (unsup_only),unsup_8M,0,Lipophilicity,regression,rmse,0.9024818301200866
+real (unsup_only),unsup_8M,0,QM7,regression,rmse,199.3327667236328
+real (unsup_only),unsup_8M,0,Tox21,classification,roc_auc,0.7999363980442943
+real (unsup_only),unsup_8M_s1,1,BACE,classification,roc_auc,0.8625477653853038
+real (unsup_only),unsup_8M_s1,1,BBBP,classification,roc_auc,0.94559432832735
+real (unsup_only),unsup_8M_s1,1,ESOL,regression,rmse,1.0813286423683166
+real (unsup_only),unsup_8M_s1,1,HIV,classification,roc_auc,0.7645502233980176
+real (unsup_only),unsup_8M_s1,1,Lipophilicity,regression,rmse,0.8753210783004761
+real (unsup_only),unsup_8M_s1,1,QM7,regression,rmse,199.88902282714844
+real (unsup_only),unsup_8M_s1,1,Tox21,classification,roc_auc,0.7932647687376801
+real (unsup_only),unsup_8M_s2,2,BACE,classification,roc_auc,0.8423779037729645
+real (unsup_only),unsup_8M_s2,2,BBBP,classification,roc_auc,0.9518792211405567
+real (unsup_only),unsup_8M_s2,2,ESOL,regression,rmse,1.0275552034378053
+real (unsup_only),unsup_8M_s2,2,HIV,classification,roc_auc,0.7631219887426592
+real (unsup_only),unsup_8M_s2,2,Lipophilicity,regression,rmse,0.8721915006637573
+real (unsup_only),unsup_8M_s2,2,QM7,regression,rmse,198.95748291015624
+real (unsup_only),unsup_8M_s2,2,Tox21,classification,roc_auc,0.7916413972487638
+no_pretrain (frozen),random_baseline_00,0,BACE,classification,roc_auc,0.8090574308181517
+no_pretrain (frozen),random_baseline_00,0,BBBP,classification,roc_auc,0.9393920245140462
+no_pretrain (frozen),random_baseline_00,0,ESOL,regression,rmse,1.365984606742859
+no_pretrain (frozen),random_baseline_00,0,HIV,classification,roc_auc,0.7521163060561451
+no_pretrain (frozen),random_baseline_00,0,Lipophilicity,regression,rmse,0.9772260308265686
+no_pretrain (frozen),random_baseline_00,0,QM7,regression,rmse,205.28558959960938
+no_pretrain (frozen),random_baseline_00,0,Tox21,classification,roc_auc,0.769821121678192
+no_pretrain (frozen),random_baseline_01,1,BACE,classification,roc_auc,0.8027734662577058
+no_pretrain (frozen),random_baseline_01,1,BBBP,classification,roc_auc,0.9364197265282215
+no_pretrain (frozen),random_baseline_01,1,ESOL,regression,rmse,1.3728561401367188
+no_pretrain (frozen),random_baseline_01,1,HIV,classification,roc_auc,0.7457383293332084
+no_pretrain (frozen),random_baseline_01,1,Lipophilicity,regression,rmse,0.9718589663505555
+no_pretrain (frozen),random_baseline_01,1,QM7,regression,rmse,205.16587524414064
+no_pretrain (frozen),random_baseline_01,1,Tox21,classification,roc_auc,0.7705439273858101
+no_pretrain (frozen),random_baseline_02,2,BACE,classification,roc_auc,0.8064485886899714
+no_pretrain (frozen),random_baseline_02,2,BBBP,classification,roc_auc,0.9381576600810364
+no_pretrain (frozen),random_baseline_02,2,ESOL,regression,rmse,1.4050658464431762
+no_pretrain (frozen),random_baseline_02,2,HIV,classification,roc_auc,0.7518584945312934
+no_pretrain (frozen),random_baseline_02,2,Lipophilicity,regression,rmse,0.9756572723388672
+no_pretrain (frozen),random_baseline_02,2,QM7,regression,rmse,205.3688171386719
+no_pretrain (frozen),random_baseline_02,2,Tox21,classification,roc_auc,0.7697410736865853
