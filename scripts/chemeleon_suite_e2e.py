@@ -1,0 +1,92 @@
+"""END-TO-END fine-tune runner for the CheMeleon suite (our ModernBERT encoders). Fine-tunes the encoder
+on each task's fixed train split and predicts the held-out test set — same artifacts as the frozen runner
+(results.csv for MoleculeACE incl cliff/non-cliff; test_predictions.csv for Polaris predict->evaluate()).
+
+3 e2e arms x 3 seeds (per METHODOLOGY): unsup_8M, skip_dense_8M (best supervised), no_pretrain_e2e
+(finetune from random_baseline_00). Reuses finetune_e2e_v2.finetune_predict (the exact ModernBERT
+end-to-end recipe used elsewhere in the paper). Output dirs are suffixed to never collide with frozen:
+  figure_data/chemeleon_suite/<track>/<model>_e2e/
+
+Run from repo root with ~/venvs/climb/bin/python (torch+transformers). GPU strongly recommended.
+Usage: python scripts/chemeleon_suite_e2e.py --track moleculeace --model unsup_8M \
+         --encoder figure_data/climb_v2_phase2/unsup_8M/encoder --tokenizer figure_data/_tokenizer --seeds 42 117 709
+"""
+import argparse
+import csv
+import json
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT)); os.chdir(ROOT)
+
+from finetune_e2e_v2 import finetune_predict  # noqa: E402
+from chemeleon_suite_run import load_task, task_list, reg_metrics, clf_metrics, _rmse  # noqa: E402
+
+
+def run(track, model, encoder_path, tokenizer_path, seeds):
+    from transformers import PreTrainedTokenizerFast
+    tok = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
+    out_dir = ROOT / "figure_data" / "chemeleon_suite" / track / f"{model}_e2e"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tasks = task_list(track)
+    rows, pred_rows = [], []
+    for task in tasks:
+        smi, y, split, cliff, ttype = load_task(track, task)
+        idx = np.arange(len(smi))
+        tr = idx[[s == "train" for s in split]]
+        te = idx[[s == "test" for s in split]]
+        te_smi = [smi[i] for i in te]
+        yte = y[te]
+        has_labels = bool(np.isfinite(yte).any())
+        for seed in seeds:
+            rng = np.random.default_rng(seed)
+            perm = rng.permutation(len(tr))
+            n_va = max(1, int(0.1 * len(tr)))
+            va = tr[perm[:n_va]]; trs = tr[perm[n_va:]]
+            (pred,) = finetune_predict(
+                encoder_path, tok, [smi[i] for i in trs], y[trs], [smi[i] for i in va], y[va],
+                [te_smi], ttype, seed=seed)
+            pred = np.asarray(pred, dtype=np.float64)
+            pv = pred.ravel()
+            for i in range(len(te_smi)):
+                pred_rows.append([task, seed, i, te_smi[i], float(pv[i])])
+            if has_labels:
+                mets = reg_metrics(yte, pred) if ttype == "regression" else clf_metrics(yte, pred)
+                for k, v in mets.items():
+                    rows.append([task, seed, "overall", k, v, len(te)])
+                if track == "moleculeace":
+                    ct = cliff[te]
+                    if ct.any():
+                        rows.append([task, seed, "cliff", "rmse", _rmse(yte[ct], pred[ct]), int(ct.sum())])
+                    if (~ct).any():
+                        rows.append([task, seed, "noncliff", "rmse", _rmse(yte[~ct], pred[~ct]), int((~ct).sum())])
+            print(f"[e2e] {track}/{model} {task} seed{seed}: done ({len(te)} test)", flush=True)
+
+    with (out_dir / "results.csv").open("w", newline="") as f:
+        w = csv.writer(f); w.writerow(["task", "seed", "subset", "metric", "value", "n_test"]); w.writerows(rows)
+    with (out_dir / "test_predictions.csv").open("w", newline="") as f:
+        w = csv.writer(f); w.writerow(["task", "seed", "test_index", "smiles", "y_pred"]); w.writerows(pred_rows)
+    n_done = len({r[0] for r in pred_rows})
+    if n_done == len(tasks):
+        (out_dir / "verified.json").write_text(json.dumps({"track": track, "model": f"{model}_e2e",
+                                                           "mode": "e2e", "seeds": seeds, "n_tasks": n_done}))
+    print(f"[e2e] wrote {out_dir} ({n_done}/{len(tasks)} tasks)", flush=True)
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--track", required=True, choices=["moleculeace", "polaris"])
+    p.add_argument("--model", required=True, help="output label (unsup_8M, skip_dense_8M, no_pretrain_e2e)")
+    p.add_argument("--encoder", required=True, help="encoder weights to fine-tune FROM")
+    p.add_argument("--tokenizer", required=True)
+    p.add_argument("--seeds", type=int, nargs="+", default=[42, 117, 709])
+    a = p.parse_args()
+    run(a.track, a.model, a.encoder, a.tokenizer, a.seeds)
+
+
+if __name__ == "__main__":
+    main()
