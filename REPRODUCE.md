@@ -78,6 +78,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | `figSV_vocab` (SI; panel a = scaling, panel b = effect size) | 32 | `climb_v2_vocab` (8 tokenizer runs) | 5-fold CV |
 | `figSA` (SI; synthetic-statistics ladder + Wikipedia arm, README §7.3–7.4; 6 core tasks, Lipo excluded) | 38 | `analysis/rigor/expA_ladder_summary.csv` (wave `climb_v2_expA` + `_baselines`) **and** `analysis/rigor/expB_wiki_summary.csv` (wave `climb_v2_expB`; wiki arm folded in as the red bar) + `wiki_coverage.json`, `wiki_vs_smiles_stats.json` guards | frozen-probe 5-fold CV, **native-unit** regression |
 | `figSA2` (SI companion; same ladder, lift over the **end-to-end** baseline) | 40 | reuses cell 38's combined frame; floor from `climb_v2_phase2/e2e_random_0*/moleculenet_cv` (native, the Fig I1 baseline) | frozen-probe arms vs end-to-end floor, 5-fold CV |
+| `figCBS_external_validation` (**MAINLINE**; external CBS VS benchmark, Truong 2026) | 42 | `experiment_cbs/{cbs_nef1_summary,cbs_per_run,cbs_reference_lines}.csv` (raw evals `figure_data/cbs_benchmark/`, wave `cbs_benchmark`) | NEF1% on the benchmark's **provided** leakage-controlled 5-fold split; A1_ORDER arms |
 
 The exact command that produced each `<wave>/<run>/moleculenet_cv/` (only `--head`/`--featurizer`
 change between model types):
