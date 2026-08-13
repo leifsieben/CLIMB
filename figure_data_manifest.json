@@ -1,9 +1,154 @@
 {
  "note": "content fingerprint of the figure_data snapshot the committed figures were built from; mtime is informational and excluded from all hashes",
  "data_root": "figure_data",
- "n_files": 1130,
- "snapshot_hash": "265d4fe762728760fa21594f0e24da4711fafc2564509a1ca26f31dc1b88f8cb",
+ "n_files": 1188,
+ "snapshot_hash": "46dbe910337e6cf77f7399a372ed652bd070602697fd26097866b8574cdad096",
  "files": {
+  "cbs_benchmark/e2e_random_00/moleculenet_cv/suite_summary.json": {
+   "bytes": 149,
+   "sha256": "1d974fff5318158a715a5e39d25faaea2345e73bb140cf72d242e1a75be504ad",
+   "mtime": "2026-08-13T13:31"
+  },
+  "cbs_benchmark/e2e_random_01/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "54932f6ed81db1e3a2b5dd6fcb18727a21e09faa464512d3cb6b8854327f7ded",
+   "mtime": "2026-08-13T13:41"
+  },
+  "cbs_benchmark/e2e_random_02/moleculenet_cv/suite_summary.json": {
+   "bytes": 135,
+   "sha256": "02553af6c2bec7f1b48d2711d26943de68654f6d8daa39dd409577d74655d8e1",
+   "mtime": "2026-08-13T13:52"
+  },
+  "cbs_benchmark/ecfp4_anchor/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "9576141fe629ba8b70d3d6bce36d5e48be5783015dd5d86e4b1febc930ad446c",
+   "mtime": "2026-08-13T13:16"
+  },
+  "cbs_benchmark/fp_desc_anchor/moleculenet_cv/suite_summary.json": {
+   "bytes": 136,
+   "sha256": "0cfdc9e1697c48634a37a0eb2057eca628cffa373c6433ddbe871d6d6007b9fb",
+   "mtime": "2026-08-13T13:19"
+  },
+  "cbs_benchmark/random_baseline_00/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "8d37f2c9bb0a43a5c238f24e3ffe8f545585a483940814f9e182565bd0e7a54b",
+   "mtime": "2026-08-13T12:21"
+  },
+  "cbs_benchmark/random_baseline_01/moleculenet_cv/suite_summary.json": {
+   "bytes": 133,
+   "sha256": "83fc471a6d4f9550029bb5eb614c8c1c603285e51c21c72477e9c7826aefdd05",
+   "mtime": "2026-08-13T12:24"
+  },
+  "cbs_benchmark/random_baseline_02/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "013ee18d5bce26b2df00d297822299aac7473655483d71ab2e641d3ef69bad49",
+   "mtime": "2026-08-13T12:26"
+  },
+  "cbs_benchmark/skip_dense_8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 136,
+   "sha256": "4d92c4631b95f355878fe9f650670231ca6462dfdc1d4ab60271835c815db95e",
+   "mtime": "2026-08-13T12:35"
+  },
+  "cbs_benchmark/skip_dense_8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 149,
+   "sha256": "bca3d60d92e6ba7533c4407ed7ad80a1cf13089cecece4305a5c3faba3ca2acb",
+   "mtime": "2026-08-13T12:37"
+  },
+  "cbs_benchmark/skip_dense_8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "c61623ae7f8bb26d02e839e69485b1f8d3f59df13d18b56e35eeafa8e4bac383",
+   "mtime": "2026-08-13T12:39"
+  },
+  "cbs_benchmark/skip_dense_plus_sparse_8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 135,
+   "sha256": "7cac3c49d8b37ab021ab098e5f86c55689a359a98dd9d7673fcd210f93cbd302",
+   "mtime": "2026-08-13T12:47"
+  },
+  "cbs_benchmark/skip_dense_plus_sparse_8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "a99610e4225119434a064ba36cdcdb7bc271c7ec33781253baee738f262dc8a3",
+   "mtime": "2026-08-13T12:49"
+  },
+  "cbs_benchmark/skip_dense_plus_sparse_8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 134,
+   "sha256": "439232fe09becc1efca3c6b272ceb1a0c48f8b7ea12698f4a7e812498ad0e138",
+   "mtime": "2026-08-13T12:52"
+  },
+  "cbs_benchmark/skip_sparse_all_8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "9920f7eccfdeafaeed6024b9e1672162b2c0975034e134ceede88c62d415688b",
+   "mtime": "2026-08-13T12:41"
+  },
+  "cbs_benchmark/skip_sparse_all_8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 144,
+   "sha256": "7e43a3c254d6fe133b3914fed4523a182898330f6bda5f512a3ea3570e4b1717",
+   "mtime": "2026-08-13T12:43"
+  },
+  "cbs_benchmark/skip_sparse_all_8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 149,
+   "sha256": "1d4a174cccc24b7297e1b1ada5163400c6d3c005aa875077d084e8f968cba622",
+   "mtime": "2026-08-13T12:46"
+  },
+  "cbs_benchmark/u2s_dense_from8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "65289a4beb5168fe7bd1d9193e999c5d8555c39b124982cc3b539c240066ce6b",
+   "mtime": "2026-08-13T12:54"
+  },
+  "cbs_benchmark/u2s_dense_from8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "8ba6ed2bbc3240533dbc99014598ff43cc3715fe4269f1fa07dd822f77406f66",
+   "mtime": "2026-08-13T12:56"
+  },
+  "cbs_benchmark/u2s_dense_from8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 147,
+   "sha256": "b84b8fb7cc859cfc971833b265e3b5ad4c0c1c7812f8b78c8c7d7995bd6b50ab",
+   "mtime": "2026-08-13T12:59"
+  },
+  "cbs_benchmark/u2s_dense_plus_sparse_from8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "661a4c2cc2c316cb1ce3b1b7022de1d969a3893f3f934ec0dda9f152ace8db39",
+   "mtime": "2026-08-13T13:09"
+  },
+  "cbs_benchmark/u2s_dense_plus_sparse_from8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 135,
+   "sha256": "fa23e0e012d25c8c4cd46e9a5c039609d47e1a1416cfee6f87d3828c6b1114ce",
+   "mtime": "2026-08-13T13:12"
+  },
+  "cbs_benchmark/u2s_dense_plus_sparse_from8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "8a9753f7dac63fe98569d05f7844c9243c4c21c5e0d000c3fed9297e1220b5e6",
+   "mtime": "2026-08-13T13:15"
+  },
+  "cbs_benchmark/u2s_sparse_all_from8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 136,
+   "sha256": "3f22441f8583c4a1d380dde70925832046ba863f2e1c23a515f51a6269fbf84d",
+   "mtime": "2026-08-13T13:01"
+  },
+  "cbs_benchmark/u2s_sparse_all_from8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 135,
+   "sha256": "ea434750ddbe4bee52ff5f80da62368e0622bdd3ab9b447845e6e56e7b91612f",
+   "mtime": "2026-08-13T13:04"
+  },
+  "cbs_benchmark/u2s_sparse_all_from8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 147,
+   "sha256": "0ef3bd5cff58002ae4d0a770e6420f7c890de5058051bc1e1e7a17777966511e",
+   "mtime": "2026-08-13T13:07"
+  },
+  "cbs_benchmark/unsup_8M/moleculenet_cv/suite_summary.json": {
+   "bytes": 145,
+   "sha256": "0a72a9b09b8c54d02ac4e9ddf6a5e9f1fa663f8e988622f5c40e9af69cb7336b",
+   "mtime": "2026-08-13T12:28"
+  },
+  "cbs_benchmark/unsup_8M_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 135,
+   "sha256": "2a4e188048259b03ddc05cc4c16507d98b564f2abcfc82e3494ba67a1ba1958c",
+   "mtime": "2026-08-13T12:30"
+  },
+  "cbs_benchmark/unsup_8M_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 148,
+   "sha256": "1614f315f492253e40b58f260fc8d98cac6c42cb65c278e19faf8d1bd822b4b3",
+   "mtime": "2026-08-13T12:32"
+  },
   "climb_v2/ecfp4_anchor/moleculenet/suite_summary.json": {
    "bytes": 357,
    "sha256": "8446e2b7bc7a96507746263aaec47c0be3b1f0b900f4ebecc1deadbed7d9c3de",
@@ -2628,6 +2773,238 @@
    "bytes": 687,
    "sha256": "dbc46b7d39ffcfafed5a579997e5fa1cdc3197d9c4b8d1dbf4dc34577defcfb8",
    "mtime": "2026-08-05T12:02"
+  },
+  "cbs_benchmark/e2e_random_00/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1443991,
+   "sha256": "38002b7d112a1ee74757d54ec3f0a791ca98b4435d477ac4df7f5621d28609d0",
+   "mtime": "2026-08-13T13:31",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/e2e_random_01/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1442923,
+   "sha256": "a629d4560001ecbc83b28d20462b9781c6c2d8ac1fd57dff36945151d9fa05ff",
+   "mtime": "2026-08-13T13:41",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/e2e_random_02/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1442804,
+   "sha256": "ae8de95194e538c58feef700f588b9147f5a3a2496bf907bd60dc6b5d8555542",
+   "mtime": "2026-08-13T13:52",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/ecfp4_anchor/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1486056,
+   "sha256": "435ad1ab4e4ed342546cb67a8a8467651d2cbccd3ad35714e33d307dd22678d9",
+   "mtime": "2026-08-13T13:16",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/fp_desc_anchor/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1486634,
+   "sha256": "d543cd8673249be26a252a0bcc5902d3f193d105ba0ed19d96d0291fb3425197",
+   "mtime": "2026-08-13T13:19",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/random_baseline_00/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455809,
+   "sha256": "34e06c865465eacd48d518e3f44e49a455cd253d1e67c88db58405151bd0422a",
+   "mtime": "2026-08-13T12:21",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/random_baseline_01/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455779,
+   "sha256": "0b5ed5e15d6c31b99f3b247eede0ae216ad796ca79311074197beb409a8be24f",
+   "mtime": "2026-08-13T12:24",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/random_baseline_02/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455850,
+   "sha256": "b0e5de990df9de4ac0f42505d2bda85d158a34fbbd2fa92b20d977ea81e96db6",
+   "mtime": "2026-08-13T12:26",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_dense_8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455802,
+   "sha256": "4f6ed13641774572e1404c514791206c592f2d23eaa35948d0e2d284afe543a4",
+   "mtime": "2026-08-13T12:35",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_dense_8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455777,
+   "sha256": "8cf7135b52b05116e50ba687c256d8f11424b678245ca4a2c84b33629cc633af",
+   "mtime": "2026-08-13T12:37",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_dense_8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455739,
+   "sha256": "9eb4a4a77b951c98ac4d3a4b3f6259201fafc8e4abd74501a6285ba2b8e136ad",
+   "mtime": "2026-08-13T12:39",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_dense_plus_sparse_8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455786,
+   "sha256": "e6bdc4f012f0b042dde820669206c0e3e5274159718fbb7e336a7daab0118810",
+   "mtime": "2026-08-13T12:47",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_dense_plus_sparse_8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455759,
+   "sha256": "d0c9df1b4bdfcb754e5e2685cf91649deb5a059541f002ae9bab997a0796beec",
+   "mtime": "2026-08-13T12:49",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_dense_plus_sparse_8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455726,
+   "sha256": "f40b34bf960f91ef575660568546c626a373d9ae0c49a5cbd1cbfaf75f8d9b29",
+   "mtime": "2026-08-13T12:52",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_sparse_all_8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455670,
+   "sha256": "39470bb4b0a082dde5615e944e36163d015afeb6ba4a3c0d1ea7af10f2e8b70f",
+   "mtime": "2026-08-13T12:41",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_sparse_all_8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455762,
+   "sha256": "c47c9e9f4b189f2265b7a62a12d977509b9fbc04d37e2cd7fa1003ddd6a1b26b",
+   "mtime": "2026-08-13T12:43",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/skip_sparse_all_8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455760,
+   "sha256": "c40e05078ade3e6c07759e1eaf66529dd3aba43a3a5421ee5b3f04ef695b48c9",
+   "mtime": "2026-08-13T12:46",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_dense_from8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455762,
+   "sha256": "b471705c6933863f8c8d86fc58a140342c3cefd190d80a1382e27f02ba584788",
+   "mtime": "2026-08-13T12:54",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_dense_from8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455785,
+   "sha256": "6990511e65581cad956340f52687aa3ac7b52d32613582c01faed5ef8a392983",
+   "mtime": "2026-08-13T12:56",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_dense_from8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455812,
+   "sha256": "5415636c3c2cf51719b39f870df65e4baf184cf961df708e535ee6206cdff126",
+   "mtime": "2026-08-13T12:59",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_dense_plus_sparse_from8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455728,
+   "sha256": "7e16b9ed70207f84c3d7fddfe0c3790ea07bd680b23e4126dbaaea11d8654824",
+   "mtime": "2026-08-13T13:09",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_dense_plus_sparse_from8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455811,
+   "sha256": "af5a3164c07d972b7ffae8d8c598ce2cd779c8bf2b130071a31adec4af1ae0c8",
+   "mtime": "2026-08-13T13:12",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_dense_plus_sparse_from8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455722,
+   "sha256": "7563f6bb7c4d0d59297e9c1635e0469c53bb273b3a7105e624cadecbb9d70a23",
+   "mtime": "2026-08-13T13:15",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_sparse_all_from8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455805,
+   "sha256": "9c9836039f3260a2017948fb153a1aa9667feadb43b1f7ef2e48cff4c1b064f4",
+   "mtime": "2026-08-13T13:01",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_sparse_all_from8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455779,
+   "sha256": "7822716d426f034c347e33e14ebae6544c2e9d235debe9b14df5ec35b6f1418c",
+   "mtime": "2026-08-13T13:04",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/u2s_sparse_all_from8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455823,
+   "sha256": "ab5bf9a51da0bb46adb192f61b833db052f36340cd78954faaf435b7e9e98732",
+   "mtime": "2026-08-13T13:07",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/unsup_8M/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455779,
+   "sha256": "bfe2d9d9c9e60d0d8116c88cc70456d3aaf20ba4578a840207b1043933a80c9a",
+   "mtime": "2026-08-13T12:28",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/unsup_8M_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455804,
+   "sha256": "53f46cf0725519959e490d840316c3d07eee7ae89c1b6a1789256659a0619aef",
+   "mtime": "2026-08-13T12:30",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
+  },
+  "cbs_benchmark/unsup_8M_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 1455790,
+   "sha256": "265d03fa59b031a2ab39e29ce8fe24218357f6a5b1b9919efb89fe97351f4f34",
+   "mtime": "2026-08-13T12:32",
+   "rows_by_dataset": {
+    "cbs": 10445
+   }
   },
   "climb_v2_ablation_dedup/ecfp4_anchor/moleculenet/test_predictions.csv": {
    "bytes": 1850246,

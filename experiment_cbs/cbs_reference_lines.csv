@@ -1,0 +1,5 @@
+label,metric,value,err,source
+"Truong CBS-specific (target-trained, structure-based)",nef1,0.764,0.191,Truong 2026 Fig 4A / abstract
+"SOTA generic (docking/co-folding, 16 pipelines)",nef1,0.0,,Truong 2026 Fig 3A / Table S2 (all 16 = 0.000 on Fold 3); refine from Data S1
+Truong ligand-only (RDKit descriptors + logreg),nef1,0.0625,0.0625,Truong 2026 text: NEF1% 0.000-0.125 (range midpoint)
+"OUR reproduction of ligand-only (rdkit_desc + linear, provided folds)",nef1,0.07,0.058,this work — artifact control
