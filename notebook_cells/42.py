@@ -43,7 +43,8 @@ if _cbs_arms:
     _h=[plt.Line2D([],[],color="#455a64",ls=(0,(5,2)),lw=1.15,label=_tt_lab),
         plt.Line2D([],[],color="#B00020",ls=(0,(1,1.5)),lw=0.9,
                    label="Truong ligand-only (descriptors) & SOTA generic docking/co-folding  ≈ 0–0.13")]
-    ax.legend(handles=_h,loc="upper center",bbox_to_anchor=(0.5,-0.11),fontsize=STYLE["fs_legend"]-0.5,
+    # legend BELOW the x-axis label (outside the plot) so it can't overlap the bars
+    ax.legend(handles=_h,loc="upper center",bbox_to_anchor=(0.5,-0.16),fontsize=STYLE["fs_legend"]-0.5,
               framealpha=0.0,handlelength=2.4,ncol=1,borderaxespad=0.0)
     ax.margins(y=0.02)
     _suptitle(fig,"External validation — CBS inhibitor virtual screening (Truong 2026 benchmark)",
