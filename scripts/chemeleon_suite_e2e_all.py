@@ -2,6 +2,7 @@
 Arms (METHODOLOGY §3): unsup_8M, skip_dense_8M (best supervised), no_pretrain_e2e (from random_baseline_00).
 Idempotent (skips a (model,track) whose test_predictions.csv covers all tasks), syncs each dir to S3,
 gated self-stop marker. Run from repo root with ~/venvs/climb/bin/python (torch+transformers, GPU)."""
+import argparse
 import os
 import subprocess
 import sys
@@ -38,11 +39,20 @@ def _done(track, model):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--arms", default=None,
+                    help="comma-separated model labels to run (partition across boxes). Default: all.")
+    ap.add_argument("--tracks", default=None, help="comma-separated subset of moleculeace,polaris")
+    a = ap.parse_args()
+    arms = [(m, e) for (m, e) in ARMS if a.arms is None or m in a.arms.split(",")]
+    tracks = TRACKS if a.tracks is None else [t for t in TRACKS if t in a.tracks.split(",")]
+    print(f"[e2e-all] this box handles arms={[m for m, _ in arms]} tracks={tracks}", flush=True)
+
     if not Path(TOK, "tokenizer.json").exists():
         subprocess.run(["aws", "s3", "sync", "s3://climb-s3-bucket/tokenizer_10M", TOK], check=False)
     done = []
-    for track in TRACKS:
-        for model, enc_run in ARMS:
+    for track in tracks:
+        for model, enc_run in arms:
             if _done(track, model):
                 print(f"[e2e-all] SKIP {model} ({track}): done", flush=True); done.append(True); continue
             enc = FD.parent / "climb_v2_phase2" / enc_run / "encoder"
@@ -63,11 +73,12 @@ def main():
                 subprocess.run(["aws", "s3", "cp", "--recursive", str(FD / track / f"{model}_e2e"),
                                 f"{S3_OUT}/{track}/{model}_e2e", "--only-show-errors"], check=False)
             done.append(ok)
-    print(f"\n[e2e-all] battery: {sum(done)}/{len(done)} OK", flush=True)
-    if all(done):
+    print(f"\n[e2e-all] this box: {sum(done)}/{len(done)} OK", flush=True)
+    # global completion = every (model, track) across the FULL battery is done (any box may be last)
+    if all(_done(t, m) for t in TRACKS for m, _ in ARMS):
         Path("CHEMELEON_E2E_ALL_DONE").write_text("e2e battery complete\n")
         subprocess.run(["aws", "s3", "cp", "CHEMELEON_E2E_ALL_DONE", f"{S3_OUT}/CHEMELEON_E2E_ALL_DONE"], check=False)
-        print("[e2e-all] ALL DONE", flush=True)
+        print("[e2e-all] GLOBAL BATTERY DONE", flush=True)
 
 
 if __name__ == "__main__":
