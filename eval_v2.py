@@ -36,10 +36,60 @@ from featurize_v2 import apply_standardizer, ecfp4_features, fit_standardizer, p
 from heads_v2 import compute_metric, compute_nef, make_head
 
 
+# ---------- custom (non-MoleculeNet) CSV tasks ----------
+# A registry + a CV-scheme toggle let us evaluate an arbitrary labelled CSV (smiles,y) under the
+# EXACT frozen/e2e head pipeline the paper uses, without touching the published DeepChem+scaffold
+# path. Both are module globals so finetune_e2e_v2 — which imports the loader/fold functions from
+# here — inherits custom-task support for free once its main() sets them.
+_CUSTOM_TASKS: dict = {}          # name -> (csv_path, smiles_col, y_col, fold_col)
+_CV_SCHEME: str = "scaffold"      # scaffold (published) | random (stratified) | provided (CSV fold col)
+_PROVIDED_FOLDS = None            # per-row fold ids, set by _load_custom_csv, aligned to the smiles order
+
+
+def register_custom_task(name: str, csv_path: str, smiles_col: str = "smiles", y_col: str = "y",
+                         fold_col: str = "fold"):
+    _CUSTOM_TASKS[name] = (str(csv_path), smiles_col, y_col, fold_col)
+
+
+def set_cv_scheme(scheme: str):
+    global _CV_SCHEME
+    if scheme not in ("scaffold", "random", "provided"):
+        raise ValueError(f"cv_scheme must be scaffold|random|provided, got {scheme!r}")
+    _CV_SCHEME = scheme
+
+
+def _load_custom_csv(name: str):
+    """Return (smiles, y) for a registered CSV task. y is float32 [N, 1] (single-output). If the
+    CSV carries a fold column it is captured into _PROVIDED_FOLDS (row-aligned) for cv_scheme=provided,
+    which lets us reproduce a benchmark's OWN similarity-controlled split rather than re-partitioning."""
+    global _PROVIDED_FOLDS
+    path, sc, yc, fc = _CUSTOM_TASKS[name]
+    smiles, ys, folds = [], [], []
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f)
+        has_fold = fc in (reader.fieldnames or [])
+        for row in reader:
+            s = (row.get(sc) or "").strip()
+            if not s:
+                continue
+            smiles.append(s)
+            ys.append(float(row[yc]))
+            if has_fold:
+                folds.append(str(row[fc]).strip())
+    _PROVIDED_FOLDS = folds if (folds and len(folds) == len(smiles)) else None
+    # Shape [N, 1] to match MoleculeNet single-task convention (n_outputs=1); the OOF buffer,
+    # target scaler and metric helpers all assume a 2D label matrix.
+    return smiles, np.asarray(ys, dtype=np.float32).reshape(-1, 1)
+
+
 # ---------- DeepChem dataset loaders ----------
 
 def _load_moleculenet(name: str):
     """Returns (train_smiles, train_y, val_smiles, val_y, test_smiles, test_y)."""
+    if name in _CUSTOM_TASKS:
+        # Custom CSV tasks are CV-only: there is no canonical train/val/test hold-out for them,
+        # and every caller that wants one is the scaffold-holdout path we deliberately don't use.
+        raise ValueError(f"custom CSV task {name!r} supports --cv_folds (k-fold CV) only")
     import deepchem as dc
 
     loaders = {
@@ -95,6 +145,8 @@ def _load_moleculenet(name: str):
 
 def _load_moleculenet_full(name: str):
     """The full labelled dataset (train+val+test unioned), for scaffold k-fold CV."""
+    if name in _CUSTOM_TASKS:
+        return _load_custom_csv(name)
     tr_s, tr_y, va_s, va_y, te_s, te_y = _load_moleculenet(name)
     smiles = list(tr_s) + list(va_s) + list(te_s)
     y = np.concatenate([tr_y, va_y, te_y], axis=0)
@@ -129,13 +181,55 @@ def _unscale_preds(p: np.ndarray, sc):
     return np.asarray(p, dtype=np.float64) * sc[1] + sc[0]
 
 
-def _scaffold_kfold_indices(smiles: List[str], k: int, seed: int = 0):
+def _random_kfold_indices(n: int, k: int, seed: int = 0, labels=None):
+    """Deterministic RANDOM (non-scaffold) k-fold. When `labels` is a binary vector the split
+    is STRATIFIED on the class: each class's shuffled indices are dealt round-robin across the
+    folds, so every fold holds a proportional share of the positive class. This matters at low
+    prevalence — a plain random split can hand a fold zero actives, making NEF1% / ROC-AUC
+    undefined for it. NaN labels form their own stratum; with labels=None it is unstratified."""
+    rng = np.random.default_rng(seed)
+    folds = [[] for _ in range(k)]
+    if labels is not None:
+        y = np.asarray(labels).reshape(len(labels), -1)[:, 0]
+        strata = np.where(np.isnan(y), -1.0, (y > 0.5).astype(float))
+    else:
+        strata = np.zeros(n)
+    for s in np.unique(strata):
+        idx = np.where(strata == s)[0]
+        idx = idx[rng.permutation(len(idx))]
+        for t, i in enumerate(idx):
+            folds[t % k].append(int(i))
+    return [sorted(f) for f in folds]
+
+
+def _provided_kfold_indices(n: int, k: int):
+    """Partition by the benchmark's OWN fold column (_PROVIDED_FOLDS), so each held-out fold is
+    exactly the paper's leakage-controlled test set — the only scheme comparable to their reported
+    per-fold metrics. Errors loudly if the fold ids are missing or don't number exactly k."""
+    if _PROVIDED_FOLDS is None or len(_PROVIDED_FOLDS) != n:
+        raise ValueError("cv_scheme=provided requires a fold column aligned to the task rows")
+    uniq = sorted(set(_PROVIDED_FOLDS))
+    if len(uniq) != k:
+        raise ValueError(f"cv_scheme=provided: data has {len(uniq)} fold ids {uniq} but --cv_folds={k}")
+    pos = {u: i for i, u in enumerate(uniq)}
+    folds = [[] for _ in range(k)]
+    for idx, fv in enumerate(_PROVIDED_FOLDS):
+        folds[pos[fv]].append(idx)
+    return folds
+
+
+def _scaffold_kfold_indices(smiles: List[str], k: int, seed: int = 0, labels=None):
     """Partition molecules into k SCAFFOLD-DISJOINT folds (Bemis–Murcko). Every scaffold
     lives entirely in one fold, so each fold's test set contains only scaffolds unseen in
     that fold's training data — the small-data cross-validation analogue of the single
     scaffold split, giving an honest error bar from the fold spread instead of one noisy
     draw. Largest scaffold groups are placed first into the currently-smallest fold to keep
-    folds balanced in size."""
+    folds balanced in size. When the module CV scheme is "random" this returns a label-stratified
+    random k-fold; when "provided" it returns the benchmark's own fold column."""
+    if _CV_SCHEME == "provided":
+        return _provided_kfold_indices(len(smiles), k)
+    if _CV_SCHEME == "random":
+        return _random_kfold_indices(len(smiles), k, seed, labels)
     try:
         from rdkit.Chem.Scaffolds import MurckoScaffold
         from rdkit import RDLogger
@@ -183,6 +277,25 @@ def _encoder_features(encoder, tokenizer, smiles: List[str], device, pool_mode: 
             pooled = pool(out.last_hidden_state, mask, pool_mode).float().cpu().numpy()
             feats.append(pooled)
     return np.concatenate(feats, axis=0)
+
+
+_CHEMELEON_FP = None
+
+
+def _chemeleon_features(smiles: List[str], device, batch_size: int = 512) -> np.ndarray:
+    """Fixed CheMeleon D-MPNN embedding (Burns et al. 2025, descriptor-pretrained graph model) per
+    molecule — a frozen EXTERNAL featurizer, standardized then fed to the identical head our own
+    encoders use, so it is an apples-to-apples comparator. The released model is loaded once and
+    cached. Batched so the ~41k HIV set does not build one giant BatchMolGraph."""
+    global _CHEMELEON_FP
+    if _CHEMELEON_FP is None:
+        from chemeleon_fingerprint import CheMeleonFingerprint
+        _CHEMELEON_FP = CheMeleonFingerprint(device=str(device))
+    feats = []
+    for i in range(0, len(smiles), batch_size):
+        feats.append(np.asarray(_CHEMELEON_FP(list(smiles[i:i + batch_size])), dtype=np.float32))
+    return (np.concatenate(feats, axis=0) if feats
+            else np.zeros((0, 2048), dtype=np.float32))
 
 
 def _subsample_train(smiles: List[str], y: np.ndarray, n: Optional[int], seed: int):
@@ -285,8 +398,8 @@ def evaluate(
             encoder_path, attn_implementation="sdpa", reference_compile=False
         ).to(device)
         encoder.eval()
-    elif featurizer not in ("ecfp4", "rdkit_desc", "fp_desc"):
-        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4|rdkit_desc|fp_desc)")
+    elif featurizer not in ("ecfp4", "rdkit_desc", "fp_desc", "chemeleon"):
+        raise ValueError(f"Unknown featurizer: {featurizer!r} (expected encoder|ecfp4|rdkit_desc|fp_desc|chemeleon)")
 
     # ECFP bit vectors are 0/1; RDKit descriptors are heterogeneous-scale with NaNs. For
     # both, the intended head is XGBoost (scale-invariant, native NaN handling), so skip
@@ -310,6 +423,8 @@ def evaluate(
             d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
             d[~np.isfinite(d)] = np.nan
             return np.concatenate([fp, d], axis=1)
+        if featurizer == "chemeleon":
+            return _chemeleon_features(smiles, device)
         return _encoder_features(encoder, tokenizer, smiles, device, pool_mode, max_length)
 
     def _row(ds_name, task_type, main_metric, tag, n_train, val, t0):
@@ -325,7 +440,7 @@ def evaluate(
     for ds_name, task_type in datasets:
         t0 = time.time()
         main_metric = "roc_auc" if task_type == "classification" else "rmse"
-        mode = f"scaffold-{cv_folds}fold-CV" if cv_folds else "scaffold-holdout"
+        mode = f"{_CV_SCHEME}-{cv_folds}fold-CV" if cv_folds else "scaffold-holdout"
         print(f"[eval_v2] {ds_name} ({task_type}) featurizer={featurizer} head={head} split={mode}")
 
         # ---------------- scaffold k-fold cross-validation ----------------
@@ -340,7 +455,7 @@ def evaluate(
                 continue
             n_outputs = y_all.shape[1] if y_all.ndim > 1 else 1
             X_all = _featurize(s_all)
-            folds = _scaffold_kfold_indices(s_all, cv_folds, subsample_seed)
+            folds = _scaffold_kfold_indices(s_all, cv_folds, subsample_seed, labels=y_all)
             rng = np.random.default_rng(subsample_seed)
             fold_metrics = []
             fold_nefs = []   # NEF1% per fold (classification only) — the VS early-enrichment metric
@@ -386,7 +501,7 @@ def evaluate(
             rows.append(_row(ds_name, task_type, main_metric, "MEAN", len(s_all), float(np.nanmean(arr)), t0))
             rows.append(_row(ds_name, task_type, main_metric, "STD", len(s_all), float(np.nanstd(arr)), t0))
             print(f"  {ds_name}: {main_metric} = {np.nanmean(arr):.4f} ± {np.nanstd(arr):.4f} "
-                  f"(scaffold {cv_folds}-fold CV, n={len(s_all)})")
+                  f"({_CV_SCHEME} {cv_folds}-fold CV, n={len(s_all)})")
             if fold_nefs:
                 narr = np.array(fold_nefs, dtype=np.float64)
                 rows.append(_row(ds_name, task_type, "nef1", "MEAN", len(s_all), float(np.nanmean(narr)), t0))
@@ -498,7 +613,7 @@ def main():
     p.add_argument("--output_dir", required=True)
     p.add_argument("--head_seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--datasets", nargs="+", default=None, help="Override the 5-task subset")
-    p.add_argument("--featurizer", choices=["encoder", "ecfp4", "rdkit_desc", "fp_desc"], default="encoder")
+    p.add_argument("--featurizer", choices=["encoder", "ecfp4", "rdkit_desc", "fp_desc", "chemeleon"], default="encoder")
     p.add_argument("--pool", choices=["cls", "mean", "cls_mean"], default="mean")
     p.add_argument("--standardize", choices=["zscore", "pca_whiten", "none"], default="zscore")
     p.add_argument("--head", choices=["linear", "mlp", "xgb"], default="mlp")
@@ -506,11 +621,22 @@ def main():
     p.add_argument("--train_subsample", type=int, default=None)
     p.add_argument("--subsample_seed", type=int, default=0)
     p.add_argument("--cv_folds", type=int, default=None,
-                   help="If set, use scaffold k-fold cross-validation (error bar = fold spread) "
+                   help="If set, use k-fold cross-validation (error bar = fold spread) "
                         "instead of the single scaffold hold-out split.")
+    p.add_argument("--cv_scheme", choices=["scaffold", "random", "provided"], default="scaffold",
+                   help="Fold partition for --cv_folds: scaffold-disjoint (published), "
+                        "label-stratified random, or provided (the CSV's own fold column).")
+    p.add_argument("--task_csv", default=None,
+                   help="Evaluate an arbitrary labelled CSV instead of MoleculeNet (CV-only).")
+    p.add_argument("--task_name", default="custom", help="Name/output key for --task_csv.")
+    p.add_argument("--task_type", choices=["classification", "regression"], default="classification")
     args = p.parse_args()
 
-    if args.datasets is not None:
+    set_cv_scheme(args.cv_scheme)
+    if args.task_csv is not None:
+        register_custom_task(args.task_name, args.task_csv)
+        ds_list = [(args.task_name, args.task_type)]
+    elif args.datasets is not None:
         type_map = dict(MOLECULENET_TASKS_V2)
         ds_list = [(n, type_map.get(n, "classification")) for n in args.datasets]
     else:

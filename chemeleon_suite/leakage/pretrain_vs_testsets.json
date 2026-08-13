@@ -1,0 +1,18 @@
+{
+  "corpus": "pubchem_filtered (~12M, all 12 shards)",
+  "corpus_molecules": 11999951,
+  "key": "canon_nosalt (RDKit isomeric canonical, matches corpus SMILES_canonical)",
+  "n_test_tasks": 58,
+  "n_test_molecules": 19218,
+  "n_test_unique_keys": 16705,
+  "n_leaked_keys": 22,
+  "leak_fraction_of_unique": 0.001317,
+  "tasks_with_leak": [
+    "polaris/tdcommons__ames",
+    "polaris/tdcommons__bbb-martins",
+    "polaris/tdcommons__ld50-zhu",
+    "polaris/tdcommons__pgp-broccatelli",
+    "polaris/tdcommons__vdss-lombardo"
+  ],
+  "note": "Polaris covered only if chemeleon_suite/data/polaris exists at run time."
+}

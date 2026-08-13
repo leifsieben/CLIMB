@@ -1,0 +1,226 @@
+{
+  "polaris/adme-fang-hclint-1": {
+    "file": "polaris__adme-fang-hclint-1.csv",
+    "target_col": "LOG_HLM_CLint",
+    "primary_metric": "pearsonr",
+    "type": "regression",
+    "n_train": 2229,
+    "n_test": 575
+  },
+  "polaris/adme-fang-hppb-1": {
+    "file": "polaris__adme-fang-hppb-1.csv",
+    "target_col": "LOG_HPPB",
+    "primary_metric": "pearsonr",
+    "type": "regression",
+    "n_train": 126,
+    "n_test": 34
+  },
+  "polaris/adme-fang-perm-1": {
+    "file": "polaris__adme-fang-perm-1.csv",
+    "target_col": "LOG_MDR1-MDCK_ER",
+    "primary_metric": "pearsonr",
+    "type": "regression",
+    "n_train": 1919,
+    "n_test": 483
+  },
+  "polaris/adme-fang-rclint-1": {
+    "file": "polaris__adme-fang-rclint-1.csv",
+    "target_col": "LOG_RLM_CLint",
+    "primary_metric": "pearsonr",
+    "type": "regression",
+    "n_train": 2218,
+    "n_test": 559
+  },
+  "polaris/adme-fang-rppb-1": {
+    "file": "polaris__adme-fang-rppb-1.csv",
+    "target_col": "LOG_RPPB",
+    "primary_metric": "pearsonr",
+    "type": "regression",
+    "n_train": 111,
+    "n_test": 24
+  },
+  "polaris/adme-fang-solu-1": {
+    "file": "polaris__adme-fang-solu-1.csv",
+    "target_col": "LOG_SOLUBILITY",
+    "primary_metric": "pearsonr",
+    "type": "regression",
+    "n_train": 1578,
+    "n_test": 400
+  },
+  "polaris/pkis2-egfr-wt-reg-v2": {
+    "file": "polaris__pkis2-egfr-wt-reg-v2.csv",
+    "target_col": "EGFR",
+    "primary_metric": "mean_squared_error",
+    "type": "regression",
+    "n_train": 496,
+    "n_test": 144
+  },
+  "polaris/pkis2-kit-wt-cls-v2": {
+    "file": "polaris__pkis2-kit-wt-cls-v2.csv",
+    "target_col": "CLS_KIT",
+    "primary_metric": "pr_auc",
+    "type": "classification",
+    "n_train": 524,
+    "n_test": 116
+  },
+  "polaris/pkis2-kit-wt-reg-v2": {
+    "file": "polaris__pkis2-kit-wt-reg-v2.csv",
+    "target_col": "KIT",
+    "primary_metric": "mean_squared_error",
+    "type": "regression",
+    "n_train": 524,
+    "n_test": 116
+  },
+  "polaris/pkis2-ret-wt-cls-v2": {
+    "file": "polaris__pkis2-ret-wt-cls-v2.csv",
+    "target_col": "CLS_RET",
+    "primary_metric": "pr_auc",
+    "type": "classification",
+    "n_train": 534,
+    "n_test": 106
+  },
+  "polaris/pkis2-ret-wt-reg-v2": {
+    "file": "polaris__pkis2-ret-wt-reg-v2.csv",
+    "target_col": "RET",
+    "primary_metric": "mean_squared_error",
+    "type": "regression",
+    "n_train": 534,
+    "n_test": 106
+  },
+  "tdcommons/ames": {
+    "file": "tdcommons__ames.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 5821,
+    "n_test": 1457
+  },
+  "tdcommons/bbb-martins": {
+    "file": "tdcommons__bbb-martins.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 1624,
+    "n_test": 406
+  },
+  "tdcommons/bioavailability-ma": {
+    "file": "tdcommons__bioavailability-ma.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 512,
+    "n_test": 128
+  },
+  "tdcommons/caco2-wang": {
+    "file": "tdcommons__caco2-wang.csv",
+    "target_col": "Y",
+    "primary_metric": "mean_absolute_error",
+    "type": "regression",
+    "n_train": 728,
+    "n_test": 182
+  },
+  "tdcommons/clearance-hepatocyte-az": {
+    "file": "tdcommons__clearance-hepatocyte-az.csv",
+    "target_col": "Y",
+    "primary_metric": "spearmanr",
+    "type": "regression",
+    "n_train": 970,
+    "n_test": 243
+  },
+  "tdcommons/clearance-microsome-az": {
+    "file": "tdcommons__clearance-microsome-az.csv",
+    "target_col": "Y",
+    "primary_metric": "spearmanr",
+    "type": "regression",
+    "n_train": 881,
+    "n_test": 221
+  },
+  "tdcommons/cyp2c9-substrate-carbonmangels": {
+    "file": "tdcommons__cyp2c9-substrate-carbonmangels.csv",
+    "target_col": "Y",
+    "primary_metric": "pr_auc",
+    "type": "classification",
+    "n_train": 534,
+    "n_test": 135
+  },
+  "tdcommons/cyp2d6-substrate-carbonmangels": {
+    "file": "tdcommons__cyp2d6-substrate-carbonmangels.csv",
+    "target_col": "Y",
+    "primary_metric": "pr_auc",
+    "type": "classification",
+    "n_train": 532,
+    "n_test": 135
+  },
+  "tdcommons/cyp3a4-substrate-carbonmangels": {
+    "file": "tdcommons__cyp3a4-substrate-carbonmangels.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 535,
+    "n_test": 135
+  },
+  "tdcommons/dili": {
+    "file": "tdcommons__dili.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 379,
+    "n_test": 96
+  },
+  "tdcommons/half-life-obach": {
+    "file": "tdcommons__half-life-obach.csv",
+    "target_col": "Y",
+    "primary_metric": "spearmanr",
+    "type": "regression",
+    "n_train": 532,
+    "n_test": 135
+  },
+  "tdcommons/herg": {
+    "file": "tdcommons__herg.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 523,
+    "n_test": 132
+  },
+  "tdcommons/ld50-zhu": {
+    "file": "tdcommons__ld50-zhu.csv",
+    "target_col": "Y",
+    "primary_metric": "mean_absolute_error",
+    "type": "regression",
+    "n_train": 5907,
+    "n_test": 1478
+  },
+  "tdcommons/lipophilicity-astrazeneca": {
+    "file": "tdcommons__lipophilicity-astrazeneca.csv",
+    "target_col": "Y",
+    "primary_metric": "mean_absolute_error",
+    "type": "regression",
+    "n_train": 3360,
+    "n_test": 840
+  },
+  "tdcommons/pgp-broccatelli": {
+    "file": "tdcommons__pgp-broccatelli.csv",
+    "target_col": "Y",
+    "primary_metric": "roc_auc",
+    "type": "classification",
+    "n_train": 973,
+    "n_test": 245
+  },
+  "tdcommons/ppbr-az": {
+    "file": "tdcommons__ppbr-az.csv",
+    "target_col": "Y",
+    "primary_metric": "mean_absolute_error",
+    "type": "regression",
+    "n_train": 2231,
+    "n_test": 559
+  },
+  "tdcommons/vdss-lombardo": {
+    "file": "tdcommons__vdss-lombardo.csv",
+    "target_col": "Y",
+    "primary_metric": "spearmanr",
+    "type": "regression",
+    "n_train": 904,
+    "n_test": 226
+  }
+}

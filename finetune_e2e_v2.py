@@ -60,7 +60,8 @@ import torch.nn as nn
 from config_v2 import MOLECULENET_TASKS_V2
 from eval_v2 import (_dump_test_predictions, _fit_target_scaler, _load_moleculenet,
                      _load_moleculenet_full, _scale_targets, _scaffold_kfold_indices,
-                     _subsample_train, _unscale_preds)
+                     _subsample_train, _unscale_preds, register_custom_task, set_cv_scheme)
+import eval_v2  # for the live _CV_SCHEME (honest split label in logs)
 from featurize_v2 import pool
 from heads_v2 import compute_metric, compute_nef
 
@@ -350,7 +351,7 @@ def evaluate_finetuned(
     for ds_name, task_type in datasets:
         t0 = time.time()
         main_metric = "roc_auc" if task_type == "classification" else "rmse"
-        mode = f"scaffold-{cv_folds}fold-CV" if cv_folds else "scaffold-holdout"
+        mode = f"{eval_v2._CV_SCHEME}-{cv_folds}fold-CV" if cv_folds else "scaffold-holdout"
         print(f"[ft_e2e] {ds_name} ({task_type}) split={mode} seeds={seeds}", flush=True)
 
         # ---------------- scaffold k-fold cross-validation ----------------
@@ -360,7 +361,7 @@ def evaluate_finetuned(
             except Exception as exc:
                 print(f"  failed to load: {exc}", flush=True)
                 continue
-            folds = _scaffold_kfold_indices(s_all, cv_folds, subsample_seed)
+            folds = _scaffold_kfold_indices(s_all, cv_folds, subsample_seed, labels=y_all)
             # The RNG is created once and drawn per fold, exactly as in eval_v2 — the
             # val carve-out depends on the draw ORDER, so creating it per fold would
             # give a different (still valid, but unpaired) split.
@@ -402,7 +403,7 @@ def evaluate_finetuned(
             rows.append(_row(ds_name, task_type, main_metric, "MEAN", len(s_all), float(np.nanmean(arr)), t0))
             rows.append(_row(ds_name, task_type, main_metric, "STD", len(s_all), float(np.nanstd(arr)), t0))
             print(f"  {ds_name}: {main_metric} = {np.nanmean(arr):.4f} ± {np.nanstd(arr):.4f} "
-                  f"(scaffold {cv_folds}-fold CV, n={len(s_all)})", flush=True)
+                  f"({eval_v2._CV_SCHEME} {cv_folds}-fold CV, n={len(s_all)})", flush=True)
             if fold_nefs:
                 narr = np.array(fold_nefs, dtype=np.float64)
                 rows.append(_row(ds_name, task_type, "nef1", "MEAN", len(s_all), float(np.nanmean(narr)), t0))
@@ -516,6 +517,13 @@ def main():
     p.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2],
                    help="fine-tuning seeds; the end-to-end analogue of eval_v2's head seeds")
     p.add_argument("--cv_folds", type=int, default=None)
+    p.add_argument("--cv_scheme", choices=["scaffold", "random", "provided"], default="scaffold",
+                   help="Fold partition for --cv_folds: scaffold-disjoint (published), "
+                        "label-stratified random, or provided (CSV fold column). Must match the frozen run.")
+    p.add_argument("--task_csv", default=None,
+                   help="Fine-tune on an arbitrary labelled CSV instead of MoleculeNet (CV-only).")
+    p.add_argument("--task_name", default="custom", help="Name/output key for --task_csv.")
+    p.add_argument("--task_type", choices=["classification", "regression"], default="classification")
     p.add_argument("--train_subsample", type=int, default=None,
                    help="label budget: keep this many training molecules (hold-out scheme "
                         "only). Same name/semantics as eval_v2's flag.")
@@ -530,8 +538,12 @@ def main():
     p.add_argument("--heartbeat", default=None)
     args = p.parse_args()
 
+    set_cv_scheme(args.cv_scheme)
     type_map = dict(MOLECULENET_TASKS_V2)
-    if args.datasets is not None:
+    if args.task_csv is not None:
+        register_custom_task(args.task_name, args.task_csv)
+        ds_list = [(args.task_name, args.task_type)]
+    elif args.datasets is not None:
         unknown = [d for d in args.datasets if d not in type_map]
         if unknown:
             # finetune_v2 defaulted unknown datasets to "classification", which would have
