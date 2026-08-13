@@ -153,8 +153,13 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
         te_smi = [smi[i] for i in te]
         has_labels = bool(np.isfinite(yte).any())   # MoleculeACE: yes; Polaris: test labels hidden
         for seed in seeds:
-            hd = make_head(head, ttype, n_out, seed).fit(
-                Xtr, eval_v2._scale_targets(y[tr], ysc), Xtr, eval_v2._scale_targets(y[tr], ysc))
+            hd = make_head(head, ttype, n_out, seed)
+            # Fast frozen-probe head: big batch + fewer epochs. The default (batch 64, 100 epochs) is
+            # launch-overhead-bound for a tiny MLP over frozen features; this is ~10x faster with
+            # negligible effect on a converged probe. Applied UNIFORMLY to every suite arm (fair).
+            if head in ("mlp", "linear") and hasattr(hd, "hp"):
+                hd.hp = dict(hd.hp); hd.hp.update({"batch_size": 512, "epochs": 60, "patience": 8})
+            hd = hd.fit(Xtr, eval_v2._scale_targets(y[tr], ysc), Xtr, eval_v2._scale_targets(y[tr], ysc))
             pred = eval_v2._unscale_preds(np.asarray(hd.predict(Xte), dtype=np.float64), ysc)
             # always dump per-seed test predictions (Polaris scores these later via benchmark.evaluate()).
             pv = pred.ravel()

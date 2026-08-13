@@ -5,6 +5,7 @@ per-seed test_predictions.csv (scored later via benchmark.evaluate() off-box).
 
 Idempotent (skips a (model,track) whose test_predictions.csv covers all tasks), syncs each result dir to
 S3. Run from repo root with ~/venvs/climb/bin/python. Env: CHEMELEON_PY (path to chemeleon venv python)."""
+import argparse
 import json
 import os
 import subprocess
@@ -69,12 +70,22 @@ def _run(cmd, track, model, label):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--arms", default=None, help="comma-separated model labels to run (partition across boxes)")
+    ap.add_argument("--tracks", default=None, help="comma-separated subset of moleculeace,polaris")
+    a = ap.parse_args()
+    sel = set(a.arms.split(",")) if a.arms else None
+    tracks = TRACKS if a.tracks is None else [t for t in TRACKS if t in a.tracks.split(",")]
+    encoders = [r for r in ENCODERS if sel is None or r in sel]
+    baselines = [b for b in BASELINES if sel is None or b[0] in sel]
+    print(f"[frozen] this box: encoders={encoders} baselines={[b[0] for b in baselines]} tracks={tracks}", flush=True)
+
     if not Path(TOK, "tokenizer.json").exists():
         subprocess.run(["aws", "s3", "sync", "s3://climb-s3-bucket/tokenizer_10M", TOK], check=False)
     done = []
-    for track in TRACKS:
+    for track in tracks:
         # encoder arms
-        for run in ENCODERS:
+        for run in encoders:
             enc = FD.parent / "climb_v2_phase2" / run / "encoder"
             if not (enc / "model.safetensors").exists():
                 subprocess.run(["aws", "s3", "sync", f"{S3_ENC}/{run}/encoder", str(enc),
@@ -86,16 +97,18 @@ def main():
                    "--seeds"] + SEEDS
             done.append(_run(cmd, track, run, run))
         # baselines
-        for model, feat, head, py in BASELINES:
+        for model, feat, head, py in baselines:
             cmd = [py, "scripts/chemeleon_suite_run.py", "--track", track, "--featurizer", feat,
                    "--model", model, "--head", head, "--seeds"] + SEEDS
             done.append(_run(cmd, track, model, model))
-    print(f"\n[frozen] battery: {sum(done)}/{len(done)} (model,track) runs OK", flush=True)
-    if all(done):
+    print(f"\n[frozen] this box: {sum(done)}/{len(done)} (model,track) runs OK", flush=True)
+    # global completion = every model x track across the FULL battery is done (any box may be last)
+    all_models = ENCODERS + [b[0] for b in BASELINES]
+    if all(_done(t, m) for t in TRACKS for m in all_models):
         Path("CHEMELEON_FROZEN_ALL_DONE").write_text("frozen battery complete\n")
         subprocess.run(["aws", "s3", "cp", "CHEMELEON_FROZEN_ALL_DONE",
                         f"{S3_OUT}/CHEMELEON_FROZEN_ALL_DONE"], check=False)
-        print("[frozen] ALL DONE", flush=True)
+        print("[frozen] GLOBAL BATTERY DONE", flush=True)
 
 
 if __name__ == "__main__":
