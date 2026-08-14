@@ -2,8 +2,12 @@
 
 **Status (2026-08-14):** Tracks A (Polaris) + B (MoleculeACE) frozen **and** e2e **COMPLETE**; recipe
 test complete; the CheMeleon comparator was also carried onto the **CBS** rare-actives VS benchmark
-(complete) and onto the **main MoleculeNet A1 figure** (frozen complete; CheMeleon-foundation e2e
-**still running** at time of writing — ESOL scored, rest filling in). Track C (ToxCast kNN) **not run**.
+(complete) and onto the **main MoleculeNet A1 figure** (frozen + CheMeleon-foundation e2e both
+**COMPLETE**, all 7 tasks × 3 seeds). All AWS boxes torn down; results durable in S3 + local. Track C
+(ToxCast kNN) **not run**.
+> **MoleculeNet CheMeleon e2e (A1.b, final):** ESOL 0.706 · Lipophilicity 0.598 · QM7 195.6 (RMSE↓) ·
+> BBBP 0.906 · BACE 0.882 · Tox21 0.832 · HIV 0.808 (ROC↑). e2e closes the frozen arm's regression gap
+> (ESOL 1.242→0.706, QM7 268.8→195.6 ≈ our skip_dense_8M); competitive-but-not-dominant on classification.
 **Why this exists:** replicate the evaluation suite of Burns et al. 2025 (CheMeleon, arXiv 2506.15792;
 repo `JacksonBurns/chemeleon`) and report **all CLIMB 8M models + our baselines** on it. Everything is
 versioned, isolated, and reproducible; nothing here overwrites prior results — all outputs land under
@@ -167,6 +171,7 @@ are **deterministically regenerable** from the pinned recipe, which each run rec
   run. Frozen (30/30) + e2e (6/6) batteries run on AWS g4dn boxes (T4).
 - 2026-08-14: added native chemprop e2e (`--from-foundation CHEMELEON`) for **CBS** and **MoleculeNet**;
   recipe test complete. Fixed `chemeleon_frozen` OOD divergence via the ±25% prediction clip. Resolved the
-  deepchem/numpy env issue on py3.12 (bootstrap script + one-line deepchem patch). MoleculeNet e2e running.
+  deepchem/numpy env issue on py3.12 (bootstrap script + one-line deepchem patch). **MoleculeNet e2e
+  completed (all 7 × 3 seeds); all boxes terminated, results in S3 + local.**
 - RESOLVED (were open): Polaris login (not needed); box torch/CUDA (both venvs verified). **STILL OPEN:**
   ToxCast track C not enumerated/run.

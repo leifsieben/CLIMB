@@ -41,8 +41,8 @@ add them (or a share link) in each repo's **Settings → sharing** on the Hub.
   add it to `PAPER_WAVES` (or a `upload_chemeleon_suite_results_hf.py` mirror of the CBS uploader) before
   the suite becomes a headline result.
 
-> As of 2026-08-14 the MoleculeNet CheMeleon **e2e** arm is still running (only some datasets scored) —
-> push to HF once it completes so the uploaded results are not partial.
+> The MoleculeNet CheMeleon **e2e** arm is now complete (all 7 tasks × 3 seeds, in S3 + local) — the
+> CBS + MoleculeNet CheMeleon results are ready to push; run the two commands above once logged in.
 
 The 124M pre-training corpus is **not** re-hosted — the pretrain card links to
 [`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC)

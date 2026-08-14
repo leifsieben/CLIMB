@@ -19,7 +19,7 @@ prior results are overwritten**.
 | `chemeleon_suite_summary.py` | Aggregate our results + reference → win-rate + cliff tables | ✅ built + run |
 | `chemeleon_suite_plots.py` | Cross-task mean-rank forest plots (4 panels, bootstrap 95% CI over tasks) | ✅ built + run |
 | `cbs_chemprop_e2e.py` | **CBS** native chemprop e2e (vanilla + `--from-foundation CHEMELEON`), provided folds, NEF1% | ✅ run (6 run-dirs) |
-| `molnet_chemprop_e2e.py` | **MoleculeNet** CheMeleon-foundation e2e, scaffold-5fold, reuses eval_v2 loader/folds/metrics | 🔄 running (ESOL done, HIV last) |
+| `molnet_chemprop_e2e.py` | **MoleculeNet** CheMeleon-foundation e2e, scaffold-5fold, reuses eval_v2 loader/folds/metrics | ✅ run (7/7 × 3 seeds) |
 | `chemeleon_bench.py` | CheMeleon **frozen** fingerprint probe on the 7 MoleculeNet tasks (+ CBS, skipped when handled elsewhere) | ✅ run (MoleculeNet 7/7) |
 | `build_cbs_summary.py` | Aggregate the CBS battery → `experiment_cbs/cbs_nef1_summary.csv` (incl chemeleon/chemprop arms) | ✅ built + run |
 | `molnet_box_bootstrap.sh` | Reproducible py3.12 chemprop-venv fix (numpy<2 stack + deepchem ragged patch) | ✅ built |
@@ -76,6 +76,8 @@ exclusion list).
   `summaries/recipe_test_verdict.md` (still loses to XGBoost(fp+desc)). **CBS** CheMeleon arms
   (`chemprop_e2e` 0.462, `chemeleon_e2e` 0.784±0.009, `chemeleon_frozen` 0.788) — XGBoost(fp+desc) 0.930
   leads; CheMeleon mid-pack. **MoleculeNet** CheMeleon frozen done (mixed: worse on regression, on-par on
-  classification); CheMeleon-foundation e2e running on dedicated box `i-01ec1c…` (ESOL 0.706, HIV last).
-  Runners now record `_recipe` + support `SAVE_MODELS=1`.
-- OPEN: ToxCast track C (kNN) not built/run.
+  classification); CheMeleon-foundation e2e **complete** (all 7 × 3 seeds: ESOL 0.706, Lipo 0.598,
+  QM7 195.6, BBBP 0.906, BACE 0.882, Tox21 0.832, HIV 0.808). Runners now record `_recipe` + support
+  `SAVE_MODELS=1`. **All AWS boxes terminated; results durable in S3 + local `figure_data`.**
+- OPEN: ToxCast track C (kNN) not built/run. HF push of the new CBS + MoleculeNet CheMeleon results
+  pending (tooling ready — see `hf/README.md`; needs HF login).
