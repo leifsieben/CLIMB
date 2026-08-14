@@ -12,6 +12,7 @@ def arm_rows(df,task,key,budget=None,wave="climb_v2_phase2"):
     if key in ("ecfp4","fp_desc"):return df[b&(df.regime==key)]
     if key=="unsup_only":         return df[b&(df.regime=="unsup_only")&(df.budget_label==budget)&(~df.truncated)]
     if key=="no_pretrain_e2e":    return df[b&(df.regime=="no_pretrain_e2e")]
+    if key=="chemeleon_e2e":      return df[b&(df.regime=="chemeleon_e2e")]   # external CheMeleon comparator
     if key=="unsup2sup":          return df[b&(df.regime=="unsup2sup")&(df.budget_label==budget)&(~df.truncated)]
     if key.startswith("unsup2sup:"):   # one recipe, not the mean of all five
         return df[b&(df.regime=="unsup2sup")&(df.recipe==key.split(":")[1])&(df.budget_label==budget)&(~df.truncated)]
