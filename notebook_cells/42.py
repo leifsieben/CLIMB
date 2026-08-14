@@ -26,7 +26,7 @@ if _cbs_arms:
     vals=[_cbs_val(a) for a in _cbs_arms]; errs=[_cbs_err(a) for a in _cbs_arms]
     y=np.arange(len(_cbs_arms))[::-1]                 # first arm of A1_ORDER at the TOP
     fig,ax=plt.subplots(figsize=(STYLE["col15"],0.40*len(_cbs_arms)+1.3))
-    _CBS_PROV={"chemeleon_e2e"}      # provisional (< 3 seeds, still running) -> hatch + asterisk
+    _CBS_PROV=set()                  # provisional arms (< 3 seeds) -> hatch + asterisk; empty = all final
     _bars=ax.barh(y,vals,color=[rc_color(a) for a in _cbs_arms],edgecolor="white",lw=0.4,height=0.72,
             xerr=errs,error_kw=dict(lw=0.8,capsize=2.5,ecolor="#333"),zorder=3)
     for a,_b in zip(_cbs_arms,_bars):

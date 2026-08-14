@@ -1,13 +1,23 @@
 {
  "note": "content fingerprint of the figure_data snapshot the committed figures were built from; mtime is informational and excluded from all hashes",
  "data_root": "figure_data",
- "n_files": 1232,
- "snapshot_hash": "f217a091ab24bd333dbfa8271fc4f4e1061a44c63ed20a0e8f4f37e67a7112d8",
+ "n_files": 1234,
+ "snapshot_hash": "c7417524b1375714d25e962df7543000bc77c183c42e0b6859730e1183301ea5",
  "files": {
   "cbs_benchmark/chemeleon_e2e_s0/moleculenet_cv/suite_summary.json": {
    "bytes": 295,
    "sha256": "049b824cc519d6f2a2834e5f00ed98ba37e7d2d9ee76f9c68ed00305833bbbb0",
    "mtime": "2026-08-14T12:05"
+  },
+  "cbs_benchmark/chemeleon_e2e_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 295,
+   "sha256": "eb303d51d383921e1846ba24bdda2ccbeb1ec8bacbec20a412da8cfd2dddb733",
+   "mtime": "2026-08-14T12:25"
+  },
+  "cbs_benchmark/chemeleon_e2e_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 294,
+   "sha256": "dfd6b0fbbade6834adc8c21de5c838aeb183b16f9247f23d8a2365b504f5f4ac",
+   "mtime": "2026-08-14T12:45"
   },
   "cbs_benchmark/chemeleon_frozen/moleculenet_cv/suite_summary.json": {
    "bytes": 146,
