@@ -49,8 +49,16 @@ if os.environ.get("MOLNET_DATASETS"):
     keep = set(os.environ["MOLNET_DATASETS"].split(","))
     DATASETS = [d for d in DATASETS if d[0] in keep]
 
-OUT = ROOT / "figure_data" / "climb_v2_phase2" / RUN / "moleculenet_cv"
-S3 = f"s3://climb-s3-bucket/experiments/climb_v2_phase2/{RUN}/moleculenet_cv"
+# PER-SEED run dirs (chemeleon_e2e / _s1 / _s2), matching the notebook's _s{n} seed convention so the
+# arm aggregates 3 seeds (spread) and the A1-table scaffold cluster-bootstrap can read runs[0]'s OOF.
+def run_name(seed):
+    return RUN if seed == 0 else f"{RUN}_s{seed}"
+
+
+def paths(seed):
+    out = ROOT / "figure_data" / "climb_v2_phase2" / run_name(seed) / "moleculenet_cv"
+    s3 = f"s3://climb-s3-bucket/experiments/climb_v2_phase2/{run_name(seed)}/moleculenet_cv"
+    return out, s3
 
 
 def _chemprop_version():
@@ -135,15 +143,20 @@ def _train_predict(task_type, tr_smi, tr_Y, te_smi, cols, seed, td, save_to=None
     return _read_preds(predp, cols)
 
 
-def run_dataset(name, task_type, summary):
+def run_dataset_seed(name, task_type, seed, out, s3, summary):
+    """ONE seed's 5-fold scaffold CV for one dataset. Builds the OOF prediction vector (each molecule
+    predicted by the fold that held it out) and dumps per-molecule rows via eval_v2._dump_test_predictions
+    (byte-identical to every other arm: dataset, task_type, split, mol_index, canonical_key, raw_smiles,
+    output_index, y_true, y_pred), so the A1-table scaffold cluster-bootstrap can rank CheMeleon."""
     if f"{name}_MEAN" in summary:
-        print(f"[molnet-e2e] SKIP {name}: already in summary", flush=True)
+        print(f"[molnet-e2e] SKIP {name} seed{seed}: already in summary", flush=True)
         return summary
     smi, Y = eval_v2._load_moleculenet_full(name)
     Y = Y if Y.ndim > 1 else Y.reshape(-1, 1)
     ncol = Y.shape[1]
     cols = ["y"] if ncol == 1 else [f"t{j}" for j in range(ncol)]
-    folds = eval_v2._scaffold_kfold_indices(smi, K, FOLD_SEED, labels=Y)
+    folds = eval_v2._scaffold_kfold_indices(smi, K, FOLD_SEED, labels=Y)   # folds fixed (seed 0) across seeds
+    oof = np.full(Y.shape, np.nan, dtype=np.float64)                       # per-molecule held-out prediction
     fold_m, fold_nef = [], []
     for j, test_idx in enumerate(folds):
         test_idx = np.asarray(test_idx, dtype=int)
@@ -152,18 +165,15 @@ def run_dataset(name, task_type, summary):
         train_idx = np.asarray([i for t, f in enumerate(folds) if t != j for i in f], dtype=int)
         tr_smi = [smi[i] for i in train_idx]
         te_smi = [smi[i] for i in test_idx]
-        seed_preds = []
         with tempfile.TemporaryDirectory() as td:
-            td = Path(td)
-            for seed in SEEDS:
-                save_to = (OUT / "models" / f"{name}_fold{j}_seed{seed}.pt") if os.environ.get("SAVE_MODELS") else None
-                seed_preds.append(_train_predict(task_type, tr_smi, Y[train_idx], te_smi, cols, seed, td, save_to=save_to))
-        pred = np.mean(np.stack(seed_preds, 0), 0)  # ensemble over seeds (mirrors eval_v2 head-seed avg)
+            save_to = (out / "models" / f"{name}_fold{j}_seed{seed}.pt") if os.environ.get("SAVE_MODELS") else None
+            pred = _train_predict(task_type, tr_smi, Y[train_idx], te_smi, cols, seed, Path(td), save_to=save_to)
+        oof[test_idx] = pred                                              # single-seed prediction, no averaging
         m = compute_metric(pred, Y[test_idx], task_type)
         fold_m.append(m)
         if task_type == "classification":
             fold_nef.append(compute_nef(pred, Y[test_idx]))
-        print(f"[molnet-e2e] {name} fold{j}: {'roc' if task_type=='classification' else 'rmse'}={m:.4f}"
+        print(f"[molnet-e2e] {name} s{seed} fold{j}: {'roc' if task_type=='classification' else 'rmse'}={m:.4f}"
               f"{'' if task_type=='regression' else f' nef1={fold_nef[-1]:.4f}'} (ntr={len(train_idx)}, nte={len(test_idx)})",
               flush=True)
     arr = np.array(fold_m, dtype=np.float64)
@@ -171,37 +181,41 @@ def run_dataset(name, task_type, summary):
     if fold_nef:
         na = np.array(fold_nef, dtype=np.float64)
         summary[f"{name}_nef1_MEAN"] = float(np.nanmean(na)); summary[f"{name}_nef1_STD"] = float(np.nanstd(na))
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "suite_summary.json").write_text(json.dumps(summary, indent=2))
-    subprocess.run(["aws", "s3", "cp", "--recursive", str(OUT), S3, "--only-show-errors"], check=False)
-    print(f"[molnet-e2e] {name}: MEAN={summary[f'{name}_MEAN']:.4f} +-{summary[f'{name}_STD']:.4f} -> synced", flush=True)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "suite_summary.json").write_text(json.dumps(summary, indent=2))
+    eval_v2._dump_test_predictions(out, name, task_type, smi, Y, oof)     # append per-molecule OOF rows
+    subprocess.run(["aws", "s3", "cp", "--recursive", str(out), s3, "--only-show-errors"], check=False)
+    print(f"[molnet-e2e] {name} s{seed}: MEAN={summary[f'{name}_MEAN']:.4f} +-{summary[f'{name}_STD']:.4f} -> synced", flush=True)
     return summary
 
 
 def main():
     eval_v2.set_cv_scheme("scaffold")
-    OUT.mkdir(parents=True, exist_ok=True)
-    sp = OUT / "suite_summary.json"
-    summary = json.loads(sp.read_text()) if sp.exists() else {}
-    summary.setdefault("_arm", RUN); summary.setdefault("_protocol", "scaffold-5fold-CV")
-    summary.setdefault("_foundation", FOUNDATION); summary.setdefault("_seeds", SEEDS)
-    # reproducibility recipe: these + the CheMeleon foundation checkpoint fully determine the models
-    summary.setdefault("_recipe", {"chemprop": _chemprop_version(), "epochs": EPOCHS, "patience": 15,
-                                   "split_sizes": [0.9, 0.1, 0.0], "class_balance_clf": True,
-                                   "fold_scheme": "eval_v2._scaffold_kfold_indices(seed=0)",
-                                   "seeds_ensembled_per_fold": SEEDS, "foundation_md5": _foundation_md5()})
-    for name, tt in DATASETS:
-        try:
-            summary = run_dataset(name, tt, summary)
-        except Exception as exc:
-            print(f"[molnet-e2e] {name}: FAILED {exc}", flush=True)
-    done = [d for d, _ in DATASETS if f"{d}_MEAN" in summary]
-    print(f"\n[molnet-e2e] {len(done)}/{len(DATASETS)} datasets done: {done}", flush=True)
-    if len(done) == len(DATASETS):
-        (OUT / "verified.json").write_text(json.dumps({"arm": RUN, "protocol": "scaffold-5fold-CV",
-                                                        "datasets": done, "seeds": SEEDS}))
-        subprocess.run(["aws", "s3", "cp", "--recursive", str(OUT), S3, "--only-show-errors"], check=False)
-        Path(f"MOLNET_{RUN.upper()}_DONE").write_text("done\n")
+    for seed in SEEDS:                                                    # one full CV run per seed -> per-seed dir
+        out, s3 = paths(seed)
+        out.mkdir(parents=True, exist_ok=True)
+        sp = out / "suite_summary.json"
+        summary = json.loads(sp.read_text()) if sp.exists() else {}
+        summary.setdefault("_arm", run_name(seed)); summary.setdefault("_protocol", "scaffold-5fold-CV")
+        summary.setdefault("_foundation", FOUNDATION); summary.setdefault("_seed", seed)
+        # reproducibility recipe: these + the CheMeleon foundation checkpoint fully determine the models
+        summary.setdefault("_recipe", {"chemprop": _chemprop_version(), "epochs": EPOCHS, "patience": 15,
+                                       "split_sizes": [0.9, 0.1, 0.0], "class_balance_clf": True,
+                                       "fold_scheme": "eval_v2._scaffold_kfold_indices(seed=0)",
+                                       "pytorch_seed": seed, "data_seed": seed, "foundation_md5": _foundation_md5()})
+        for name, tt in DATASETS:
+            try:
+                summary = run_dataset_seed(name, tt, seed, out, s3, summary)
+            except Exception as exc:
+                print(f"[molnet-e2e] {name} s{seed}: FAILED {exc}", flush=True)
+        done = [d for d, _ in DATASETS if f"{d}_MEAN" in summary]
+        print(f"\n[molnet-e2e] seed{seed}: {len(done)}/{len(DATASETS)} datasets done: {done}", flush=True)
+        if len(done) == len(DATASETS):
+            (out / "verified.json").write_text(json.dumps({"arm": run_name(seed), "protocol": "scaffold-5fold-CV",
+                                                            "datasets": done, "seed": seed}))
+            subprocess.run(["aws", "s3", "cp", "--recursive", str(out), s3, "--only-show-errors"], check=False)
+    if all((paths(s)[0] / "verified.json").exists() for s in SEEDS):
+        Path("MOLNET_CHEMELEON_E2E_DONE").write_text("done\n")
 
 
 if __name__ == "__main__":
