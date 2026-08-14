@@ -61,8 +61,12 @@ Expect the headline to echo the forest: CheMeleon + XGBoost(fp+desc) dominate th
 other; CLMs are beaten by both.
 
 ## Gates before finalizing (peer to confirm)
-1. **Recipe-robustness check** (stronger FT LR/epochs on largest tasks) — confirms the e2e deployment
-   is fair before we assert "CLMs lose even fine-tuned".
+1. **Recipe-robustness check — ✅ DONE (peer, `chemeleon_suite/summaries/recipe_test_verdict.md`).**
+   Tuned the best supervised e2e arm (skip_dense_8M, lr 5e-5 / 40 ep / patience 8), 3 seeds, on the
+   LARGEST tasks per suite. Verdict: stronger recipe helps modestly and ONLY on regression
+   (~0.025–0.036), neutral on ROC; even tuned and on the biggest tasks, e2e loses to XGBoost(fp+desc)
+   on ALL 8. It does beat plain Morgan(fp) on the 2 physchem regressions (so not incompetent). Size
+   hypothesis refuted, robust across both families — **"CLMs lose even fine-tuned" is safe to state.**
 2. **`chemeleon_frozen` re-run** (frozen probe of CheMeleon's fingerprint) — ADDS a model row; rebuild.
 3. **Reproduction**: `chemeleon_suite/summaries/*` committed; raw suite outputs on HF/S3 (peer package).
 4. Exact published-baseline set / labels finalized (14 baselines mentioned; CSV currently has 11 models
