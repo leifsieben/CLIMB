@@ -48,9 +48,17 @@ last (~9–10.6).
 3. Reproduces **van Tilborg et al.**'s own MoleculeACE finding (classical descriptors ≥ deep models on
    activity cliffs) — supports it being a real regime effect, not our deployment.
 
-## Complementary (optional second panel/table)
-Dominance table (`chemeleon_suite/summaries/`, coming): pairwise sign-test across tasks, BH-FDR<0.05,
-#models each significantly beats / #beaten-by.
+## Second panel — dominance (CONFIRMED, user 2026-08-14)
+Same mainline figure gets a second panel: pairwise **sign-test across tasks + BH-FDR<0.05**
+(`chemeleon_suite/summaries/`, still coming from peer). Form (decide when the CSV lands):
+- **Preferred: pairwise dominance heatmap** — models × models grid, cell = significant win / tie /
+  loss for row-vs-column (sign-test, BH-FDR<0.05), diverging colours (like the C1J1 transfer matrix);
+  models ordered by mean rank so the top-tier block is visually obvious.
+- **Or compact summary:** per model, `#models it significantly beats` vs `#beaten-by` (diverging bar,
+  net dominance) — cheaper if the full matrix is too dense.
+Layout: **stacked figure** — (a) mean-rank forest (the 4 track panels), (b) dominance panel beneath.
+Expect the headline to echo the forest: CheMeleon + XGBoost(fp+desc) dominate the field and tie each
+other; CLMs are beaten by both.
 
 ## Gates before finalizing (peer to confirm)
 1. **Recipe-robustness check** (stronger FT LR/epochs on largest tasks) — confirms the e2e deployment
@@ -59,7 +67,9 @@ Dominance table (`chemeleon_suite/summaries/`, coming): pairwise sign-test acros
 3. **Reproduction**: `chemeleon_suite/summaries/*` committed; raw suite outputs on HF/S3 (peer package).
 4. Exact published-baseline set / labels finalized (14 baselines mentioned; CSV currently has 11 models
    — confirm which published refs make the plot).
+5. **Dominance CSV delivered** (`chemeleon_suite/summaries/`) — required for panel (b).
 
 ## Cells / commit
-New mainline cell pair (appended, e.g. 43/44), `save_fig("figCheMeleon_suite_rank")`. Commit the
-`chemeleon_suite/summaries/*.csv` inputs. Do NOT touch existing figures/datasets.
+New mainline cell pair (appended, e.g. 43/44), `save_fig("figCheMeleon_suite")` — a **2-panel** figure
+(forest + dominance). Commit the `chemeleon_suite/summaries/*.csv` inputs. Do NOT touch existing
+figures/datasets.
