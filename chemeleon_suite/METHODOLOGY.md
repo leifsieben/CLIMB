@@ -1,113 +1,172 @@
 # CheMeleon evaluation suite — CLIMB replication
 
-**Status:** scaffolding + task lists locked (2026-08-13). GPU runs DEFERRED (account capacity constrained).
+**Status (2026-08-14):** Tracks A (Polaris) + B (MoleculeACE) frozen **and** e2e **COMPLETE**; recipe
+test complete; the CheMeleon comparator was also carried onto the **CBS** rare-actives VS benchmark
+(complete) and onto the **main MoleculeNet A1 figure** (frozen complete; CheMeleon-foundation e2e
+**still running** at time of writing — ESOL scored, rest filling in). Track C (ToxCast kNN) **not run**.
 **Why this exists:** replicate the evaluation suite of Burns et al. 2025 (CheMeleon, arXiv 2506.15792;
-repo `JacksonBurns/chemeleon`) and report **all CLIMB 8M models + our baselines** on it. These datasets
-are considered more trustworthy than MoleculeNet; **this suite may become the paper's headline benchmark**,
-so everything here is versioned, isolated, and reproducible. Nothing in this directory overwrites prior
-results — all outputs land under NEW paths (see "Outputs" below).
+repo `JacksonBurns/chemeleon`) and report **all CLIMB 8M models + our baselines** on it. Everything is
+versioned, isolated, and reproducible; nothing here overwrites prior results — all outputs land under
+NEW paths (see §6).
 
 ---
 
 ## 1. Task tracks
 
-| Track | Source | #tasks | Eval mode | Split | Primary metric(s) |
-|---|---|---|---|---|---|
-| **A. Polaris/TDC** | Polaris Hub + TDCommons | **28** (`tasks/polaris_tasks.txt`) | frozen probe / e2e | **official Polaris/TDC test split** (fixed) | task-defined (ROC-AUC/PR-AUC for cls; MAE/R²/Spearman for reg) |
-| **B. MoleculeACE** | van Tilborg et al. (ChEMBL activity cliffs) | **30** (`tasks/moleculeace_tasks.txt`) | frozen probe / e2e | **van Tilborg split as-is** (series held out) | **overall / cliff / non-cliff test RMSE** |
-| **C. ToxCast kNN** | MoleculeNet ToxCast (`dc.molnet.load_toxcast`) | ~20 (TODO enumerate) | **kNN probe** (embed → kNN, no head) | random + agglomerative-cluster 5-fold CV | balanced acc, sensitivity, specificity |
+| Track | Source | #tasks | Eval mode | Split | Primary metric(s) | Status |
+|---|---|---|---|---|---|---|
+| **A. Polaris/TDC** | Polaris Hub + TDCommons | **28** (`tasks/polaris_tasks.txt`) | frozen probe + e2e | **official Polaris/TDC test split** (fixed) | task-defined (ROC-AUC/PR-AUC cls; MAE/R²/Spearman reg) | ✅ done |
+| **B. MoleculeACE** | van Tilborg et al. (ChEMBL activity cliffs) | **30** (`tasks/moleculeace_tasks.txt`) | frozen probe + e2e | **van Tilborg split as-is** (series held out) | **overall / cliff / non-cliff test RMSE** | ✅ done |
+| **C. ToxCast kNN** | MoleculeNet ToxCast | ~20 | kNN probe | cluster 5-fold CV | balanced acc / sens / spec | ⛔ not run (scoped as follow-on) |
 
-Tracks A+B = **58 tasks** (the core; matches the user's brief). Track C is a distinct non-parametric
-probe and is scoped as a follow-on.
+Tracks A+B = **58 core tasks**. Two adjacent benchmarks reuse the same CheMeleon comparator code and
+are documented here for provenance (they are NOT part of the 58):
+- **CBS** — external CBS-inhibitor virtual-screening set (Truong et al. 2026), provided 5 folds, **NEF1%**.
+- **MoleculeNet A1** — the paper's main 7-task figure (scaffold 5-fold CV); CheMeleon added as a comparator.
 
 ## 2. Protocol — MATCH Burns et al. (comparability is the point)
 
-Do **NOT** use CLIMB's usual 5-fold scaffold CV here — it would not be comparable to CheMeleon Table 1/2.
-- **Splits:** each track uses its OWN fixed split (Polaris official; MoleculeACE van Tilborg; ToxCast CV).
-- **Seeds:** Burns used 5 seeds = {42, 117, 709, 1701, 9001}. **We use 3 seeds = {42, 117, 709}** for
-  BOTH frozen and e2e (user decision 2026-08-13 — 5 seeds on the e2e arms takes far too long). Ours are a
-  strict subset of Burns' seeds. Comparability caveat for captions: our error bars come from 3 seeds; the
-  reference published means used 5 — the MEANS remain directly comparable, only the CI width differs.
-- **Metric per task:** the task's own primary metric (NOT free choice). MoleculeACE additionally reports
-  **cliff vs non-cliff RMSE separately** (the number the CliffPFN thesis needs) + one-sided t-test
-  (RMSE_cliff − RMSE_noncliff > 0) "consistency rate", and win-count/win-rate across the 30 tasks.
-- **Significance:** Tukey HSD (α=0.05) across models per task (as Burns did) for win/loss designation.
+Do **NOT** use CLIMB's usual scaffold CV for tracks A/B — it would not be comparable to CheMeleon Table 1/2.
+- **Splits:** each track uses its OWN fixed split (Polaris official; MoleculeACE van Tilborg).
+- **Seeds:** Burns used 5 = {42,117,709,1701,9001}. **We use 3 = {42,117,709}** for BOTH frozen and e2e
+  (user decision — 5 seeds on e2e is far too slow). Ours are a strict subset of Burns'; the MEANS are
+  directly comparable, only the CI width differs. State this in captions.
+- **Metric per task:** the task's own primary metric. MoleculeACE additionally reports **cliff vs
+  non-cliff RMSE separately** + a one-sided consistency test and win-rate across the 30 tasks.
+- **Regression is native-unit:** target scaler fit on train only, predictions inverse-transformed before
+  scoring, so RMSE is in physical units with no cross-fold leakage.
+- **OOD prediction clip:** regression predictions are bounded to the train target range ±25% (uniform
+  across arms; a no-op for well-behaved features — added because an unbounded MLP over CheMeleon's
+  heavier-tailed embeddings blew up on a few OOD test molecules).
 
 ## 3. Models
 
-**Head/probe pipeline** = identical to CLIMB frozen-featurizer protocol (embed → z-score → MLP head),
-so our encoders and CheMeleon are apples-to-apples.
+**Frozen-probe pipeline** = identical to CLIMB's frozen-featurizer protocol (embed → z-score → MLP head),
+so our encoders and CheMeleon are apples-to-apples. Fast head: batch 512, 60 epochs, patience 8
+(launch-overhead-bound otherwise; applied uniformly).
 
-**CLIMB 8M (frozen probe, all):** `unsup_8M`, `skip_dense_8M`, `skip_sparse_all_8M`,
-`skip_dense_plus_sparse_8M`, `skip_minimol_full_8M`, `skip_mixed_8M`, the 6 `u2s_*_from8M`,
-`random_baseline_0{0,1,2}` (no_pretrain).
+**CLIMB 8M (frozen probe):** `unsup_8M`, `skip_dense_8M`, `skip_sparse_all_8M`,
+`skip_dense_plus_sparse_8M`, `skip_minimol_full_8M`, `skip_mixed_8M`, the `u2s_*_from8M` set,
+`random_baseline_00` (no_pretrain). 30 frozen run-dirs (15 models × 2 tracks) — all verified.
 
-**End-to-end fine-tuned (3 models × 3 seeds):** `unsup_8M` (unsup-only), **`skip_dense_8M` (best
-supervised — see note), `e2e_random` (no_pretrain_e2e).
-> *Best-supervised pick:* from CLIMB A1b 5-fold CV, `skip_dense_8M` wins both regression tasks + CBS and
-> is within 0.004 AUC of the top; `skip_dense_plus_sparse_8M` has the marginal AUC edge. Chose
-> `skip_dense_8M` as the canonical dense-MTR representative.
+**End-to-end fine-tuned (ModernBERT, 3 arms × 3 seeds):** `unsup_8M`, `skip_dense_8M` (best supervised —
+wins CLIMB regression + CBS, ~tie on AUC), `no_pretrain_e2e` (from `random_baseline_00`). 6 run-dirs.
+Recipe: `finetune_e2e_v2.finetune_predict`, lr 2e-5, 20 epochs, patience 5, batch 32, linear head.
+- **Recipe test** (`summaries/recipe_test_verdict.md`): re-ran `skip_dense_8M` e2e with a stronger recipe
+  (lr 5e-5, 40 epochs, patience 8) on the 4 largest tasks of each track (`*_e2e_tuned`). Verdict: tuning
+  helps ~0.025–0.036 on regression, neutral on ROC, and **still loses to XGBoost(fp+desc) on all 8** — the
+  "small-data" explanation for the e2e arm is refuted.
 
 **External / baselines:**
-- CheMeleon (frozen fingerprint + native chemprop e2e) — our re-run, `--featurizer chemeleon`.
-- Classical: `ecfp4` (Morgan+XGB), `fp_desc` (Morgan+desc+XGB).
-- **Reference (published, NOT re-run):** parsed from `reference/{polaris,moleculeace}/*.md` — CheMeleon,
-  Chemprop(_Mordred), MoLFormer, MolCLR, minimol, fastprop, MLP_PLR_Pretrained, PCA_MLP(_Prefitted),
-  RF, RF_Mordred, RF_Morgan, RF_Morgan_Physchem. Pulling their numbers avoids RF-implementation variance.
+- **CheMeleon frozen** — our run, `chemeleon_suite_run.py --featurizer chemeleon` (frozen fingerprint +
+  our MLP head). Present on both tracks.
+- **CheMeleon e2e on A/B** — the **published** Burns numbers from `reference/…/CheMeleon.md` (we did NOT
+  re-run native chemprop for Polaris/MoleculeACE — the published means are the fair comparison there).
+- **Native chemprop e2e** (`--from-foundation CHEMELEON`) — run by us **only** on CBS + MoleculeNet, where
+  no published numbers exist (see §3a).
+- **Classical:** `ecfp4` (Morgan+XGB), `fp_desc` (Morgan+217 RDKit descriptors+XGB).
+- **Reference (published, NOT re-run):** `reference/{polaris,moleculeace}/*.md` → `reference_long.csv`.
 
-## 4. Data-leakage gate (MUST run before reporting)
+### 3a. Native chemprop e2e comparators (CBS + MoleculeNet only)
 
-MoleculeACE/Polaris test compounds are ChEMBL/assay molecules; our Phase-1 SSL corpus is a PubChem draw.
-Compute canonical-key intersection between the pretraining corpus and the UNION of all track-A+B **test**
-compounds. Output: `chemeleon_suite/leakage/pretrain_vs_testsets.json` (+ `leaked_pairs.csv`).
+Run natively with `chemprop 2.3.1` in the py3.12 `~/venvs/chemeleon` venv. Two arms:
+- `chemprop_e2e` — vanilla D-MPNN from scratch (no foundation).
+- `chemeleon_e2e` — D-MPNN initialised from the **CheMeleon foundation** (`--from-foundation CHEMELEON`),
+  fine-tuned end-to-end. This IS the CheMeleon model, e2e.
 
-**RESULT (2026-08-13):** 22 / 16,705 unique test compounds (0.132%) are in the 12M corpus — all in 5
-TDCommons tasks (ames, bbb-martins, ld50-zhu, pgp-broccatelli, vdss-lombardo); MoleculeACE + all other
-Polaris tasks are clean (0). **Decision:** the summary step excludes those 22 leaked test molecules from the
-affected tasks (raw predictions retain all rows; report flagged + filtered).
+Both reuse `eval_v2`'s dataset loader, scaffold-fold generator (seed 0), and `heads_v2.compute_metric` /
+`compute_nef`, so numbers are 1:1 with our arms. Per fold we train 3 chemprop seeds {0,1,2} and average
+the test predictions (mirrors eval_v2's head-seed averaging); the error bar is the spread across folds.
+- **CBS:** provided 5 folds (fold col 1..5), NEF1% headline; `--epochs 40 --split-sizes 0.9 0.1 0.0
+  --class-balance`. Scripts: `scripts/cbs_chemprop_e2e.py`.
+- **MoleculeNet:** scaffold 5-fold CV (seed 0), ROC-AUC/RMSE primary + NEF1%; `--epochs 50 --patience 15`.
+  Script: `scripts/molnet_chemprop_e2e.py` (CheMeleon-foundation arm only, per user, 3 seeds).
+
+## 4. Data-leakage gate (run before reporting)
+
+Canonical-key intersection of the 12M PubChem pretraining corpus vs the UNION of all track-A+B **test**
+compounds → `leakage/pretrain_vs_testsets.json` (+ `leaked_pairs.csv`).
+**RESULT:** 22 / 16,705 unique test compounds (0.132%) are in the corpus — all in 5 TDCommons tasks
+(ames, bbb-martins, ld50-zhu, pgp-broccatelli, vdss-lombardo); MoleculeACE + all other Polaris tasks are
+clean (0). The summary step excludes those 22 (raw predictions keep all rows so scores stay reproducible).
 
 ## 5. Data acquisition
 
-- **Polaris:** `pip install polaris-lib` (py≥3.10). **NO LOGIN NEEDED** (verified 2026-08-13: public
-  benchmarks load without auth). `scripts/chemeleon_suite_fetch_polaris.py` pulls all 28. Test labels are
-  hidden by design → score via `benchmark.evaluate()` (`scripts/chemeleon_suite_score_polaris.py`).
-- **MoleculeACE:** `pip install MoleculeACE` + `git clone molML/MoleculeACE`; use pre-assigned split.
-- **ToxCast:** `dc.molnet.load_toxcast()`.
+- **Polaris:** `pip install polaris-lib` (py≥3.10). **NO LOGIN NEEDED** — public benchmarks load without
+  auth. `scripts/chemeleon_suite_fetch_polaris.py` pulls all 28 (`.venv_polaris`, py3.12, polaris-lib 0.13).
+  Test labels are hidden by design → predict, then score via `benchmark.evaluate()`
+  (`scripts/chemeleon_suite_score_polaris.py`, run in `.venv_polaris`).
+- **MoleculeACE:** 30 targets vendored to `data/moleculeace/CHEMBL*.csv` (van Tilborg split as-is).
+- **CBS:** `data/cbs.csv` (external, provided fold column). **MoleculeNet:** deepchem loaders (see §7 env).
 
 ## 6. Outputs (isolated; NOTHING overwritten)
 
 ```
-chemeleon_suite/                      # code, task lists, methodology, reference numbers (in git)
-  METHODOLOGY.md, tasks/, reference/, leakage/
-figure_data/chemeleon_suite/<track>/<model>/<seed>/...     # raw per-run predictions + metrics (NEW path)
-s3://climb-s3-bucket/experiments/chemeleon_suite/...        # durable backup (NEW prefix)
-HF lsieben/climb-results/chemeleon_suite/...                # published (NEW folder)
-chemeleon_suite/summaries/*.csv       # tidy per-(track,task,model,metric) mean±std + win/HSD tables
+chemeleon_suite/           METHODOLOGY.md, HARNESS.md, tasks/, reference/, leakage/, summaries/
+figure_data/chemeleon_suite/<track>/<model>[_e2e|_e2e_tuned]/results.csv|test_predictions.csv|verified.json
+figure_data/cbs_benchmark/<arm>/moleculenet_cv/suite_summary.json     # CBS arms incl chemeleon/chemprop
+figure_data/climb_v2_phase2/chemeleon_{frozen,e2e}/moleculenet_cv/    # MoleculeNet CheMeleon arms
+s3://climb-s3-bucket/experiments/{chemeleon_suite,cbs_benchmark,climb_v2_phase2}/...   # durable backup
+chemeleon_suite/summaries/*.csv + recipe_test_verdict.md              # tidy tables + the e2e verdict
+experiment_cbs/cbs_nef1_summary.csv                                    # CBS figure input (build_cbs_summary.py)
 ```
-
-Completion is provable per (model, track): a `verified.json` written only when all tasks×seeds produced
-metrics. Skip logic reads that, never file existence.
+Completion is provable per run: `verified.json` is written only when all tasks×seeds produced metrics.
+Skip logic reads that / achieved work, never file existence.
 
 ## 7. Reproduce
 
 ```bash
-# 1. task lists are fixed in tasks/*.txt (do not regenerate silently)
-# 2. acquire data (§5); run leakage gate (§4)
-# 3. frozen probes (all CLIMB 8M + CheMeleon + classical), 5 seeds:
-python scripts/chemeleon_suite_run.py --track polaris    --mode frozen   # TODO
-python scripts/chemeleon_suite_run.py --track moleculeace --mode frozen
-# 4. e2e (3 models × 3 seeds):
-python scripts/chemeleon_suite_run.py --track polaris    --mode e2e
-# 5. summarize + Tukey HSD + cliff/noncliff + win tables:
-python scripts/build_chemeleon_suite_summary.py
+# --- Tracks A/B: frozen battery (12 CLIMB 8M encoders + ecfp4/fp_desc/chemeleon_frozen, both tracks) ---
+python scripts/chemeleon_suite_frozen_all.py            # driver; --arms/--tracks partition for parallel boxes
+# per-arm form:
+python scripts/chemeleon_suite_run.py --track moleculeace --featurizer chemeleon --model chemeleon_frozen --head mlp
+python scripts/chemeleon_suite_run.py --track polaris --featurizer encoder --model unsup_8M \
+    --encoder figure_data/climb_v2_phase2/unsup_8M/encoder --tokenizer figure_data/_tokenizer --head mlp
+# --- Tracks A/B: e2e (ModernBERT), 3 arms × 3 seeds ---
+python scripts/chemeleon_suite_e2e_all.py               # unsup_8M / skip_dense_8M / no_pretrain_e2e
+# --- Polaris scoring (hidden test labels) ---
+.venv_polaris/bin/python scripts/chemeleon_suite_score_polaris.py figure_data/chemeleon_suite/polaris/<model>
+# --- CBS + MoleculeNet CheMeleon comparators (chemeleon venv; see env note) ---
+~/venvs/chemeleon/bin/python scripts/cbs_chemprop_e2e.py        # CBS: chemprop_e2e + chemeleon_e2e, 3 seeds
+~/venvs/chemeleon/bin/python scripts/molnet_chemprop_e2e.py     # MoleculeNet: chemeleon_e2e, 3 seeds
+~/venvs/chemeleon/bin/python scripts/chemeleon_bench.py         # CheMeleon FROZEN on the 7 MoleculeNet tasks
+# --- summaries ---
+python scripts/chemeleon_suite_summary.py               # tracks A/B (win-rate + cliff tables)
+python scripts/build_cbs_summary.py                     # CBS NEF1% per arm
+python scripts/chemeleon_suite_plots.py                 # cross-task mean-rank forest plots (A/B)
 ```
 
-## 8. Provenance / decisions log
+### Environment (chemprop / CheMeleon path)
+`~/venvs/chemeleon` (py3.12, chemprop 2.3.1, deepchem 2.5.0). The MoleculeNet load path needs deepchem,
+whose TF import drags in a numpy-2 stack that (a) breaks deepchem and (b) makes its RawFeaturizer reject
+RDKit-unparseable molecules (hypervalent atoms in a few rows). **`scripts/molnet_box_bootstrap.sh`** pins
+a coherent numpy<2 stack (`tensorflow-cpu==2.16.2` / numpy 1.26.4 / scipy 1.13.1) and patches deepchem's
+one ragged-array line to fall back to an object array (pre-numpy-1.24 behavior; its `valid_inds` then
+drops the failed molecules, e.g. BBBP 2050→2039). CBS does NOT need this (custom-CSV path, no deepchem).
+`heads_v2` falls back to a local `set_seed` when transformers is absent (chemprop venv has none).
 
-- 2026-08-13: task lists extracted from `JacksonBurns/chemeleon@main` `analysis/{polaris,moleculeace}_results/CheMeleon.md`.
-  Polaris=28, MoleculeACE=30. Seeds {42,117,709,1701,9001}. Reference baseline tables copied to `reference/`.
-- Compute: g5/g6 capacity-blocked in us-east-1f; box is g4dn.2xlarge (T4). chemprop venv = py3.12
-  `~/venvs/chemeleon` (chemprop 2.3.1). GPU runs deferred pending user capacity + Polaris auth.
-- 2026-08-13: user set seeds = **3** {42,117,709} for both frozen and e2e (5 too slow on e2e).
-- OPEN: (a) Polaris interactive login; (b) ToxCast 20-endpoint enumeration; (c) verify torch/CUDA on box
-  for chemprop e2e (pip pulled torch 2.13/cu13 — may mismatch driver).
+## 8. Reproducibility of the trained chemprop models
+
+We do not persist a `.pt` for every fold by default (105 MoleculeNet + 30 CBS checkpoints), but the models
+are **deterministically regenerable** from the pinned recipe, which each run records in
+`suite_summary.json["_recipe"]`:
+- **Foundation:** CheMeleon `chemeleon_mp.pt`, MD5 `6a80b54fdb7de37ef0374d302f01e8ce`, from Zenodo record
+  15460715 (auto-downloaded to `~/.chemprop/`; cite arXiv 2506.15792). This is the only external weight.
+- **Recipe:** chemprop 2.3.1, `--pytorch-seed`/`--data-seed` ∈ {0,1,2}, split-sizes 0.9/0.1/0.0,
+  `--class-balance` (cls), CBS `--epochs 40`, MoleculeNet `--epochs 50 --patience 15`.
+- **Folds:** CBS = provided fold column; MoleculeNet = `eval_v2._scaffold_kfold_indices(seed=0)` (exported
+  deterministically). Per-fold test predictions are saved (CBS `per_fold.csv`; A/B `test_predictions.csv`).
+- **To keep the actual weights**, run either chemprop runner with `SAVE_MODELS=1` → each fold's `best.pt`
+  lands in `<run>/models/`. (Reproduction is seed-deterministic modulo GPU/cuDNN nondeterminism.)
+
+## 9. Provenance / decisions log
+
+- 2026-08-13: task lists from `JacksonBurns/chemeleon@main` (Polaris=28, MoleculeACE=30); reference tables
+  copied to `reference/`. Seeds set to **3** {42,117,709} for frozen + e2e (5 too slow on e2e).
+- 2026-08-13: Polaris needs **NO login** (public); built `.venv_polaris` (polaris-lib 0.13). Leakage gate
+  run. Frozen (30/30) + e2e (6/6) batteries run on AWS g4dn boxes (T4).
+- 2026-08-14: added native chemprop e2e (`--from-foundation CHEMELEON`) for **CBS** and **MoleculeNet**;
+  recipe test complete. Fixed `chemeleon_frozen` OOD divergence via the ±25% prediction clip. Resolved the
+  deepchem/numpy env issue on py3.12 (bootstrap script + one-line deepchem patch). MoleculeNet e2e running.
+- RESOLVED (were open): Polaris login (not needed); box torch/CUDA (both venvs verified). **STILL OPEN:**
+  ToxCast track C not enumerated/run.

@@ -27,12 +27,16 @@ from finetune_e2e_v2 import finetune_predict  # noqa: E402
 from chemeleon_suite_run import load_task, task_list, reg_metrics, clf_metrics, _rmse  # noqa: E402
 
 
-def run(track, model, encoder_path, tokenizer_path, seeds):
+def run(track, model, encoder_path, tokenizer_path, seeds, lr=None, epochs=None, patience=None,
+        only_tasks=None, suffix="_e2e"):
     from transformers import PreTrainedTokenizerFast
     tok = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
-    out_dir = ROOT / "figure_data" / "chemeleon_suite" / track / f"{model}_e2e"
+    out_dir = ROOT / "figure_data" / "chemeleon_suite" / track / f"{model}{suffix}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    fp_kw = {k: v for k, v in (("lr", lr), ("epochs", epochs), ("patience", patience)) if v is not None}
     tasks = task_list(track)
+    if only_tasks:
+        tasks = [t for t in tasks if t in only_tasks]
     rows, pred_rows = [], []
     for task in tasks:
         smi, y, split, cliff, ttype = load_task(track, task)
@@ -49,8 +53,11 @@ def run(track, model, encoder_path, tokenizer_path, seeds):
             va = tr[perm[:n_va]]; trs = tr[perm[n_va:]]
             (pred,) = finetune_predict(
                 encoder_path, tok, [smi[i] for i in trs], y[trs], [smi[i] for i in va], y[va],
-                [te_smi], ttype, seed=seed)
+                [te_smi], ttype, seed=seed, **fp_kw)
             pred = np.asarray(pred, dtype=np.float64)
+            if ttype == "regression":  # bound OOD extrapolation, uniform with the frozen runner
+                ylo, yhi = float(np.nanmin(y[trs])), float(np.nanmax(y[trs])); m = 0.25 * (yhi - ylo + 1e-9)
+                pred = np.clip(pred, ylo - m, yhi + m)
             pv = pred.ravel()
             for i in range(len(te_smi)):
                 pred_rows.append([task, seed, i, te_smi[i], float(pv[i])])
@@ -84,8 +91,15 @@ def main():
     p.add_argument("--encoder", required=True, help="encoder weights to fine-tune FROM")
     p.add_argument("--tokenizer", required=True)
     p.add_argument("--seeds", type=int, nargs="+", default=[42, 117, 709])
+    p.add_argument("--lr", type=float, default=None)
+    p.add_argument("--epochs", type=int, default=None)
+    p.add_argument("--patience", type=int, default=None)
+    p.add_argument("--only_tasks", default=None, help="comma-separated task subset")
+    p.add_argument("--suffix", default="_e2e", help="output dir suffix (e.g. _e2e_tuned)")
     a = p.parse_args()
-    run(a.track, a.model, a.encoder, a.tokenizer, a.seeds)
+    only = a.only_tasks.split(",") if a.only_tasks else None
+    run(a.track, a.model, a.encoder, a.tokenizer, a.seeds, lr=a.lr, epochs=a.epochs,
+        patience=a.patience, only_tasks=only, suffix=a.suffix)
 
 
 if __name__ == "__main__":

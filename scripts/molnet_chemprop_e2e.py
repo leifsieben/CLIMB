@@ -53,6 +53,23 @@ OUT = ROOT / "figure_data" / "climb_v2_phase2" / RUN / "moleculenet_cv"
 S3 = f"s3://climb-s3-bucket/experiments/climb_v2_phase2/{RUN}/moleculenet_cv"
 
 
+def _chemprop_version():
+    try:
+        import chemprop
+        return chemprop.__version__
+    except Exception:
+        return "unknown"
+
+
+def _foundation_md5():
+    """MD5 of the cached CheMeleon foundation checkpoint (Zenodo record 15460715), for provenance."""
+    import hashlib
+    p = Path.home() / ".chemprop" / "chemeleon_mp.pt"
+    if not p.exists():
+        return None
+    h = hashlib.md5(); h.update(p.read_bytes()); return h.hexdigest()
+
+
 def _write_train(path, smi, Y):
     ncol = Y.shape[1]
     cols = ["y"] if ncol == 1 else [f"t{j}" for j in range(ncol)]
@@ -90,7 +107,7 @@ def _read_preds(path, cols):
     return out
 
 
-def _train_predict(task_type, tr_smi, tr_Y, te_smi, cols, seed, td):
+def _train_predict(task_type, tr_smi, tr_Y, te_smi, cols, seed, td, save_to=None):
     trp, tep, outp, predp = td / "tr.csv", td / "te.csv", td / f"out{seed}", td / f"pred{seed}.csv"
     _write_train(trp, tr_smi, tr_Y)
     _write_test(tep, te_smi)
@@ -106,6 +123,10 @@ def _train_predict(task_type, tr_smi, tr_Y, te_smi, cols, seed, td):
     model = _find_model(outp)
     if model is None:
         raise RuntimeError(f"train failed (seed{seed}): {r.stderr[-1200:]}")
+    if save_to is not None:                     # persist the trained D-MPNN checkpoint before temp cleanup
+        import shutil
+        save_to.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(model, save_to)
     pr = subprocess.run([CHEMPROP, "predict", "--test-path", str(tep), "--model-path", model,
                          "--preds-path", str(predp), "--smiles-columns", "smiles"],
                         capture_output=True, text=True)
@@ -135,7 +156,8 @@ def run_dataset(name, task_type, summary):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             for seed in SEEDS:
-                seed_preds.append(_train_predict(task_type, tr_smi, Y[train_idx], te_smi, cols, seed, td))
+                save_to = (OUT / "models" / f"{name}_fold{j}_seed{seed}.pt") if os.environ.get("SAVE_MODELS") else None
+                seed_preds.append(_train_predict(task_type, tr_smi, Y[train_idx], te_smi, cols, seed, td, save_to=save_to))
         pred = np.mean(np.stack(seed_preds, 0), 0)  # ensemble over seeds (mirrors eval_v2 head-seed avg)
         m = compute_metric(pred, Y[test_idx], task_type)
         fold_m.append(m)
@@ -163,6 +185,11 @@ def main():
     summary = json.loads(sp.read_text()) if sp.exists() else {}
     summary.setdefault("_arm", RUN); summary.setdefault("_protocol", "scaffold-5fold-CV")
     summary.setdefault("_foundation", FOUNDATION); summary.setdefault("_seeds", SEEDS)
+    # reproducibility recipe: these + the CheMeleon foundation checkpoint fully determine the models
+    summary.setdefault("_recipe", {"chemprop": _chemprop_version(), "epochs": EPOCHS, "patience": 15,
+                                   "split_sizes": [0.9, 0.1, 0.0], "class_balance_clf": True,
+                                   "fold_scheme": "eval_v2._scaffold_kfold_indices(seed=0)",
+                                   "seeds_ensembled_per_fold": SEEDS, "foundation_md5": _foundation_md5()})
     for name, tt in DATASETS:
         try:
             summary = run_dataset(name, tt, summary)

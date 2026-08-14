@@ -65,6 +65,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | `figA1a_best_model_headline_holdout` | 8 | `climb_v2_phase2` | single scaffold hold-out |
 | `figA1b_best_model_headline_cv` | 8 | `climb_v2_phase2` | 5-fold scaffold CV |
 | Table A1.a / A1.b | 10 | `climb_v2_phase2` | both |
+| A1 CheMeleon comparators (`chemeleon_frozen`, `chemeleon_e2e` in `climb_v2_phase2/`) | 8/10 | `climb_v2_phase2/chemeleon_{frozen,e2e}/moleculenet_cv` | 5-fold scaffold CV — produced by the chemprop path (see note ‡), NOT `eval_v2.py` |
 | `figA2a_scaling_tokens` / `figA2b_scaling_unique_molecules` | 12 | `climb_v2_phase2` (2M→100M rungs) | 5-fold CV |
 | `figB1p1_label_efficiency_train_test` | 14 | `analysis/rigor/label_efficiency_fractions_all_summary.csv` | per-task fractions 5/10/25/50/100%; 4 frozen arms + e2e; native-unit regression |
 | `figE1_H5_eval_ceiling` | 16 | `_eval_ceiling`, `_eval_ceiling_sup`, `climb_v2_phase2` | frozen probe + end-to-end finetune |
@@ -78,7 +79,7 @@ Notebook cells are 0-indexed as in `climb_figures.ipynb`. Standard 6-task set:
 | `figSV_vocab` (SI; panel a = scaling, panel b = effect size) | 32 | `climb_v2_vocab` (8 tokenizer runs) | 5-fold CV |
 | `figSA` (SI; synthetic-statistics ladder + Wikipedia arm, README §7.3–7.4; 6 core tasks, Lipo excluded) | 38 | `analysis/rigor/expA_ladder_summary.csv` (wave `climb_v2_expA` + `_baselines`) **and** `analysis/rigor/expB_wiki_summary.csv` (wave `climb_v2_expB`; wiki arm folded in as the red bar) + `wiki_coverage.json`, `wiki_vs_smiles_stats.json` guards | frozen-probe 5-fold CV, **native-unit** regression |
 | `figSA2` (SI companion; same ladder, lift over the **end-to-end** baseline) | 40 | reuses cell 38's combined frame; floor from `climb_v2_phase2/e2e_random_0*/moleculenet_cv` (native, the Fig I1 baseline) | frozen-probe arms vs end-to-end floor, 5-fold CV |
-| `figCBS_external_validation` (**MAINLINE**; external CBS VS benchmark, Truong 2026) | 42 | `experiment_cbs/{cbs_nef1_summary,cbs_per_run,cbs_reference_lines}.csv` (raw evals `figure_data/cbs_benchmark/`, wave `cbs_benchmark`) | NEF1% on the benchmark's **provided** leakage-controlled 5-fold split; A1_ORDER arms |
+| `figCBS_external_validation` (**MAINLINE**; external CBS VS benchmark, Truong 2026) | 42 | `experiment_cbs/{cbs_nef1_summary,cbs_per_run,cbs_reference_lines}.csv` (raw evals `figure_data/cbs_benchmark/`, wave `cbs_benchmark`) | NEF1% on the benchmark's **provided** leakage-controlled 5-fold split; A1_ORDER arms + CheMeleon comparators (‡) |
 
 The exact command that produced each `<wave>/<run>/moleculenet_cv/` (only `--head`/`--featurizer`
 change between model types):
@@ -96,6 +97,21 @@ python eval_v2.py --encoder figure_data/<wave>/<run>/encoder --tokenizer figure_
 # Morgan+desc+XGBoost anchor:                --featurizer fp_desc --head xgb
 # Head ablation (XGBoost on CLIMB embeddings): --head xgb  (see scripts/run_head_ablation.sh)
 ```
+
+**‡ CheMeleon / chemprop comparator arms** (on the CBS figure and the A1 MoleculeNet figure) are NOT
+produced by `eval_v2.py`. They run natively with `chemprop 2.3.1` in the `~/venvs/chemeleon` venv:
+`scripts/chemeleon_bench.py` (CheMeleon **frozen** fingerprint probe, MoleculeNet + CBS),
+`scripts/molnet_chemprop_e2e.py` (MoleculeNet CheMeleon-foundation **e2e**, scaffold-5fold),
+`scripts/cbs_chemprop_e2e.py` (CBS `chemprop_e2e` + `chemeleon_e2e`, provided folds). They reuse
+`eval_v2`'s loader/folds/metrics for 1:1 comparability; each run records its full recipe in
+`suite_summary.json["_recipe"]` (chemprop version, seeds, hyperparams, CheMeleon foundation MD5
+`6a80b54f…` from Zenodo 15460715). Models are seed-deterministic and regenerable; run with `SAVE_MODELS=1`
+to persist each fold's `best.pt`. The chemprop venv needs the numpy<2 + deepchem fix in
+`scripts/molnet_box_bootstrap.sh` (see `chemeleon_suite/HARNESS.md`).
+
+**Polaris + MoleculeACE suite** (the 58-task CheMeleon replication, possible headline benchmark) is
+self-contained under [`chemeleon_suite/`](chemeleon_suite/METHODOLOGY.md) with its own protocol, runners,
+and reproduce steps; raw evals live at `figure_data/chemeleon_suite/<track>/<model>/`.
 
 Helper scripts that batch these: `scripts/cv_all_budgets.sh` (all encoders × CV),
 `scripts/label_eff_fractions.py` + `scripts/label_eff_fractions_e2e.py` → `scripts/build_label_eff_combined.py`

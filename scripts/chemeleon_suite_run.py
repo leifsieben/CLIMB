@@ -161,6 +161,13 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
                 hd.hp = dict(hd.hp); hd.hp.update({"batch_size": 512, "epochs": 60, "patience": 8})
             hd = hd.fit(Xtr, eval_v2._scale_targets(y[tr], ysc), Xtr, eval_v2._scale_targets(y[tr], ysc))
             pred = eval_v2._unscale_preds(np.asarray(hd.predict(Xte), dtype=np.float64), ysc)
+            if ttype == "regression":
+                # Bound OOD extrapolation: an unbounded MLP over some pretrained embeddings (e.g. CheMeleon)
+                # blows up on a few test molecules far from the train distribution, wrecking RMSE. Clip to the
+                # train target range + 25% margin — physically-motivated, uniform across arms, a no-op for
+                # well-behaved features (whose predictions already sit inside this band).
+                ylo, yhi = float(np.nanmin(y[tr])), float(np.nanmax(y[tr])); m = 0.25 * (yhi - ylo + 1e-9)
+                pred = np.clip(pred, ylo - m, yhi + m)
             # always dump per-seed test predictions (Polaris scores these later via benchmark.evaluate()).
             pv = pred.ravel()
             for i in range(len(te_smi)):

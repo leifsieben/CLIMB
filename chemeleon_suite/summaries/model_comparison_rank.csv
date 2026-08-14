@@ -1,0 +1,45 @@
+panel,model,mean_rank,ci_lo,ci_hi,n_tasks
+mace_overall,CheMeleon (e2e),1.8,1.467,2.2,30
+mace_overall,XGBoost (fp+desc),2.033,1.767,2.3,30
+mace_overall,XGBoost (fp),2.5,2.167,2.833,30
+mace_overall,sup_dense_8M (e2e),5.133,4.6,5.733,30
+mace_overall,unsup_8M (e2e),5.367,4.967,5.767,30
+mace_overall,sup_dense_8M (frozen),5.867,5.299,6.433,30
+mace_overall,unsup_8M (frozen),6.167,5.633,6.633,30
+mace_overall,sup_dense+sparse_8M,7.9,7.367,8.401,30
+mace_overall,no_pretrain_random,8.633,8.233,9.0,30
+mace_overall,sup_sparse_8M,10.0,9.667,10.3,30
+mace_overall,no_pretrain_e2e,10.6,10.433,10.767,30
+mace_cliff,CheMeleon (e2e),2.333,1.8,3.0,30
+mace_cliff,XGBoost (fp+desc),2.367,1.8,3.133,30
+mace_cliff,XGBoost (fp),2.733,2.133,3.367,30
+mace_cliff,sup_dense_8M (frozen),5.733,5.033,6.4,30
+mace_cliff,sup_dense_8M (e2e),6.133,5.333,7.0,30
+mace_cliff,unsup_8M (frozen),6.2,5.5,6.9,30
+mace_cliff,unsup_8M (e2e),7.033,6.467,7.633,30
+mace_cliff,no_pretrain_random,7.1,6.267,7.834,30
+mace_cliff,sup_dense+sparse_8M,7.267,6.433,8.101,30
+mace_cliff,sup_sparse_8M,9.2,8.433,9.867,30
+mace_cliff,no_pretrain_e2e,9.9,9.1,10.5,30
+mace_noncliff,CheMeleon (e2e),1.7,1.333,2.133,30
+mace_noncliff,XGBoost (fp+desc),2.167,1.833,2.467,30
+mace_noncliff,XGBoost (fp),2.7,2.4,3.0,30
+mace_noncliff,unsup_8M (e2e),4.633,4.233,5.033,30
+mace_noncliff,sup_dense_8M (e2e),5.167,4.6,5.733,30
+mace_noncliff,sup_dense_8M (frozen),6.0,5.533,6.5,30
+mace_noncliff,unsup_8M (frozen),6.267,5.667,6.767,30
+mace_noncliff,sup_dense+sparse_8M,8.0,7.5,8.434,30
+mace_noncliff,no_pretrain_random,8.867,8.533,9.2,30
+mace_noncliff,sup_sparse_8M,9.9,9.5,10.233,30
+mace_noncliff,no_pretrain_e2e,10.6,10.367,10.8,30
+polaris,CheMeleon (e2e),2.679,1.857,3.679,28
+polaris,XGBoost (fp+desc),2.821,2.143,3.643,28
+polaris,sup_dense_8M (e2e),4.607,4.0,5.25,28
+polaris,sup_dense_8M (frozen),5.286,4.286,6.286,28
+polaris,sup_dense+sparse_8M,5.536,4.536,6.607,28
+polaris,XGBoost (fp),5.571,4.536,6.536,28
+polaris,unsup_8M (e2e),5.75,5.0,6.536,28
+polaris,unsup_8M (frozen),7.286,6.393,8.214,28
+polaris,no_pretrain_random,8.571,7.536,9.5,28
+polaris,sup_sparse_8M,8.714,7.857,9.536,28
+polaris,no_pretrain_e2e,9.179,8.607,9.75,28

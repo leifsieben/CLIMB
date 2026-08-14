@@ -40,6 +40,27 @@ FD = ROOT / "figure_data" / "cbs_benchmark"
 ARMS = [("chemprop_e2e", None), ("chemeleon_e2e", "CHEMELEON")]
 
 
+def _chemprop_version():
+    try:
+        import chemprop
+        return chemprop.__version__
+    except Exception:
+        return "unknown"
+
+
+def _foundation_md5(name):
+    """MD5 of the cached CheMeleon foundation checkpoint (Zenodo record 15460715), for provenance."""
+    if not name:
+        return None
+    import hashlib
+    p = Path.home() / ".chemprop" / "chemeleon_mp.pt"
+    if not p.exists():
+        return None
+    h = hashlib.md5()
+    h.update(p.read_bytes())
+    return h.hexdigest()
+
+
 def compute_nef(preds, labels, top_frac=0.01):
     """EXACT copy of heads_v2.compute_nef (single-column case). NEF_x% = H_a / min(n, A)."""
     y = np.asarray(labels, dtype=np.float64).ravel()
@@ -138,6 +159,10 @@ def run_arm(arm, foundation, seed):
             if model is None:
                 print(f"[cbs-chemprop] {run} fold{f}: TRAIN FAIL\nSTDERR {r.stderr[-1500:]}", flush=True)
                 return False
+            if os.environ.get("SAVE_MODELS"):   # persist the trained D-MPNN checkpoint before temp cleanup
+                import shutil
+                mdir = run_dir / "models"; mdir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(model, mdir / f"fold{f}_seed{seed}.pt")
             pr = subprocess.run([CHEMPROP, "predict", "--test-path", str(tep), "--model-path", model,
                                  "--preds-path", str(predp), "--smiles-columns", "smiles"],
                                 capture_output=True, text=True)
@@ -159,6 +184,11 @@ def run_arm(arm, foundation, seed):
         "cbs_MEAN": float(np.nanmean(fold_roc)), "cbs_STD": float(np.nanstd(fold_roc)),
         "arm": arm, "foundation": foundation, "seed": seed, "n_folds": len(folds),
         "epochs": EPOCHS, "cv_scheme": "provided", "metric": "nef1",
+        # reproducibility recipe: these + the CheMeleon foundation checkpoint fully determine the models
+        "_recipe": {"chemprop": _chemprop_version(), "task_type": "classification",
+                    "split_sizes": [0.9, 0.1, 0.0], "class_balance": True,
+                    "foundation_md5": _foundation_md5(foundation),
+                    "pytorch_seed": seed, "data_seed": seed, "fold_col": "fold (1..5, provided)"},
     }
     (out / "suite_summary.json").write_text(json.dumps(summary, indent=2))
     with (out / "per_fold.csv").open("w", newline="") as fcsv:
