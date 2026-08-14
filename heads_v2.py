@@ -122,8 +122,14 @@ class _TorchHead:
         )
 
     def fit(self, train_x, train_y, val_x, val_y):
-        from transformers import set_seed
-        set_seed(self.seed)
+        try:  # transformers.set_seed when available; identical local fallback otherwise (some
+            from transformers import set_seed  # envs, e.g. the chemprop venv, don't ship transformers)
+            set_seed(self.seed)
+        except ModuleNotFoundError:
+            import random as _random
+            _random.seed(self.seed); np.random.seed(self.seed); torch.manual_seed(self.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(self.seed)
         train_x = torch.as_tensor(np.asarray(train_x), dtype=torch.float32)
         val_x = torch.as_tensor(np.asarray(val_x), dtype=torch.float32)
         train_y = torch.as_tensor(_as2d(train_y), dtype=torch.float32)
