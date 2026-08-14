@@ -291,11 +291,32 @@ def _chemeleon_features(smiles: List[str], device, batch_size: int = 512) -> np.
     if _CHEMELEON_FP is None:
         from chemeleon_fingerprint import CheMeleonFingerprint
         _CHEMELEON_FP = CheMeleonFingerprint(device=str(device))
-    feats = []
-    for i in range(0, len(smiles), batch_size):
-        feats.append(np.asarray(_CHEMELEON_FP(list(smiles[i:i + batch_size])), dtype=np.float32))
-    return (np.concatenate(feats, axis=0) if feats
-            else np.zeros((0, 2048), dtype=np.float32))
+    from rdkit.Chem import MolFromSmiles
+    # Pre-filter RDKit-unparseable SMILES (e.g. hypervalent N in a few MoleculeNet rows): the
+    # vendored CheMeleonFingerprint passes MolFromSmiles(...) straight into chemprop's featurizer,
+    # which crashes on None / yields a ragged batch that strict NumPy rejects ("inhomogeneous
+    # shape"), aborting the whole dataset. We featurize only the valid molecules and neutral-fill
+    # the rest, keeping chemeleon_fingerprint.py pristine. No-op when every SMILES parses (CBS).
+    N = len(smiles)
+    valid_idx = [i for i, s in enumerate(smiles) if MolFromSmiles(s) is not None]
+    valid_smi = [smiles[i] for i in valid_idx]
+    feats, dim = [], None
+    for i in range(0, len(valid_smi), batch_size):
+        m = np.asarray(_CHEMELEON_FP(list(valid_smi[i:i + batch_size])), dtype=np.float32)
+        dim = dim or (m.shape[1] if m.ndim == 2 else None)
+        feats.append(m)
+    dim = dim or 2048
+    out = np.full((N, dim), np.nan, dtype=np.float32)
+    if feats:
+        allv = np.concatenate(feats, axis=0)
+        for k, idx in enumerate(valid_idx):
+            out[idx] = allv[k]
+    bad = ~np.isfinite(out).all(axis=1)          # invalid SMILES → neutral (mean) embedding
+    if bad.any():
+        col_mean = np.nanmean(out[~bad], axis=0) if (~bad).any() else np.zeros(dim, np.float32)
+        out[bad] = col_mean
+        print(f"  [chemeleon] {int(bad.sum())}/{N} invalid SMILES -> mean-filled", flush=True)
+    return out
 
 
 def _subsample_train(smiles: List[str], y: np.ndarray, n: Optional[int], seed: int):
