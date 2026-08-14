@@ -12,23 +12,23 @@ VENV="${1:-$HOME/venvs/chemeleon}"
 import deepchem, pathlib
 f = pathlib.Path(deepchem.feat.base_classes.__file__)
 lines = f.read_text().splitlines()
-if any("CLIMB patch289" in l for l in lines):
+if any("CLIMB patch-base" in l for l in lines):
     print("deepchem already patched"); raise SystemExit
-# patch the base Featurizer.featurize `return np.asarray(features)` (ragged Mol list under numpy>=1.24)
-for i, l in enumerate(lines):
-    if l.strip() == "return np.asarray(features)":
-        # confirm this is the base featurize (nearest preceding def is `def featurize(`)
-        for j in range(i, -1, -1):
-            if lines[j].lstrip().startswith("def "):
-                base = "def featurize(" in lines[j]; break
-        if not base:
-            continue
-        ind = l[:len(l) - len(l.lstrip())]
-        lines[i:i+1] = [ind+"try:", ind+"    return np.asarray(features)",
-                        ind+"except ValueError:",
-                        ind+"    return np.asarray(features, dtype=object)  # CLIMB patch289: ragged Mol list numpy>=1.24"]
-        f.write_text("\n".join(lines)+"\n"); print("patched", f); break
-else:
-    print("PATTERN NOT FOUND")
+# Patch EVERY `return np.asarray(features)` whose preceding ~10 lines contain the empty-array fallback
+# (`features.append(np.array([]))` / "Appending empty array") — that is the ragged case strict NumPy
+# (>=1.24) rejects. Matching on the fallback context (NOT just "def featurize") targets the RIGHT
+# occurrence; an earlier context-only matcher patched a sibling method and left the base one failing.
+patched, i = [], 0
+while i < len(lines):
+    if lines[i].strip() == "return np.asarray(features)":
+        ctx = "\n".join(lines[max(0, i-10):i])
+        if "features.append(np.array([]))" in ctx or "Appending empty array" in ctx:
+            ind = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+            lines[i:i+1] = [ind+"try:", ind+"    return np.asarray(features)", ind+"except ValueError:",
+                            ind+"    return np.asarray(features, dtype=object)  # CLIMB patch-base: ragged Mol list numpy>=1.24"]
+            patched.append(i+1); i += 4; continue
+    i += 1
+f.write_text("\n".join(lines)+"\n")
+print("patched deepchem base featurize at lines:", patched or "NONE FOUND")
 PY
 echo "bootstrap done for $VENV"
