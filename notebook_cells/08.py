@@ -4,9 +4,11 @@
 #        10-35x the test molecules, so it is the one that can actually separate arms).
 # Same arms, same order, same colours in both panels so they are read side by side.
 import textwrap as _tw          # module scope: later figures (E1) reuse this alias
-A1_ORDER = ["ecfp4", "fp_desc", "no_pretrain", "no_pretrain_e2e", "unsup_only",
+A1_ORDER = ["ecfp4", "fp_desc", "chemeleon_e2e", "no_pretrain", "no_pretrain_e2e", "unsup_only",
             "sup_only:dense", "sup_only:sparse_all", "sup_only:dense_plus_sparse",
             "unsup2sup:sparse_all", "unsup2sup:dense", "unsup2sup:dense_plus_sparse"]
+# `chemeleon_e2e` = external CheMeleon comparator (e2e only, user's choice). Grouped with the strong
+# comparators (fp_desc) at the front. It shows as a "pending" placeholder until its MolNet runs land.
 # `minimol_full` and `mixed` are deliberately absent from the BARS (11 is already crowded); both
 # recipes are still reported for both regimes in Table A1 below, which covers all five.
 

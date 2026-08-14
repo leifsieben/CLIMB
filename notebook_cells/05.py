@@ -72,6 +72,9 @@ def parse_run(name):
     if name=="fp_desc_anchor": return dict(seed=0,regime="fp_desc",recipe=None,budget_label=None,budget_fp=np.nan)
     if name.startswith("random_baseline"):
         return dict(seed=0,regime="no_pretrain",recipe=None,budget_label=None,budget_fp=np.nan)
+    # External published comparator: CheMeleon (Burns 2025) fine-tuned end-to-end (chemeleon_e2e{,_s1,_s2}).
+    if name=="chemeleon_e2e":
+        return dict(seed=0,regime="chemeleon_e2e",recipe=None,budget_label=None,budget_fp=np.nan)
     # Random-init encoder fine-tuned END-TO-END on the eval task (E1), scored by the A1 protocol.
     # No pretraining budget, so nothing here can be truncated.
     if name.startswith("e2e_random"):

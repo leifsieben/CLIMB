@@ -26,11 +26,18 @@ if _cbs_arms:
     vals=[_cbs_val(a) for a in _cbs_arms]; errs=[_cbs_err(a) for a in _cbs_arms]
     y=np.arange(len(_cbs_arms))[::-1]                 # first arm of A1_ORDER at the TOP
     fig,ax=plt.subplots(figsize=(STYLE["col15"],0.40*len(_cbs_arms)+1.3))
-    ax.barh(y,vals,color=[rc_color(a) for a in _cbs_arms],edgecolor="white",lw=0.4,height=0.72,
+    _CBS_PROV={"chemeleon_e2e"}      # provisional (< 3 seeds, still running) -> hatch + asterisk
+    _bars=ax.barh(y,vals,color=[rc_color(a) for a in _cbs_arms],edgecolor="white",lw=0.4,height=0.72,
             xerr=errs,error_kw=dict(lw=0.8,capsize=2.5,ecolor="#333"),zorder=3)
+    for a,_b in zip(_cbs_arms,_bars):
+        if a in _CBS_PROV: _b.set_hatch("////"); _b.set_edgecolor("#333"); _b.set_linewidth(0.6)
     for yi,v,e in zip(y,vals,errs):
         ax.text(v+e+0.015,yi,f"{v:.2f}",va="center",ha="left",fontsize=STYLE["fs_annot"],zorder=4)
-    ax.set_yticks(y); ax.set_yticklabels([rc_label(a) for a in _cbs_arms],fontsize=STYLE["fs_annot"])
+    ax.set_yticks(y)
+    ax.set_yticklabels([rc_label(a)+(" *" if a in _CBS_PROV else "") for a in _cbs_arms],fontsize=STYLE["fs_annot"])
+    if any(a in _CBS_PROV for a in _cbs_arms):
+        ax.text(0.0,-0.235,"* provisional — fewer than 3 seeds, CI will tighten",transform=ax.transAxes,
+                fontsize=STYLE["fs_annot"]-1,ha="left",va="top",color="#8e44ad")
     ax.set_xlim(0,1.08); ax.set_xlabel("NEF1%  (normalized enrichment @ top-1%, provided 5-fold split)")
     # --- Truong reference overlays (from cbs_reference_lines.csv) ---
     tt,tte=_cbs_ref("target-trained")                # CBS-specific, structure-based

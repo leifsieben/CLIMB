@@ -32,6 +32,9 @@ for r in sup_recipes:
 # Random-init encoder FINE-TUNED end-to-end on the eval task (E1). Sits next to the frozen
 # no_pretrain bar and answers a different question, so it gets its own grey, not a shared one.
 REGIME["no_pretrain_e2e"]=("#555555","o",(0,(3,2)),"no_pretrain (end-to-end)")
+# External published comparator: CheMeleon (Burns 2025) fine-tuned end-to-end, scored through our
+# eval_v2 (same folds/metrics). Distinct violet so it never reads as one of our arms.
+REGIME["chemeleon_e2e"]=("#8e44ad","P","-","CheMeleon (e2e)")
 rc_color=lambda k:REGIME[k][0]; rc_marker=lambda k:REGIME[k][1]
 rc_ls   =lambda k:REGIME[k][2]; rc_label =lambda k:REGIME[k][3]
 
