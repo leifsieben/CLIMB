@@ -2,7 +2,7 @@
  "note": "content fingerprint of the figure_data snapshot the committed figures were built from; mtime is informational and excluded from all hashes",
  "data_root": "figure_data",
  "n_files": 1237,
- "snapshot_hash": "febaea4411ed4aef323d43632f029391cc1b97eb79e559b051c802f80be12add",
+ "snapshot_hash": "05d4a2e9553a29c42fbb15ccf107ea8e9702507af43dd6eb8af45bb36c2435ef",
  "files": {
   "cbs_benchmark/chemeleon_e2e_s0/moleculenet_cv/suite_summary.json": {
    "bytes": 295,
@@ -1970,14 +1970,14 @@
    "mtime": "2026-07-21T20:24"
   },
   "climb_v2_phase2/chemeleon_e2e/moleculenet_cv/suite_summary.json": {
-   "bytes": 323,
-   "sha256": "a556a5ac906a1a0deb5377f50d40d329090e6bb6f493c09e288803eeb196373e",
-   "mtime": "2026-08-14T14:10"
+   "bytes": 895,
+   "sha256": "30be0fb29f826c1315779f8b29dbc123a6d3da9397df9df2bfae92c38373bd91",
+   "mtime": "2026-08-14T21:41"
   },
   "climb_v2_phase2/chemeleon_frozen/moleculenet_cv/suite_summary.json": {
    "bytes": 773,
    "sha256": "2bc580526c669489ae07eff1f4cd84e14109e70e3248128fff6545d7465a1998",
-   "mtime": "2026-08-14T14:11"
+   "mtime": "2026-08-14T21:39"
   },
   "climb_v2_phase2/corrupt_mlm_8M/moleculenet/suite_summary.json": {
    "bytes": 1474,
@@ -6889,7 +6889,7 @@
   "climb_v2_phase2/chemeleon_frozen/moleculenet_cv/test_predictions.csv": {
    "bytes": 16556035,
    "sha256": "702f8618f4cab29e2314c8ddf9942c468cb13c56c86c05e5d1f05620162adb5b",
-   "mtime": "2026-08-14T14:11",
+   "mtime": "2026-08-14T21:39",
    "rows_by_dataset": {
     "BACE": 1513,
     "BBBP": 2039,
