@@ -39,6 +39,9 @@ TASKS = [("ESOL", False, "rmse", "ESOL", "rmse"), ("QM7", False, "rmse", "QM7", 
 # arm -> seed runs (mirror notebook cell 10 ARMS)
 SUP = ["dense", "sparse_all", "dense_plus_sparse", "minimol_full", "mixed"]
 ARM_RUNS = {"ecfp4": ["ecfp4_anchor"], "fp_desc": ["fp_desc_anchor"],
+            # External comparator CheMeleon (e2e), 3 seeds. runs[0] drives the bootstrap; the 3 dirs
+            # give the seed spread. No hold-out run -> holdout preds are None -> A1.a stays n.d.
+            "chemeleon_e2e": ["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
             "no_pretrain": ["random_baseline_00", "random_baseline_01", "random_baseline_02"],
             "no_pretrain_e2e": ["e2e_random_00", "e2e_random_01", "e2e_random_02"],
             "unsup_only": ["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"]}
@@ -156,7 +159,7 @@ def main():
     full = run_family("full", FULL_ARMS, ["cv", "holdout"])
     # CLIMB-only family (drop the two XGBoost anchors): drives the "CLIMB-only x/n" column, i.e.
     # co-best AMONG CLIMB arms relative to the best CLIMB arm. CV only (that column is CV).
-    climb_arms = [a for a in FULL_ARMS if a not in ("ecfp4", "fp_desc")]
+    climb_arms = [a for a in FULL_ARMS if a not in ("ecfp4", "fp_desc", "chemeleon_e2e")]
     climb = run_family("climb", climb_arms, ["cv"])
     matrix = run_family("matrix", MATRIX_ARMS, ["cv", "holdout"])
     df = pd.concat([full, climb, matrix], ignore_index=True)

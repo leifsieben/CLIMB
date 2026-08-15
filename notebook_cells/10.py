@@ -20,6 +20,13 @@ ARMS = {"ecfp4":           dict(label="Morgan+XGBoost (ECFP4)", runs=["ecfp4_anc
                                 unsup=0, dense=0, assay=0),
         "fp_desc":         dict(label="Morgan+desc+XGBoost", runs=["fp_desc_anchor"],
                                 unsup=0, dense=0, assay=0),
+        # External comparator: CheMeleon (Burns 2025), fine-tuned end-to-end (e2e only, LS's call).
+        # Pretrained on an EXTERNAL corpus, so OUR unsup/sup molecule budget does not apply -> "ext.".
+        # NOT a CLIMB arm: excluded from the CLIMB-only co-best family below. No single-split run, so
+        # its A1.a hold-out estimate is legitimately n.d.
+        "chemeleon_e2e":   dict(label="CheMeleon (e2e)", external=True,
+                                runs=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
+                                unsup=np.nan, dense=np.nan, assay=np.nan),
         "no_pretrain":     dict(label="no_pretrain (frozen)", unsup=0, dense=0, assay=0,
                                 runs=["random_baseline_00", "random_baseline_01", "random_baseline_02"]),
         # E1 re-run under the A1 protocol; the dirs appear once those jobs land, and every number
@@ -93,6 +100,7 @@ def _hold_est(task, arm):       # (point, ci_lo, ci_hi): hold-out estimate + clu
 
 # ---- assemble ------------------------------------------------------------------------------
 def _fmt_mol(n):
+    if isinstance(n, float) and np.isnan(n): return "ext."   # external comparator: not on our budget
     if n is None or n == 0: return "0"
     return f"{n/1e6:.2f} M" if n >= 1e6 else f"{n/1e3:.1f} k"
 
@@ -100,7 +108,7 @@ def a1_summary_cv():
     """A1.b (CV) ranking table. 'co-best' = not distinguishable from the per-task leader at BH-FDR
     q>=0.05 (cluster bootstrap); 'beats no_pretrain' = q<0.05 in the arm's favour. All from the CSV."""
     active = [a for a in ARMS if any(_scored(a, t, "moleculenet_cv") for t in CORE_TASKS)]
-    climb  = [a for a in active if a not in ("ecfp4", "fp_desc")]   # drop only the XGBoost anchors
+    climb  = [a for a in active if a not in ("ecfp4", "fp_desc", "chemeleon_e2e")]  # anchors + external comparator
     scored_tasks = [t for t in CORE_TASKS if all(_scored(a, t, "moleculenet_cv") for a in active)]
     BEATS = {"beats no_pretrain (frozen)": ("no_pretrain", "beats_frozen"),
              "beats no_pretrain (e2e)":    ("no_pretrain_e2e", "beats_e2e")}

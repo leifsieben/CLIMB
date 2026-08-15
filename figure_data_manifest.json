@@ -1,8 +1,8 @@
 {
  "note": "content fingerprint of the figure_data snapshot the committed figures were built from; mtime is informational and excluded from all hashes",
  "data_root": "figure_data",
- "n_files": 1237,
- "snapshot_hash": "05d4a2e9553a29c42fbb15ccf107ea8e9702507af43dd6eb8af45bb36c2435ef",
+ "n_files": 1242,
+ "snapshot_hash": "ad7dee55f0ccf1f9421a87f2cae99d4ebaf2a3cdef2c21690bd501aa80b9a201",
  "files": {
   "cbs_benchmark/chemeleon_e2e_s0/moleculenet_cv/suite_summary.json": {
    "bytes": 295,
@@ -1970,9 +1970,19 @@
    "mtime": "2026-07-21T20:24"
   },
   "climb_v2_phase2/chemeleon_e2e/moleculenet_cv/suite_summary.json": {
-   "bytes": 895,
-   "sha256": "30be0fb29f826c1315779f8b29dbc123a6d3da9397df9df2bfae92c38373bd91",
-   "mtime": "2026-08-14T21:41"
+   "bytes": 1195,
+   "sha256": "cf5f42325c7ce31e7901a1afc57f6c6ee1f36fabe580295ca508cce0fb24da17",
+   "mtime": "2026-08-15T09:19"
+  },
+  "climb_v2_phase2/chemeleon_e2e_s1/moleculenet_cv/suite_summary.json": {
+   "bytes": 1209,
+   "sha256": "ab299758645a6e8fb974c33a87f2eb80a0e3fae7ca68b0661e92e632d8be1421",
+   "mtime": "2026-08-15T09:19"
+  },
+  "climb_v2_phase2/chemeleon_e2e_s2/moleculenet_cv/suite_summary.json": {
+   "bytes": 1211,
+   "sha256": "ec92d9405c975f365c506c10fcead21b58a4547e0090f06baec2625b1d836034",
+   "mtime": "2026-08-15T09:31"
   },
   "climb_v2_phase2/chemeleon_frozen/moleculenet_cv/suite_summary.json": {
    "bytes": 773,
@@ -6884,6 +6894,48 @@
     "Lipophilicity": 4200,
     "QM7": 6838,
     "Tox21": 93876
+   }
+  },
+  "climb_v2_phase2/chemeleon_e2e/moleculenet_cv/test_predictions.csv": {
+   "bytes": 16742142,
+   "sha256": "0ea712742026937ab3ed371125c73832c12f6d6ac3bc678322f6a4e4acf186d8",
+   "mtime": "2026-08-15T09:19",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41120,
+    "Lipophilicity": 4200,
+    "QM7": 6838,
+    "Tox21": 77864
+   }
+  },
+  "climb_v2_phase2/chemeleon_e2e_s1/moleculenet_cv/test_predictions.csv": {
+   "bytes": 16747302,
+   "sha256": "0233447b155084e25c9ef2add97f2854fbe473b3737e23993364d43c75714b28",
+   "mtime": "2026-08-15T09:19",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41120,
+    "Lipophilicity": 4200,
+    "QM7": 6838,
+    "Tox21": 77864
+   }
+  },
+  "climb_v2_phase2/chemeleon_e2e_s2/moleculenet_cv/test_predictions.csv": {
+   "bytes": 16744548,
+   "sha256": "9712524530218aeaec950debded046165ce158bd4695ca6e336a03bdd6ddf103",
+   "mtime": "2026-08-15T09:31",
+   "rows_by_dataset": {
+    "BACE": 1513,
+    "BBBP": 2039,
+    "ESOL": 1128,
+    "HIV": 41120,
+    "Lipophilicity": 4200,
+    "QM7": 6838,
+    "Tox21": 77864
    }
   },
   "climb_v2_phase2/chemeleon_frozen/moleculenet_cv/test_predictions.csv": {
