@@ -37,12 +37,14 @@ add them (or a share link) in each repo's **Settings → sharing** on the Hub.
   `experiment_cbs/*.csv` into `climb-results` without touching other waves).
 - **MoleculeNet CheMeleon arms** (`chemeleon_frozen`, `chemeleon_e2e`) live under `climb_v2_phase2/`, so
   the standard `publish_to_hf.py --repo results --execute` re-sync picks them up.
-- **Polaris + MoleculeACE suite** (`figure_data/chemeleon_suite/`) is not yet wired into a publisher —
-  add it to `PAPER_WAVES` (or a `upload_chemeleon_suite_results_hf.py` mirror of the CBS uploader) before
-  the suite becomes a headline result.
+- **MoleculeNet CheMeleon arms + Polaris/MoleculeACE suite** →
+  `scripts/upload_chemeleon_molnet_hf.py --org lsieben --execute` (surgical: stages
+  `climb_v2_phase2/chemeleon_{frozen,e2e,e2e_s1,e2e_s2}/moleculenet_cv/` incl per-molecule OOF, and
+  `chemeleon_suite/<track>/<model>/`, into `climb-results` without touching other waves).
 
-> The MoleculeNet CheMeleon **e2e** arm is now complete (all 7 tasks × 3 seeds, in S3 + local) — the
-> CBS + MoleculeNet CheMeleon results are ready to push; run the two commands above once logged in.
+> **Pushed 2026-08-15** (all in `lsieben/climb-results`, private): `cbs_benchmark/` (CBS incl CheMeleon
+> comparators), `climb_v2_phase2/chemeleon_{frozen,e2e,e2e_s1,e2e_s2}/`, and `chemeleon_suite/`
+> (Polaris 76 + MoleculeACE 57 files). Re-run the two uploaders to re-sync after any change (idempotent).
 
 The 124M pre-training corpus is **not** re-hosted — the pretrain card links to
 [`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC)
