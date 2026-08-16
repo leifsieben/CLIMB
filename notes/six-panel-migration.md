@@ -91,11 +91,25 @@ Legend: **frozen** = re-eval needs only the saved encoder (cheap); **e2e** = per
 
 ## Execution waves
 - **Wave 1 — mainline re-aggregation (local, ~0 compute):** `scripts/six_panel_aggregate.py`
-  → `figure_data/six_panel/mainline_8M.csv` + bootstrap. DONE / in progress.
-- **Wave 2 — scaling frozen re-eval (1 GPU box, ~10 GPU-h):** `scripts/six_panel_frozen_reeval.py`
-  syncs encoders, evals MoleculeACE+CBS, writes `scaling_{a2,h1,vocab}.csv`. STATUS: set up.
-- **Wave 3 — e2e retraining (GPU, costed separately):** fraction-grid e2e on the new panels.
-  STATUS: **flagged, awaiting go-ahead** (compute + scope decision).
+  → `figure_data/six_panel/mainline_8M.csv` + bootstrap. **DONE.**
+- **Wave 2 — scaling frozen re-eval:** `scripts/six_panel_frozen_reeval.py` +
+  `scripts/six_panel_w2_run.sh` (gated self-shutdown). **LAUNCHED 2026-08-16** on
+  **i-073b5c44d553791d9** (g5.xlarge A10G on-demand, us-east-1f, 98.92.104.143). 61 scaling
+  encoders (A2 23 + H1 30 + vocab 8) × MoleculeACE frozen. MoleculeACE results land in
+  `figure_data/chemeleon_suite/moleculeace/<prefix>/` (+ S3), one home for all arms+scales.
+  Box self-stops only when `figure_data/SIX_PANEL_W2_DONE` is written (all encoders' MoleculeACE
+  verified). ~5–10 GPU-h. Aggregation into `six_panel/scaling_{a2,h1,vocab}.csv` is a follow-up
+  local step once results are back.
+  - **CBS scaling panel BLOCKED:** the raw `data/cbs.csv` (with the UMAP provided-fold column)
+    lived only on the terminated CBS box — not on S3, not local. Molecule labels are recoverable
+    from `cbs_benchmark/*/moleculenet_cv/test_predictions.csv`, but the FOLD assignment is lost, so
+    CBS-per-scaling-point can't be reproduced comparably to the 8M CBS numbers. Driver auto-skips
+    CBS while `data/cbs.csv` is absent and will pick it up on re-run once staged. DECISION NEEDED:
+    locate the original cbs.csv, or regenerate folds (breaks cross-comparability with the 8M panel).
+- **Wave 3 — e2e retraining, best-two arms only (`unsup_only`, `sup_only:dense`):** full-data +
+  fraction-grid e2e on the new panels. e2e fraction knob = `finetune_e2e_v2.evaluate_finetuned(
+  train_subsample, subsample_seed)`, hold-out only (NOT cv). Template: `scripts/chemeleon_suite_e2e.py`.
+  STATUS: **set up next** (own box or chained after Wave 2); CBS sub-panel shares the same blocker.
 
 ## Cross-session
 The ipynb (notebook/figures) session was informed of: the 6-panel definition, the MoleculeACE
