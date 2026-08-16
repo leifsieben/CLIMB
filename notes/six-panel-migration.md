@@ -106,10 +106,15 @@ Legend: **frozen** = re-eval needs only the saved encoder (cheap); **e2e** = per
     CBS-per-scaling-point can't be reproduced comparably to the 8M CBS numbers. Driver auto-skips
     CBS while `data/cbs.csv` is absent and will pick it up on re-run once staged. DECISION NEEDED:
     locate the original cbs.csv, or regenerate folds (breaks cross-comparability with the 8M panel).
-- **Wave 3 — e2e retraining, best-two arms only (`unsup_only`, `sup_only:dense`):** full-data +
-  fraction-grid e2e on the new panels. e2e fraction knob = `finetune_e2e_v2.evaluate_finetuned(
-  train_subsample, subsample_seed)`, hold-out only (NOT cv). Template: `scripts/chemeleon_suite_e2e.py`.
-  STATUS: **set up next** (own box or chained after Wave 2); CBS sub-panel shares the same blocker.
+- **Wave 3 — e2e crossover, best-two arms (`unsup_only`=unsup_8M, `sup_only:dense`=skip_dense_8M):**
+  fraction-grid (5/10/25/50/100%, 3 ft-seeds) e2e on **{BACE, BBBP, Tox21, QM7}** — the proven
+  `_load_moleculenet` path, and where a crossover can exist (Tox21/QM7 large; MoleculeACE is all
+  small-data + its full-data e2e already exists). `scripts/six_panel_e2e.py` +
+  `scripts/six_panel_w3_run.sh` (gated self-shutdown). **LAUNCHED 2026-08-16** on
+  **i-0f2cc9b191af73ef2** (g4dn.xlarge T4, us-east-1e, 18.210.27.145). Long rows ->
+  `analysis/rigor/six_panel_e2e.csv` (+ S3 `experiments/six_panel/`). Marker `SIX_PANEL_W3_DONE`.
+  - CBS e2e + MoleculeACE-fraction e2e NOT in this pass (custom-task finetune path / low-value
+    small-data). Follow-up if the 4-panel crossover warrants it.
 
 ## Cross-session
 The ipynb (notebook/figures) session was informed of: the 6-panel definition, the MoleculeACE
