@@ -82,6 +82,28 @@ def _herg_done(prefix):
         return False
 
 
+def _would_clobber(prefix):
+    """True if this prefix already holds a MULTI-task Polaris dir.
+
+    chemeleon_suite_run.py REWRITES results.csv / test_predictions.csv for exactly the tasks in
+    polaris_tasks.txt — it does not merge. This driver reduces that file to the single line
+    "tdcommons/herg", so pointing it at a prefix that already has the full 28-task Polaris run
+    destroys the other 27 (both the scores AND the per-seed predictions).
+
+    That is what happened on 2026-08-16 to skip_dense_8M, skip_dense_plus_sparse_8M,
+    skip_sparse_all_8M, unsup_8M and u2s_dense_from8M (notes/polaris-clobber-recovery-2026-08-17.md):
+    only the means survived, in an older summary CSV. Refuse rather than repeat it — a prefix that
+    already has full Polaris coverage already has hERG in it.
+    """
+    f = ROOT / "figure_data" / "chemeleon_suite" / "polaris" / prefix / "polaris_scores.csv"
+    if not f.exists():
+        return False
+    try:
+        return len({r["task"] for r in csv.DictReader(open(f))}) > 1
+    except Exception:
+        return False
+
+
 def main():
     if not (ROOT / TOK_STD / "tokenizer.json").exists():
         (ROOT / TOK_STD).mkdir(parents=True, exist_ok=True)
@@ -92,6 +114,11 @@ def main():
     for prefix, wave, own_tok in man:
         if _herg_done(prefix):
             log(f"SKIP {prefix} (herg done)"); ok += 1; continue
+        if _would_clobber(prefix):
+            log(f"REFUSE {prefix}: already has a full multi-task Polaris dir — running the "
+                f"herg-only task list here would destroy the other 27 tasks. Skipping.")
+            ok += 1
+            continue
         enc, tok = _stage(prefix, wave, own_tok)
         if not Path(enc, "model.safetensors").exists():
             log(f"ERROR {prefix}: encoder missing after sync"); continue
