@@ -31,6 +31,14 @@ ARMS = [
     ("unsup2sup:dense",             "u2s_dense_from8M,u2s_dense_from8M_s1,u2s_dense_from8M_s2"),
     ("unsup2sup:sparse_all",        "u2s_sparse_all_from8M,u2s_sparse_all_from8M_s1,u2s_sparse_all_from8M_s2"),
     ("unsup2sup:dense_plus_sparse", "u2s_dense_plus_sparse_from8M,u2s_dense_plus_sparse_from8M_s1,u2s_dense_plus_sparse_from8M_s2"),
+    # The four long-standing CBS gaps, filled 2026-08-17. NOTE: base pretraining seed only (the
+    # _s1/_s2 replicates were never run on CBS for these recipes), so n_seeds=1 here vs 3 above.
+    ("sup_only:mixed",              "skip_mixed_8M"),
+    ("sup_only:minimol_full",       "skip_minimol_full_8M"),
+    ("unsup2sup:mixed",             "u2s_mixed_from8M"),
+    ("unsup2sup:minimol_full",      "u2s_minimol_full_from8M"),
+    # Catastrophic-forgetting mirror (sup 8M -> 2M MLM). Picked up automatically once it lands.
+    ("sup2unsup:dense",             "s2u_dense_from8M_s0,s2u_dense_from8M_s1,s2u_dense_from8M_s2"),
     # External CheMeleon / chemprop comparators (Burns et al. 2025), same provided folds + NEF1%:
     ("chemeleon_frozen",            "chemeleon_frozen"),                                       # CheMeleon fingerprint + probe
     ("chemprop_e2e",                "chemprop_e2e_s0,chemprop_e2e_s1,chemprop_e2e_s2"),        # vanilla D-MPNN, e2e
@@ -43,10 +51,13 @@ def _mean(xs):
 
 
 def _std(xs):
+    """SAMPLE sd (ddof=1) over pretraining seeds — these are a sample of training runs, not the
+    population. Was ddof=0 until 2026-08-17, which understated the spread by sqrt(n/(n-1)) = 22%
+    at n=3 and disagreed with the sample sd the figure layer uses."""
     if len(xs) < 2:
         return 0.0
     m = _mean(xs)
-    return (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5
+    return (sum((x - m) ** 2 for x in xs) / (len(xs) - 1)) ** 0.5
 
 
 def _load(run):
