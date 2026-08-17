@@ -20,7 +20,7 @@ FD = ROOT / "figure_data"
 # (local dir, path-in-repo) pairs. MoleculeNet CheMeleon arms live under the climb_v2_phase2 wave.
 MOLNET_ARMS = ["chemeleon_frozen", "chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"]
 # raw per-run eval files worth publishing (no analysis on top)
-ALLOW = ["*.json", "*.csv"]
+ALLOW = ["*.json", "*.csv", "*.md"]
 
 
 def main() -> int:
@@ -50,6 +50,16 @@ def main() -> int:
     suite = FD / "chemeleon_suite"
     if suite.exists():
         uploads.append((suite, "chemeleon_suite"))
+    # The aggregated 6-panel tables the figures actually read (mainline_8M*, scaling_ladders,
+    # labeleff_clean_*, STATUS.md). Added 2026-08-17: these were covered by NO uploader, so the
+    # paper's core tables would never have reached HF at all.
+    sixp = FD / "six_panel"
+    if sixp.exists():
+        uploads.append((sixp, "six_panel"))
+    # rigor/analysis tables (bootstrap co-best, label-efficiency summaries, ...)
+    rig = ROOT / "analysis" / "rigor"
+    if rig.exists():
+        uploads.append((rig, "analysis_rigor"))
 
     for local, pir in uploads:
         n = sum(1 for _ in local.rglob("*") if _.is_file())
