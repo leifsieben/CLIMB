@@ -316,9 +316,30 @@ def _run_random_baseline(run: dict) -> str:
 
 
 def _backup_to_s3(run: dict) -> None:
+    """Back up EVERYTHING irreplaceable: metrics, eval outputs, AND the trained encoder.
+
+    The encoder used to be excluded here "to save bandwidth". That is the one file that cannot be
+    regenerated without repeating the whole pretraining run, and it nearly cost us the three
+    s2u_dense_from8M checkpoints on 2026-08-17: the box self-stopped on completion, the results had
+    synced, and the encoders existed on that instance's disk and nowhere else — one terminate away
+    from being gone. 165 MB per run is nothing against re-pretraining. Never exclude it again.
+    """
     run_dir = Path(run["output_dir"])
     s3_uri = run["backup_s3_uri"]
-    # Sync only essential files (skip large model dirs to save bandwidth).
+    enc = run_dir / "encoder"
+    if enc.exists():
+        try:
+            subprocess.run(["aws", "s3", "sync", str(enc), f"{s3_uri}/encoder", "--only-show-errors"],
+                           check=False, timeout=1800)
+        except Exception:
+            pass
+    tok = run_dir / "tokenizer"
+    if tok.exists():
+        try:
+            subprocess.run(["aws", "s3", "sync", str(tok), f"{s3_uri}/tokenizer", "--only-show-errors"],
+                           check=False, timeout=600)
+        except Exception:
+            pass
     essentials = ["metrics.jsonl", "metadata.json", "config.yaml", "run_status.json", "heartbeat.json", "verified.json"]
     for f in essentials:
         src = run_dir / f
