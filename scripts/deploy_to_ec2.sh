@@ -28,7 +28,7 @@ rsync -rlptz --prune-empty-dirs \
   --exclude='preparing_datasets/raw_data' --exclude='preparing_datasets/archive' \
   --exclude='*.pem' \
   --include='*/' \
-  --include='*.py' --include='*.yaml' --include='*.json' --include='*.sh' \
+  --include='*.py' --include='*.yaml' --include='*.json' --include='*.sh' --include='*.txt' \
   --exclude='*' \
   -e "ssh -i $KEY -o StrictHostKeyChecking=no -o ConnectTimeout=20" \
   "$REPO_ROOT/" "$USER@$HOST_IP:$REMOTE_DIR/"
