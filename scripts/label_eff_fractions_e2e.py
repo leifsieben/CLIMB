@@ -33,19 +33,21 @@ from eval_v2 import _load_moleculenet
 from finetune_e2e_v2 import evaluate_finetuned, FT_HPARAMS
 from config_v2 import MOLECULENET_TASKS_V2
 
+import os
 ENC = "figure_data/climb_v2_phase2/random_baseline_00/encoder"
 TOK = "figure_data/_tokenizer"
-TASKS = ["ESOL", "Lipophilicity", "QM7", "BBBP", "BACE", "Tox21", "HIV"]
+# env overrides (LE_TASKS / LE_SEEDS / LE_LONG / LE_SUMM / LE_CELLROOT) for the clean 3-task re-run.
+TASKS = os.environ.get("LE_TASKS", "ESOL Lipophilicity QM7 BBBP BACE Tox21 HIV").split()
 TYPE = dict(MOLECULENET_TASKS_V2)
 FRACTIONS = [0.05, 0.10, 0.25, 0.50, 1.00]
-FT_SEEDS = [0, 1, 2]           # fine-tune seeds (this arm's analogue of head_seeds)
+FT_SEEDS = list(range(int(os.environ.get("LE_SEEDS", "3"))))   # fine-tune seeds (analogue of head_seeds)
 EPOCHS = FT_HPARAMS["epochs"]
 
-CELLROOT = Path("figure_data/climb_v2_labeleff_v2_frac_e2e")   # per-cell fine-tune outputs
+CELLROOT = Path(os.environ.get("LE_CELLROOT", "figure_data/climb_v2_labeleff_v2_frac_e2e"))
 CELLROOT.mkdir(parents=True, exist_ok=True)
 OUT = Path("analysis/rigor"); OUT.mkdir(parents=True, exist_ok=True)
-LONG = OUT / "label_efficiency_fractions_e2e.csv"
-SUMM = OUT / "label_efficiency_fractions_e2e_summary.csv"
+LONG = Path(os.environ.get("LE_LONG", str(OUT / "label_efficiency_fractions_e2e.csv")))
+SUMM = Path(os.environ.get("LE_SUMM", str(OUT / "label_efficiency_fractions_e2e_summary.csv")))
 
 
 def n_for(task: str, frac: float) -> int:

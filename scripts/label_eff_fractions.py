@@ -35,7 +35,7 @@ Writes:
 """
 from __future__ import annotations
 import warnings; warnings.filterwarnings("ignore")
-import sys, time
+import os, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np, pandas as pd, torch
@@ -50,17 +50,21 @@ from transformers import ModernBertModel, PreTrainedTokenizerFast
 
 SRC = "figure_data/climb_v2_phase2"
 TOK = "figure_data/_tokenizer"
-ARMS = {"random": "random_baseline_00", "unsup": "unsup_8M",
-        "sup": "skip_dense_8M", "unsup2sup": "u2s_dense_from8M"}
-TASKS = ["ESOL", "Lipophilicity", "QM7", "BBBP", "BACE", "Tox21", "HIV"]
+_ALL_ARMS = {"random": "random_baseline_00", "unsup": "unsup_8M",
+             "sup": "skip_dense_8M", "unsup2sup": "u2s_dense_from8M"}
+# env overrides (LE_ARMS / LE_TASKS / LE_SEEDS / LE_LONG / LE_SUMM) let the "clean 3-task" re-run
+# reuse this proven scorer without editing constants; defaults preserve the original behaviour.
+_arm_sel = os.environ.get("LE_ARMS", "").split()
+ARMS = {a: _ALL_ARMS[a] for a in _arm_sel} if _arm_sel else _ALL_ARMS
+TASKS = os.environ.get("LE_TASKS", "ESOL Lipophilicity QM7 BBBP BACE Tox21 HIV").split()
 TYPE = dict(MOLECULENET_TASKS_V2)
 FRACTIONS = [0.05, 0.10, 0.25, 0.50, 1.00]
-HEAD_SEEDS = [0, 1, 2]
+HEAD_SEEDS = list(range(int(os.environ.get("LE_SEEDS", "3"))))
 POOL, ML, STD, HEAD = "mean", 256, "zscore", "mlp"
 
 OUT = Path("analysis/rigor"); OUT.mkdir(parents=True, exist_ok=True)
-LONG = OUT / "label_efficiency_fractions.csv"
-SUMM = OUT / "label_efficiency_fractions_summary.csv"
+LONG = Path(os.environ.get("LE_LONG", str(OUT / "label_efficiency_fractions.csv")))
+SUMM = Path(os.environ.get("LE_SUMM", str(OUT / "label_efficiency_fractions_summary.csv")))
 
 device = torch.device("cuda" if torch.cuda.is_available()
                       else "mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
