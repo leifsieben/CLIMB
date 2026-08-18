@@ -256,6 +256,43 @@ def polaris_cells(base, task, metric):
 
 
 # ---------------------------------------------------------------- main ----------------------
+def check_panel_units(rows):
+    """Fail loudly when one panel's arms are not all in the same UNIT.
+
+    Added 2026-08-18 after QM7 shipped mixed: the frozen MolNet path evaluates QM7 with
+    standardize=zscore and reports the NORMALIZED rmse (~0.85), while the e2e/CheMeleon runners
+    report native kcal/mol (~199). The aggregator takes each arm's number as-is, so the panel
+    inherited both conventions and CheMeleon's bar came out ~230x its neighbours'. Nothing in the
+    pipeline noticed, because every arm was internally self-consistent — the defect only exists
+    BETWEEN arms.
+
+    Heuristic, deliberately crude: within a panel, if the largest value is more than 25x the
+    smallest, these are not the same units. That is far outside any real model-quality spread and
+    has no false positives on the current suite.
+    """
+    import collections
+    by_panel = collections.defaultdict(list)
+    for r in rows:
+        try:
+            v = abs(float(r["value"]))
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            by_panel[r["panel"]].append((v, r["arm"]))
+    bad = []
+    for panel, vals in by_panel.items():
+        if len(vals) < 2:
+            continue
+        lo, hi = min(vals), max(vals)
+        if hi[0] / lo[0] > 25:
+            bad.append((panel, lo, hi))
+    for panel, lo, hi in bad:
+        print(f"  UNIT WARNING  {panel}: values span {hi[0]/lo[0]:.0f}x "
+              f"({lo[1]}={lo[0]:.4g} vs {hi[1]}={hi[0]:.4g}) — almost certainly a unit mismatch "
+              f"between arms, NOT a quality difference. Do not plot this panel until it is fixed.")
+    return bad
+
+
 def main():
     rows, long_rows, boot_rows = [], [], []
     have = collections.defaultdict(dict)  # arm -> panel -> True/False
@@ -364,6 +401,7 @@ def main():
     print(f"wrote {OUT/'mainline_8M_long.csv'}       {len(long_rows):4d} rows")
     print(f"wrote {OUT/'mainline_8M_bootstrap.csv'}  {len(boot_rows):4d} rows")
     print(f"wrote {OUT/'STATUS.md'}")
+    check_panel_units(rows)
     print(f"\ncoverage: {len(ARM_ORDER)*len(PANEL_ORDER)-len(missing)}/{len(ARM_ORDER)*len(PANEL_ORDER)}"
           f" arm x panel cells filled; {len(missing)} missing")
     for a, p in missing:
