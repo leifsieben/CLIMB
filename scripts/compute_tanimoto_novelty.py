@@ -81,15 +81,41 @@ def _load_corpus(ref_n: int, cache: Path) -> list[str]:
     return smi
 
 
+# The canonical six-panel suite uses a SECOND prediction schema. eval_v2 writes
+# raw_smiles/dataset, but the chemeleon_suite runners (MoleculeACE, Polaris) write task/smiles --
+# so a plain raw_smiles reader silently skipped every MoleculeACE and Ames molecule and this table
+# stayed MoleculeNet-only. That is what left fig_C1/fig_C2 with no x-axis for the canonical panels.
+# Both schemas are read here; unknown files are skipped as before rather than guessed at.
+POLARIS_TASK = "tdcommons/ames"          # the Polaris panel; the track scores 28 tasks, we bin one
+
+
 def _collect_eval_molecules() -> list[str]:
     seen = {}
+
+    def add(smi, label):
+        smi = (smi or "").strip()
+        if smi and smi not in seen:
+            seen[smi] = label
+
     for p in sorted(Path("figure_data").glob("**/test_predictions.csv")):
+        parts = set(p.parts)
         try:
             with open(p) as fh:
-                for row in csv.DictReader(fh):
-                    s = (row.get("raw_smiles") or "").strip()
-                    if s and s not in seen:
-                        seen[s] = row.get("dataset", "")
+                rd = csv.DictReader(fh)
+                cols = set(rd.fieldnames or [])
+                if "raw_smiles" in cols:                      # eval_v2 schema (MolNet + CBS)
+                    for row in rd:
+                        ds = (row.get("dataset") or "").strip()
+                        add(row.get("raw_smiles"), "CBS" if ds.lower() == "cbs" else ds)
+                elif "smiles" in cols:                        # chemeleon_suite schema
+                    if "moleculeace" in parts:
+                        # pooled over the 30 targets, matching the MoleculeACE PANEL the figures plot
+                        for row in rd:
+                            add(row.get("smiles"), "MoleculeACE")
+                    elif "polaris" in parts:
+                        for row in rd:
+                            if (row.get("task") or "").strip() == POLARIS_TASK:
+                                add(row.get("smiles"), "Ames")
         except Exception as e:
             _log(f"  skip {p}: {e}")
     return list(seen), seen
