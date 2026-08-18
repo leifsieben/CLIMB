@@ -156,6 +156,15 @@ def feat_fp_desc(smiles: List[str]) -> np.ndarray:
 _RDKIT_FEATURIZERS = {"ecfp4": feat_ecfp4, "rdkit_desc": feat_rdkit_desc, "fp_desc": feat_fp_desc}
 
 
+def feat_chemeleon(smiles, device_str="cpu"):
+    """Frozen CheMeleon fingerprint -- the SAME call that produces the chemeleon_frozen embeddings
+    used in A1/A2/Fig F, so cost lines up with accuracy. Needs the chemprop venv."""
+    import sys, torch
+    sys.path.insert(0, str(REPO_ROOT))
+    import eval_v2 as _E
+    return _E._chemeleon_features(list(smiles), torch.device(device_str))
+
+
 def _pool_worker(args):
     """Top-level so it pickles under macOS spawn."""
     name, chunk = args
@@ -390,6 +399,9 @@ def main():
                    help="processes for the parallel RDKit run (0 = skip)")
     p.add_argument("--skip_rdkit", action="store_true")
     p.add_argument("--skip_encoder", action="store_true")
+    p.add_argument("--bench_chemeleon", action="store_true",
+                   help="also time the frozen CheMeleon fingerprint (needs the chemprop venv). "
+                        "Same molecules/warm-up/repeats as every other row by construction.")
     p.add_argument("--hardware_label", default=None,
                    help="short label for this machine, e.g. 'M4 Pro' or 'g5.2xlarge A10G'")
     p.add_argument("--out", default=str(REPO_ROOT / "figure_data" / "_bench" / "featurization_timing.json"))
@@ -460,6 +472,28 @@ def main():
 
     # ---- encoder ----
     tok_info = None
+    if args.bench_chemeleon:
+        import torch
+        for dev in [d.strip() for d in args.devices.split(",") if d.strip()]:
+            if dev == "cuda" and not torch.cuda.is_available():
+                print("[bench] chemeleon: cuda requested but unavailable - skipping"); continue
+            if dev == "mps" and not (getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()):
+                print("[bench] chemeleon: mps requested but unavailable - skipping"); continue
+            thread_opts = ([int(t) for t in args.cpu_threads.split(",") if t.strip()]
+                           if dev == "cpu" else [0])
+            default_threads = torch.get_num_threads()
+            for n_threads in thread_opts:
+                torch.set_num_threads(n_threads or default_threads)
+                note = (f"{n_threads or default_threads} thread(s)" if dev == "cpu"
+                        else "frozen CheMeleon fingerprint")
+                try:
+                    times = time_repeats(lambda: feat_chemeleon(smiles, dev), args.repeats)
+                except Exception as exc:
+                    print(f"[bench] chemeleon {dev} failed: {exc}"); continue
+                results.append(summarize("chemeleon", dev, "fp32", note, times, len(smiles)))
+                print(f"[bench] chemeleon {dev} {note}: {np.mean(times):.2f}s")
+            torch.set_num_threads(default_threads)
+
     if not args.skip_encoder:
         import torch
         for dev in [d.strip() for d in args.devices.split(",") if d.strip()]:
