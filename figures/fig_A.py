@@ -42,7 +42,7 @@ PANEL_GRID = [["MoleculeACE", "QM7", "CBS"], ["BACE", "Ames", "Tox21"]]
 WIDTH = 11.0
 
 
-def build(height=5.5, left_frac=0.33):
+def build(height=5.5, left_frac=0.375):
     fig = plt.figure(figsize=(WIDTH, height))
     # wspace is generous: the right-hand panels carry y-labels that would otherwise land on top
     # of the ranking panel. bottom reserves a band for BOTH legends.
