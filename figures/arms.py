@@ -52,13 +52,6 @@ SHADES = {
     "s2u":    ["#6B6494", "#8F89B2", "#B7B3CE"],
     "e2e":    ["#8A8A8A", "#A8A8A8", "#C6C6C6"],
     "random": ["#2B2B2B", "#555555", "#808080"],
-    # SI-ONLY family. SI fig b (vocabulary) and SI fig d (canonical vs augmented) are both
-    # two-line plots over the same six panels, and drawing both in the unsup blues made them read
-    # as the same figure. `si_alt` is a moss/olive pair: a hue used NOWHERE else in the scheme, so
-    # it cannot be mistaken for a model family, and it stays separable from the blues under
-    # deuteranopia and in greyscale (it sits in a different lightness band). SI d has no model
-    # semantics to preserve — its two lines are corpus variants, not arms.
-    "si_alt": ["#5C7A29", "#9FBF6A"],
 }
 
 # --------------------------------------------------------------------------------------------
@@ -224,7 +217,9 @@ PANELS = {
     # the untrained controls still in the bottom third (10-11 of 16). It is also a standard
     # regulatory tox endpoint. BBB-Martins was rejected (5.3 SE, and it re-introduces the BBB
     # endpoint already dropped as non-discriminative in its BBBP form).
-    "Ames":        dict(marker="s", label="Ames", metric="roc_auc", metric_label="ROC-AUC",
+    # display label only -- the panel KEY stays "Ames", which is what every CSV and every
+    # figure_data path is written with; renaming the key would orphan them.
+    "Ames":        dict(marker="s", label="Ames GeneTox", metric="roc_auc", metric_label="ROC-AUC",
                         metric_short="ROC-AUC",
                         higher_better=True, group="mutagenicity", n_tasks=1,
                         source="polaris", polaris_task="tdcommons/ames"),

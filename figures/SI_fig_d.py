@@ -57,9 +57,11 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_d" / "SI_fig_d_augmentation.csv"
 
 # the two corpus variants, split by lightness + marker
 # NOT the unsup blues: SI fig b is already a two-line plot over these same six panels in that
-# family, and side by side the two figures were indistinguishable. `si_alt` is an SI-only moss
-# pair (see arms.py) — a hue used nowhere else, so it reads as "not a model family".
-MODES = [("canonical", SHADES["si_alt"][0], "o"), ("augmented", SHADES["si_alt"][1], "D")]
+# family, and side by side the two figures were indistinguishable. These are the scheme's crimson
+# shades, used here purely as the standard red-vs-blue contrast against SI fig b — this figure
+# contains no model arms, so red carries no "supervised" meaning in it. (A moss/olive pair was
+# tried first and rejected as ugly, 2026-08-17.)
+MODES = [("canonical", SHADES["sup"][0], "o"), ("augmented", SHADES["sup"][2], "D")]
 YMARGIN = 0.22
 
 
