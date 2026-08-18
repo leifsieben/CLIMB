@@ -85,7 +85,7 @@ PANELS = [
 def draw(fig, ax, d, series, tag, subtitle, ylim):
     x = np.arange(len(TASKS))
     n = len(series)
-    w = 0.80 / n
+    w = 0.76 / n
     for i, (key, label, colour) in enumerate(series):
         s = d[d.arm == key].set_index("dataset")
         ys = [s.lift_pct.get(t, np.nan) for t in TASKS]
@@ -101,7 +101,7 @@ def draw(fig, ax, d, series, tag, subtitle, ylim):
         for xi, v, e in zip(x + off, ys, es):
             if not np.isfinite(v):
                 continue
-            pad = e + 0.6
+            pad = e + 0.9
             ax.text(xi, v + pad if v >= 0 else v - pad, f"{0.0 if abs(v) < 0.05 else v:+.1f}%",
                     rotation=90, ha="center", va="bottom" if v >= 0 else "top",
                     fontsize=FS["annot"], clip_on=False, zorder=4)
@@ -136,13 +136,17 @@ def main():
     sp = hi - lo
     ylim = (lo - 0.21 * sp, hi + 0.26 * sp)          # headroom for the vertical value labels
 
-    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1),
-                             gridspec_kw=dict(width_ratios=[1.0, 1.85], wspace=0.16))
+    # Panel b packs 5 bars per task group against panel a's 2, so sizing the panels purely by bar
+    # count starves panel a of room for its six task labels. This ratio is the compromise: b gets
+    # enough width that its rotated value labels clear each other, a keeps enough that "Tox21" and
+    # "BBBP" do not collide.
+    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.45),
+                             gridspec_kw=dict(width_ratios=[1.0, 2.05], wspace=0.13))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
         draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylim)
     axes[0].set_ylabel("Lift over no pretrain, frozen")
 
-    fig.subplots_adjust(top=0.89, bottom=0.09, left=0.085, right=0.995)
+    fig.subplots_adjust(top=0.90, bottom=0.085, left=0.078, right=0.995)
     save(fig, "figE")
     plt.close(fig)
 
