@@ -50,7 +50,7 @@ another figure (A1, A2 → fig_A; C1, C2, D → fig_C_D) render to `figures_v2/p
 `figures_v2/`.
 
 **Titles are sentence case** — "Mean rank across all datasets", not "Mean Rank Across All Datasets".
-Panel titles that are dataset names keep the dataset's own casing (`MoleculeACE`, `Ames GeneTox`).
+Panel titles that are dataset names keep the dataset's own casing (`MoleculeACE`, `Ames Mutagenicity`).
 
 **Two figures are deliberately landscape** and exempt from the page-width rule below, declared with
 `save(..., wide=True)`: `fig_A` (11.0in) and `fig_C_D` (8.9in). Both are assembled multi-panel

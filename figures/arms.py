@@ -219,7 +219,7 @@ PANELS = {
     # endpoint already dropped as non-discriminative in its BBBP form).
     # display label only -- the panel KEY stays "Ames", which is what every CSV and every
     # figure_data path is written with; renaming the key would orphan them.
-    "Ames":        dict(marker="s", label="Ames GeneTox", metric="roc_auc", metric_label="ROC-AUC",
+    "Ames":        dict(marker="s", label="Ames Mutagenicity", metric="roc_auc", metric_label="ROC-AUC",
                         metric_short="ROC-AUC",
                         higher_better=True, group="mutagenicity", n_tasks=1,
                         source="polaris", polaris_task="tdcommons/ames"),
