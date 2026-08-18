@@ -1,6 +1,6 @@
 """Fig F — are CLIMB embeddings redundant to classical features?
 
-ONE script, ONE figure: figures_v2/SI_Fig_d.png / .pdf  (+ figF.csv as the data record)
+ONE script, ONE figure: figures_v2/fig_F.png / .pdf  (+ fig_F.csv as the data record)
 
 The test is concatenation. If the CLIMB embedding carries signal the classical features do not,
 gluing it onto ECFP4+descriptors must beat ECFP4+descriptors alone. If it carries nothing new the
@@ -30,7 +30,7 @@ ECFP+desc ranks first overall: the transformer is not adding a missing view of t
 PANEL SCOPE: the concatenation experiment was run on MoleculeNet tasks only, so of the canonical
 six only BACE, Tox21 and QM7 are filled; MoleculeACE, CBS and hERG are drawn empty. ESOL, BBBP and
 HIV were also run and are NOT shown here — they are outside the canonical panel set — but they are
-in figF.csv and BBBP is the exception discussed above.
+in fig_F.csv and BBBP is the exception discussed above.
 
 Error bars are +-1 SD across the seeds of that (task, feature set) cell.
 
@@ -99,7 +99,7 @@ def main():
     cols = ["task", "metric", "in_canonical_panels"] + \
            [c for f, _, _ in FEATURES for c in (f, f + "_sd")] + \
            ["delta_vs_fp_desc", "concat_sd", "beats_sd"]
-    with open(OUTDIR / "figF.csv", "w", newline="") as fh:
+    with open(OUTDIR / "fig_F.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
@@ -113,7 +113,7 @@ def main():
         ax.set_title(f"{meta['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
                      color=INK, pad=4)
         ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"], color=INK)
-        ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+        ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
@@ -155,7 +155,7 @@ def main():
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
                borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "figF")
+    save(fig, "fig_F")
     plt.close(fig)
 
     print("\nFig F — does concatenating CLIMB onto the classical features help?")
@@ -170,7 +170,7 @@ def main():
         print(line)
     helped = sum(r["beats_sd"] == "yes" for r in rows)
     print(f"\n  concatenation beat its own SD on {helped}/{len(rows)} tasks")
-    print("  wrote figures_v2/SI_Fig_d.png/pdf + figF.csv")
+    print("  wrote figures_v2/fig_F.png/pdf + fig_F.csv")
 
 
 if __name__ == "__main__":

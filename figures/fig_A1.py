@@ -95,7 +95,7 @@ def build():
     ax.set_ylim(-0.62, N - 0.42)
     ax.set_xlim(0.4, N + 0.6); ax.set_xticks(range(1, N + 1))
     ax.set_xlabel(f"mean rank across all {NDS} benchmark datasets  (1 = best of {N})")
-    ax.grid(axis="x", ls=":", lw=0.5, color=STYLE["grid"]); ax.set_axisbelow(True)
+    ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
     for sp in ("top", "right", "left"):
         ax.spines[sp].set_visible(False)
     ax.tick_params(axis="y", length=0)
@@ -119,7 +119,7 @@ def main():
         print(f"{system(a) + ' / ' + label(a):38s} {r.mean_rank:6.2f} {r.se_rank:5.2f} | {per}")
     print()
     fig = build()
-    save(fig, "figA1")
+    save(fig, "fig_A1")
     plt.close(fig)
 
 

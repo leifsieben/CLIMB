@@ -164,7 +164,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     axB.invert_yaxis()
     axB.set_xlim(-xmax, xmax)
     axB.set_xlabel(f"mean lift over {FLOOR_LABEL} (%)")
-    axB.grid(axis="x", ls=":", lw=0.5, color=STYLE["grid"])
+    axB.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     axB.set_axisbelow(True)
     axB.set_title("Lift by SFT label type",
                   loc="left" if compact else "center",
@@ -231,7 +231,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
         axS.set_xlabel(GROUP_MEMBERS, fontsize=FS["annot"])
     # assembled row: d's xlabel and e's colorbar already define the quantity -- no y-label here
     axS.set_ylabel("" if compact else f"mean lift over {FLOOR_LABEL} (%)")
-    axS.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+    axS.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     axS.set_axisbelow(True)
     axS.set_title("Descriptor-like task mapping",
                   loc="left" if compact else "center",
@@ -254,7 +254,7 @@ def main():
     # transfer-matrix colorbar (0.17in past) back inside, so savefig's tight bbox stops growing
     # this figure beyond the page width.
     fig.subplots_adjust(top=0.90, bottom=0.10, left=0.218, right=0.945)
-    save(fig, "figD")
+    save(fig, "fig_D")
     plt.close(fig)
 
     print("\nD transfer matrix (lift % over", FLOOR_LABEL + "):")

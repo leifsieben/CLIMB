@@ -254,7 +254,7 @@ def main():
     # 5.75in against the set's 6.69in page width -- LaTeX then upscaled it and its fonts printed
     # larger than every other figure's. save() warns if that returns.
     fig.subplots_adjust(top=0.84, bottom=0.16, left=0.085, right=0.985, wspace=0.32)
-    save(fig, "figC1")
+    save(fig, "fig_C1")
     plt.close(fig)
 
     # --- printed verdict (derived, not asserted) ------------------------------------------------

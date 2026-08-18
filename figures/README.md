@@ -11,7 +11,7 @@ untouched as a reference and is **not** part of this pipeline.
 | `arms.py` | **single source of truth** — model names, colours, and the 6 benchmark panels |
 | `style.py` | matplotlib rcParams, figure sizes, `save()` |
 | `sixpanel.py` | loaders for `figure_data/six_panel/*` + the ranking maths |
-| `fig_<ID>_<name>.py` | one script per paper figure; each renders several visual variants |
+| `fig_<ID>.py` / `SI_fig_<id>.py` | one script per paper figure. Naming is fixed: main text `fig_*`, supplementary `SI_fig_*`, and the artefact in `figures_v2/` carries the SAME name as its script |
 
 ## Run
 
@@ -47,8 +47,8 @@ Every figure is authored at `STYLE["col2"]` = **6.69 in**, the 170 mm text block
 margins, so figures go into LaTeX at `width=\textwidth` with NO downscaling and the point sizes in
 `FS` are the sizes that print. `save()` measures the width actually written and WARNS when it
 deviates >5%: `savefig(bbox_inches="tight")` trims slack margins and, worse, GROWS past the canvas
-when a legend or title is anchored outside the axes. Known offenders today: `figC1` (-14%, slack
-internal margins), `figC2` (+6%) and `figD` (+9%). Fix them by making the axes fill the canvas /
+when a legend or title is anchored outside the axes. Known offenders today: `fig_C1` (-14%, slack
+internal margins), `fig_C2` (+6%) and `fig_D` (+9%). Fix them by making the axes fill the canvas /
 moving anchored content inside — NOT by rescaling `figsize`, which tight-bbox simply re-trims.
 
 ## Colours
@@ -59,8 +59,10 @@ run dark (headline recipe) → light (peripheral recipe).
 
 ## The six panels
 
-MoleculeACE (macro RMSE, 30 targets) · CBS (NEF1%) · BACE (ROC-AUC) · **hERG (ROC-AUC)** ·
-Tox21 (mean ROC-AUC, 12 assays) · QM7 (RMSE). BBBP was replaced by hERG on 2026-08-16; HIV and
+MoleculeACE (macro RMSE, 30 targets) · CBS (NEF1%) · BACE (ROC-AUC) · **Ames (ROC-AUC)** ·
+Tox21 (mean ROC-AUC, 12 assays) · QM7 (RMSE). BBBP was replaced by hERG on 2026-08-16, and hERG
+by **Ames** on 2026-08-17 (hERG's 132 test molecules gave only ~5.6 SE of headroom against Ames'
+~12.2 at n=1457); HIV and
 ESOL/Lipophilicity are dropped.
 CheMeleon appears in A1/A2 only — it is excluded from every ablation and scaling figure.
 
@@ -83,17 +85,17 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 
 | ID | Figure | Script | Output | Status |
 |---|---|---|---|---|
-| A1 | mean rank across all 66 datasets (4 suites) | `fig_A1.py` | `figA1` | final |
-| A2 | the 6 panels, 8M mainline, sd_total bars | `fig_A2.py` | `figA2` | final |
-| B | pretraining scaling ladders (x = tokens) | `fig_B.py` | `figB` | final (clean variant) |
-| C1 | molecular similarity, unsupervised (memorization vs representation) | `fig_C1.py` | `figC1` | final |
-| C2 | molecular similarity, supervised (H10 test) | `fig_C2.py` | `figC2` | final |
-| D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `figD` | final |
+| A1 | mean rank across all 66 datasets (4 suites) | `fig_A1.py` | `fig_A1` | final |
+| A2 | the 6 panels, 8M mainline, sd_total bars | `fig_A2.py` | `fig_A2` | final |
+| B | pretraining scaling ladders (x = tokens) | `fig_B.py` | `fig_B` | final (clean variant) |
+| C1 | molecular similarity, unsupervised (memorization vs representation) | `fig_C1.py` | `fig_C1` | final |
+| C2 | molecular similarity, supervised (H10 test) | `fig_C2.py` | `fig_C2` | final |
+| D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `fig_D` | final |
 | C+D | assembled a–f: C1+C2 top row, D bottom row | `fig_C_D.py` | `fig_C_D` | final; composes the three `compute()`+`draw()` pairs, no re-analysis |
-| E | corrupted objectives — 2 panels: (a) supervised real vs permuted targets, (b) unsupervised ladder real/shuffled/bigram/unigram/wiki | `fig_E.py` | `figE` | final on the 6 MoleculeNet tasks (5-fold CV); input table built by `scripts/build_figE_table.py`. Corrupted + synthetic arms have MoleculeNet evals ONLY, so a canonical-panel version needs MoleculeACE/CBS/hERG runs of 7 encoders |
-| F | are CLIMB embeddings redundant to classical features? (concatenation test) | `fig_F.py` | `figF` | built; 3/6 panels — the concatenation test only ever ran on MoleculeNet. Promoted from SI d on 2026-08-17 |
-| SI a | do you need end2end training on downstream data? | `fig_SI_a.py` | `SI_Fig_a` | built; slope plot, 5/6 panels (CBS has no e2e run of a pretrained encoder). Protocol differs BETWEEN panels — compare within a panel only |
-| SI b | tokenizer family / vocabulary size | `fig_SI_b.py` | `SI_Fig_b` | built; 5/6 panels (CBS not in the vocab wave). Near-null result, so it carries error bars |
-| SI c | featurization cost, descriptors vs transformer | `fig_SI_c.py` | `SI_Fig_c.csv/.tex` | built (table) |
-| SI d | canonical vs augmented SMILES | `fig_SI_d.py` | `SI_Fig_d` | built; 2/6 panels — BACE/Tox21/QM7 exist only as single-seed hold-out (protocol mismatch), CBS not run. Was SI e |
-| SI e | where end2end overtakes a pretrained frozen encoder | `fig_SI_e.py` | `SI_Fig_e` | built; 3/6 panels — label-fraction sweep never run on MoleculeACE/CBS/hERG. Was SI f |
+| E | corrupted objectives — 2 panels: (a) supervised real vs permuted targets, (b) unsupervised ladder real/shuffled/bigram/unigram/wiki | `fig_E.py` | `fig_E` | final on the 6 MoleculeNet tasks (5-fold CV); input table built by `scripts/build_fig_E_table.py`. Corrupted + synthetic arms have MoleculeNet evals ONLY; a canonical-panel version needs MoleculeACE/CBS/Ames runs of 13 encoders (requested 2026-08-17) |
+| F | are CLIMB embeddings redundant to classical features? (concatenation test) | `fig_F.py` | `fig_F` | built; 3/6 panels — the concatenation test only ever ran on MoleculeNet. Promoted from SI d 2026-08-17; CheMeleon arm + the 3 missing panels requested |
+| SI a | do you need end2end training on downstream data? | `SI_fig_a.py` | `SI_fig_a` | built; slope plot, 5/6 panels (CBS has no e2e run of a pretrained encoder). Protocol differs BETWEEN panels — compare within a panel only |
+| SI b | tokenizer family / vocabulary size | `SI_fig_b.py` | `SI_fig_b` | built; 5/6 panels — CBS landed, Ames pending the Polaris re-score. Near-null result, so it carries error bars |
+| SI c | featurization cost, descriptors vs transformer | `SI_fig_c.py` | `SI_fig_c.csv/.tex` | built (table) |
+| SI d | canonical vs augmented SMILES | `SI_fig_d.py` | `SI_fig_d` | built; 5/6 panels (Ames pending). Was 2/6 until a WRONG-ROOT fix: climb_v2 is the round-1 wave, climb_v2_h1 is the retrained one. Was SI e |
+| SI e | where end2end overtakes a pretrained frozen encoder | `SI_fig_e.py` | `SI_fig_e` | built; 3/6 panels — label-fraction sweep never run on MoleculeACE/CBS/Ames. Was SI f |

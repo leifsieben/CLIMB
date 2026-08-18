@@ -109,7 +109,7 @@ def _panels(banded):
         ax.set_title(f"{d['label']} {arrow}", fontsize=FS["title"], fontweight="bold", color=INK, pad=4)
         ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
         ax.set_xlabel("pretraining tokens", fontsize=FS["annot"], color=INK)
-        ax.grid(ls=":", lw=0.5, color=STYLE["grid"]); ax.set_axisbelow(True)
+        ax.grid(ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
     handles = [Line2D([], [], color=ARMS[l]["color"], marker=MARKER[l], ms=4.5, lw=1.2,
@@ -129,7 +129,7 @@ def main():
     # single clean variant (user decision 2026-08-17: no error display; sd_total stays
     # available in scaling_ladders.csv if a referee asks)
     fig = _panels(banded=False)
-    save(fig, "figB")
+    save(fig, "fig_B")
     plt.close(fig)
 
 

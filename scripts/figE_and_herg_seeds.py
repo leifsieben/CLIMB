@@ -58,13 +58,20 @@ def cbs_done(r):
     try: return p.exists() and json.loads(p.read_text()).get("cbs_nef1_MEAN") is not None
     except Exception: return False
 def herg_done(r):
+    """Polaris coverage. Scores the FULL 28-task track, not one task.
+    2026-08-18: the six-panel Polaris slot moved hERG -> Ames. Running a single named task means a
+    panel swap invalidates the whole wave (the 61 scaling encoders have hERG and NO Ames for exactly
+    that reason). Polaris in total is 47k molecules -- comparable to MoleculeACE, which these jobs
+    already do -- so scoring all 28 costs little and is immune to further panel churn."""
     f = ROOT/"figure_data/chemeleon_suite/polaris"/r/"polaris_scores.csv"
-    try: return f.exists() and any(x["task"]=="tdcommons/herg" for x in csv.DictReader(open(f)))
+    try:
+        t = {x["task"] for x in csv.DictReader(open(f))}
+        return len(t) >= 20
     except Exception: return False
 def herg_would_clobber(r):
-    f = ROOT/"figure_data/chemeleon_suite/polaris"/r/"polaris_scores.csv"
-    try: return f.exists() and len({x["task"] for x in csv.DictReader(open(f))}) > 1
-    except Exception: return False
+    """Only meaningful when running a REDUCED task list; with the full 28-task track a rerun is a
+    superset, so nothing can be lost."""
+    return False
 
 def do_mace(run, enc):
     log(f"MoleculeACE {run}")
@@ -78,7 +85,7 @@ def do_mace(run, enc):
 def do_herg(run, enc):
     if herg_would_clobber(run):
         log(f"REFUSE herg {run}: full multi-task Polaris dir present"); return
-    log(f"hERG {run}")
+    log(f"Polaris(28) {run}")
     out = f"figure_data/chemeleon_suite/polaris/{run}"
     r = sh([PY, "scripts/chemeleon_suite_run.py", "--track", "polaris", "--featurizer", "encoder",
             "--model", run, "--encoder", enc, "--tokenizer", TOK, "--head", "mlp",

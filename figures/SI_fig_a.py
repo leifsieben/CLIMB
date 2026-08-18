@@ -1,6 +1,6 @@
 """SI Fig a — do you need to train the models end-to-end on the downstream data?
 
-ONE script, ONE figure: figures_v2/SI_Fig_a.png / .pdf
+ONE script, ONE figure: figures_v2/SI_fig_a.png / .pdf
 
 The same pretrained encoder used two ways at FULL downstream data: frozen (encoder fixed, probe
 trained on the labels) versus end-to-end (whole network fine-tuned). Two encoders, `unsupervised`
@@ -24,9 +24,9 @@ BACE/Tox21/QM7 use the label-efficiency wave at its 100% fraction). Compare froz
 WITHIN a panel; never compare a value in one panel against a value in another. CBS is drawn empty:
 no end-to-end run of a pretrained CLIMB encoder exists there.
 
-Data: figure_data/SI_Fig_a/SI_Fig_a_e2e_need.csv, built by scripts/build_SI_Fig_a_table.py.
+Data: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv, built by scripts/build_SI_fig_a_table.py.
 
-Run:  python3 scripts/build_SI_Fig_a_table.py && python3 -m figures.fig_SI_a
+Run:  python3 scripts/build_SI_fig_a_table.py && python3 -m figures.SI_fig_a
 """
 from __future__ import annotations
 import numpy as np
@@ -42,7 +42,7 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
-DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_a" / "SI_Fig_a_e2e_need.csv")
+DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 
 # A SLOPE plot, not bars (user request 2026-08-17): each encoder is ONE line joining its frozen
 # value to its end2end value, so the only thing the reader has to judge is the DIRECTION and
@@ -63,7 +63,7 @@ def main():
         ax.set_title(f"{d['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
                      color=INK, pad=4)
         ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
-        ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+        ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
@@ -109,7 +109,7 @@ def main():
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.055, 1, 1))
-    save(fig, "SI_Fig_a")
+    save(fig, "SI_fig_a")
     plt.close(fig)
 
     print("\nSI Fig a — end2end minus frozen at full data (+ = end2end better):")

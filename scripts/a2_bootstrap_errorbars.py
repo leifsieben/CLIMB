@@ -99,9 +99,16 @@ def scaffold_ci(d, kind, root, seed=0):
     estimator the bar reports (all seed dirs; per-fold then averaged)."""
     m = d.rename(columns={"y_true": "y_true_a", "y_pred": "y_pred_a", "raw_smiles": "raw_smiles_a"})
     dirs = m["_dir"].to_numpy() if "_dir" in m.columns else np.array(["one"] * len(m))
+    # Fold assignment must be computed on UNIQUE MOLECULES. Tox21's OOF carries one row per
+    # (molecule, output_index) -- 12 rows per molecule -- and feeding that duplicated SMILES list to
+    # _scaffold_kfold_indices produced a partition that only approximated the real one (residual
+    # ~1.3% on Tox21 after the pooling fix). Deduplicate on mol_index first.
     d0 = dirs == dirs[0]
-    folds_one = fold_ids(root, m.loc[d0, "raw_smiles_a"].tolist(), m.loc[d0, "y_true_a"].to_numpy())
-    fmap = dict(zip(m.loc[d0, "raw_smiles_a"], folds_one))
+    sub = m.loc[d0]
+    key = "mol_index" if "mol_index" in sub.columns else "raw_smiles_a"
+    uniq = sub.drop_duplicates(subset=[key]).sort_values(key)
+    folds_u = fold_ids(root, uniq["raw_smiles_a"].tolist(), uniq["y_true_a"].to_numpy())
+    fmap = dict(zip(uniq["raw_smiles_a"], folds_u))
     folds = np.array([fmap.get(s, -1) for s in m["raw_smiles_a"]])
     scaf = m["raw_smiles_a"].map(_scaffold).to_numpy()
     groups = collections.defaultdict(list)

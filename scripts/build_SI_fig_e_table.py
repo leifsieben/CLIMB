@@ -26,8 +26,8 @@ not comparable across those figures. Verified 2026-08-17: native units (QM7 ~200
 No error bars are emitted for the figure (user decision 2026-08-17, matching Fig B); the per-point
 SD across seed cells is kept in the `sd` column if a referee asks.
 
-Writes: figure_data/SI_Fig_e/SI_Fig_e_crossover.csv
-Run:    python3 scripts/build_SI_Fig_e_table.py
+Writes: figure_data/SI_fig_e/SI_fig_e_crossover.csv
+Run:    python3 scripts/build_SI_fig_e_table.py
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
-OUT = ROOT / "figure_data" / "SI_Fig_e" / "SI_Fig_e_crossover.csv"
+OUT = ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
 PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",

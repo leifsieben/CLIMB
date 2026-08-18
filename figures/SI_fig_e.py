@@ -37,9 +37,9 @@ silently reshaping the figure to the three tasks that have data; the evals are r
 PROTOCOL NOTE: single hold-out split, NOT the 5-fold scaffold CV of Figs A2/B, so absolute values
 are not comparable across those figures. Internally consistent, which is what the crossing needs.
 
-Data: figure_data/figF/figF_crossover.csv, built by scripts/build_SI_Fig_e_table.py.
+Data: figure_data/figF/figF_crossover.csv, built by scripts/build_SI_fig_e_table.py.
 
-Run:  python3 scripts/build_SI_Fig_e_table.py && python3 -m figures.fig_SI_e
+Run:  python3 scripts/build_SI_fig_e_table.py && python3 -m figures.SI_fig_e
 """
 from __future__ import annotations
 import numpy as np
@@ -55,7 +55,7 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
-DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_e" / "SI_Fig_e_crossover.csv")
+DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv")
 
 # same three-line set in every panel; colour comes from arms.py (single source of truth)
 LINES = ["e2e_no_pretrain", "sup_dense", "unsup"]
@@ -78,7 +78,7 @@ def main():
                      color=INK, pad=4)
         ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
         ax.set_xlabel("labelled training molecules", fontsize=FS["annot"], color=INK)
-        ax.grid(ls=":", lw=0.5, color=STYLE["grid"])
+        ax.grid(ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
@@ -119,7 +119,7 @@ def main():
                ncol=3, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "SI_Fig_e")
+    save(fig, "SI_fig_e")
     plt.close(fig)
 
     print("\nSI Fig e — absolute performance vs labelled training size:")

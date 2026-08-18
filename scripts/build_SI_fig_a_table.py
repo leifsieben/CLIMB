@@ -20,8 +20,8 @@ protocol DIFFERS BETWEEN panels and the `protocol` column says which:
 
 NEVER compare a value in one panel to a value in another; compare frozen vs end2end WITHIN a panel.
 
-Writes: figure_data/SI_Fig_a/SI_Fig_a_e2e_need.csv
-Run:    python3 scripts/build_SI_Fig_a_table.py
+Writes: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv
+Run:    python3 scripts/build_SI_fig_a_table.py
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
-OUT = FD / "SI_Fig_a" / "SI_Fig_a_e2e_need.csv"
+OUT = FD / "SI_fig_a" / "SI_fig_a_e2e_need.csv"
 
 # arms.py key -> (mainline arm key, e2e run dir, label-efficiency frozen arm, wave-3 e2e arm)
 ENCODERS = [("unsup", "unsup", "unsup_8M_e2e", "unsup", "unsup_only", "unsupervised"),

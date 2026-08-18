@@ -222,7 +222,7 @@ def build():
         ax.set_xticks(x)
         ax.set_xticklabels([])
         ax.tick_params(axis="x", length=0)
-        ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"]); ax.set_axisbelow(True)
+        ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
 
@@ -247,7 +247,7 @@ def main():
         print(f"{system(a) + ' · ' + label(a):34s} {cells}")
     print()
     fig = build()
-    save(fig, "figA2")
+    save(fig, "fig_A2")
     plt.close(fig)
 
 

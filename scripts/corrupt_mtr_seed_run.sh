@@ -10,12 +10,20 @@ echo "[cmtr] start $RUN_ID $(date -u +%FT%TZ)" >> "$LOG"
 [ -f figure_data/_tokenizer/tokenizer.json ] || { mkdir -p figure_data/_tokenizer; aws s3 sync s3://climb-s3-bucket/tokenizer_10M figure_data/_tokenizer --only-show-errors; }
 [ -f configs/descriptor_stats.json ] || aws s3 cp s3://climb-s3-bucket/configs/descriptor_stats.json configs/descriptor_stats.json --only-show-errors
 
-# polaris venv for hERG (no pip upgrade: corrupts pip on py3.12)
-if [ ! -x .venv_polaris/bin/python ]; then
-  python3.12 -m venv .venv_polaris
-  .venv_polaris/bin/python -m pip install -q "numpy<2" >> "$LOG" 2>&1
-  .venv_polaris/bin/python -m pip install -q "polaris-lib==0.13.0" rdkit scikit-learn >> "$LOG" 2>&1
-fi
+# polaris venv. The AMI's python3.12 ensurepip can land a pip whose internals are broken
+# (ImportError: open_rich_spinner) -- recreating the venv clears it; never `pip install --upgrade pip`
+# here, that is what corrupted it the first time.
+build_polaris_venv() {
+  for attempt in 1 2 3; do
+    [ -x .venv_polaris/bin/python ] && .venv_polaris/bin/python -c "import polaris" 2>/dev/null && return 0
+    rm -rf .venv_polaris
+    python3.12 -m venv .venv_polaris
+    .venv_polaris/bin/python -m pip install -q "numpy<2" >> "$LOG" 2>&1
+    .venv_polaris/bin/python -m pip install -q "polaris-lib==0.13.0" rdkit scikit-learn >> "$LOG" 2>&1
+  done
+  .venv_polaris/bin/python -c "import polaris" 2>/dev/null
+}
+build_polaris_venv || { echo "[wrapper] FATAL polaris venv after 3 attempts" >> "$LOG"; exit 1; }
 
 # --- 1. pretrain (8M FP, shuffled MTR targets). _backup_to_s3 now ships encoder/ too. ---
 ~/venvs/climb/bin/python scripts/launch_v2_wave.py \
@@ -34,7 +42,6 @@ aws s3 sync "$ENC" "s3://climb-s3-bucket/experiments/climb_v2_phase2/$RUN_ID/enc
 aws s3 cp --recursive "figure_data/chemeleon_suite/moleculeace/$RUN_ID" \
   "s3://climb-s3-bucket/experiments/chemeleon_suite/moleculeace/$RUN_ID" --only-show-errors
 
-echo "tdcommons/herg" > chemeleon_suite/tasks/polaris_tasks.txt
 ~/venvs/climb/bin/python scripts/chemeleon_suite_run.py --track polaris --featurizer encoder \
   --model "$RUN_ID" --encoder "$ENC" --tokenizer figure_data/_tokenizer --head mlp --seeds 42 117 709 >> "$LOG" 2>&1
 .venv_polaris/bin/python scripts/chemeleon_suite_score_polaris.py "figure_data/chemeleon_suite/polaris/$RUN_ID" >> "$LOG" 2>&1

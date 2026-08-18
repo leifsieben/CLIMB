@@ -1,6 +1,6 @@
 """SI Fig d — canonical vs augmented (enumerated) SMILES in pretraining.
 
-ONE script, ONE figure: figures_v2/SI_Fig_e.png / .pdf
+ONE script, ONE figure: figures_v2/SI_fig_e.png / .pdf
 
 Randomised ("enumerated") SMILES are standard practice in SMILES language models: the same molecule
 written many ways is meant to teach the model that the string is arbitrary and the graph is not.
@@ -33,11 +33,11 @@ whether a difference clears the noise; the build script prints that test explici
 PANEL SCOPE: all six canonical panels, 3 pretraining seeds each. An earlier version filled only
 MoleculeACE and hERG — that was a wrong-root error (climb_v2 is the round-1 wave; the retrained
 wave every other figure uses is climb_v2_h1, and CBS lives under cbs_benchmark/ rather than the
-deprecated cbs summary CSV). See scripts/build_SI_Fig_d_table.py.
+deprecated cbs summary CSV). See scripts/build_SI_fig_d_table.py.
 
-Data: figure_data/SI_Fig_d/SI_Fig_d_augmentation.csv, built by scripts/build_SI_Fig_d_table.py.
+Data: figure_data/SI_fig_d/SI_fig_d_augmentation.csv, built by scripts/build_SI_fig_d_table.py.
 
-Run:  python3 scripts/build_SI_Fig_d_table.py && python3 -m figures.fig_SI_d
+Run:  python3 scripts/build_SI_fig_d_table.py && python3 -m figures.SI_fig_d
 """
 from __future__ import annotations
 import numpy as np
@@ -53,7 +53,7 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
-DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_d" / "SI_Fig_d_augmentation.csv")
+DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_d" / "SI_fig_d_augmentation.csv")
 
 # both arms are unsupervised (MLM) encoders, so both take the unsup hue, split by lightness+marker
 MODES = [("canonical", SHADES["unsup"][0], "o"), ("augmented", SHADES["unsup"][2], "D")]
@@ -70,7 +70,7 @@ def main():
                      color=INK, pad=4)
         ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
         ax.set_xlabel("pretraining corpus fraction", fontsize=FS["annot"], color=INK)
-        ax.grid(ls=":", lw=0.5, color=STYLE["grid"])
+        ax.grid(ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
@@ -113,7 +113,7 @@ def main():
                ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "SI_Fig_d")
+    save(fig, "SI_fig_d")
     plt.close(fig)
 
     print("\nSI Fig d — augmented minus canonical (+ = augmented better):")

@@ -37,7 +37,7 @@ STYLE = dict(
     col1=3.25, col15=4.75, col2=A4_TEXT,       # single, 1.5, and full text-block widths (inches)
     lw=1.2, lw_thin=0.7, marker_size=5.0, cap_size=2.0,
     dpi_screen=120, dpi_save=300,
-    grid="#C8C8C8", ink="#000000", mute="#000000", faint="#E6E6E6",
+    grid="#A6A6A6", ink="#000000", mute="#000000", faint="#E6E6E6",
     **{f"fs_{k}": v for k, v in FS.items()},   # STYLE["fs_title"] etc. stay available
 )
 
@@ -67,7 +67,10 @@ def install():
         "xtick.minor.visible": False, "ytick.minor.visible": False,
         "lines.linewidth": STYLE["lw"], "lines.markersize": STYLE["marker_size"],
         "hatch.linewidth": 0.35,          # fine dots, not fat blobs
-        "axes.grid": False, "grid.color": STYLE["grid"], "grid.linewidth": 0.5, "grid.alpha": 0.30,
+        # grid.alpha was 0.30 on top of a #C8C8C8 grid, i.e. an effective ~#EFEFEF -- the gridlines
+        # were essentially invisible in print. Alpha is now 1.0 and the colour carries the
+        # lightness, so what you set is what you get.
+        "axes.grid": False, "grid.color": STYLE["grid"], "grid.linewidth": 0.6, "grid.alpha": 1.0,
         "axes.axisbelow": True,
         "legend.frameon": False, "legend.handlelength": 1.3,
         "legend.columnspacing": 1.0, "legend.labelspacing": 0.35,

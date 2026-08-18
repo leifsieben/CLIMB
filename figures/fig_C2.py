@@ -154,7 +154,7 @@ def draw(ax, data, tag=None, compact=False):
     ax.set_xlabel("mean max Tanimoto: task \u2194 SFT family" if compact else
                   "mean max ECFP4 Tanimoto: eval task \u2194 SFT family   (right = more similar)")
     ax.set_ylabel("lift (%)" if compact else f"lift over {FLOOR_LABEL} (%)")
-    ax.grid(ls=":", lw=0.5, color=STYLE["grid"])
+    ax.grid(ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
 
     task_handles = [Line2D([], [], color=TASK_COLORS[t], marker="o", ls="none", ms=5,
@@ -200,7 +200,7 @@ def main():
     # wider than the canvas) -- fixed by wrapping it above, so the left margin only needs to hold
     # the y-label.
     fig.subplots_adjust(top=0.86, bottom=0.15, left=0.085, right=0.985)
-    save(fig, "figC2")
+    save(fig, "fig_C2")
     plt.close(fig)
 
     from scipy import stats as _st

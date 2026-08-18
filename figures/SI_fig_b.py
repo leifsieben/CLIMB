@@ -31,9 +31,9 @@ internal: family vs family, vocab vs vocab, at matched compute.
 
 PANEL SCOPE: CBS is drawn EMPTY — no vocab-wave arm was ever run on it.
 
-Data: figure_data/figSI/figSIb_vocab.csv, built by scripts/build_SI_Fig_b_table.py.
+Data: figure_data/figSI/figSIb_vocab.csv, built by scripts/build_SI_fig_b_table.py.
 
-Run:  python3 scripts/build_SI_Fig_b_table.py && python3 -m figures.fig_SI_b
+Run:  python3 scripts/build_SI_fig_b_table.py && python3 -m figures.SI_fig_b
 """
 from __future__ import annotations
 import numpy as np
@@ -49,7 +49,7 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
-DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_b" / "SI_Fig_b_vocab.csv")
+DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_b" / "SI_fig_b_vocab.csv")
 
 # the two tokenizer families; both are unsupervised (MLM) encoders, so both take the unsup family
 # hue, separated by lightness and marker rather than by an unrelated colour.
@@ -67,7 +67,7 @@ def main():
                      color=INK, pad=4)
         ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
         ax.set_xlabel("tokenizer vocabulary", fontsize=FS["annot"], color=INK)
-        ax.grid(ls=":", lw=0.5, color=STYLE["grid"])
+        ax.grid(ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
@@ -110,7 +110,7 @@ def main():
                ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "SI_Fig_b")
+    save(fig, "SI_fig_b")
     plt.close(fig)
 
     print("\nSI Fig b — vocabulary spread vs replicate noise (the near-null test):")

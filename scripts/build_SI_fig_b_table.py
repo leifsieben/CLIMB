@@ -31,8 +31,8 @@ ERROR BARS ARE THE POINT of this figure. The finding is a near-null — vocabula
 frozen-probe score by less than the replicate noise almost everywhere — which cannot be stated
 without showing that noise. This is why SI Fig b carries error bars while Figs B and F do not.
 
-Writes: figure_data/SI_Fig_b/SI_Fig_b_vocab.csv
-Run:    python3 scripts/build_SI_Fig_b_table.py
+Writes: figure_data/SI_fig_b/SI_fig_b_vocab.csv
+Run:    python3 scripts/build_SI_fig_b_table.py
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
-OUT = FD / "SI_Fig_b" / "SI_Fig_b_vocab.csv"
+OUT = FD / "SI_fig_b" / "SI_fig_b_vocab.csv"
 
 # (run dir, family, actual vocabulary size)
 RUNS = [("bpe_261", "BPE", 261), ("bpe_1000", "BPE", 1000),

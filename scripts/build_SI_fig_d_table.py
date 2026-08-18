@@ -31,8 +31,8 @@ the cbs summary CSV.
   hERG         chemeleon_suite/polaris/<run>/polaris_scores.csv (tdcommons/ames, roc_auc) -> mean
                over 3 pretraining seeds x 3 eval seeds; sd = SD across the 3 pretraining-seed means
 
-Writes: figure_data/SI_Fig_d/SI_Fig_d_augmentation.csv
-Run:    python3 scripts/build_SI_Fig_d_table.py
+Writes: figure_data/SI_fig_d/SI_fig_d_augmentation.csv
+Run:    python3 scripts/build_SI_fig_d_table.py
 """
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
-OUT = FD / "SI_Fig_d" / "SI_Fig_d_augmentation.csv"
+OUT = FD / "SI_fig_d" / "SI_fig_d_augmentation.csv"
 
 MODES = [("canonical", "canonical"), ("enumerated", "augmented")]
 H1 = FD / "climb_v2_h1"                     # the RETRAINED wave (climb_v2 is round-1: do not use)

@@ -32,8 +32,8 @@ lift transform with the floor held fixed (sd_lift = 100*sd_arm/|floor|). corrupt
 SINGLE pretraining run, so it has no seed SD and is emitted with n_seeds=1 / lift_sd empty — it is
 drawn without a whisker rather than borrowing a fold SD, which would not be the same estimand.
 
-Writes: figure_data/figE/figE_lift.csv
-Run:    python3 scripts/build_figE_table.py
+Writes: figure_data/fig_E/fig_E_lift.csv
+Run:    python3 scripts/build_fig_E_table.py
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 PHASE2 = ROOT / "figure_data" / "climb_v2_phase2"
 RIGOR = ROOT / "analysis" / "rigor"
-OUT = ROOT / "figure_data" / "figE" / "figE_lift.csv"
+OUT = ROOT / "figure_data" / "fig_E" / "fig_E_lift.csv"
 
 TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
 LOWER_BETTER = {"ESOL", "QM7"}                       # RMSE; the rest are ROC-AUC

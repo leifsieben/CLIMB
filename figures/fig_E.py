@@ -31,7 +31,7 @@ you go negative), while the unsupervised objective's value is mostly structure-a
 
 Data / statistics
 -----------------
-Everything is read from `figure_data/figE/figE_lift.csv`, built by `scripts/build_figE_table.py`
+Everything is read from `figure_data/fig_E/fig_E_lift.csv`, built by `scripts/build_fig_E_table.py`
 (see that module for the full sourcing and floor argument). In brief: 5-fold scaffold CV, frozen
 probe, native units; each panel lifts over the SAME three random-init encoders scored in that
 panel's own eval wave; error bars are ONE estimand everywhere -- +-1 SD across the 3 PRETRAINING
@@ -46,7 +46,7 @@ MoleculeNet tasks rather than the paper's canonical six panels (of which it shar
 QM7). Putting it on the canonical panels needs MoleculeACE / CBS / hERG evals of all seven
 corrupted encoders.
 
-Run:  python3 scripts/build_figE_table.py && python3 -m figures.fig_E
+Run:  python3 scripts/build_fig_E_table.py && python3 -m figures.fig_E
 """
 from __future__ import annotations
 from pathlib import Path
@@ -63,7 +63,7 @@ from figures.arms import SHADES
 check_font()
 
 ROOT = Path(__file__).resolve().parent.parent
-TABLE = ROOT / "figure_data" / "figE" / "figE_lift.csv"
+TABLE = ROOT / "figure_data" / "fig_E" / "fig_E_lift.csv"
 TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
 
 # (arm key, legend label, colour).  Supervised = the red family; the unsupervised ladder walks the
@@ -105,7 +105,7 @@ def draw(fig, ax, d, series, tag, subtitle, ylim):
     ax.tick_params(axis="x", which="minor", bottom=False)
     ax.set_ylim(*ylim)
     ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f"{v:g}%"))
-    ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+    ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     # panel tag and title share one baseline: the tag sits at the axes' left edge and the title is
     # offset a fixed 13 pt to its right, so the pair aligns identically in both panels regardless
@@ -138,7 +138,7 @@ def main():
     axes[0].set_ylabel("Lift over no pretrain, frozen")
 
     fig.subplots_adjust(top=0.90, bottom=0.085, left=0.078, right=0.995)
-    save(fig, "figE")
+    save(fig, "fig_E")
     plt.close(fig)
 
     for panel, _, subtitle, series in PANELS:
