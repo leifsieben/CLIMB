@@ -55,6 +55,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from matplotlib.transforms import ScaledTranslation
 
 from figures.style import STYLE, FS, save, check_font
 from figures.arms import SHADES
@@ -69,10 +70,10 @@ TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
 # blue family dark->light as chemical content is removed, and the zero-chemistry Wikipedia control
 # sits outside that ladder in near-black.
 PANELS = [
-    ("supervised", "a", "supervised objective — real vs permuted targets",
+    ("supervised", "a", "Supervised: permuted targets",
      [("real",             "supervised, dense",                    SHADES["sup"][0]),
       ("targets_permuted", "corrupted targets (1 seed)",           SHADES["sup"][2])]),
-    ("unsupervised", "b", "unsupervised objective — ladder of destroyed SMILES statistics",
+    ("unsupervised", "b", "Unsupervised: degraded corpus statistics",
      [("real",     "unsupervised",       SHADES["unsup"][0]),
       ("shuffled", "shuffled tokens",    SHADES["unsup"][1]),
       ("bigram",   "bigram corpus",      SHADES["unsup"][2]),
@@ -81,7 +82,7 @@ PANELS = [
 ]
 
 
-def draw(ax, d, series, tag, subtitle, ylim):
+def draw(fig, ax, d, series, tag, subtitle, ylim):
     x = np.arange(len(TASKS))
     n = len(series)
     w = 0.80 / n
@@ -91,15 +92,17 @@ def draw(ax, d, series, tag, subtitle, ylim):
         es = [s.lift_sd_pct.get(t, np.nan) for t in TASKS]
         es = [0.0 if not np.isfinite(e) else e for e in es]
         off = (i - (n - 1) / 2) * w
-        ax.bar(x + off, ys, width=w, color=colour, edgecolor="white", lw=0.4,
-               yerr=es, capsize=STYLE["cap_size"],
-               error_kw=dict(lw=STYLE["lw_thin"], ecolor="#000000"), label=label, zorder=3)
+        # bar styling matches fig_A2: solid black edge, same error-bar weights
+        ax.bar(x + off, ys, width=w, color=colour, edgecolor=STYLE["ink"], linewidth=0.8,
+               yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
+                                      ecolor=STYLE["ink"], zorder=6),
+               label=label, zorder=3)
         # vertical value labels have zero horizontal extent, so they can never reach a neighbour
         for xi, v, e in zip(x + off, ys, es):
             if not np.isfinite(v):
                 continue
             pad = e + 0.6
-            ax.text(xi, v + pad if v >= 0 else v - pad, f"{0.0 if abs(v) < 0.05 else v:+.1f}",
+            ax.text(xi, v + pad if v >= 0 else v - pad, f"{0.0 if abs(v) < 0.05 else v:+.1f}%",
                     rotation=90, ha="center", va="bottom" if v >= 0 else "top",
                     fontsize=FS["annot"], clip_on=False, zorder=4)
 
@@ -109,11 +112,17 @@ def draw(ax, d, series, tag, subtitle, ylim):
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
     ax.set_ylim(*ylim)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f"{v:g}%"))
     ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
     ax.set_axisbelow(True)
-    ax.set_title(subtitle, fontsize=FS["title"], fontweight="bold", color=STYLE["ink"], pad=4)
-    ax.text(-0.02, 1.06, tag, transform=ax.transAxes, fontsize=FS["panel_tag"],
-            fontweight="bold", va="bottom", ha="right", color=STYLE["ink"])
+    # panel tag and title share one baseline: the tag sits at the axes' left edge and the title is
+    # offset a fixed 13 pt to its right, so the pair aligns identically in both panels regardless
+    # of how wide each panel is.
+    ax.text(0.0, 1.03, tag, transform=ax.transAxes, fontsize=FS["panel_tag"],
+            fontweight="bold", va="bottom", ha="left", color=STYLE["ink"])
+    ax.text(0.0, 1.03, subtitle, fontsize=FS["title"], fontweight="bold", va="bottom", ha="left",
+            color=STYLE["ink"],
+            transform=ax.transAxes + ScaledTranslation(13 / 72, 0, fig.dpi_scale_trans))
     ax.legend(loc="upper right", frameon=False, fontsize=FS["legend"],
               ncol=1, handletextpad=0.5, borderpad=0.2, labelspacing=0.25)
 
@@ -125,16 +134,15 @@ def main():
     lo = min((d.lift_pct - d.lift_sd_pct.fillna(0)).min(), 0)
     hi = (d.lift_pct + d.lift_sd_pct.fillna(0)).max()
     sp = hi - lo
-    ylim = (lo - 0.13 * sp, hi + 0.22 * sp)          # headroom for the vertical value labels
+    ylim = (lo - 0.21 * sp, hi + 0.26 * sp)          # headroom for the vertical value labels
 
     fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1),
-                             gridspec_kw=dict(width_ratios=[1.0, 1.85], wspace=0.12))
+                             gridspec_kw=dict(width_ratios=[1.0, 1.85], wspace=0.16))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
-        draw(ax, d[d.panel == panel], series, tag, subtitle, ylim)
-    axes[0].set_ylabel("lift over no pretrain, frozen (%)")
-    axes[1].tick_params(labelleft=False)
+        draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylim)
+    axes[0].set_ylabel("Lift over no pretrain, frozen")
 
-    fig.subplots_adjust(top=0.90, bottom=0.09, left=0.075, right=0.995)
+    fig.subplots_adjust(top=0.89, bottom=0.09, left=0.085, right=0.995)
     save(fig, "figE")
     plt.close(fig)
 
