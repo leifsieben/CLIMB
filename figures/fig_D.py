@@ -254,7 +254,7 @@ def main():
     # transfer-matrix colorbar (0.17in past) back inside, so savefig's tight bbox stops growing
     # this figure beyond the page width.
     fig.subplots_adjust(top=0.90, bottom=0.10, left=0.218, right=0.945)
-    save(fig, "fig_D")
+    save(fig, "fig_D", subdir="panels")
     plt.close(fig)
 
     print("\nD transfer matrix (lift % over", FLOOR_LABEL + "):")

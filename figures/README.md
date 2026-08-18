@@ -9,7 +9,7 @@ untouched as a reference and is **not** part of this pipeline.
 | File | Role |
 |---|---|
 | `arms.py` | **single source of truth** — model names, colours, and the 6 benchmark panels |
-| `style.py` | matplotlib rcParams, figure sizes, `save()` |
+| `style.py` | matplotlib rcParams, figure sizes, `save()` (incl. the page-width check and the `subdir=` used by component panels) |
 | `sixpanel.py` | loaders for `figure_data/six_panel/*` + the ranking maths |
 | `fig_<ID>.py` / `SI_fig_<id>.py` | one script per paper figure. Naming is fixed: main text `fig_*`, supplementary `SI_fig_*`, and the artefact in `figures_v2/` carries the SAME name as its script |
 
@@ -40,6 +40,13 @@ Every reported number is the **mean over all replicate seeds** — never a singl
 average 3 pretraining seeds x 3 head seeds x 5 folds; CBS/MoleculeACE/Polaris average their 3 seeds.
 Where an analysis structurally needs one seed's per-molecule predictions (the co-best paired
 bootstrap), that is stated explicitly beside the number.
+
+## What lands where
+
+`figures_v2/` holds ONLY paper deliverables — the numbered figures, plus `SI_fig_c.csv/.tex`
+because that supplementary item IS a table. Component panels that exist only to be assembled into
+another figure (C1, C2, D → fig_C_D) render to `figures_v2/panels/` via `save(..., subdir="panels")`.
+Per-figure data records go to `figure_data/<fig>/`, never to `figures_v2/`.
 
 ## Page width
 
@@ -88,10 +95,10 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 | A1 | mean rank across all 66 datasets (4 suites) | `fig_A1.py` | `fig_A1` | final |
 | A2 | the 6 panels, 8M mainline, sd_total bars | `fig_A2.py` | `fig_A2` | final |
 | B | pretraining scaling ladders (x = tokens) | `fig_B.py` | `fig_B` | final (clean variant) |
-| C1 | molecular similarity, unsupervised (memorization vs representation) | `fig_C1.py` | `fig_C1` | final |
-| C2 | molecular similarity, supervised (H10 test) | `fig_C2.py` | `fig_C2` | final |
-| D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `fig_D` | final |
-| C+D | assembled a–f: C1+C2 top row, D bottom row | `fig_C_D.py` | `fig_C_D` | final; composes the three `compute()`+`draw()` pairs, no re-analysis |
+| C1 | molecular similarity, unsupervised (memorization vs representation) | `fig_C1.py` | `panels/fig_C1` | final |
+| C2 | molecular similarity, supervised (H10 test) | `fig_C2.py` | `panels/fig_C2` | final |
+| D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `panels/fig_D` | final |
+| C+D | assembled a–f: C1+C2 top row, D bottom row | `fig_C_D.py` | `fig_C_D` | final; composes the three `compute()`+`draw()` pairs, no re-analysis. **This is the paper figure**; C1/C2/D are its components |
 | E | corrupted objectives — 2 panels: (a) supervised real vs permuted targets, (b) unsupervised ladder real/shuffled/bigram/unigram/wiki | `fig_E.py` | `fig_E` | final on the 6 MoleculeNet tasks (5-fold CV); input table built by `scripts/build_fig_E_table.py`. Corrupted + synthetic arms have MoleculeNet evals ONLY; a canonical-panel version needs MoleculeACE/CBS/Ames runs of 13 encoders (requested 2026-08-17) |
 | F | are CLIMB embeddings redundant to classical features? (concatenation test) | `fig_F.py` | `fig_F` | built; 3/6 panels — the concatenation test only ever ran on MoleculeNet. Promoted from SI d 2026-08-17; CheMeleon arm + the 3 missing panels requested |
 | SI a | do you need end2end training on downstream data? | `SI_fig_a.py` | `SI_fig_a` | built; slope plot, 5/6 panels (CBS has no e2e run of a pretrained encoder). Protocol differs BETWEEN panels — compare within a panel only |

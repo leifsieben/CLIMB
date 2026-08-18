@@ -1,6 +1,6 @@
 """Fig F — are CLIMB embeddings redundant to classical features?
 
-ONE script, ONE figure: figures_v2/fig_F.png / .pdf  (+ fig_F.csv as the data record)
+ONE script, ONE figure: figures_v2/fig_F.png / .pdf  (+ figure_data/fig_F/fig_F.csv as the data record)
 
 The test is concatenation. If the CLIMB embedding carries signal the classical features do not,
 gluing it onto ECFP4+descriptors must beat ECFP4+descriptors alone. If it carries nothing new the
@@ -30,7 +30,7 @@ ECFP+desc ranks first overall: the transformer is not adding a missing view of t
 PANEL SCOPE: the concatenation experiment was run on MoleculeNet tasks only, so of the canonical
 six only BACE, Tox21 and QM7 are filled; MoleculeACE, CBS and hERG are drawn empty. ESOL, BBBP and
 HIV were also run and are NOT shown here — they are outside the canonical panel set — but they are
-in fig_F.csv and BBBP is the exception discussed above.
+in figure_data/fig_F/fig_F.csv and BBBP is the exception discussed above.
 
 Error bars are +-1 SD across the seeds of that (task, feature set) cell.
 
@@ -58,6 +58,8 @@ INK = "#000000"
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "analysis" / "rigor" / "concat_redundancy.csv"
 OUTDIR = ROOT / "figures_v2"
+# the per-task record is DATA, not a deliverable -- figures_v2/ holds only what goes in the paper
+DATADIR = ROOT / "figure_data" / "fig_F"
 
 # canonical panel -> task name in the source (None = experiment never run there)
 PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",
@@ -99,7 +101,8 @@ def main():
     cols = ["task", "metric", "in_canonical_panels"] + \
            [c for f, _, _ in FEATURES for c in (f, f + "_sd")] + \
            ["delta_vs_fp_desc", "concat_sd", "beats_sd"]
-    with open(OUTDIR / "fig_F.csv", "w", newline="") as fh:
+    DATADIR.mkdir(parents=True, exist_ok=True)
+    with open(DATADIR / "fig_F.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
@@ -170,7 +173,7 @@ def main():
         print(line)
     helped = sum(r["beats_sd"] == "yes" for r in rows)
     print(f"\n  concatenation beat its own SD on {helped}/{len(rows)} tasks")
-    print("  wrote figures_v2/fig_F.png/pdf + fig_F.csv")
+    print("  wrote figures_v2/fig_F.png/pdf + figure_data/fig_F/fig_F.csv")
 
 
 if __name__ == "__main__":

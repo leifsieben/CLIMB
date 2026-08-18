@@ -86,7 +86,7 @@ def _pdf_width_in(path):
     return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
 
 
-def save(fig, name, formats=("png", "pdf")):
+def save(fig, name, formats=("png", "pdf"), subdir=None):
     """Save to figures_v2/<name>.<ext>. Returns the PNG path.
 
     savefig uses bbox_inches="tight", so the width actually written is NOT the figsize width: it
@@ -95,16 +95,22 @@ def save(fig, name, formats=("png", "pdf")):
     width can therefore land 1.5in apart, and LaTeX then scales them differently at
     \includegraphics[width=\textwidth] -- so their fonts print at different sizes even though every
     script sets the same points. This check makes that loud instead of silent."""
-    OUTDIR.mkdir(exist_ok=True)
+    # `subdir` is for COMPONENT panels that are assembled into another figure (fig_C1/C2/D ->
+    # fig_C_D). They are still rendered standalone for review, but they are not paper figures, so
+    # they are kept out of figures_v2/ proper -- that folder should hold only what goes in the
+    # paper.
+    out = OUTDIR / subdir if subdir else OUTDIR
+    out.mkdir(parents=True, exist_ok=True)
     for ext in formats:
-        fig.savefig(OUTDIR / f"{name}.{ext}")
-    print(f"  saved  figures_v2/{name}." + "/".join(formats))
+        fig.savefig(out / f"{name}.{ext}")
+    rel = f"figures_v2/{subdir}/{name}" if subdir else f"figures_v2/{name}"
+    print(f"  saved  {rel}." + "/".join(formats))
     if "pdf" in formats:
-        w = _pdf_width_in(OUTDIR / f"{name}.pdf")
+        w = _pdf_width_in(out / f"{name}.pdf")
         if w is not None and abs(w - A4_TEXT) / A4_TEXT > 0.05:
             print(f"  WARNING  {name}: rendered {w:.2f}in vs page width {A4_TEXT:.2f}in "
                   f"({(w / A4_TEXT - 1) * 100:+.0f}%) -- fonts will not match the rest of the set")
-    return OUTDIR / f"{name}.png"
+    return out / f"{name}.png"
 
 
 def title(target, text, pad=6, **kw):

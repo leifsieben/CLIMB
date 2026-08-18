@@ -200,7 +200,7 @@ def main():
     # wider than the canvas) -- fixed by wrapping it above, so the left margin only needs to hold
     # the y-label.
     fig.subplots_adjust(top=0.86, bottom=0.15, left=0.085, right=0.985)
-    save(fig, "fig_C2")
+    save(fig, "fig_C2", subdir="panels")
     plt.close(fig)
 
     from scipy import stats as _st
