@@ -16,8 +16,10 @@ Writes analysis/rigor/concat_redundancy.csv.
 """
 from __future__ import annotations
 import warnings; warnings.filterwarnings("ignore")
-import os
+import os, sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # repo root: import eval_v2 etc.
+os.chdir(Path(__file__).resolve().parent.parent)
 import numpy as np, pandas as pd, torch
 from rdkit import RDLogger; RDLogger.DisableLog("rdApp.*")
 
