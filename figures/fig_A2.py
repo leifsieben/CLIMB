@@ -106,6 +106,18 @@ def _ci():
     on a FIXED dataset and whose composition differed per panel (15 seed x fold cells vs 3 eval
     seeds of a PRE-AVERAGED 30-target mean vs head-seed-only noise on one split).
 
+    ONE ESTIMAND, TWO ROUTES TO IT. Five panels resample their evaluation units (scaffold clusters
+    for BACE/Tox21/QM7/CBS, the 30 targets for MoleculeACE). Ames CANNOT be resampled — Polaris
+    withholds its test labels — so its interval is the Hanley-McNeil ANALYTIC SE of the AUC at
+    n=1457 (777 positive / 680 negative, the 53.32% train active rate applied to the test split),
+    written by scripts/a2_ames_se.py and marked `analytic_hanley_mcneil_DERIVED`. Same question,
+    same units, derived rather than resampled — say so in the caption.
+
+    This panel silently regressed once already: the hERG -> Ames swap left a2_errorbars.csv keyed
+    on `hERG`, the lookup missed, and Ames fell back to the legacy sd_total (+-0.0025, eval-seed
+    jitter) while its neighbours showed +-0.03 sampling CIs. If an Ames whisker ever looks an order
+    of magnitude tighter than the others again, that fallback is why.
+
     KNOWN CAVEAT, do not paper over: the CI file's own `value` column reproduces mainline_8M.csv
     EXACTLY on MoleculeACE and hERG (0.00% on every arm) but differs on the other four panels —
     median 0.43% BACE, 0.81% Tox21, 0.09% QM7, 3.66% CBS (worst cell: unsup on CBS, +0.079 =
