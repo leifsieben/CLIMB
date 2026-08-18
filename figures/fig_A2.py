@@ -190,62 +190,71 @@ def _limits(p, pad=0.06):
     return lo, hi + (hi - lo) * pad
 
 
+def draw_panel(ax, p, compact=False):
+    """Render ONE canonical panel into a supplied axes. `compact` shortens the title for the
+    assembled fig_A layout. Shared by build() and figures/fig_A.py so the bars, error bars,
+    reference line and n/a handling exist in ONE place."""
+    x = np.arange(len(MODELS))
+    d = PANELS[p]
+    lo, hi = _limits(p)
+    vals = np.array([VAL.loc[a, p] for a in MODELS], dtype=float)
+    pairs = [_err_pair(a, p) for a in MODELS]
+    elo = np.array([q[0] for q in pairs], dtype=float)
+    ehi = np.array([q[1] for q in pairs], dtype=float)
+    ok = np.isfinite(vals)
+
+    bars = ax.bar(x[ok], vals[ok] - lo, bottom=lo, width=0.74,
+                  color=[ARMS[a]["color"] for a, o in zip(MODELS, ok) if o],
+                  edgecolor=INK, linewidth=0.8, zorder=2)
+    for b, a in zip(bars, [a for a, o in zip(MODELS, ok) if o]):
+        if system(a) == "CLIMB":
+            b.set_hatch(CLIMB_HATCH)      # black dots; the bar keeps its black border
+    for xi, a in zip(x[~ok], [a for a, o in zip(MODELS, ok) if not o]):
+        ax.text(xi, lo + (hi - lo) * 0.02, "n/a", ha="center", va="bottom",
+                fontsize=FS["annot"], color=INK, rotation=90)
+
+    # Error bars drawn as a SEPARATE call (not bar(..., yerr=...)) so the n/a cells can be
+    # filtered out per panel. Plain black -- no halo (user decision 2026-08-17).
+    ok_e = ok & np.isfinite(elo) & np.isfinite(ehi)
+    ax.errorbar(x[ok_e], vals[ok_e], yerr=np.vstack([elo[ok_e], ehi[ok_e]]), fmt="none",
+                ecolor=INK, elinewidth=1.0, capsize=2.2, capthick=1.1, zorder=6)
+
+    ax.axhline(VAL.loc[REFERENCE, p], color=INK, ls=":", lw=1.1, zorder=2)
+
+    ax.set_ylim(lo, hi)
+    ax.set_ylabel(d["metric_label"], fontsize=FS["annot"], color=INK)
+    arrow = "↑" if d["higher_better"] else "↓"
+    n = TEST_N[p]
+    ax.set_title(f"{d['label']} {arrow}" if compact else
+                 f"{d['label']} {arrow}\nn = {n:,} test molecules",
+                 fontsize=FS["title"], fontweight="bold", color=INK, pad=3)
+    # No per-panel tick labels: the same eight model names rotated 90 degrees in all six
+    # panels cost ~40% of the figure height and said the same thing six times. One shared
+    # legend below carries them instead (2026-08-17, A4 pass).
+    ax.set_xticks(x)
+    ax.set_xticklabels([])
+    ax.tick_params(axis="x", length=0)
+    ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+
+
+
+def legend_handles():
+    """The eight bars plus the reference line -- one shared key for A2 or for the assembled fig_A."""
+    h = [Patch(facecolor=ARMS[a]["color"], edgecolor=INK, lw=0.8,
+               hatch=CLIMB_HATCH if system(a) == "CLIMB" else "", label=short(a))
+         for a in MODELS]
+    h.append(Line2D([], [], color=INK, ls=":", lw=1.2, label="random encoder (reference)"))
+    return h
+
+
 def build():
     fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 3.9))
-    x = np.arange(len(MODELS))
-    names = [short(a) for a in MODELS]
-
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
-        d = PANELS[p]
-        lo, hi = _limits(p)
-        vals = np.array([VAL.loc[a, p] for a in MODELS], dtype=float)
-        pairs = [_err_pair(a, p) for a in MODELS]
-        elo = np.array([q[0] for q in pairs], dtype=float)
-        ehi = np.array([q[1] for q in pairs], dtype=float)
-        ok = np.isfinite(vals)
-
-        bars = ax.bar(x[ok], vals[ok] - lo, bottom=lo, width=0.74,
-                      color=[ARMS[a]["color"] for a, o in zip(MODELS, ok) if o],
-                      edgecolor=INK, linewidth=0.8, zorder=2)
-        for b, a in zip(bars, [a for a, o in zip(MODELS, ok) if o]):
-            if system(a) == "CLIMB":
-                b.set_hatch(CLIMB_HATCH)      # black dots; the bar keeps its black border
-        for xi, a in zip(x[~ok], [a for a, o in zip(MODELS, ok) if not o]):
-            ax.text(xi, lo + (hi - lo) * 0.02, "n/a", ha="center", va="bottom",
-                    fontsize=FS["annot"], color=INK, rotation=90)
-
-        # Error bars drawn as a SEPARATE call (not bar(..., yerr=...)) so the n/a cells can be
-        # filtered out per panel. Plain black -- no halo (user decision 2026-08-17).
-        ok_e = ok & np.isfinite(elo) & np.isfinite(ehi)
-        ax.errorbar(x[ok_e], vals[ok_e], yerr=np.vstack([elo[ok_e], ehi[ok_e]]), fmt="none",
-                    ecolor=INK, elinewidth=1.0, capsize=2.2, capthick=1.1, zorder=6)
-
-        ax.axhline(VAL.loc[REFERENCE, p], color=INK, ls=":", lw=1.1, zorder=2)
-
-        ax.set_ylim(lo, hi)
-        ax.set_ylabel(d["metric_label"], fontsize=FS["annot"], color=INK)
-        arrow = "↑" if d["higher_better"] else "↓"
-        n = TEST_N[p]
-        ax.set_title(f"{d['label']} {arrow}\nn = {n:,} test molecules",
-                     fontsize=FS["title"], fontweight="bold", color=INK, pad=4)
-        # No per-panel tick labels: the same eight model names rotated 90 degrees in all six
-        # panels cost ~40% of the figure height and said the same thing six times. One shared
-        # legend below carries them instead (2026-08-17, A4 pass).
-        ax.set_xticks(x)
-        ax.set_xticklabels([])
-        ax.tick_params(axis="x", length=0)
-        ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
-
+        draw_panel(ax, p)
     fig.tight_layout(rect=(0, 0.085, 1, 1))
-    # ONE shared legend for the whole figure: the eight bars plus the reference line. Replaces
-    # both the repeated rotated tick labels and the floating right-margin key.
-    handles = [Patch(facecolor=ARMS[a]["color"], edgecolor=INK, lw=0.8,
-                     hatch=CLIMB_HATCH if system(a) == "CLIMB" else "", label=short(a))
-               for a in MODELS]
-    handles.append(Line2D([], [], color=INK, ls=":", lw=1.2, label="random encoder (reference)"))
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.075), ncol=5,
+    fig.legend(handles=legend_handles(), loc="upper center", bbox_to_anchor=(0.5, 0.075), ncol=5,
                frameon=False, fontsize=FS["legend"], handlelength=1.5, handletextpad=0.5,
                labelspacing=0.35, columnspacing=1.1, borderpad=0.0, labelcolor=INK)
     return fig

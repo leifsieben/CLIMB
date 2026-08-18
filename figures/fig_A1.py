@@ -58,9 +58,17 @@ RANKS, PER_DATASET, META = wide_ranks(ARMS_USED, per_suite_equal=False)
 NDS = int(PER_DATASET.notna().sum(axis=1).max())
 
 
-def build():
+def suite_handles():
+    """The four suite markers -- shared by build() and the assembled figures/fig_A.py."""
+    return [Line2D([], [], ls="none", marker=SUITE_MARKER[s], mfc="none", mec=INK, mew=0.9,
+                   ms=4.5, label=s) for s in SUITES]
+
+
+def draw(ax, compact=False):
+    """Render the ranking into a supplied axes. `compact` trims the per-point value labels and the
+    marker sizes for the assembled fig_A layout, where this panel is much narrower than standalone.
+    Used by both build() and figures/fig_A.py — the drawing lives in ONE place."""
     order = list(RANKS.index)
-    fig, ax = plt.subplots(figsize=(STYLE["col2"], 0.38 * N + 0.75))
     y = np.arange(N)[::-1]
     ytrans = ax.get_yaxis_transform()          # x in axes coords, y in data coords
 
@@ -76,14 +84,15 @@ def build():
         c, r = ARMS[a]["color"], RANKS.loc[a]
         for s in SUITES:                                   # per-suite mean ranks
             if np.isfinite(r[s]):
-                ax.plot(r[s], yi, marker=SUITE_MARKER[s], mfc="none", mec=c, mew=0.9, ms=4.6,
+                ax.plot(r[s], yi, marker=SUITE_MARKER[s], mfc="none", mec=c, mew=0.9, ms=(3.6 if compact else 4.6),
                         ls="none", zorder=2)
         if np.isfinite(r.se_rank):
             ax.errorbar(r.mean_rank, yi, xerr=r.se_rank, fmt="none", ecolor=c, elinewidth=1.1,
                         capsize=STYLE["cap_size"], capthick=1.1, zorder=3)
-        ax.plot(r.mean_rank, yi, marker="o", ms=7.5, color=c, mec="white", mew=0.8, zorder=4)
-        ax.text(r.mean_rank, yi + 0.30, f"{r.mean_rank:.1f}", ha="center", va="bottom",
-                fontsize=FS["annot"], color=INK)
+        ax.plot(r.mean_rank, yi, marker="o", ms=(5.6 if compact else 7.5), color=c, mec="white", mew=0.8, zorder=4)
+        if not compact:
+            ax.text(r.mean_rank, yi + 0.30, f"{r.mean_rank:.1f}", ha="center", va="bottom",
+                    fontsize=FS["annot"], color=INK)
         # two-line row label: system in bold, recipe below in regular. Drawn by hand rather than
         # via tick labels because matplotlib cannot mix weights inside one tick string.
         ax.text(-0.012, yi + 0.19, system(a), transform=ytrans, ha="right", va="center",
@@ -93,19 +102,23 @@ def build():
 
     ax.set_yticks(y); ax.set_yticklabels([])
     ax.set_ylim(-0.62, N - 0.42)
-    ax.set_xlim(0.4, N + 0.6); ax.set_xticks(range(1, N + 1))
-    ax.set_xlabel(f"mean rank across all {NDS} benchmark datasets  (1 = best of {N})")
+    ax.set_xlim(0.4, N + 0.6); ax.set_xticks(range(1, N + 1, 3) if compact else range(1, N + 1))
+    ax.set_xlabel(f"mean rank ({NDS} datasets)" if compact else
+                  f"mean rank across all {NDS} benchmark datasets  (1 = best of {N})")
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
     for sp in ("top", "right", "left"):
         ax.spines[sp].set_visible(False)
     ax.tick_params(axis="y", length=0)
 
-    handles = [Line2D([], [], ls="none", marker=SUITE_MARKER[s], mfc="none", mec=INK, mew=0.9,
-                      ms=4.5, label=s) for s in SUITES]
-    ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.090),
-              ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
-              columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
+    if not compact:
+        ax.legend(handles=suite_handles(), loc="upper center", bbox_to_anchor=(0.5, -0.090),
+                  ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
+                  columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
 
+
+def build():
+    fig, ax = plt.subplots(figsize=(STYLE["col2"], 0.38 * N + 0.75))
+    draw(ax)
     title(ax, f"Overall standing across every benchmark ({NDS} datasets, 4 suites)")
     return fig
 
