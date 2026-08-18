@@ -166,9 +166,13 @@ def draw(ax, data, tag=None, compact=False):
                   frameon=False, fontsize=FS["legend"], title_fontsize=FS["legend"],
                   handletextpad=0.3, borderaxespad=0.2)
     else:
-        ax.legend(handles=task_handles, title="eval task", loc="upper left",
-                  bbox_to_anchor=(1.02, 1.0), frameon=False, fontsize=FS["legend"],
-                  title_fontsize=FS["legend"], handletextpad=0.3)
+        # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
+        # expands savefig's tight bbox past the page width, so this figure came out 7.10in wide
+        # against the set's 6.69in and LaTeX then downscaled its fonts relative to every other
+        # figure. Keep every legend inside the canvas.
+        ax.legend(handles=task_handles, title="eval task", loc="lower right",
+                  frameon=False, fontsize=FS["legend"], title_fontsize=FS["legend"],
+                  handletextpad=0.3, borderaxespad=0.2)
 
     ax.set_title("Transfer vs chemical similarity" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
@@ -183,7 +187,7 @@ def main():
     data = compute()
     pts, X, Y, TK = data["pts"], data["X"], data["Y"], data["TK"]
     r, rho, p = data["r"], data["rho"], data["p"]
-    fig, ax = plt.subplots(figsize=(STYLE["col15"], 3.4))
+    fig, ax = plt.subplots(figsize=(STYLE["col2"], 3.4)
     draw(ax, data)
     title(ax, f"Fig C2 \u2014 Supervised pretraining: transfer vs chemical similarity"
               f"   (n={len(pts)}, Pearson r={r:+.2f}, Spearman \u03c1={rho:+.2f}, p={p:.3f})")

@@ -41,6 +41,16 @@ average 3 pretraining seeds x 3 head seeds x 5 folds; CBS/MoleculeACE/Polaris av
 Where an analysis structurally needs one seed's per-molecule predictions (the co-best paired
 bootstrap), that is stated explicitly beside the number.
 
+## Page width
+
+Every figure is authored at `STYLE["col2"]` = **6.69 in**, the 170 mm text block of A4 with 20 mm
+margins, so figures go into LaTeX at `width=\textwidth` with NO downscaling and the point sizes in
+`FS` are the sizes that print. `save()` measures the width actually written and WARNS when it
+deviates >5%: `savefig(bbox_inches="tight")` trims slack margins and, worse, GROWS past the canvas
+when a legend or title is anchored outside the axes. Known offenders today: `figC1` (-14%, slack
+internal margins), `figC2` (+6%) and `figD` (+9%). Fix them by making the axes fill the canvas /
+moving anchored content inside — NOT by rescaling `figsize`, which tight-bbox simply re-trims.
+
 ## Colours
 
 orange = XGBoost anchors · red = supervised · blue = unsupervised · green = unsup → supervised ·
@@ -81,9 +91,9 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 | D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `figD` | final |
 | C+D | assembled a–f: C1+C2 top row, D bottom row | `fig_C_D.py` | `fig_C_D` | final; composes the three `compute()`+`draw()` pairs, no re-analysis |
 | E | corrupted objectives — 2 panels: (a) supervised real vs permuted targets, (b) unsupervised ladder real/shuffled/bigram/unigram/wiki | `fig_E.py` | `figE` | final on the 6 MoleculeNet tasks (5-fold CV); input table built by `scripts/build_figE_table.py`. Corrupted + synthetic arms have MoleculeNet evals ONLY, so a canonical-panel version needs MoleculeACE/CBS/hERG runs of 7 encoders |
-| SI a | do you need end2end training on downstream data? | `fig_SI_a.py` | `SI_Fig_a` | built; 5/6 panels (CBS has no e2e run of a pretrained encoder). Protocol differs BETWEEN panels — compare within a panel only |
+| F | are CLIMB embeddings redundant to classical features? (concatenation test) | `fig_F.py` | `figF` | built; 3/6 panels — the concatenation test only ever ran on MoleculeNet. Promoted from SI d on 2026-08-17 |
+| SI a | do you need end2end training on downstream data? | `fig_SI_a.py` | `SI_Fig_a` | built; slope plot, 5/6 panels (CBS has no e2e run of a pretrained encoder). Protocol differs BETWEEN panels — compare within a panel only |
 | SI b | tokenizer family / vocabulary size | `fig_SI_b.py` | `SI_Fig_b` | built; 5/6 panels (CBS not in the vocab wave). Near-null result, so it carries error bars |
 | SI c | featurization cost, descriptors vs transformer | `fig_SI_c.py` | `SI_Fig_c.csv/.tex` | built (table) |
-| SI d | are CLIMB embeddings redundant to classical features? | `fig_SI_d.py` | `SI_Fig_d.csv/.tex` | built (table); negative result |
-| SI e | canonical vs augmented SMILES | `fig_SI_e.py` | `SI_Fig_e` | built; 2/6 panels — BACE/Tox21/QM7 exist only as single-seed hold-out (protocol mismatch), CBS not run |
-| SI f | where end2end overtakes a pretrained frozen encoder | `fig_SI_f.py` | `SI_Fig_f` | built; 3/6 panels — label-fraction sweep never run on MoleculeACE/CBS/hERG |
+| SI d | canonical vs augmented SMILES | `fig_SI_d.py` | `SI_Fig_d` | built; 2/6 panels — BACE/Tox21/QM7 exist only as single-seed hold-out (protocol mismatch), CBS not run. Was SI e |
+| SI e | where end2end overtakes a pretrained frozen encoder | `fig_SI_e.py` | `SI_Fig_e` | built; 3/6 panels — label-fraction sweep never run on MoleculeACE/CBS/hERG. Was SI f |

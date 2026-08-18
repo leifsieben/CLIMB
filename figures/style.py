@@ -28,8 +28,13 @@ FS = dict(
     panel_tag=10,   # the "a", "b", "c" panel letters
 )
 
+# WIDTHS. The paper is set on A4 (210 mm) with 20 mm margins, so the text block is 170 mm =
+# 6.69 in. `col2` IS that text block: every full-width figure uses it, so figures arrive at 1:1
+# scale in LaTeX (\includegraphics[width=\textwidth]) with no downscaling, and font sizes on the
+# page are exactly the point sizes set in FS below. Do not hard-code a width in a figure script.
+A4_TEXT = 6.69                                  # 170 mm text block on A4
 STYLE = dict(
-    col1=3.50, col15=4.75, col2=7.20,          # Nature-ish column widths (inches)
+    col1=3.25, col15=4.75, col2=A4_TEXT,       # single, 1.5, and full text-block widths (inches)
     lw=1.2, lw_thin=0.7, marker_size=5.0, cap_size=2.0,
     dpi_screen=120, dpi_save=300,
     grid="#C8C8C8", ink="#000000", mute="#000000", faint="#E6E6E6",
@@ -70,12 +75,32 @@ def install():
     OUTDIR.mkdir(exist_ok=True)
 
 
+def _pdf_width_in(path):
+    """Width of a saved PDF's media box, in inches (None if it cannot be parsed)."""
+    import re
+    m = re.search(rb"/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)",
+                  path.read_bytes()[:4000])
+    return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
+
+
 def save(fig, name, formats=("png", "pdf")):
-    """Save to figures_v2/<name>.<ext>. Returns the PNG path."""
+    """Save to figures_v2/<name>.<ext>. Returns the PNG path.
+
+    savefig uses bbox_inches="tight", so the width actually written is NOT the figsize width: it
+    shrinks when a figure has slack margins and GROWS when anything (a legend anchored outside the
+    axes, a suptitle above the canvas) sits beyond the canvas. Two figures authored at the same
+    width can therefore land 1.5in apart, and LaTeX then scales them differently at
+    \includegraphics[width=\textwidth] -- so their fonts print at different sizes even though every
+    script sets the same points. This check makes that loud instead of silent."""
     OUTDIR.mkdir(exist_ok=True)
     for ext in formats:
         fig.savefig(OUTDIR / f"{name}.{ext}")
     print(f"  saved  figures_v2/{name}." + "/".join(formats))
+    if "pdf" in formats:
+        w = _pdf_width_in(OUTDIR / f"{name}.pdf")
+        if w is not None and abs(w - A4_TEXT) / A4_TEXT > 0.05:
+            print(f"  WARNING  {name}: rendered {w:.2f}in vs page width {A4_TEXT:.2f}in "
+                  f"({(w / A4_TEXT - 1) * 100:+.0f}%) -- fonts will not match the rest of the set")
     return OUTDIR / f"{name}.png"
 
 

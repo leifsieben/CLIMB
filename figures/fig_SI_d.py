@@ -1,175 +1,137 @@
-"""SI Fig d — are CLIMB embeddings redundant to classical features?
+"""SI Fig d — canonical vs augmented (enumerated) SMILES in pretraining.
 
-ONE script, ONE figure: figures_v2/SI_Fig_d.png / .pdf  (+ SI_Fig_d.csv as the data record)
+ONE script, ONE figure: figures_v2/SI_Fig_e.png / .pdf
 
-The test is concatenation. If the CLIMB embedding carries signal the classical features do not,
-gluing it onto ECFP4+descriptors must beat ECFP4+descriptors alone. If it carries nothing new the
-concatenation is at best flat — and, because the extra dimensions cost degrees of freedom, may be
-slightly worse.
+Randomised ("enumerated") SMILES are standard practice in SMILES language models: the same molecule
+written many ways is meant to teach the model that the string is arbitrary and the graph is not.
+This asks whether it actually buys anything. Wave `climb_v2`: canonical (one RDKit-canonical string
+per molecule) vs enumerated, at five corpus fractions x 3 pretraining seeds, so the two are matched
+at every rung of the ladder — augmentation could plausibly matter most where data is scarce, and
+this design would see that.
 
-Four feature sets, same XGBoost head, same splits, same seeds:
+THE RESULT IS NOT A NULL, AND IT SPLITS BY TASK:
 
-  fp+desc       ECFP4 (2048 bits) + 217 RDKit descriptors   — the classical anchor
-  CLM           the frozen CLIMB embedding alone
-  desc+CLM      descriptors + CLIMB   (drops the fingerprint)
-  fp+desc+CLM   everything            — the concatenation test
+  MoleculeACE  augmentation HELPS, consistently and at every corpus fraction (macro RMSE 0.784 ->
+               0.768 at full corpus; +0.015 to +0.019 across the ladder, every point beyond the
+               combined seed SD). The effect is flat in corpus size — it is not a small-data
+               crutch that washes out, it is a constant offset.
+  hERG         augmentation HURTS, by more than it helps MoleculeACE (0.753 -> 0.697 at full
+               corpus; up to -0.099 at the 0.01 fraction). CAVEAT: hERG has 132 test molecules and
+               its whiskers understate the true sampling uncertainty badly (see the A2 caption), so
+               read the direction, not the magnitude.
 
-THE RESULT: concatenation helps on 1 of 6 tasks. On five — ESOL, QM7, BACE, Tox21, HIV —
-`fp+desc+CLM` is WORSE than `fp+desc` alone, clearly so on the two regressions (ESOL 0.757 vs
-0.730 RMSE; QM7 190.5 vs 187.5). The single exception is BBBP (+0.048 ROC-AUC, beyond its SD) —
-and BBBP is exactly the dataset dropped from the paper's panel set for failing to discriminate:
-its whole field spans 1.8% of ROC-AUC and an UNTRAINED random encoder ranks 7 of 16 on it
-(notes/bbbp-anchor-verification-2026-08-16.md). A gain on the one benchmark we already decided
-cannot separate models does not rescue the conclusion.
+The honest summary is that augmentation trades potency regression against this particular
+classification task, rather than being a free win — which is worth saying, because the practice is
+usually adopted without a matched control.
 
-So on every benchmark that discriminates, the CLIMB embedding is redundant to the classical
-featurization, and CLIMB alone is the weakest of the four feature sets on five of six tasks. This
-is a negative result and is reported as one. It is also the honest frame for Fig A1, where
-ECFP+desc ranks first overall: the transformer is not adding a missing view of the molecule.
+Error bars are +-1 SD across the 3 PRETRAINING seeds. They are drawn because the claim is about
+whether a difference clears the noise; the build script prints that test explicitly.
 
-PANEL SCOPE: the concatenation experiment was run on MoleculeNet tasks only, so of the canonical
-six only BACE, Tox21 and QM7 are filled; MoleculeACE, CBS and hERG are drawn empty. ESOL, BBBP and
-HIV were also run and are NOT shown here — they are outside the canonical panel set — but they are
-in SI_Fig_d.csv and BBBP is the exception discussed above.
+PANEL SCOPE: only MoleculeACE and hERG are filled. BACE/Tox21/QM7 exist for these arms ONLY as a
+single-seed single hold-out eval (climb_v2/<arm>/moleculenet/), a different protocol from the
+5-fold CV used everywhere else, so filling them would put two protocols in one figure. CBS was
+never run for this wave.
 
-Error bars are +-1 SD across the seeds of that (task, feature set) cell.
+Data: figure_data/SI_Fig_d/SI_Fig_d_augmentation.csv, built by scripts/build_SI_Fig_d_table.py.
 
-Source: analysis/rigor/concat_redundancy.csv (git-tracked).
-
-Run:  python3 -m figures.fig_SI_d
+Run:  python3 scripts/build_SI_Fig_d_table.py && python3 -m figures.fig_SI_d
 """
 from __future__ import annotations
-
-import csv
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font
 from figures.arms import PANELS, PANEL_ORDER, SHADES
+from figures.sixpanel import ROOT
 
 check_font()
 INK = "#000000"
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "analysis" / "rigor" / "concat_redundancy.csv"
-OUTDIR = ROOT / "figures_v2"
+DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_d" / "SI_Fig_d_augmentation.csv")
 
-# canonical panel -> task name in the source (None = experiment never run there)
-PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",
-              "hERG": None, "Tox21": "Tox21", "QM7": "QM7"}
-PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
-# every task in the source, for the CSV record (superset of the canonical panels)
-ALL_TASKS = {"ESOL": "rmse", "QM7": "rmse", "BACE": "roc_auc", "BBBP": "roc_auc",
-             "Tox21": "roc_auc", "HIV": "roc_auc"}
-# classical anchor keeps the anchor amber; anything containing CLIMB moves into the unsup blues,
-# darkening as more classical information is added back
-FEATURES = [("fp+desc", "ECFP4 + descriptors", SHADES["anchor"][0]),
-            ("CLM", "CLIMB alone", SHADES["unsup"][2]),
-            ("desc+CLM", "descriptors + CLIMB", SHADES["unsup"][1]),
-            ("fp+desc+CLM", "ECFP4 + descriptors + CLIMB", SHADES["unsup"][0])]
-BASE, CONCAT = "fp+desc", "fp+desc+CLM"
+# both arms are unsupervised (MLM) encoders, so both take the unsup hue, split by lightness+marker
+MODES = [("canonical", SHADES["unsup"][0], "o"), ("augmented", SHADES["unsup"][2], "D")]
+YMARGIN = 0.22
 
 
 def main():
-    d = pd.read_csv(SRC)
-
-    # ---- data record: every task the experiment covers, not just the canonical panels ----
-    rows = []
-    for task, metric in ALL_TASKS.items():
-        g = d[(d.task == task) & (d.metric == metric)].set_index("features")
-        if BASE not in g.index or CONCAT not in g.index:
-            continue
-        sign = -1 if metric == "rmse" else 1
-        delta = sign * (float(g.loc[CONCAT, "mean"]) - float(g.loc[BASE, "mean"]))
-        sd = float(g.loc[CONCAT, "std"])
-        row = dict(task=task, metric=metric,
-                   in_canonical_panels=int(task in {v for v in PANEL_TASK.values() if v}))
-        for f, _, _ in FEATURES:
-            row[f] = round(float(g.loc[f, "mean"]), 4) if f in g.index else ""
-            row[f + "_sd"] = round(float(g.loc[f, "std"]), 4) if f in g.index else ""
-        row.update(delta_vs_fp_desc=round(delta, 4), concat_sd=round(sd, 4),
-                   beats_sd="yes" if delta > sd else "no")
-        rows.append(row)
-    OUTDIR.mkdir(exist_ok=True)
-    cols = ["task", "metric", "in_canonical_panels"] + \
-           [c for f, _, _ in FEATURES for c in (f, f + "_sd")] + \
-           ["delta_vs_fp_desc", "concat_sd", "beats_sd"]
-    with open(OUTDIR / "SI_Fig_d.csv", "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=cols)
-        w.writeheader()
-        w.writerows(rows)
-
-    # ---- the figure: canonical six ----
     fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 5.1))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
-        meta = PANELS[p]
-        task = PANEL_TASK[p]
-        arrow = "↑" if meta["higher_better"] else "↓"
-        ax.set_title(f"{meta['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
+        d = PANELS[p]
+        g_all = DF[DF.panel == p]
+        arrow = "↑" if d["higher_better"] else "↓"
+        ax.set_title(f"{d['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
                      color=INK, pad=4)
-        ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"], color=INK)
-        ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+        ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
+        ax.set_xlabel("pretraining corpus fraction", fontsize=FS["annot"], color=INK)
+        ax.grid(ls=":", lw=0.5, color=STYLE["grid"])
         ax.set_axisbelow(True)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
 
-        if task is None:
-            ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
+        if g_all.empty:
+            ax.text(0.5, 0.5, "not run on this\nprotocol", transform=ax.transAxes,
                     ha="center", va="center", fontsize=FS["annot"], color=INK)
             ax.set_xticks([])
             ax.set_yticks([])
             continue
 
-        metric = PRIMARY[task]
-        g = d[(d.task == task) & (d.metric == metric)].set_index("features")
-        x = np.arange(len(FEATURES))
-        ys = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-        es = [float(g.loc[f, "std"]) if f in g.index else 0.0 for f, _, _ in FEATURES]
-        cs = [c for _, _, c in FEATURES]
-        ax.bar(x, ys, width=0.72, color=cs, edgecolor=INK, linewidth=0.8,
-               yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
-                                      ecolor=INK, zorder=6), zorder=3)
-        # the classical anchor as a reference line makes "does adding CLIMB beat it?" readable
-        ax.axhline(ys[0], color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
-        ax.set_xticks(x)
-        ax.set_xticklabels(["fp+desc", "CLM", "desc\n+CLM", "fp+desc\n+CLM"],
-                           fontsize=FS["annot"])
+        lo, hi = np.inf, -np.inf
+        for mode, colour, marker in MODES:
+            g = g_all[g_all["mode"] == mode].sort_values("fraction")
+            if g.empty:
+                continue
+            sd = pd.to_numeric(g.sd, errors="coerce").fillna(0).to_numpy()
+            ax.errorbar(g.fraction, g.value, yerr=sd, color=colour, ls="-", lw=STYLE["lw"],
+                        marker=marker, ms=4.6, mec="white", mew=0.6,
+                        elinewidth=1.0, capsize=2.2, capthick=1.1, ecolor=INK, zorder=3)
+            lo = min(lo, (g.value - sd).min())
+            hi = max(hi, (g.value + sd).max())
+
+        ax.set_xscale("log")
+        ax.xaxis.set_major_locator(ticker.FixedLocator([0.001, 0.01, 0.1, 1.0]))
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+            lambda v, _: {0.001: "0.1%", 0.01: "1%", 0.1: "10%", 1.0: "100%"}.get(v, f"{v:g}")))
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
-        lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
-        hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
-        pad = 0.30 * max(hi - lo, 1e-9)
+        ax.set_xlim(0.0006, 1.7)
+        pad = YMARGIN * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
-        if meta["metric"] == "roc_auc":
+        if d["metric"] == "roc_auc":
             y1 = min(y1, 1.0)
         ax.set_ylim(y0, y1)
 
-    handles = [Patch(facecolor=c, edgecolor=INK, lw=0.8, label=lab) for _, lab, c in FEATURES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=4,
-               fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
-               borderpad=0.0, frameon=False, labelcolor=INK)
+    handles = [Line2D([], [], color=c, marker=m, ms=4.5, lw=1.2, label=lab)
+               for lab, c, m in MODES]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015),
+               ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
+               columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
     save(fig, "SI_Fig_d")
     plt.close(fig)
 
-    print("\nSI Fig d — does concatenating CLIMB onto the classical features help?")
-    print("  (delta signed so + = concatenation helped)\n")
-    print(f"  {'task':<7}{'canon':<7}" + "".join(f"{f:>16}" for f, _, _ in FEATURES) +
-          f"{'delta':>10}{'> SD?':>7}")
-    for r in rows:
-        line = f"  {r['task']:<7}{'yes' if r['in_canonical_panels'] else '—':<7}"
-        for f, _, _ in FEATURES:
-            line += f"{r[f]:>16.4f}"
-        line += f"{r['delta_vs_fp_desc']:>+10.4f}{r['beats_sd']:>7}"
-        print(line)
-    helped = sum(r["beats_sd"] == "yes" for r in rows)
-    print(f"\n  concatenation beat its own SD on {helped}/{len(rows)} tasks")
-    print("  wrote figures_v2/SI_Fig_d.png/pdf + SI_Fig_d.csv")
+    print("\nSI Fig d — augmented minus canonical (+ = augmented better):")
+    for p in PANEL_ORDER:
+        g_all = DF[DF.panel == p]
+        if g_all.empty:
+            print(f"   {p:<12} — not run on this protocol")
+            continue
+        sign = 1 if g_all.higher_better.iloc[0] else -1
+        cells = []
+        for frac in sorted(g_all.fraction.unique()):
+            c = g_all[(g_all["mode"] == "canonical") & (g_all.fraction == frac)]
+            a = g_all[(g_all["mode"] == "augmented") & (g_all.fraction == frac)]
+            if not len(c) or not len(a):
+                continue
+            delta = sign * (float(a.value.iloc[0]) - float(c.value.iloc[0]))
+            sd = np.hypot(pd.to_numeric(c.sd, errors="coerce").iloc[0],
+                          pd.to_numeric(a.sd, errors="coerce").iloc[0])
+            cells.append(f"{frac:>6g}:{delta:+8.4f}{'*' if np.isfinite(sd) and abs(delta) > sd else ' '}")
+        print(f"   {p:<12} " + " ".join(cells))
+    print("   * = |delta| exceeds the combined pretraining-seed SD")
 
 
 if __name__ == "__main__":

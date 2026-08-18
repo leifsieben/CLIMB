@@ -34,11 +34,10 @@ def main():
     d2 = fig_C2.compute()
     d3 = fig_D.compute()
 
-    # A4 text width is ~6.9in with 2cm margins, but this assembled 2x3 figure is normally set
-    # full-bleed / landscape-rotated, so it is drawn WIDER than the standard two-column width and
-    # proportionally shorter: 9.2 x 5.6 keeps the six panels legible at A4 rather than stacking
-    # them into a near-square block. All other figures stay at STYLE["col2"].
-    fig = plt.figure(figsize=(9.2, 5.6))
+    # Full A4 text block, kept deliberately short so the assembled 2x3 does not run as a
+    # near-square block down the page (the 2026-08-17 complaint). Same width as every other
+    # figure, so the whole set scales identically in LaTeX.
+    fig = plt.figure(figsize=(STYLE["col2"], 4.55))
     row1, row2 = fig.subfigures(2, 1, height_ratios=[1.0, 1.04], hspace=0.05)
 
     # both rows share ONE left-to-right width and the same column ratios, so the upper and lower

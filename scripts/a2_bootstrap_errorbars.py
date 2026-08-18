@@ -47,20 +47,73 @@ def load_oof(root, run, dataset):
     return d if len(d) else None
 
 
-def scaffold_ci(d, kind, seed=0):
-    """95% CI by resampling whole Bemis-Murcko scaffold clusters (same routine as A1)."""
+def load_oof_all(root, runs, dataset):
+    """OOF from EVERY pretraining-seed dir, tagged by dir. The bar pools all seeds, so the CI must
+    too -- using one dir made the interval describe a different estimator than the bar."""
+    out = []
+    for run in runs:
+        for cand in (run, f"{run}_s0"):
+            d = load_oof(root, cand, dataset)
+            if d is not None:
+                d = d.copy(); d["_dir"] = cand; out.append(d); break
+    return pd.concat(out, ignore_index=True) if out else None
+
+
+def fold_ids(root, smiles, y):
+    """Per-molecule fold membership, so a bootstrap draw can recompute the BAR's estimator
+    (mean over folds of the per-fold metric) rather than one global ranking over pooled OOF.
+    That difference is large for NEF1: CBS unsup was 0.814 globally vs 0.735 as mean-of-per-fold."""
+    if root == "cbs_benchmark":
+        m = {r["smiles"]: int(r["fold"]) for r in csv.DictReader(open(ROOT / "data" / "cbs.csv"))}
+        return np.array([m.get(s, -1) for s in smiles])
+    import eval_v2
+    folds = eval_v2._scaffold_kfold_indices(list(smiles), 5, 0, labels=y)
+    out = np.full(len(smiles), -1)
+    for j, idx in enumerate(folds):
+        out[np.asarray(idx, dtype=int)] = j
+    return out
+
+
+def pooled_metric(m, kind, dirs, folds):
+    """The BAR's estimator: mean over seed dirs of (mean over folds of the per-fold metric)."""
+    per_dir = []
+    for d in np.unique(dirs):
+        sel = dirs == d
+        vals = []
+        for f in np.unique(folds[sel]):
+            if f < 0:
+                continue
+            sub = m[sel & (folds == f)]
+            if len(sub) == 0:
+                continue
+            v = _metric_over_cols(sub, "y_pred_a", kind)
+            if np.isfinite(v):
+                vals.append(v)
+        if vals:
+            per_dir.append(float(np.mean(vals)))
+    return float(np.mean(per_dir)) if per_dir else np.nan
+
+
+def scaffold_ci(d, kind, root, seed=0):
+    """95% CI by resampling whole Bemis-Murcko scaffold clusters, recomputing the SAME pooled
+    estimator the bar reports (all seed dirs; per-fold then averaged)."""
     m = d.rename(columns={"y_true": "y_true_a", "y_pred": "y_pred_a", "raw_smiles": "raw_smiles_a"})
+    dirs = m["_dir"].to_numpy() if "_dir" in m.columns else np.array(["one"] * len(m))
+    d0 = dirs == dirs[0]
+    folds_one = fold_ids(root, m.loc[d0, "raw_smiles_a"].tolist(), m.loc[d0, "y_true_a"].to_numpy())
+    fmap = dict(zip(m.loc[d0, "raw_smiles_a"], folds_one))
+    folds = np.array([fmap.get(s, -1) for s in m["raw_smiles_a"]])
     scaf = m["raw_smiles_a"].map(_scaffold).to_numpy()
     groups = collections.defaultdict(list)
     for pos, s in enumerate(scaf):
         groups[s].append(pos)
     keys = list(groups); idx = {k: np.array(v) for k, v in groups.items()}; K = len(keys)
     rng = np.random.default_rng(seed)
-    obs = _metric_over_cols(m, "y_pred_a", kind)
+    obs = pooled_metric(m, kind, dirs, folds)
     vals = []
     for _ in range(N_BOOT):
         rows = np.concatenate([idx[keys[i]] for i in rng.integers(0, K, K)])
-        v = _metric_over_cols(m.iloc[rows], "y_pred_a", kind)
+        v = pooled_metric(m.iloc[rows], kind, dirs[rows], folds[rows])
         if np.isfinite(v):
             vals.append(v)
     if not vals:
@@ -116,21 +169,12 @@ def main():
         for panel, (kind, root) in MOL.items():
             runs = src.get("mol") or []
             if root == "cbs_benchmark":
-                runs = [src.get("cbs_dir") or (src.get("mol") or [None])[0]]
-            got = None
-            for run in runs:
-                if not run:
-                    continue
-                for cand in (run, f"{run}_s0"):
-                    d = load_oof(root, cand, panel)
-                    if d is not None:
-                        got = d; break
-                if got is not None:
-                    break
+                runs = src.get("mol") or []
+            got = load_oof_all(root, [r for r in runs if r], panel)
             if got is None:
                 rows.append(dict(arm=arm, panel=panel, metric=kind, value="", ci_lo="", ci_hi="",
                                  se="", method="MISSING_OOF", n_units=0)); continue
-            v, lo, hi, K = scaffold_ci(got, kind)
+            v, lo, hi, K = scaffold_ci(got, kind, root)
             rows.append(dict(arm=arm, panel=panel, metric=kind, value=round(v, 4),
                              ci_lo=round(lo, 4), ci_hi=round(hi, 4), se=round((hi-lo)/3.92, 4),
                              method="scaffold_cluster_bootstrap", n_units=K))

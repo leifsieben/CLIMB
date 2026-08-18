@@ -13,7 +13,7 @@ exceptions both involve the supervised encoder — BACE (-0.013) and QM7 (-3.3 R
 freezing is as good or better.
 
 So end-to-end fine-tuning is the better default, but the frozen probe is not far behind on several
-panels, and it is the cheaper option by far (SI Fig c). SI Fig f shows how this trade depends on
+panels, and it is the cheaper option by far (SI Fig c). SI Fig e shows how this trade depends on
 how many labels you have: the frozen probe's advantage lives in the small-data regime.
 
 Error bars are +-1 SD of that panel's replicate unit, and each panel's frozen and end2end numbers
@@ -33,10 +33,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font
-from figures.arms import ARMS, PANELS, PANEL_ORDER, SHADES
+from figures.arms import ARMS, PANELS, PANEL_ORDER
 from figures.sixpanel import ROOT
 
 check_font()
@@ -44,18 +44,18 @@ INK = "#000000"
 
 DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_a" / "SI_Fig_a_e2e_need.csv")
 
-# Four bars per panel: each encoder frozen and end2end. Colour = encoder family (blue =
-# unsupervised, red = supervised), lightness = probe (dark = frozen, light = end2end). Same solid
-# bar + black edge treatment as Figs A2/E/SI-d -- no hatching, which read as noise at this size.
-SERIES = [("unsupervised",      "frozen",  "unsup",     0, "unsupervised, frozen"),
-          ("unsupervised",      "end2end", "unsup",     2, "unsupervised, end2end"),
-          ("supervised, dense", "frozen",  "sup_dense", 0, "supervised dense, frozen"),
-          ("supervised, dense", "end2end", "sup_dense", 2, "supervised dense, end2end")]
-XLABELS = ["unsup.\nfrozen", "unsup.\ne2e", "sup.\nfrozen", "sup.\ne2e"]
+# A SLOPE plot, not bars (user request 2026-08-17): each encoder is ONE line joining its frozen
+# value to its end2end value, so the only thing the reader has to judge is the DIRECTION and
+# steepness of the change — which is the whole question — rather than comparing four bar heights.
+# Colour = encoder family: blue = unsupervised, red = supervised, dense.
+SERIES = [("unsupervised",      "unsup",     "unsupervised"),
+          ("supervised, dense", "sup_dense", "supervised, dense")]
+PROBES = ["frozen", "end2end"]
+XTICKS = ["frozen", "end-to-end"]
 
 
 def main():
-    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 5.1))
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 4.3))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         g_all = DF[DF.panel == p]
@@ -76,35 +76,39 @@ def main():
             ax.set_yticks([])
             continue
 
-        x = np.arange(len(SERIES))
-        ys, es, cs = [], [], []
-        for enc_label, probe, arm_key, shade, _ in SERIES:
-            r = g_all[(g_all.encoder == enc_label) & (g_all.probe == probe)]
-            ys.append(float(r.value.iloc[0]) if len(r) else np.nan)
-            e = float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0
-            es.append(0.0 if not np.isfinite(e) else e)
-            cs.append(SHADES[ARMS[arm_key]["family"]][shade])
-        ax.bar(x, ys, width=0.72, color=cs, edgecolor=INK, linewidth=0.8,
-               yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
-                                      ecolor=INK, zorder=6), zorder=3)
-        ax.set_xticks(x)
-        ax.set_xticklabels(XLABELS, fontsize=FS["annot"])
+        vals, errs = [], []
+        for enc_label, arm_key, _ in SERIES:
+            ys, es = [], []
+            for probe in PROBES:
+                r = g_all[(g_all.encoder == enc_label) & (g_all.probe == probe)]
+                ys.append(float(r.value.iloc[0]) if len(r) else np.nan)
+                e = float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0
+                es.append(0.0 if not np.isfinite(e) else e)
+            colour = ARMS[arm_key]["color"]
+            ax.errorbar([0, 1], ys, yerr=es, color=colour, lw=STYLE["lw"], marker="o",
+                        ms=5.4, mec="white", mew=0.8, elinewidth=1.0, capsize=2.2,
+                        capthick=1.1, ecolor=colour, zorder=3)
+            vals += [v for v in ys if np.isfinite(v)]
+            errs += es
+
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(XTICKS, fontsize=FS["annot"])
+        ax.set_xlim(-0.32, 1.32)
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
-        lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
-        hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
-        pad = 0.30 * max(hi - lo, 1e-9)
+        lo, hi = min(vals) - max(errs), max(vals) + max(errs)
+        pad = 0.22 * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
         if d["metric"] == "roc_auc":
             y1 = min(y1, 1.0)
         ax.set_ylim(y0, y1)
 
-    handles = [Patch(facecolor=SHADES[ARMS[k]["family"]][sh], edgecolor=INK, lw=0.8, label=lab)
-               for _, _, k, sh, lab in SERIES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=4,
-               fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
+    handles = [Line2D([], [], color=ARMS[k]["color"], marker="o", ms=5.0, lw=1.4, label=lab)
+               for _, k, lab in SERIES]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=2,
+               fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.045, 1, 1))
+    fig.tight_layout(rect=(0, 0.055, 1, 1))
     save(fig, "SI_Fig_a")
     plt.close(fig)
 
@@ -115,7 +119,7 @@ def main():
             print(f"   {p:<12} — no end2end run of a pretrained encoder")
             continue
         sign = 1 if g.higher_better.iloc[0] else -1
-        for label in ("unsupervised", "supervised, dense"):
+        for label, _, _ in SERIES:
             fr = g[(g.encoder == label) & (g.probe == "frozen")]
             ee = g[(g.encoder == label) & (g.probe == "end2end")]
             if not len(fr) or not len(ee):
