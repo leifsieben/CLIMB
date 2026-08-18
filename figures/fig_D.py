@@ -243,7 +243,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
 def main():
     data = compute()
     H, bar_rows = data["H"], data["bar_rows"]
-    fig = plt.figure(figsize=(STYLE["col2"], 5.2)
+    fig = plt.figure(figsize=(STYLE["col2"], 5.2))
     gs = fig.add_gridspec(2, 2, width_ratios=[1.0, 1.30], height_ratios=[1.0, 0.92],
                           hspace=0.55, wspace=0.60)
     draw(fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), fig.add_subplot(gs[1, :]), data)

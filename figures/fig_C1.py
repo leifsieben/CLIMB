@@ -245,7 +245,7 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
 
 def main():
     data = compute()
-    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1)
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1))
     draw(ax0, ax1, data)
     title(fig, "Fig C1 \u2014 Unsupervised pretraining: memorization or representation?",
           y=1.04)

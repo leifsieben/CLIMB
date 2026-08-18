@@ -187,7 +187,7 @@ def main():
     data = compute()
     pts, X, Y, TK = data["pts"], data["X"], data["Y"], data["TK"]
     r, rho, p = data["r"], data["rho"], data["p"]
-    fig, ax = plt.subplots(figsize=(STYLE["col2"], 3.4)
+    fig, ax = plt.subplots(figsize=(STYLE["col2"], 3.4))
     draw(ax, data)
     title(ax, f"Fig C2 \u2014 Supervised pretraining: transfer vs chemical similarity"
               f"   (n={len(pts)}, Pearson r={r:+.2f}, Spearman \u03c1={rho:+.2f}, p={p:.3f})")
