@@ -78,6 +78,10 @@ SHARD = int(os.environ.get("SHARD", "0"))
 NSHARD = int(os.environ.get("NSHARD", "1"))
 
 
+SHARD = int(os.environ.get("SHARD", "0"))
+NSHARD = int(os.environ.get("NSHARD", "1"))
+
+
 def _herg_done(prefix):
     """Full-track coverage. 2026-08-18 the Polaris panel moved hERG -> Ames; scoring one named task
     means a panel swap invalidates the whole wave (these encoders had hERG and NO Ames for exactly

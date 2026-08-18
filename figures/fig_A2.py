@@ -130,12 +130,32 @@ def _ci():
     if not f.exists():
         return {}
     d = pd.read_csv(f)
-    out = {}
+    out, rejected = {}, []
     for _, r in d.iterrows():
         v, lo, hi = r.get("value"), r.get("ci_lo"), r.get("ci_hi")
         if not all(np.isfinite(float(x)) for x in (v, lo, hi) if x is not None) or pd.isna(v):
             continue
+        # SANITY GATE. An interval is only meaningful for the bar it is drawn on if it describes
+        # the SAME quantity. A CI whose own point estimate is nowhere near the bar is measuring
+        # something else -- most often a different UNIT. That is not hypothetical: on 2026-08-18
+        # the CI file carried QM7 in DeepChem-NORMALIZED units (ecfp 0.936) for seven arms while
+        # the bar is native kcal/mol (215.9), and chemeleon_e2e alone was native -- so the panel
+        # mixed units internally and ecfp drew a +-0.02 whisker on a 215.9 bar, i.e. invisible.
+        # Anything off by >25% is rejected and the arm falls back to the legacy sd_total, loudly.
+        try:
+            bar = float(VAL.loc[r["arm"], r["panel"]])
+        except KeyError:
+            continue
+        if np.isfinite(bar) and bar != 0 and abs(float(v) - bar) / abs(bar) > 0.25:
+            rejected.append((r["arm"], r["panel"], float(v), bar))
+            continue
         out[(r["arm"], r["panel"])] = (float(v) - float(lo), float(hi) - float(v))
+    if rejected:
+        print(f"  WARNING  {len(rejected)} CI row(s) REJECTED — point estimate disagrees with the "
+              f"bar by >25%, so the interval is not describing the same quantity "
+              f"(unit mismatch?). Falling back to sd_total for these:")
+        for arm, panel, v, bar in rejected[:8]:
+            print(f"             {panel:<12}{arm:<18}CI value={v:10.4f}   bar={bar:10.4f}")
     return out
 
 
