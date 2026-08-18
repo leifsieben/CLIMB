@@ -60,13 +60,27 @@ def stage(prefix):
 
 
 def done(run):
+    """Completion derived from ACHIEVED WORK, not from the summary existing.
+
+    The old check was `cbs_nef1_MEAN is not None`, which a SMOKE run satisfies: CBS_E2E_SMOKE=1
+    leaves an n_folds=1, epochs=2 summary whose cbs_nef1_MEAN is 0.0 -- not None, so the arm was
+    reported done and skipped, and the wave would then write CBS_E2E_DONE off two stubs scoring at
+    or below chance (AUC 0.516 and 0.332). Require the full protocol instead: all 5 provided folds,
+    the real epoch budget, and every seed."""
     p = ROOT / "figure_data" / "cbs_benchmark" / run / "moleculenet_cv" / "suite_summary.json"
     if not p.exists():
         return False
     try:
-        return json.loads(p.read_text()).get("cbs_nef1_MEAN") is not None
+        d = json.loads(p.read_text())
     except Exception:
         return False
+    if d.get("cbs_nef1_MEAN") is None:
+        return False
+    if int(d.get("n_folds", 0)) < 5:
+        return False
+    if int(d.get("epochs", 0)) < int(FT_HPARAMS["epochs"]):
+        return False
+    return len(d.get("seeds", [])) >= len(SEEDS)
 
 
 def run_arm(prefix, run):
