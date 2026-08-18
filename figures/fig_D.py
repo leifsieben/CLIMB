@@ -250,7 +250,10 @@ def main():
     # y=1.02 put the suptitle ABOVE the canvas, which inflates savefig's tight bbox; keep it in.
     title(fig, "Fig D \u2014 Task similarity between supervised pretraining and downstream task",
           y=0.985)
-    fig.subplots_adjust(top=0.90, bottom=0.10, left=0.16, right=0.97)
+    # left/right widened to bring the panel-a y-label (was 0.38in past the canvas) and the
+    # transfer-matrix colorbar (0.17in past) back inside, so savefig's tight bbox stops growing
+    # this figure beyond the page width.
+    fig.subplots_adjust(top=0.90, bottom=0.10, left=0.218, right=0.945)
     save(fig, "figD")
     plt.close(fig)
 

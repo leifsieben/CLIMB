@@ -189,9 +189,17 @@ def main():
     r, rho, p = data["r"], data["rho"], data["p"]
     fig, ax = plt.subplots(figsize=(STYLE["col2"], 3.4))
     draw(ax, data)
-    title(ax, f"Fig C2 \u2014 Supervised pretraining: transfer vs chemical similarity"
-              f"   (n={len(pts)}, Pearson r={r:+.2f}, Spearman \u03c1={rho:+.2f}, p={p:.3f})")
-    fig.subplots_adjust(top=0.88, bottom=0.15, right=0.72)
+    # Two lines. As one line this title measured 7.04in — WIDER than the 6.69in canvas — so
+    # savefig's tight bbox grew the whole figure around it and C2 printed with smaller fonts than
+    # every other figure once LaTeX scaled it back to \textwidth.
+    title(ax, f"Fig C2 \u2014 Supervised pretraining: transfer vs chemical similarity\n"
+              f"(n={len(pts)}, Pearson r={r:+.2f}, Spearman \u03c1={rho:+.2f}, p={p:.3f})")
+    # right=0.72 dates from when the task legend hung OUTSIDE the axes; it now sits inside, so
+    # that 28% reservation was pure waste. The 0.70in left overflow that used to inflate this
+    # figure was the one-line TITLE, not the y-label (the title is centred on the axes and was
+    # wider than the canvas) -- fixed by wrapping it above, so the left margin only needs to hold
+    # the y-label.
+    fig.subplots_adjust(top=0.86, bottom=0.15, left=0.085, right=0.985)
     save(fig, "figC2")
     plt.close(fig)
 

@@ -249,7 +249,11 @@ def main():
     draw(ax0, ax1, data)
     title(fig, "Fig C1 \u2014 Unsupervised pretraining: memorization or representation?",
           y=1.04)
-    fig.subplots_adjust(top=0.84, bottom=0.16, wspace=0.32)
+    # Margins are set explicitly so the AXES fill the canvas: with matplotlib's defaults the
+    # right 10% (0.67in) went unused, savefig's tight bbox trimmed it, and this figure came out
+    # 5.75in against the set's 6.69in page width -- LaTeX then upscaled it and its fonts printed
+    # larger than every other figure's. save() warns if that returns.
+    fig.subplots_adjust(top=0.84, bottom=0.16, left=0.085, right=0.985, wspace=0.32)
     save(fig, "figC1")
     plt.close(fig)
 
