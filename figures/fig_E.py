@@ -1,0 +1,155 @@
+"""Fig E -- corrupted pretraining objectives: does the benefit survive garbling the chemistry?
+
+ONE script, ONE figure: figures_v2/figE.png / .pdf   (two panels, a + b)
+
+Both panels hold objective family, data volume, compute, schedule, architecture and probe fixed
+and remove only the CHEMICAL CONTENT of the pretraining signal. Bars are lift over
+`no pretrain (frozen)` -- a random-init encoder, frozen, same probe -- so 0 means "this pretraining
+objective bought nothing".
+
+(a) SUPERVISED (descriptor regression). Real targets vs targets permuted across the batch: the
+    molecule->descriptor mapping is destroyed, the target distribution is untouched.
+    Reading: the real arm helps on every task; permuting the targets does not merely erase the
+    gain, it lands BELOW the untrained floor on all six tasks. A supervised objective with no
+    molecule->label correspondence is actively harmful, not neutral.
+
+(b) UNSUPERVISED (MLM), a ladder of increasingly destroyed SMILES statistics:
+      shuffled tokens  -- token order permuted inside each sequence (grammar gone, token
+                          distribution and mask rate preserved)
+      bigram corpus    -- sequences resampled from the corpus bigram statistics (local adjacency
+                          only)
+      unigram corpus   -- sequences resampled from the corpus unigram marginal (no structure)
+      wiki             -- English Wikipedia text: real language, ZERO chemistry
+    Reading: the benefit is NOT specific to real chemistry. Shuffled tokens retain essentially all
+    of it (ESOL +27.9 vs real +25.0), bigram retains a large part, and even Wikipedia -- with no
+    molecules in it at all -- is positive on 5 of 6 tasks. Only the unigram rung, which destroys
+    all sequential structure, collapses to the floor. What the MLM buys is largely a generic
+    sequence prior, not chemical knowledge.
+
+Together: the supervised objective's value IS its molecule->label correspondence (destroy it and
+you go negative), while the unsupervised objective's value is mostly structure-agnostic.
+
+Data / statistics
+-----------------
+Everything is read from `figure_data/figE/figE_lift.csv`, built by `scripts/build_figE_table.py`
+(see that module for the full sourcing and floor argument). In brief: 5-fold scaffold CV, frozen
+probe, native units; each panel lifts over the SAME three random-init encoders scored in that
+panel's own eval wave; error bars are ONE estimand everywhere -- +-1 SD across the 3 PRETRAINING
+seeds, propagated through the lift transform with the floor held fixed.
+
+`corrupt_mtr_8M` (the permuted-targets arm) exists as a SINGLE pretraining run, so it has no seed
+SD and is drawn WITHOUT a whisker -- flagged as "1 seed" in the legend -- rather than borrowing a
+fold SD, which would not be the same estimand.
+
+Scope note: these arms were only ever evaluated on MoleculeNet, so this figure runs on the six
+MoleculeNet tasks rather than the paper's canonical six panels (of which it shares BACE, Tox21 and
+QM7). Putting it on the canonical panels needs MoleculeACE / CBS / hERG evals of all seven
+corrupted encoders.
+
+Run:  python3 scripts/build_figE_table.py && python3 -m figures.fig_E
+"""
+from __future__ import annotations
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
+from figures.style import STYLE, FS, save, check_font
+from figures.arms import SHADES
+
+check_font()
+
+ROOT = Path(__file__).resolve().parent.parent
+TABLE = ROOT / "figure_data" / "figE" / "figE_lift.csv"
+TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
+
+# (arm key, legend label, colour).  Supervised = the red family; the unsupervised ladder walks the
+# blue family dark->light as chemical content is removed, and the zero-chemistry Wikipedia control
+# sits outside that ladder in near-black.
+PANELS = [
+    ("supervised", "a", "supervised objective — real vs permuted targets",
+     [("real",             "supervised, dense",                    SHADES["sup"][0]),
+      ("targets_permuted", "corrupted targets (1 seed)",           SHADES["sup"][2])]),
+    ("unsupervised", "b", "unsupervised objective — ladder of destroyed SMILES statistics",
+     [("real",     "unsupervised",       SHADES["unsup"][0]),
+      ("shuffled", "shuffled tokens",    SHADES["unsup"][1]),
+      ("bigram",   "bigram corpus",      SHADES["unsup"][2]),
+      ("unigram",  "unigram corpus",     SHADES["unsup"][3]),
+      ("wiki",     "wiki (zero chem.)",  SHADES["random"][1])]),
+]
+
+
+def draw(ax, d, series, tag, subtitle, ylim):
+    x = np.arange(len(TASKS))
+    n = len(series)
+    w = 0.80 / n
+    for i, (key, label, colour) in enumerate(series):
+        s = d[d.arm == key].set_index("dataset")
+        ys = [s.lift_pct.get(t, np.nan) for t in TASKS]
+        es = [s.lift_sd_pct.get(t, np.nan) for t in TASKS]
+        es = [0.0 if not np.isfinite(e) else e for e in es]
+        off = (i - (n - 1) / 2) * w
+        ax.bar(x + off, ys, width=w, color=colour, edgecolor="white", lw=0.4,
+               yerr=es, capsize=STYLE["cap_size"],
+               error_kw=dict(lw=STYLE["lw_thin"], ecolor="#000000"), label=label, zorder=3)
+        # vertical value labels have zero horizontal extent, so they can never reach a neighbour
+        for xi, v, e in zip(x + off, ys, es):
+            if not np.isfinite(v):
+                continue
+            pad = e + 0.6
+            ax.text(xi, v + pad if v >= 0 else v - pad, f"{0.0 if abs(v) < 0.05 else v:+.1f}",
+                    rotation=90, ha="center", va="bottom" if v >= 0 else "top",
+                    fontsize=FS["annot"], clip_on=False, zorder=4)
+
+    ax.axhline(0, color=STYLE["ink"], lw=0.8, zorder=2)
+    ax.set_xticks(x)
+    ax.set_xticklabels(TASKS)
+    ax.xaxis.set_minor_locator(ticker.NullLocator())
+    ax.tick_params(axis="x", which="minor", bottom=False)
+    ax.set_ylim(*ylim)
+    ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+    ax.set_axisbelow(True)
+    ax.set_title(subtitle, fontsize=FS["title"], fontweight="bold", color=STYLE["ink"], pad=4)
+    ax.text(-0.02, 1.06, tag, transform=ax.transAxes, fontsize=FS["panel_tag"],
+            fontweight="bold", va="bottom", ha="right", color=STYLE["ink"])
+    ax.legend(loc="upper right", frameon=False, fontsize=FS["legend"],
+              ncol=1, handletextpad=0.5, borderpad=0.2, labelspacing=0.25)
+
+
+def main():
+    d = pd.read_csv(TABLE)
+
+    # one shared y-range so a bar of a given height means the same thing in both panels
+    lo = min((d.lift_pct - d.lift_sd_pct.fillna(0)).min(), 0)
+    hi = (d.lift_pct + d.lift_sd_pct.fillna(0)).max()
+    sp = hi - lo
+    ylim = (lo - 0.13 * sp, hi + 0.22 * sp)          # headroom for the vertical value labels
+
+    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1),
+                             gridspec_kw=dict(width_ratios=[1.0, 1.85], wspace=0.12))
+    for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
+        draw(ax, d[d.panel == panel], series, tag, subtitle, ylim)
+    axes[0].set_ylabel("lift over no pretrain, frozen (%)")
+    axes[1].tick_params(labelleft=False)
+
+    fig.subplots_adjust(top=0.90, bottom=0.09, left=0.075, right=0.995)
+    save(fig, "figE")
+    plt.close(fig)
+
+    for panel, _, subtitle, series in PANELS:
+        p = d[d.panel == panel]
+        print(f"\nFig E ({panel}) — lift % over no pretrain (frozen), 5-fold CV:")
+        print(f"   {'arm':<38}" + "".join(f"{t:>9}" for t in TASKS))
+        for key, label, _ in series:
+            s = p[p.arm == key].set_index("dataset")
+            row = f"   {label:<38}"
+            for t in TASKS:
+                v = s.lift_pct.get(t, np.nan)
+                row += f"{v:>+9.1f}" if np.isfinite(v) else f"{'—':>9}"
+            print(row + f"   (n_seeds={int(s.n_seeds.max())})")
+
+
+if __name__ == "__main__":
+    main()

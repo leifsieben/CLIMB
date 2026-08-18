@@ -10,8 +10,10 @@ XGBoost anchors and CheMeleon are solid, so the model families separate at a gla
 greyscale printing. Panel title line 1 is the panel name + a direction arrow (up = higher better,
 down = lower better); line 2 is the number of test molecules the panel actually scores (every
 molecule appears in the test fold exactly once across the 5-fold/provided-fold CV, so this is the
-size of the evaluation, not the whole dataset). Sourced from the raw prediction/manifest files, not
-typed by hand -- see TEST_N below.
+size of the evaluation, not the whole dataset). TEST_N below is hand-typed, but every value was
+verified against the raw prediction/manifest files on 2026-08-17 (unique mol_index in
+climb_v2_phase2/fp_desc_anchor test_predictions.csv; cbs_benchmark equivalent; polaris_manifest
+n_test; sum of MoleculeACE test splits) -- re-verify if a split ever changes.
 
 One reference line per panel: the black dotted line is the **random-encoder level**, keyed once on
 the right of the figure. Anything not clearing it is not beating an untrained network on that
@@ -21,42 +23,41 @@ NO PANEL IS ZOOMED. Every bar starts at a meaningful floor — 0.5 (chance) on t
 0 on RMSE and NEF1 — so bar length stays proportional to the quantity. The honest cost is that
 MoleculeACE and QM7 look more compressed than the differences on them warrant.
 
-Error bars are drawn with a WHITE HALO (matplotlib path_effects) around the black whisker/cap.
-Without it, a black error bar sitting exactly at a black-edged, black-dot-hatched bar's top is
-visually indistinguishable from the border -- confirmed by pixel-level zoom -- and the near-black
-"random encoder" bar makes it worse still (black-on-black). The halo makes every bar's error visible
-regardless of what is drawn under it.
+Error bars are plain black (user decision 2026-08-17; an earlier draft gave them a white halo via
+matplotlib path_effects to separate them from the black bar borders/hatch -- removed on request).
 
-Error bars: ±1 SD, on BACE/Tox21/QM7/CBS computed by `scripts/six_panel_aggregate.py::seed_stats`
-from the fold-ENSEMBLE rows (never the `_cell` rows -- see that function's docstring for why: the
-ensembled-prediction fold score is the intended point estimate, `_cell` values are a different,
-strictly worse estimator that must never be averaged into the value or the error bar). Spread is
-across the 3 pretraining-seed dirs where more than one exists; ECFP, ECFP+desc and CheMeleon have
-exactly one dir (no pretraining stage to replicate -- a fact about those models, not a data gap),
-so their bar falls back to spread across the panel's 5 folds, honestly a different but equally
-real quantity. hERG uses the 3 eval seeds (Polaris was run once per model, on ONE provided split of
-132 molecules, so that panel's bars understate the true uncertainty more than the others).
-MoleculeACE uses the 95% target-cluster bootstrap half-width.
+Error bars: ±1 SD of ONE replicate evaluation of the panel -- a single estimand for every bar
+(user decision 2026-08-17, notes/a2-errorbar-unification-2026-08-17.md), computed by
+`scripts/six_panel_aggregate.py::panel_stats` as sd_total = sqrt(var_between(seed-dir means) +
+mean(within-dir fold variance)). Per panel that pools: CLIMB arms 3 pretraining seeds x 5 folds
+(15 ensemble cells -- the plain `<metric>` fold rows, never `_cell`; see the aggregator for why);
+ECFP/ECFP+desc/CheMeleon-frozen 5 folds of their one dir (no pretraining stage to replicate -- a
+fact about those models, not a data gap); chemeleon_e2e per-dir suite summaries (its runner wrote
+no per-fold CSV); hERG 3 eval seeds on the ONE provided 132-molecule split (that panel's bars
+understate the true uncertainty most); MoleculeACE the SD across the 3 eval-seed macro-means
+(pretraining-seed top-up pending -- the bootstrap CI stays in mainline_8M_bootstrap.csv for the
+paper text). Before 2026-08-17 each family drew a different quantity (seed-SD vs fold-SD vs 95%
+CI), which made CLIMB whiskers look ~20x tighter than the anchors' on Tox21/QM7 by definition
+alone.
 
-KNOWN BAD CELL — CheMeleon on QM7
----------------------------------
-CheMeleon's QM7 RMSE is not a measurement of its representation, it is a fitting failure.
-Predicting the training mean scores 228.7 on QM7 (targets are μ≈−1531, σ≈228.7), so CheMeleon is
-*worse than chance*, dragged by one diverged fold while every other model is flat across the same
-5 folds. Flag it in the caption or re-run that arm before quoting the number — an AWS re-run has
-been requested (2026-08-16).
+CheMeleon here is the **e2e** arm (native D-MPNN-from-foundation, 3 seeds). It has no bar on
+MoleculeACE (never evaluated e2e there -- Burns' published 0.666 is the reference, a point
+estimate on a different harness) or hERG (Polaris was scored frozen-only): both cells are left
+blank and marked "n/a". The frozen CheMeleon arm's genuine QM7 failure (fold2 = 434 across all
+head seeds, correctly-scaled but uninformative features on an extrapolative scaffold fold) lives
+in the chemeleon_frozen arm and is a reportable result, not a bug -- see
+notes/figure-data-audit-2026-08-17.md.
 
 Run:  python3 -m figures.fig_A2
 """
 from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
 from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font
 from figures.arms import ARMS, PANELS, PANEL_ORDER, system, label
-from figures.sixpanel import load_mainline, load_bootstrap
+from figures.sixpanel import load_mainline
 
 check_font()
 INK = "#000000"
@@ -64,8 +65,9 @@ CLIMB_HATCH = "...."          # small black dots mark the CLIMB models (density 
                               # with hatch.linewidth 0.35 in style.py for fine dots)
 
 # the eight models, in a fixed reading order: anchors -> CLIMB recipes -> controls -> external
+# (random encoder second-to-last, right of the e2e control -- user request 2026-08-17)
 MODELS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
-          "random_encoder", "e2e_no_pretrain", "chemeleon_e2e"]
+          "e2e_no_pretrain", "random_encoder", "chemeleon_e2e"]
 # 2026-08-17: was "chemeleon", a single arm labelled "end2end" but sourced from chemeleon_FROZEN --
 # which is what put the frozen arm's broken QM7 value (268.8, fold2=434, worse than a constant
 # predictor) on this end2end comparison. "chemeleon_e2e" is the native D-MPNN-from-foundation run,
@@ -77,14 +79,15 @@ FLOOR = {"roc_auc": 0.5, "nef1": 0.0, "macro_rmse": 0.0, "rmse": 0.0}
 
 
 def _err(extra):
-    """±1 SD across replicate runs, parsed out of the `extra` field of mainline_8M.csv.
-
-    A genuine 0.0 (e.g. a deterministic featurizer whose 5 fold scores happen to tie) is kept --
-    it is a real result, not a signal that data is missing. Only an ABSENT key returns NaN."""
+    """±1 SD of one replicate evaluation (sd_total), parsed out of the `extra` field of
+    mainline_8M.csv. `sd_evalseeds` is the hERG alias for the same estimand kept for
+    back-compatibility. A genuine 0.0 (e.g. a deterministic featurizer whose 5 fold scores happen
+    to tie) is kept -- it is a real result, not a signal that data is missing. Only an ABSENT key
+    returns NaN."""
     if not isinstance(extra, str):
         return np.nan
     d = dict(kv.split("=") for kv in extra.split(";") if "=" in kv)
-    for k in ("sd_seeds", "sd_evalseeds"):
+    for k in ("sd_total", "sd_evalseeds"):
         if k in d:
             try:
                 return float(d[k])
@@ -99,10 +102,6 @@ def table():
     val = df.pivot_table(index="arm", columns="panel", values="value", observed=True)
     err = (df.assign(e=df.extra.map(_err))
              .pivot_table(index="arm", columns="panel", values="e", observed=True))
-    boot = load_bootstrap().set_index("arm")
-    for a in MODELS:                                   # MoleculeACE: half-width of the 95% CI
-        if a in boot.index and np.isfinite(boot.loc[a, "ci_lo"]):
-            err.loc[a, "MoleculeACE"] = (boot.loc[a, "ci_hi"] - boot.loc[a, "ci_lo"]) / 2
     return (val.reindex(index=MODELS, columns=PANEL_ORDER),
             err.reindex(index=MODELS, columns=PANEL_ORDER))
 
@@ -143,24 +142,25 @@ def build():
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         lo, hi = _limits(p)
+        vals = np.array([VAL.loc[a, p] for a in MODELS], dtype=float)
+        errs = np.array([ERR.loc[a, p] for a in MODELS], dtype=float)
+        ok = np.isfinite(vals)
 
-        bars = ax.bar(x, [VAL.loc[a, p] - lo for a in MODELS], bottom=lo, width=0.74,
-                      color=[ARMS[a]["color"] for a in MODELS],
+        bars = ax.bar(x[ok], vals[ok] - lo, bottom=lo, width=0.74,
+                      color=[ARMS[a]["color"] for a, o in zip(MODELS, ok) if o],
                       edgecolor=INK, linewidth=0.8, zorder=2)
-        for b, a in zip(bars, MODELS):
+        for b, a in zip(bars, [a for a, o in zip(MODELS, ok) if o]):
             if system(a) == "CLIMB":
                 b.set_hatch(CLIMB_HATCH)      # black dots; the bar keeps its black border
+        for xi, a in zip(x[~ok], [a for a, o in zip(MODELS, ok) if not o]):
+            ax.text(xi, lo + (hi - lo) * 0.02, "n/a", ha="center", va="bottom",
+                    fontsize=FS["annot"], color=INK, rotation=90)
 
-        # Error bars drawn as a SEPARATE call (not bar(..., yerr=...)) so each whisker/cap can
-        # carry a white halo -- otherwise a black error bar disappears into a black bar border
-        # or a black hatch (see the module docstring: confirmed by pixel zoom, not a hunch).
-        _, caps, bcaps = ax.errorbar(x, VAL[p], yerr=ERR[p], fmt="none", ecolor=INK,
-                                     elinewidth=1.0, capsize=2.2, capthick=1.1, zorder=6)
-        halo = [pe.withStroke(linewidth=2.6, foreground="white")]
-        for cap in caps:
-            cap.set_path_effects(halo)
-        for bc in bcaps:
-            bc.set_path_effects(halo)
+        # Error bars drawn as a SEPARATE call (not bar(..., yerr=...)) so the n/a cells can be
+        # filtered out per panel. Plain black -- no halo (user decision 2026-08-17).
+        ok_e = ok & np.isfinite(errs)
+        ax.errorbar(x[ok_e], vals[ok_e], yerr=errs[ok_e], fmt="none", ecolor=INK,
+                    elinewidth=1.0, capsize=2.2, capthick=1.1, zorder=6)
 
         ax.axhline(VAL.loc[REFERENCE, p], color=INK, ls=":", lw=1.1, zorder=2)
 

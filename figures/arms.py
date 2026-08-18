@@ -172,13 +172,15 @@ ARMS = {
     #            are correctly centred/scaled (pred mean -1540 vs true -1531, sd 229 vs 223), so the
     #            frozen embedding simply fails to encode atomization energy on some scaffold folds.
     #            Report it with the fold spread visible; do NOT quote it as "CheMeleon on QM7".
-    # MoleculeACE has NO native CheMeleon e2e run (frozen only); Burns' published numbers in
-    # chemeleon_suite/reference/reference_long.csv are the e2e reference there, and they are point
-    # estimates with no per-molecule OOF, so they cannot be bootstrapped.
+    # MoleculeACE: a NATIVE CheMeleon e2e run landed 2026-08-17 (chemeleon_e2e_gaps.py; 30 targets
+    # x 3 eval seeds, chemprop_from_foundation) and supersedes Burns' published point estimates in
+    # chemeleon_suite/reference/reference_long.csv -- ours has per-molecule OOF and can be
+    # bootstrapped. hERG (polaris/chemeleon_e2e) is still in flight; that cell reads n/a until it
+    # lands, at which point NO code change is needed (the same `mace` key names the polaris dir).
     "chemeleon_e2e": dict(
         label="CheMeleon (e2e)", short="CheMeleon e2e", family="chemeleon", color=SHADES["chemeleon"][0],
         probe="e2e", in_ablation=False,
-        src=dict(mace=None, mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
+        src=dict(mace="chemeleon_e2e", mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
                  cbs="chemeleon_e2e")),
     "chemeleon_frozen": dict(
         label="CheMeleon (frozen)", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
@@ -220,6 +222,20 @@ PANELS = {
                         higher_better=False, group="quantum regression", n_tasks=1),
 }
 PANEL_ORDER = list(PANELS)
+
+# Categorical colour per MoleculeNet task, for the similarity/transfer analysis figures (C2/D)
+# where POINTS ARE TASKS, not arms. Muted hues drawn from the arm families; within those figures
+# the legend defines them as tasks and no arm-coloured element shares the axes, so there is no
+# semantic collision. The 6 canonical panels above keep their marker encoding and no colour.
+TASK_COLORS = {
+    "BACE":         "#A3455E",   # crimson
+    "BBBP":         "#C8912F",   # amber
+    "ESOL":         "#3F6E9C",   # blue
+    "HIV":          "#7E6BA8",   # violet
+    "Lipophilicity": "#3D8073",  # teal
+    "QM7":          "#6B6494",   # slate
+    "Tox21":        "#8A8A8A",   # grey
+}
 
 
 SYSTEM = {"anchor": "XGBoost", "chemeleon": "CheMeleon"}          # everything else is CLIMB
