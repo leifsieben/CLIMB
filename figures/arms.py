@@ -52,6 +52,13 @@ SHADES = {
     "s2u":    ["#6B6494", "#8F89B2", "#B7B3CE"],
     "e2e":    ["#8A8A8A", "#A8A8A8", "#C6C6C6"],
     "random": ["#2B2B2B", "#555555", "#808080"],
+    # SI-ONLY family. SI fig b (vocabulary) and SI fig d (canonical vs augmented) are both
+    # two-line plots over the same six panels, and drawing both in the unsup blues made them read
+    # as the same figure. `si_alt` is a moss/olive pair: a hue used NOWHERE else in the scheme, so
+    # it cannot be mistaken for a model family, and it stays separable from the blues under
+    # deuteranopia and in greyscale (it sits in a different lightness band). SI d has no model
+    # semantics to preserve — its two lines are corpus variants, not arms.
+    "si_alt": ["#5C7A29", "#9FBF6A"],
 }
 
 # --------------------------------------------------------------------------------------------

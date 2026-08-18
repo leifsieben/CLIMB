@@ -122,22 +122,30 @@ def draw(fig, ax, d, series, tag, subtitle, ylim):
 def main():
     d = pd.read_csv(TABLE)
 
-    # one shared y-range so a bar of a given height means the same thing in both panels
-    lo = min((d.lift_pct - d.lift_sd_pct.fillna(0)).min(), 0)
-    hi = (d.lift_pct + d.lift_sd_pct.fillna(0)).max()
-    sp = hi - lo
-    ylim = (lo - 0.08 * sp, hi + 0.10 * sp)
+    # PER-PANEL y-ranges (user 2026-08-17). A shared range let panel a's +35% supervised bar set
+    # the scale and squashed panel b's ladder, where the interesting structure (shuffled ~ real,
+    # bigram partial, unigram at the floor) lives between 0 and 30%. Each panel is now scaled to
+    # its own data. The axes are both "% lift over the same floor", so a reader compares by
+    # reading values, not bar heights — the tick labels carry % for exactly that reason.
+    def _lim(sub, pad_lo=0.08, pad_hi=0.10):
+        lo = min((sub.lift_pct - sub.lift_sd_pct.fillna(0)).min(), 0)
+        hi = (sub.lift_pct + sub.lift_sd_pct.fillna(0)).max()
+        sp = hi - lo
+        return lo - pad_lo * sp, hi + pad_hi * sp
+
+    ylims = {panel: _lim(d[d.panel == panel]) for panel, _, _, _ in PANELS}
 
     # With the per-bar labels gone, panel b no longer needs extra width to keep them apart, so the
     # ratio is set by what panel a needs for its six task labels ("Tox21"/"BBBP" collide below
     # ~2.5in of axes width).
     fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1),
-                             gridspec_kw=dict(width_ratios=[1.0, 1.6], wspace=0.13))
+                             gridspec_kw=dict(width_ratios=[1.0, 1.6], wspace=0.24))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
-        draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylim)
+        draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylims[panel])
     axes[0].set_ylabel("Lift over no pretrain, frozen")
+    axes[1].set_ylabel("Lift over no pretrain, frozen")
 
-    fig.subplots_adjust(top=0.90, bottom=0.085, left=0.078, right=0.995)
+    fig.subplots_adjust(top=0.90, bottom=0.085, left=0.072, right=0.995)
     save(fig, "fig_E")
     plt.close(fig)
 

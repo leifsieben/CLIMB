@@ -55,8 +55,11 @@ INK = "#000000"
 
 DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_d" / "SI_fig_d_augmentation.csv")
 
-# both arms are unsupervised (MLM) encoders, so both take the unsup hue, split by lightness+marker
-MODES = [("canonical", SHADES["unsup"][0], "o"), ("augmented", SHADES["unsup"][2], "D")]
+# the two corpus variants, split by lightness + marker
+# NOT the unsup blues: SI fig b is already a two-line plot over these same six panels in that
+# family, and side by side the two figures were indistinguishable. `si_alt` is an SI-only moss
+# pair (see arms.py) — a hue used nowhere else, so it reads as "not a model family".
+MODES = [("canonical", SHADES["si_alt"][0], "o"), ("augmented", SHADES["si_alt"][1], "D")]
 YMARGIN = 0.22
 
 

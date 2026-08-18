@@ -232,7 +232,10 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
                      lw=STYLE["lw"], capsize=STYLE["cap_size"],
                      label=f"{t} (n/bin\u2248{int(np.median(nn))})")
     ax1.axhline(0, color=SHADES["random"][0], lw=0.6)
-    ax1.legend(loc="best", fontsize=FS["legend"])
+    # top-left: the only quadrant of this panel with no data in it (user 2026-08-17); "best"
+    # kept drifting between renders, which is worse than a fixed corner in an assembled figure.
+    ax1.legend(loc="upper left", fontsize=FS["legend"], frameon=False,
+               handletextpad=0.4, labelspacing=0.25, borderaxespad=0.3)
     ax1.set_xlabel("max Tanimoto to corpus (bin mean)" if compact else
                    "max ECFP4 Tanimoto to corpus (bin mean)")
     ax1.set_ylabel("lift (%)" if compact else f"lift over {FLOOR_LABEL} (%)")

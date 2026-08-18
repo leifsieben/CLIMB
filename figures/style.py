@@ -86,7 +86,7 @@ def _pdf_width_in(path):
     return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
 
 
-def save(fig, name, formats=("png", "pdf"), subdir=None):
+def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
     """Save to figures_v2/<name>.<ext>. Returns the PNG path.
 
     savefig uses bbox_inches="tight", so the width actually written is NOT the figsize width: it
@@ -107,7 +107,10 @@ def save(fig, name, formats=("png", "pdf"), subdir=None):
     print(f"  saved  {rel}." + "/".join(formats))
     if "pdf" in formats:
         w = _pdf_width_in(out / f"{name}.pdf")
-        if w is not None and abs(w - A4_TEXT) / A4_TEXT > 0.05:
+        if wide:
+            print(f"  (wide figure: {w:.2f}in — set landscape/full-bleed on purpose, "
+                  f"not scaled to the {A4_TEXT:.2f}in text block)")
+        elif w is not None and abs(w - A4_TEXT) / A4_TEXT > 0.05:
             print(f"  WARNING  {name}: rendered {w:.2f}in vs page width {A4_TEXT:.2f}in "
                   f"({(w / A4_TEXT - 1) * 100:+.0f}%) -- fonts will not match the rest of the set")
     return out / f"{name}.png"

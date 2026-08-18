@@ -34,10 +34,10 @@ def main():
     d2 = fig_C2.compute()
     d3 = fig_D.compute()
 
-    # Full A4 text block, kept deliberately short so the assembled 2x3 does not run as a
-    # near-square block down the page (the 2026-08-17 complaint). Same width as every other
-    # figure, so the whole set scales identically in LaTeX.
-    fig = plt.figure(figsize=(STYLE["col2"], 4.55))
+    # DELIBERATELY WIDER THAN THE A4 TEXT BLOCK, like fig_A. Six panels across two rows were
+    # cramped at 6.69in (user 2026-08-17); set this landscape / full-bleed instead. save(wide=True)
+    # records the exemption rather than warning about it.
+    fig = plt.figure(figsize=(8.9, 5.0))
     row1, row2 = fig.subfigures(2, 1, height_ratios=[1.0, 1.04], hspace=0.05)
 
     # both rows share ONE left-to-right width and the same column ratios, so the upper and lower
@@ -66,7 +66,7 @@ def main():
     fig.text(0.002, 0.260, "Task Similarity", rotation=90, va="center", ha="center",
              fontsize=FS["panel_tag"], fontweight="bold")
 
-    save(fig, "fig_C_D")
+    save(fig, "fig_C_D", wide=True)
     plt.close(fig)
     print("assembled fig_C_D from fig_C1 + fig_C2 + fig_D (no recomputation beyond their compute())")
 

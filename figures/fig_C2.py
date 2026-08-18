@@ -174,6 +174,12 @@ def draw(ax, data, tag=None, compact=False):
                   frameon=False, fontsize=FS["legend"], title_fontsize=FS["legend"],
                   handletextpad=0.3, borderaxespad=0.2)
 
+    # The lower-right legend was landing on the point cloud. Dropping the floor to -30 opens an
+    # empty band beneath the data for it to sit in, rather than shrinking the legend (user
+    # 2026-08-17). Only the FLOOR is forced; the top stays data-driven.
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(min(lo, -30), hi)
+
     ax.set_title("Transfer vs chemical similarity" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
                  loc="left" if compact else "center",
