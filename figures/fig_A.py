@@ -51,7 +51,10 @@ def build(height=5.5, left_frac=0.375):
 
     axL = fig.add_subplot(outer[0, 0])
     A1.draw(axL, compact=True)
-    axL.set_title("Overall standing", fontsize=FS["title"], fontweight="bold", color=INK, pad=6)
+    # Sentence case, matching every other title in the set ("Supervised: permuted targets",
+    # "Lift by similarity group", "Transfer vs chemical similarity") and standard journal style.
+    axL.set_title("Mean rank across all datasets", fontsize=FS["title"], fontweight="bold",
+                  color=INK, pad=6)
     axL.text(-0.34, 1.012, "a", transform=axL.transAxes, fontsize=FS["panel_tag"],
              fontweight="bold", va="bottom", ha="left", color=INK)
 

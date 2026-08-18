@@ -268,7 +268,7 @@ def main():
         print(f"{system(a) + ' · ' + label(a):34s} {cells}")
     print()
     fig = build()
-    save(fig, "fig_A2")
+    save(fig, "fig_A2", subdir="panels")
     plt.close(fig)
 
 

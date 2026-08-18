@@ -132,7 +132,7 @@ def main():
         print(f"{system(a) + ' / ' + label(a):38s} {r.mean_rank:6.2f} {r.se_rank:5.2f} | {per}")
     print()
     fig = build()
-    save(fig, "fig_A1")
+    save(fig, "fig_A1", subdir="panels")
     plt.close(fig)
 
 

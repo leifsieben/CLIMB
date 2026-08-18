@@ -45,8 +45,16 @@ bootstrap), that is stated explicitly beside the number.
 
 `figures_v2/` holds ONLY paper deliverables — the numbered figures, plus `SI_fig_c.csv/.tex`
 because that supplementary item IS a table. Component panels that exist only to be assembled into
-another figure (C1, C2, D → fig_C_D) render to `figures_v2/panels/` via `save(..., subdir="panels")`.
-Per-figure data records go to `figure_data/<fig>/`, never to `figures_v2/`.
+another figure (A1, A2 → fig_A; C1, C2, D → fig_C_D) render to `figures_v2/panels/` via
+`save(..., subdir="panels")`. Per-figure data records go to `figure_data/<fig>/`, never to
+`figures_v2/`.
+
+**Titles are sentence case** — "Mean rank across all datasets", not "Mean Rank Across All Datasets".
+Panel titles that are dataset names keep the dataset's own casing (`MoleculeACE`, `Ames GeneTox`).
+
+**Two figures are deliberately landscape** and exempt from the page-width rule below, declared with
+`save(..., wide=True)`: `fig_A` (11.0in) and `fig_C_D` (8.9in). Both are assembled multi-panel
+figures that were distorted when forced into the 6.69in text block.
 
 ## Page width
 
@@ -92,8 +100,9 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 
 | ID | Figure | Script | Output | Status |
 |---|---|---|---|---|
-| A1 | mean rank across all 66 datasets (4 suites) | `fig_A1.py` | `fig_A1` | final |
-| A2 | the 6 panels, 8M mainline, sd_total bars | `fig_A2.py` | `fig_A2` | final |
+| A | headline: mean rank (left) + the 6 canonical panels as 2x3 (right) | `fig_A.py` | `fig_A` | final. **This is the paper figure**; A1/A2 are its components. Landscape/full-bleed (11.0 x 5.5in), exempt from the page-width rule via `save(wide=True)` |
+| A1 | mean rank across all 66 datasets (4 suites) | `fig_A1.py` | `panels/fig_A1` | component of fig_A |
+| A2 | the 6 canonical panels, 8M mainline, sampling CIs | `fig_A2.py` | `panels/fig_A2` | component of fig_A |
 | B | pretraining scaling ladders (x = tokens) | `fig_B.py` | `fig_B` | final (clean variant) |
 | C1 | molecular similarity, unsupervised (memorization vs representation) | `fig_C1.py` | `panels/fig_C1` | final |
 | C2 | molecular similarity, supervised (H10 test) | `fig_C2.py` | `panels/fig_C2` | final |
