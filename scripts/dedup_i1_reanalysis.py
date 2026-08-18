@@ -57,6 +57,19 @@ from rdkit import Chem, RDLogger
 
 RDLogger.DisableLog("rdApp.*")
 
+# np.bitwise_count is numpy >= 2.0. The AWS boxes' climb venv is numpy 1.x, where this driver died
+# with AttributeError four seconds in, which is why this job was stuck on a laptop. Portable
+# byte-lookup popcount fallback: identical results, and every call site immediately does
+# .sum(axis=1), so returning per-BYTE counts instead of per-uint64 counts gives the same row totals.
+if hasattr(np, "bitwise_count"):
+    _popcount_rows = np.bitwise_count
+else:                                                    # numpy 1.x fallback
+    _POPCNT8 = np.array([bin(i).count("1") for i in range(256)], dtype=np.uint16)
+
+    def _popcount_rows(x):
+        b = np.ascontiguousarray(x).view(np.uint8)
+        return _POPCNT8[b].reshape(x.shape[0], -1)
+
 CORPUS_S3 = "s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/"
 CACHE = Path("figure_data/_tanimoto/_cache")
 SIMILARITY_CSV = Path("figure_data/_tanimoto/corpus_similarity.csv")
@@ -240,7 +253,7 @@ def run_full(out: Path):
 
     q, kept_idx = _pack(qs)
     q_smiles = [qs[i] for i in kept_idx]
-    q_pc = np.bitwise_count(q).sum(axis=1).astype(np.int32)
+    q_pc = _popcount_rows(q).sum(axis=1).astype(np.int32)
     _log(f"query matrix {q.shape} ({len(qs)-len(q_smiles)} unparseable dropped)")
 
     best = np.zeros(len(q_smiles), dtype=np.float32)
@@ -251,10 +264,10 @@ def run_full(out: Path):
     for shard in _shards():
         smis = _shard_smiles(shard)
         ref, _ = _pack(smis)
-        ref_pc = np.bitwise_count(ref).sum(axis=1).astype(np.int32)
+        ref_pc = _popcount_rows(ref).sum(axis=1).astype(np.int32)
         n_corpus += ref.shape[0]
         for i in range(len(q_smiles)):
-            inter = np.bitwise_count(ref & q[i]).sum(axis=1).astype(np.int32)
+            inter = _popcount_rows(ref & q[i]).sum(axis=1).astype(np.int32)
             union = ref_pc + q_pc[i] - inter
             tan = inter / np.maximum(union, 1)
             m = tan.max()
