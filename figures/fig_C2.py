@@ -32,6 +32,13 @@ were never scored on it, so there is no honest floor to lift against (n=24 = 4 f
 tasks). seq_sparse_all's x pools its three families.
 
 Run:  python3 -m figures.fig_C2
+
+!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
+This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
+paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
+on code: the six seq_* ablation arms have no MoleculeACE / CBS / Ames evals.
+Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
+land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """
 from __future__ import annotations
 import json

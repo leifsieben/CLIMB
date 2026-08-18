@@ -18,6 +18,11 @@ No analysis code lives here: fig_C1/fig_C2/fig_D expose compute() + draw() and t
 arranges their axes, so the standalone figures and this assembly can never drift apart.
 
 Run:  python3 -m figures.fig_C_D
+
+!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
+Every panel here (a-f) is still on the OLD MoleculeNet task set, because all three source figures
+are. Blocked on one compute request: the six seq_* ablation arms scored on MoleculeACE / CBS / Ames
+(plus per-molecule dumps for a/b). Verified absent on disk 2026-08-17 and requested the same day.
 """
 from __future__ import annotations
 

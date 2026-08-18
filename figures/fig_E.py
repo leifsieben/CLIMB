@@ -47,6 +47,14 @@ QM7). Putting it on the canonical panels needs MoleculeACE / CBS / hERG evals of
 corrupted encoders.
 
 Run:  python3 scripts/build_fig_E_table.py && python3 -m figures.fig_E
+
+!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
+This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
+paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
+on code: the 13 corrupted/synthetic encoders (corrupt_mlm/mtr, unigram, bigram,
+wiki_real) have MoleculeNet evals ONLY.
+Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
+land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """
 from __future__ import annotations
 from pathlib import Path

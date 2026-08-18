@@ -34,6 +34,14 @@ Lipophilicity is absent everywhere: the phase2 end2end floor was never scored on
 no honest floor to lift against (same restriction as Fig C2; n_tasks: 2 property + 4 bioassay).
 
 Run:  python3 -m figures.fig_D
+
+!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
+This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
+paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
+on code: the six seq_* ablation arms have no MoleculeACE / CBS / Ames evals; the
+transfer matrix is indexed by the task set, so it cannot move without them.
+Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
+land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """
 from __future__ import annotations
 import json

@@ -24,6 +24,14 @@ circularity risk) and QM7 (15.7% identical, median max-Tanimoto 0.63 -- the clea
 Same 5-fold CV predictions on both sides of every comparison.
 
 Run:  python3 -m figures.fig_C1
+
+!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
+This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
+paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
+on code: the seq_* ablation arms have MoleculeNet evals only, and panels a/b need
+PER-MOLECULE predictions on the canonical panels, which do not exist anywhere yet.
+Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
+land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """
 from __future__ import annotations
 from pathlib import Path
