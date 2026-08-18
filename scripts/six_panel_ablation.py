@@ -131,7 +131,36 @@ def _run_polaris(arm, enc):
     return False
 
 
+def _stage_eval_data():
+    """Stage the MoleculeACE CSVs and data/cbs.csv from S3 if absent.
+
+    A Polaris-only box has neither, and without this the MoleculeACE and CBS steps fail instantly
+    with FileNotFoundError while the Polaris step succeeds -- which is exactly how this driver
+    first ran (mace=False cbs=False polaris=True on all six arms). Staging here means the driver
+    is runnable on ANY fresh box, not just one that happened to be rsynced from the laptop.
+    """
+    mace = ROOT / "chemeleon_suite" / "data" / "moleculeace"
+    if len(list(mace.glob("*.csv"))) < 30:
+        mace.mkdir(parents=True, exist_ok=True)
+        log("staging MoleculeACE CSVs from S3")
+        sh(["aws", "s3", "sync", "s3://climb-s3-bucket/datasets/moleculeace/", str(mace),
+            "--only-show-errors"])
+    cbs = ROOT / "data" / "cbs.csv"
+    if not cbs.exists():
+        cbs.parent.mkdir(parents=True, exist_ok=True)
+        log("staging data/cbs.csv from S3")
+        sh(["aws", "s3", "cp", "s3://climb-s3-bucket/datasets/cbs.csv", str(cbs),
+            "--only-show-errors"])
+    n = len(list(mace.glob("*.csv")))
+    if n < 30 or not cbs.exists():
+        log(f"FATAL eval data incomplete (moleculeace={n}/30, cbs={cbs.exists()})")
+        return False
+    return True
+
+
 def main():
+    if not _stage_eval_data():
+        return
     if not (ROOT / TOK_STD / "tokenizer.json").exists():
         (ROOT / TOK_STD).mkdir(parents=True, exist_ok=True)
         sh(["aws", "s3", "sync", "s3://climb-s3-bucket/tokenizer_10M", TOK_STD, "--only-show-errors"])
