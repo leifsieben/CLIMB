@@ -41,6 +41,7 @@ check_font()
 
 SUITE_MARKER = {"MoleculeNet": "o", "MoleculeACE": "^", "Polaris": "s", "CBS": "D"}
 INK = "#000000"
+BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the marker colours
 
 # Arms are registered in arms.py before their GPU results land. Plot only arms with essentially
 # COMPLETE coverage (>=60 of 66 datasets): a mean rank computed on a sliver of the suite is not
@@ -63,8 +64,13 @@ def build():
     y = np.arange(N)[::-1]
     ytrans = ax.get_yaxis_transform()          # x in axes coords, y in data coords
 
-    for yi in y:
-        ax.axhline(yi, color=STYLE["faint"], lw=0.5, zorder=0)
+    # Alternating background bands instead of a hairline per row: they carry the eye across the
+    # full width to the per-suite markers without adding another line to the plot. Drawn under
+    # everything (zorder 0) and clipped to the row pitch so the top/bottom rows are not clipped
+    # by the axes limits.
+    for k, yi in enumerate(y):
+        if k % 2 == 0:
+            ax.axhspan(yi - 0.5, yi + 0.5, color=BAND, lw=0, zorder=0)
 
     for yi, a in zip(y, order):
         c, r = ARMS[a]["color"], RANKS.loc[a]
