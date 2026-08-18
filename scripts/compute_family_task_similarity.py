@@ -104,7 +104,13 @@ def main() -> int:
     for f, smi in fam_smiles.items():
         if not smi:
             log(f"{f}: NO molecules found — skipping"); continue
-        s = list({x for x in smi})
+        # SORTED, not just de-duplicated. `list({...})` iterates a set, and Python randomises str
+        # hashing per process, so the iteration order -- and therefore which family_n molecules
+        # rng.choice lands on -- differed run to run EVEN AT A FIXED SEED. That made this table
+        # irreproducible across processes: nobody could re-derive these numbers, and appending new
+        # rows would silently mix two different family samples. Sorting pins the candidate order so
+        # a fixed seed now yields a fixed sample.
+        s = sorted({x for x in smi})
         if len(s) > a.family_n:
             s = [s[i] for i in rng.choice(len(s), a.family_n, replace=False)]
         fam_fp[f] = pack(s)
@@ -135,7 +141,16 @@ def main() -> int:
         {"fingerprint": f"ECFP4 (Morgan r=2, {NBITS} bits)",
          "statistic": "per eval-test molecule, MAX Tanimoto to the family's molecules; reported as the mean/median over test molecules",
          "family_sample_n": a.family_n, "sup_shards_read": a.shards,
-         "caveat": "families are SAMPLED, so similarities are lower bounds; all pairs share the same sampling so relative comparison is unaffected"},
+         "caveat": "families are SAMPLED, so similarities are lower bounds; all pairs share the same sampling so relative comparison is unaffected",
+         "sampling_is_deterministic": True,
+         "regenerated": "2026-08-18: whole table regenerated in ONE run when the canonical panels "
+                        "(MoleculeACE, CBS, Ames) were added, so every pair shares one family "
+                        "sample. Values differ slightly from the pre-2026-08-18 table: that shift "
+                        "is RESAMPLING NOISE, not a correction. Prior table kept as "
+                        "family_task_similarity.PRE_CANONICAL.csv. Family sampling is now pinned "
+                        "(candidates sorted before rng.choice), so a fixed seed reproduces this "
+                        "table across processes; it previously did not, because Python randomises "
+                        "str hashing per process."},
         indent=2))
     log(f"wrote {p} ({len(rows)} family x task pairs)")
     return 0
