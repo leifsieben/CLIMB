@@ -1,0 +1,135 @@
+"""SI Fig a — do you need to train the models end-to-end on the downstream data?
+
+ONE script, ONE figure: figures_v2/SI_Fig_a.png / .pdf
+
+The same pretrained encoder used two ways at FULL downstream data: frozen (encoder fixed, probe
+trained on the labels) versus end-to-end (whole network fine-tuned). Two encoders, `unsupervised`
+and `supervised, dense`, on each canonical panel.
+
+THE ANSWER IS MOSTLY YES, but it is not universal. End-to-end wins 8 of 10 encoder x panel cells
+and clears the combined SD in 6 of them. The largest gains are hERG with the supervised encoder
+(+0.078 ROC-AUC), QM7 with the unsupervised one (-12.0 RMSE) and Tox21 (+0.017 / +0.039). The two
+exceptions both involve the supervised encoder — BACE (-0.013) and QM7 (-3.3 RMSE) — where
+freezing is as good or better.
+
+So end-to-end fine-tuning is the better default, but the frozen probe is not far behind on several
+panels, and it is the cheaper option by far (SI Fig c). SI Fig f shows how this trade depends on
+how many labels you have: the frozen probe's advantage lives in the small-data regime.
+
+Error bars are +-1 SD of that panel's replicate unit, and each panel's frozen and end2end numbers
+come from the SAME wave, split and seed grid, so the within-panel comparison is like-for-like.
+
+PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/hERG use the mainline wave;
+BACE/Tox21/QM7 use the label-efficiency wave at its 100% fraction). Compare frozen vs end2end
+WITHIN a panel; never compare a value in one panel against a value in another. CBS is drawn empty:
+no end-to-end run of a pretrained CLIMB encoder exists there.
+
+Data: figure_data/SI_Fig_a/SI_Fig_a_e2e_need.csv, built by scripts/build_SI_Fig_a_table.py.
+
+Run:  python3 scripts/build_SI_Fig_a_table.py && python3 -m figures.fig_SI_a
+"""
+from __future__ import annotations
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from matplotlib.patches import Patch
+
+from figures.style import STYLE, FS, save, check_font
+from figures.arms import ARMS, PANELS, PANEL_ORDER, SHADES
+from figures.sixpanel import ROOT
+
+check_font()
+INK = "#000000"
+
+DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_a" / "SI_Fig_a_e2e_need.csv")
+
+ENCODERS = [("unsupervised", "unsup"), ("supervised, dense", "sup_dense")]
+# frozen = the arm's own family colour; end2end = the lighter shade of the same family, so the
+# pairing reads as "same encoder, two probes" rather than as four unrelated bars.
+PROBES = ["frozen", "end2end"]
+
+
+def main():
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 5.1))
+    for ax, p in zip(axes.ravel(), PANEL_ORDER):
+        d = PANELS[p]
+        g_all = DF[DF.panel == p]
+        arrow = "↑" if d["higher_better"] else "↓"
+        ax.set_title(f"{d['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
+                     color=INK, pad=4)
+        ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
+        ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+        ax.set_axisbelow(True)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+
+        if g_all.empty:
+            ax.text(0.5, 0.5, "no end2end run of a\npretrained encoder",
+                    transform=ax.transAxes, ha="center", va="center",
+                    fontsize=FS["annot"], color=INK)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            continue
+
+        x = np.arange(len(ENCODERS))
+        w = 0.34
+        vals, errs = [], []
+        for j, probe in enumerate(PROBES):
+            ys, es, cs = [], [], []
+            for label, arm_key in ENCODERS:
+                r = g_all[(g_all.encoder == label) & (g_all.probe == probe)]
+                ys.append(float(r.value.iloc[0]) if len(r) else np.nan)
+                es.append(float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0)
+                cs.append(SHADES[ARMS[arm_key]["family"]][0 if probe == "frozen" else 2])
+            es = [0.0 if not np.isfinite(e) else e for e in es]
+            ax.bar(x + (j - 0.5) * w, ys, width=w, color=cs, edgecolor=INK, linewidth=0.8,
+                   yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
+                                          ecolor=INK, zorder=6),
+                   hatch="" if probe == "frozen" else "///", zorder=3)
+            vals += [v for v in ys if np.isfinite(v)]
+            errs += es
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(["unsup.", "sup., dense"])
+        ax.xaxis.set_minor_locator(ticker.NullLocator())
+        ax.tick_params(axis="x", which="minor", bottom=False)
+        lo, hi = min(vals) - max(errs), max(vals) + max(errs)
+        pad = 0.35 * max(hi - lo, 1e-9)
+        y0, y1 = lo - pad, hi + pad
+        if d["metric"] == "roc_auc":
+            y1 = min(y1, 1.0)
+        ax.set_ylim(y0, y1)
+
+    handles = [Patch(facecolor="#FFFFFF", edgecolor=INK, lw=0.8, label="frozen probe"),
+               Patch(facecolor="#FFFFFF", edgecolor=INK, lw=0.8, hatch="///",
+                     label="end-to-end fine-tuned")]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015),
+               ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
+               columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
+    fig.tight_layout(rect=(0, 0.045, 1, 1))
+    save(fig, "SI_Fig_a")
+    plt.close(fig)
+
+    print("\nSI Fig a — end2end minus frozen at full data (+ = end2end better):")
+    for p in PANEL_ORDER:
+        g = DF[DF.panel == p]
+        if g.empty:
+            print(f"   {p:<12} — no end2end run of a pretrained encoder")
+            continue
+        sign = 1 if g.higher_better.iloc[0] else -1
+        for label, _ in ENCODERS:
+            fr = g[(g.encoder == label) & (g.probe == "frozen")]
+            ee = g[(g.encoder == label) & (g.probe == "end2end")]
+            if not len(fr) or not len(ee):
+                continue
+            delta = sign * (float(ee.value.iloc[0]) - float(fr.value.iloc[0]))
+            sd = np.hypot(pd.to_numeric(fr.sd, errors="coerce").iloc[0],
+                          pd.to_numeric(ee.sd, errors="coerce").iloc[0])
+            flag = "*" if np.isfinite(sd) and abs(delta) > sd else " "
+            print(f"   {p:<12}{label:<20}{delta:>+10.4f}{flag}   ({g.protocol.iloc[0]})")
+    print("   * = |delta| exceeds the combined SD")
+
+
+if __name__ == "__main__":
+    main()

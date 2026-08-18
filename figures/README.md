@@ -81,5 +81,9 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 | D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `figD` | final |
 | C+D | assembled a–f: C1+C2 top row, D bottom row | `fig_C_D.py` | `fig_C_D` | final; composes the three `compute()`+`draw()` pairs, no re-analysis |
 | E | corrupted objectives — 2 panels: (a) supervised real vs permuted targets, (b) unsupervised ladder real/shuffled/bigram/unigram/wiki | `fig_E.py` | `figE` | final on the 6 MoleculeNet tasks (5-fold CV); input table built by `scripts/build_figE_table.py`. Corrupted + synthetic arms have MoleculeNet evals ONLY, so a canonical-panel version needs MoleculeACE/CBS/hERG runs of 7 encoders |
-| F | where end2end overtakes a pretrained frozen encoder (absolute performance vs labelled training size) | `fig_F.py` | `figF` | built; input table from `scripts/build_figF_table.py`. MoleculeACE/CBS/hERG drawn EMPTY — the label-fraction sweep was only ever run on MoleculeNet; evals requested 2026-08-17 |
-| SI a–e | e2e necessity · vocab · featurization cost · redundancy · canonical vs augmented | — | — | |
+| SI a | do you need end2end training on downstream data? | `fig_SI_a.py` | `SI_Fig_a` | built; 5/6 panels (CBS has no e2e run of a pretrained encoder). Protocol differs BETWEEN panels — compare within a panel only |
+| SI b | tokenizer family / vocabulary size | `fig_SI_b.py` | `SI_Fig_b` | built; 5/6 panels (CBS not in the vocab wave). Near-null result, so it carries error bars |
+| SI c | featurization cost, descriptors vs transformer | `fig_SI_c.py` | `SI_Fig_c.csv/.tex` | built (table) |
+| SI d | are CLIMB embeddings redundant to classical features? | `fig_SI_d.py` | `SI_Fig_d.csv/.tex` | built (table); negative result |
+| SI e | canonical vs augmented SMILES | `fig_SI_e.py` | `SI_Fig_e` | built; 2/6 panels — BACE/Tox21/QM7 exist only as single-seed hold-out (protocol mismatch), CBS not run |
+| SI f | where end2end overtakes a pretrained frozen encoder | `fig_SI_f.py` | `SI_Fig_f` | built; 3/6 panels — label-fraction sweep never run on MoleculeACE/CBS/hERG |
