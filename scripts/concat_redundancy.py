@@ -27,7 +27,6 @@ import eval_v2 as E
 from eval_v2 import ecfp4_features
 from descriptors_v2 import rdkit_descriptors
 from heads_v2 import make_head, compute_metric, compute_nef
-from transformers import ModernBertModel, PreTrainedTokenizerFast
 
 # EMB selects which foundation embedding is tested against the classical features.
 # "climb"     -> frozen CLIMB unsup_8M embedding      (labels: CLM / desc+CLM / fp+desc+CLM)
@@ -49,6 +48,9 @@ device = torch.device("mps" if getattr(torch.backends, "mps", None) and torch.ba
                       else "cuda" if torch.cuda.is_available() else "cpu")
 print("device:", device, flush=True)
 if EMB == "climb":
+    # imported lazily: the chemeleon venv (chemprop) has no transformers, and the CheMeleon arm
+    # does not need it -- a top-level import made that arm fail before it ran a single model.
+    from transformers import ModernBertModel, PreTrainedTokenizerFast
     encoder = ModernBertModel.from_pretrained(ENC, attn_implementation="sdpa", reference_compile=False).to(device)
     encoder.eval()
     tok = PreTrainedTokenizerFast.from_pretrained(TOK)

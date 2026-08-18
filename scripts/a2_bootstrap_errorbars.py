@@ -31,6 +31,9 @@ from compare_models import _scaffold, _metric_over_cols            # noqa: E402
 from figures.arms import ARMS                                       # noqa: E402
 
 N_BOOT = 2000
+# Polaris panel: Ames since 2026-08-18 (was hERG). n_test=1457 at the 53.32% train active rate.
+POLARIS_PANEL, POLARIS_TASK = "Ames", "tdcommons/ames"
+POLARIS_NPOS, POLARIS_NNEG = 777, 680
 FD = ROOT / "figure_data"
 MOL = {"BACE": ("auc", "climb_v2_phase2"), "Tox21": ("auc", "climb_v2_phase2"),
        "QM7": ("rmse", "climb_v2_phase2"), "CBS": ("nef1", "cbs_benchmark")}
@@ -148,18 +151,21 @@ def mace_ci(base, seed=0):
 
 
 def herg_se(base):
-    """Hanley-McNeil analytic SE. Polaris withholds test labels so this CANNOT be resampled."""
+    """Hanley-McNeil analytic SE for the POLARIS panel. Polaris withholds test labels, so this is
+    the one panel that cannot be resampled -- flagged DERIVED so the caption can say so.
+    2026-08-18: the panel moved hERG (n=132) -> Ames (n=1457). Ames has ~4x the effective sample and
+    ~2.2x the headroom per SE, which is why the swap was made."""
     dirs = [d for d in (base, f"{base}_s1", f"{base}_s2")
             if (FD / "chemeleon_suite" / "polaris" / d / "polaris_scores.csv").exists()]
     vals = []
     for d in dirs:
         for r in csv.DictReader(open(FD / "chemeleon_suite" / "polaris" / d / "polaris_scores.csv")):
-            if r["task"] == "tdcommons/herg" and r["metric"] == "roc_auc":
+            if r["task"] == POLARIS_TASK and r["metric"] == "roc_auc":
                 vals.append(float(r["value"]))
     if not vals:
         return None
     A = st.mean(vals)
-    n1, n0 = 89, 43                      # 132 test molecules at the train active ratio (67.7%)
+    n1, n0 = POLARIS_NPOS, POLARIS_NNEG
     Q1, Q2 = A / (2 - A), 2 * A * A / (1 + A)
     se = math.sqrt((A*(1-A) + (n1-1)*(Q1-A*A) + (n0-1)*(Q2-A*A)) / (n1*n0))
     return A, A - 1.96*se, A + 1.96*se, se, len(vals)
@@ -199,10 +205,10 @@ def main():
         r = herg_se(src.get("mace") or "")
         if r:
             v, lo, hi, se, n = r
-            rows.append(dict(arm=arm, panel="hERG", metric="roc_auc", value=round(v,4),
+            rows.append(dict(arm=arm, panel=POLARIS_PANEL, metric="roc_auc", value=round(v,4),
                              ci_lo=round(lo,4), ci_hi=round(hi,4), se=round(se,4),
-                             method="analytic_hanley_mcneil_DERIVED", n_units=132))
-            print(f"  {arm:16s} {'hERG':12s} {v:.4f} [{lo:.4f},{hi:.4f}] SE={se:.4f} (derived)", flush=True)
+                             method="analytic_hanley_mcneil_DERIVED", n_units=1457))
+            print(f"  {arm:16s} {POLARIS_PANEL:12s} {v:.4f} [{lo:.4f},{hi:.4f}] SE={se:.4f} (derived)", flush=True)
     out = FD / "six_panel" / "a2_errorbars.csv"
     with out.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["arm","panel","metric","value","ci_lo","ci_hi","se","method","n_units"])
