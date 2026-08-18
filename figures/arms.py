@@ -65,7 +65,12 @@ SHADES = {
 # probe          -> how the downstream head sees the model ("frozen" / "e2e" / "xgb")
 # in_ablation    -> include in ablation/scaling figures (CheMeleon is excluded by decision)
 # src            -> where the raw numbers live, per suite
-#                   mace: figure_data/chemeleon_suite/moleculeace/<src>/results.csv
+#                   mace: figure_data/chemeleon_suite/moleculeace/<src>/results.csv, AND the
+#                         polaris dir of the same name. A bare string is expanded to
+#                         <src>, <src>_s1, <src>_s2; pass an explicit LIST when an arm's replicate
+#                         dirs do not follow that convention (s2u_dense is _s0/_s1/_s2, the
+#                         controls are _00/_01/_02). Listing them beats renaming real result dirs
+#                         to fit the resolver.
 #                   mol : LIST of pretraining-seed dirs, each
 #                         figure_data/climb_v2_phase2/<dir>/moleculenet_cv/moleculenet_summary.csv
 #                         (CLIMB arms: <base>, <base>_s1, <base>_s2; controls: _00/_01/_02).
@@ -145,7 +150,7 @@ ARMS = {
     "s2u_dense": dict(
         label="sup→unsup, dense", short="sup→unsup, dense", family="s2u", color="#5B4E8C",
         probe="frozen", in_ablation=True,
-        src=dict(mace="s2u_dense_from8M_s0",
+        src=dict(mace=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
                  mol=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
                  cbs="sup2unsup:dense")),
 
@@ -153,7 +158,11 @@ ARMS = {
     "random_encoder": dict(
         label="random encoder", short="random enc.", family="random", color=FAMILY_COLORS["random"],
         probe="frozen", in_ablation=True,
-        src=dict(mace="random_baseline_00", mol=["random_baseline_00", "random_baseline_01", "random_baseline_02"], cbs="no_pretrain")),
+        # MoleculeACE spelled out: the controls' replicates are _00/_01/_02, not <base>/_s1/_s2,
+        # so the default resolver would find only the first dir and leave this arm at 1 seed
+        # while every CLIMB arm has 3 (audit check 3). The _01/_02 dirs landed 2026-08-18.
+        src=dict(mace=["random_baseline_00", "random_baseline_01", "random_baseline_02"],
+                 mol=["random_baseline_00", "random_baseline_01", "random_baseline_02"], cbs="no_pretrain")),
     "e2e_no_pretrain": dict(
         label="no pretrain, end2end", short="no pretrain, e2e", family="e2e", color=FAMILY_COLORS["e2e"],
         probe="e2e", in_ablation=True,
@@ -185,7 +194,21 @@ ARMS = {
     "chemeleon_frozen": dict(
         label="CheMeleon (frozen)", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
         probe="frozen", in_ablation=False,
-        src=dict(mace="chemeleon_frozen", mol=["chemeleon_frozen"], cbs="chemeleon_frozen")),
+        # QM7 REPLICATION (2026-08-18). chemeleon_frozen's original single run put a 427.7 fold in
+        # the mean and shipped 268.8. Four probe runs settled it: the elevation is REAL (every run
+        # has one or two badly degraded folds, under three different head-seed sets AND two
+        # different scaffold partitions), but 268.8 overstates it. _s1/_s2 are EXTRA HEAD SEEDS on
+        # PARTITION 0 -- CheMeleon is a fixed external encoder with no pretraining stage to
+        # replicate, so do not read n_seeds=3 here as three pretrained models. They are pooled
+        # because every other arm's QM7 cell is partition 0 and pooling more head seeds on the same
+        # folds is strictly a better estimate of the same quantity.
+        # chemeleon_frozen_part1/_part2 exist too and are DELIBERATELY EXCLUDED: they use fold
+        # partitions 1 and 2, so pooling them would give this one bar a different estimand from the
+        # other 17. They support the robustness statement in the caption only.
+        # _s1/_s2 carry QM7 only, so BACE/Tox21 correctly stay at the base dir alone.
+        src=dict(mace="chemeleon_frozen",
+                 mol=["chemeleon_frozen", "chemeleon_frozen_s1", "chemeleon_frozen_s2"],
+                 cbs="chemeleon_frozen")),
 }
 
 # display order: anchors, supervised, unsupervised, unsup->sup, controls, comparator
@@ -236,14 +259,23 @@ PANEL_ORDER = list(PANELS)
 # where POINTS ARE TASKS, not arms. Muted hues drawn from the arm families; within those figures
 # the legend defines them as tasks and no arm-coloured element shares the axes, so there is no
 # semantic collision. The 6 canonical panels above keep their marker encoding and no colour.
+# Per-EVAL-TASK colours for the figures that colour by task rather than by arm (fig_C2, fig_D).
+# The canonical six come first and keep the hues the paper already uses for them; the three
+# MoleculeNet tasks the canonical set drops (BBBP / ESOL / Lipophilicity) are retained so the
+# pre-canonical figures still render while they are being migrated.
 TASK_COLORS = {
-    "BACE":         "#A3455E",   # crimson
-    "BBBP":         "#C8912F",   # amber
-    "ESOL":         "#3F6E9C",   # blue
+    # --- canonical six -------------------------------------------------------------------
+    "MoleculeACE":  "#3F6E9C",   # blue     (potency regression)
+    "CBS":          "#3D8073",   # teal     (rare-active screen)
+    "BACE":         "#A3455E",   # crimson  (binding classification)
+    "Ames":         "#C8912F",   # amber    (mutagenicity)
+    "Tox21":        "#8A8A8A",   # grey     (toxicity classification)
+    "QM7":          "#6B6494",   # slate    (quantum regression)
+    # --- pre-canonical MoleculeNet tasks, kept for the not-yet-migrated figures ------------
+    "BBBP":         "#7E6BA8",   # violet
+    "ESOL":         "#5B8FBF",   # light blue -- distinct from MoleculeACE, same family
     "HIV":          "#7E6BA8",   # violet
-    "Lipophilicity": "#3D8073",  # teal
-    "QM7":          "#6B6494",   # slate
-    "Tox21":        "#8A8A8A",   # grey
+    "Lipophilicity": "#4FA08F",  # light teal -- distinct from CBS, same family
 }
 
 

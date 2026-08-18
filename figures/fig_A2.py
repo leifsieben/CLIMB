@@ -192,9 +192,15 @@ TEST_N = {"MoleculeACE": 9802, "CBS": 10445, "BACE": 1513, "Ames": 1457, "Tox21"
 
 
 def short(a):
-    """Row label. CheMeleon's recipe is called 'end2end', which would be indistinguishable from
-    the 'no pretrain, end2end' control, so it is named by its system instead."""
-    return "CheMeleon" if system(a) == "CheMeleon" else label(a)
+    """Row label. CheMeleon's recipe is called 'end2end', which would be indistinguishable from the
+    'no pretrain, end2end' control, so it is named by its system plus its PROBE.
+
+    The probe must stay in the label. There are two CheMeleon arms and they are not interchangeable
+    -- frozen is 264.5 kcal/mol on QM7 against e2e's 199.5 -- and in the assembled fig_A the
+    ranking panel (a) shows CheMeleon FROZEN (e2e is excluded there for covering only 31 of the 66
+    datasets) while the bar panels (b) show CheMeleon E2E. Labelling both "CheMeleon" told the
+    reader the two panels were about the same model. They are not."""
+    return ARMS[a]["short"] if system(a) == "CheMeleon" else label(a)
 
 
 def _limits(p, pad=0.06):

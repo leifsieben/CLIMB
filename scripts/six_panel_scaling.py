@@ -36,8 +36,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from figures.arms import ARMS  # noqa: E402
 from scripts.six_panel_aggregate import (  # noqa: E402
-    FD, MOL_PANELS, POLARIS_PANELS, mol_fold_values, mol_dir_summaries, panel_stats,
-    mace_per_target, mace_seed_macros, polaris_cells, cluster_bootstrap)
+    FD, MOL_PANELS, POLARIS_PANELS, QM7_SUBDIRS, DEFAULT_SUBDIRS, mol_fold_values,
+    mol_dir_summaries, panel_stats, mace_per_target, mace_seed_macros, polaris_cells,
+    cluster_bootstrap)
 import statistics as st  # noqa: E402
 
 OUT = FD / "six_panel" / "scaling_ladders.csv"
@@ -78,8 +79,35 @@ def run_tokens(run):
         return None
 
 
+def qm7_subdir(all_rungs):
+    """ONE QM7 subdir for the ENTIRE ladder set — all-or-nothing, never per rung.
+
+    QM7 predictions exist in two conventions: z-scored (`moleculenet_cv/`, ~0.85) and native
+    kcal/mol (`moleculenet_cv_qm7native/`, ~200). The aggregator's usual `_pick_subdir` resolves
+    one subdir per ARM and drops the dirs that lack it, which is right when the dropped dir is one
+    replicate of many. It is WRONG here: a rung is a point on a curve, not a replicate, so dropping
+    it puts a hole in the ladder — and resolving per rung would be worse still, silently plotting
+    a 200-vs-0.85 step as a scaling effect. So: use native only if EVERY rung has it, otherwise
+    z-scored everywhere, and say which.
+    """
+    have = [r for r in all_rungs
+            if (FD / "climb_v2_phase2" / r / "moleculenet_cv_qm7native").exists()]
+    if len(have) == len(all_rungs):
+        print(f"  QM7: native kcal/mol for all {len(all_rungs)} rungs "
+              f"(moleculenet_cv_qm7native/) — same convention as fig_A")
+        return QM7_SUBDIRS[:1]
+    missing = [r for r in all_rungs if r not in set(have)]
+    print(f"  QM7: falling back to Z-SCORED for ALL {len(all_rungs)} rungs — "
+          f"{len(missing)} rung(s) have no native re-eval yet ({', '.join(missing[:6])}"
+          f"{'...' if len(missing) > 6 else ''}). Mixing the two would draw a unit step as a "
+          f"scaling effect; this figure's QM7 panel is then NOT comparable to fig_A's.")
+    return DEFAULT_SUBDIRS
+
+
 def main():
     rows = []
+    all_rungs = [r for _, rungs in LADDERS.values() for r in rungs]
+    qm7_sub = qm7_subdir(all_rungs)
     for ladder, (arm, rungs) in LADDERS.items():
         for rung in rungs:
             tok = run_tokens(rung)
@@ -118,8 +146,9 @@ def main():
                                  n_cells=len(vals)))
             # --- MoleculeNet ---------------------------------------------------------
             for ds, metric in MOL_PANELS.items():
-                folds = mol_fold_values([rung], ds, metric)
-                dirs = mol_dir_summaries([rung], ds, metric) if not folds else None
+                subs = qm7_sub if ds == "QM7" else DEFAULT_SUBDIRS
+                folds = mol_fold_values([rung], ds, metric, subdirs=subs)
+                dirs = mol_dir_summaries([rung], ds, metric, subdirs=subs) if not folds else None
                 stats = panel_stats(cells=folds or None, dir_summaries=dirs)
                 if stats:
                     value, sd_total, _, _, n_cells = stats

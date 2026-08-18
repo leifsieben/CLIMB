@@ -200,9 +200,14 @@ def herg_se(base):
     return A, A - 1.96*se, A + 1.96*se, se, len(vals)
 
 
-def main():
+def main(only=None):
+    """`only` = a subset of A2_ARMS to recompute; their rows REPLACE the matching rows in the
+    existing CSV and every other arm is carried through untouched. Added 2026-08-18: the full
+    sweep is ~1h, and a single arm's inputs change whenever one more replicate lands (here,
+    e2e_random_02's native QM7), so recomputing all eight to refresh one is pure waste.
+    """
     rows = []
-    for arm in A2_ARMS:
+    for arm in (only or A2_ARMS):
         spec = ARMS.get(arm)
         if not spec:
             continue
@@ -239,6 +244,12 @@ def main():
                              method="analytic_hanley_mcneil_DERIVED", n_units=1457))
             print(f"  {arm:16s} {POLARIS_PANEL:12s} {v:.4f} [{lo:.4f},{hi:.4f}] SE={se:.4f} (derived)", flush=True)
     out = FD / "six_panel" / "a2_errorbars.csv"
+    if only and out.exists():
+        keep = [r for r in csv.DictReader(out.open()) if r["arm"] not in set(only)]
+        # preserve the canonical A2_ARMS order rather than appending the recomputed arms at the end
+        order = {a: i for i, a in enumerate(A2_ARMS)}
+        rows = sorted(keep + rows, key=lambda r: order.get(r["arm"], len(order)))
+        print(f"  merged: recomputed {len(only)} arm(s), carried {len(keep)} existing rows through")
     with out.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["arm","panel","metric","value","ci_lo","ci_hi","se","method","n_units"])
         w.writeheader(); w.writerows(rows)
@@ -246,4 +257,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--arms", help="comma-separated subset of A2_ARMS to recompute and merge")
+    a = ap.parse_args()
+    main(only=[x for x in a.arms.split(",") if x] if a.arms else None)

@@ -14,11 +14,13 @@ Sources, all under figure_data/:
   CBS          experiment_cbs/cbs_nef1_summary.csv                                 (NEF1%)
 """
 from __future__ import annotations
-import csv, json, statistics as st, collections
+import csv
+import json, statistics as st, collections
 from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from figures.sixpanel import NATIVE_SUBDIRS
 from figures.arms import ARMS, ARM_ORDER
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -35,11 +37,17 @@ SUITES = ["MoleculeNet", "MoleculeACE", "Polaris", "CBS"]
 MOLNET_ROOTS = ["climb_v2_phase2", "climb_v2_h1", "climb_v2_vocab"]
 
 
-def molnet_dir(prefix):
-    """Path to a prefix's moleculenet_cv dir, wherever its wave wrote it, or None."""
+def molnet_dir(prefix, subdir="moleculenet_cv"):
+    """Path to a prefix's CV dir, wherever its wave wrote it, or None.
+
+    Accepts EITHER file: `moleculenet_summary.csv` (per-fold rows, the normal runner) or
+    `suite_summary.json` (e2e-style runners like chemeleon_e2e write only this). Requiring the CSV
+    made those arms read as "not run" on all 7 MolNet datasets, and since fig_A1 admits arms by
+    coverage COUNT, a loader gap was silently deciding which arms appear in the ranking panel.
+    """
     for root in MOLNET_ROOTS:
-        d = FD / root / prefix / "moleculenet_cv"
-        if (d / "moleculenet_summary.csv").exists():
+        d = FD / root / prefix / subdir
+        if (d / "moleculenet_summary.csv").exists() or (d / "suite_summary.json").exists():
             return d
     return None
 
@@ -68,20 +76,44 @@ def _molnet(dirs):
     0.5-1% AUC on BACE/Tox21, ~1.5 RMSE on QM7, and up to 5-6% NEF1 on CBS (small-count top-1%
     metric, most sensitive to pre- vs post-ensemble scoring). Do not reintroduce the `_cell`
     fallback as the value source.
+
+    Resolved PER DATASET, not per file, for two reasons:
+      * QM7 (and ESOL/Lipophilicity) exist in two unit conventions and the native re-eval lives in
+        its own subdir -- see figures.sixpanel.NATIVE_SUBDIRS. Ranking is computed across arms
+        WITHIN a dataset, so a single arm read in the other convention corrupts that dataset's
+        whole ranking column, not just its own cell.
+      * All of an arm's dirs must come from ONE subdir. Mixing them is what produced a QM7 mean of
+        129.9 elsewhere (10 native folds averaged with 5 z-scored ones).
     """
-    out = collections.defaultdict(list)
-    for d in dirs:
-        md = molnet_dir(d)
-        if md is None:
+    out = {}
+    for ds, (metric, _) in MOLNET.items():
+        # one subdir for this (arm, dataset): the first candidate any of the arm's dirs has
+        chosen, usable = None, []
+        for sub in NATIVE_SUBDIRS.get(ds, ("moleculenet_cv",)):
+            usable = [d for d in dirs if molnet_dir(d, sub) is not None]
+            if usable:
+                chosen = sub
+                break
+        if not chosen:
             continue
-        rows = list(csv.DictReader(open(md / "moleculenet_summary.csv")))
-        for ds, (metric, _) in MOLNET.items():
-            vals = [float(r["main_value"]) for r in rows
-                    if r["dataset"] == ds and r["main_metric"] == metric
-                    and r["head_seed"] not in ("MEAN", "STD") and r["main_value"] not in ("", "nan")]
-            if vals:
-                out[ds] += vals
-    return {ds: st.mean(v) for ds, v in out.items() if v}
+        vals = []
+        for d in usable:
+            md = molnet_dir(d, chosen)
+            f = md / "moleculenet_summary.csv"
+            if f.exists():
+                vals += [float(r["main_value"]) for r in csv.DictReader(open(f))
+                         if r["dataset"] == ds and r["main_metric"] == metric
+                         and r["head_seed"] not in ("MEAN", "STD")
+                         and r["main_value"] not in ("", "nan")]
+                continue
+            j = md / "suite_summary.json"
+            if j.exists():
+                v = {k.lower(): v for k, v in json.load(open(j)).items()}.get(f"{ds}_mean".lower())
+                if v is not None:
+                    vals.append(float(v))
+        if vals:
+            out[ds] = st.mean(vals)
+    return out
 
 
 def _moleculeace(dirs):
@@ -142,14 +174,49 @@ def _polaris(dirs, man):
     return out
 
 
-def _cbs():
-    f = ROOT / "experiment_cbs" / "cbs_nef1_summary.csv"
-    return {r["arm"]: float(r["mean"]) for r in csv.DictReader(open(f)) if r["metric"] == "nef1"} \
-        if f.exists() else {}
+def _cbs_value(mol_src):
+    """CBS NEF1 for one arm, read from figure_data/cbs_benchmark/<dir>/moleculenet_cv/.
+
+    Takes the arm's `mol` dirs, NOT its `cbs` key: CBS lives in its own tree but under the same
+    run-dir names as the MolNet wave, which is exactly how scripts/six_panel_aggregate resolves
+    the canonical CBS panel. (`arms.py`'s `cbs=` field holds arm LABELS from the deprecated
+    precomputed summary — "sup_only:dense" and so on — not directory names, so it cannot be used
+    as a path.) The summary experiment_cbs/cbs_nef1_summary.csv is DEPRECATED and must not be
+    reintroduced: its `arm` list silently omits whole waves, so arms added after it was generated
+    read as "not run" rather than erroring. Audited by audit_figure_consistency.py check 1.
+    """
+    if not mol_src:
+        return None
+    dirs = list(mol_src) if isinstance(mol_src, (list, tuple)) else [mol_src]
+    vals = []
+    for d in dirs:
+        for cand in (d, f"{d}_s0"):
+            base = FD / "cbs_benchmark" / cand / "moleculenet_cv"
+            f = base / "moleculenet_summary.csv"
+            if f.exists():
+                vals += [float(r["main_value"]) for r in csv.DictReader(open(f))
+                         if r["main_metric"] == "nef1" and r["head_seed"].startswith("fold")]
+                break
+            # FALLBACK: the CBS e2e runner writes per_fold.csv instead (chemeleon_e2e). Same
+            # per-fold NEF1 values, different file -- see the note in _molnet.
+            pf = base / "per_fold.csv"
+            if pf.exists():
+                vals += [float(r["nef1"]) for r in csv.DictReader(open(pf))
+                         if r.get("nef1") not in (None, "", "nan")]
+                break
+    return sum(vals) / len(vals) if vals else None
 
 
 def _seed_dirs(base):
-    """A source dir plus its pretraining-seed replicates, if they exist on disk."""
+    """A source dir plus its pretraining-seed replicates, if they exist on disk.
+
+    `base` may already be an explicit LIST, exactly as arms.py's `mol` is — s2u_dense's dirs are
+    _s0/_s1/_s2 rather than <base>/_s1/_s2, so arms.py spells them out. Mirrors the same guard in
+    scripts/six_panel_aggregate.mace_seed_dirs; without it this raised
+    AttributeError: 'list' object has no attribute 'endswith'.
+    """
+    if isinstance(base, (list, tuple)):
+        return list(base)
     if base.endswith("_00"):
         return [base, base[:-3] + "_01", base[:-3] + "_02"]
     return [base, f"{base}_s1", f"{base}_s2"]
@@ -162,7 +229,6 @@ def wide_table(arms=None):
     """
     arms = arms or ARM_ORDER
     man = _polaris_manifest()
-    cbs = _cbs()
     rows, meta = {}, {}
     for a in arms:
         src = ARMS[a]["src"]
@@ -175,13 +241,17 @@ def wide_table(arms=None):
             for t, v in _moleculeace(mace_dirs).items():
                 vals[f"MolACE:{t}"] = v
                 meta[f"MolACE:{t}"] = ("MoleculeACE", "rmse", False)
-            pol_dirs = [src["mace"]]                      # Polaris has no seed replicates
+            # Polaris has no pretraining-seed replicates, so the base dir alone -- but `mace` may
+            # already be an explicit list (s2u_dense), in which case wrapping it in another list
+            # produced a PosixPath / list TypeError.
+            pol_dirs = list(src["mace"]) if isinstance(src["mace"], (list, tuple)) else [src["mace"]]
             for t, v in _polaris(pol_dirs, man).items():
                 pm = man[t]["primary_metric"]
                 vals[f"Polaris:{t.split('/')[-1]}"] = v
                 meta[f"Polaris:{t.split('/')[-1]}"] = ("Polaris", pm, pm in HIGHER)
-        if src.get("cbs") in cbs:
-            vals["CBS:cbs"] = cbs[src["cbs"]]
+        cbs_v = _cbs_value(src.get("mol"))
+        if cbs_v is not None:
+            vals["CBS:cbs"] = cbs_v
             meta["CBS:cbs"] = ("CBS", "nef1", True)
         rows[a] = vals
     S = pd.DataFrame(rows).T.reindex(index=arms)

@@ -6,11 +6,14 @@ The same pretrained encoder used two ways at FULL downstream data: frozen (encod
 trained on the labels) versus end-to-end (whole network fine-tuned). Two encoders, `unsupervised`
 and `supervised, dense`, on each canonical panel.
 
-THE ANSWER IS MOSTLY YES, but it is not universal. End-to-end wins 8 of 10 encoder x panel cells
-and clears the combined SD in 6 of them. The largest gains are hERG with the supervised encoder
-(+0.078 ROC-AUC), QM7 with the unsupervised one (-12.0 RMSE) and Tox21 (+0.017 / +0.039). The two
-exceptions both involve the supervised encoder — BACE (-0.013) and QM7 (-3.3 RMSE) — where
-freezing is as good or better.
+THE ANSWER IS MOSTLY YES, but it is not universal. End-to-end wins 9 of the 12 encoder x panel
+cells and clears the combined SD in 5 of them. The largest gain by far is CBS with the unsupervised
+encoder (+0.125 NEF1) — fine-tuning lifts the MLM encoder most of the way to the best frozen
+supervised arm, though not past it. Then QM7 unsupervised (-12.0 RMSE) and Tox21 (+0.017 / +0.039).
+All three exceptions involve the SUPERVISED encoder — CBS (-0.015), BACE (-0.013) and QM7
+(-3.3 RMSE) — where freezing is as good or better. Read together: end-to-end training mostly buys
+back what a weak pretraining objective failed to learn, and buys least where the frozen features
+were already good.
 
 So end-to-end fine-tuning is the better default, but the frozen probe is not far behind on several
 panels, and it is the cheaper option by far (SI Fig c). SI Fig e shows how this trade depends on
@@ -19,10 +22,11 @@ how many labels you have: the frozen probe's advantage lives in the small-data r
 Error bars are +-1 SD of that panel's replicate unit, and each panel's frozen and end2end numbers
 come from the SAME wave, split and seed grid, so the within-panel comparison is like-for-like.
 
-PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/hERG use the mainline wave;
-BACE/Tox21/QM7 use the label-efficiency wave at its 100% fraction). Compare frozen vs end2end
-WITHIN a panel; never compare a value in one panel against a value in another. CBS is drawn empty:
-no end-to-end run of a pretrained CLIMB encoder exists there.
+PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/Ames use the mainline wave;
+CBS its 5 benchmark-provided folds; BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction).
+Compare frozen vs end2end WITHIN a panel; never compare a value in one panel against a value in
+another. All 6 panels are populated as of 2026-08-18 — the CBS end-to-end runs of the two
+pretrained encoders were the last gap and have now landed.
 
 Data: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv, built by scripts/build_SI_fig_a_table.py.
 

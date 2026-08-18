@@ -255,11 +255,50 @@ def check_comparator_scope():
     return bad
 
 
+def check_bar_vs_ci():
+    """A bar and its error bar must be the SAME number, computed two ways.
+
+    fig_A's bars come from moleculenet_summary.csv (the eval runner's own per-fold scores) while its
+    whiskers come from a bootstrap that recomputes the metric from that run's per-molecule
+    test_predictions.csv. Those are two independent paths to one quantity, so a mismatch means one
+    of the two artefacts in a single run directory is a different vintage from the other.
+
+    Added 2026-08-18, when it immediately found one: every Tox21 arm's CI centre sat 2-4% above its
+    bar (e.g. random_encoder bar 0.7519 vs centre 0.7701), which is the documented +0.015...0.020
+    signature of the 2026-08-05 missing-label fix — i.e. summary and predictions disagree about
+    whether the fix has been applied. Nothing else in this audit could see it: each artefact is
+    internally consistent, on one scale, with the right replication.
+    """
+    print(f"\n{'='*94}\n8. BAR vs ERROR-BAR CENTRE (two independent paths to one number)\n{'='*94}")
+    import csv as _csv
+    bars, cis = ROOT / "figure_data/six_panel/mainline_8M.csv", ROOT / "figure_data/six_panel/a2_errorbars.csv"
+    if not (bars.exists() and cis.exists()):
+        print("  SKIP - one of the two tables is missing")
+        return 0
+    bar = {(r["arm"], r["panel"]): r["value"] for r in _csv.DictReader(bars.open())}
+    bad = []
+    for r in _csv.DictReader(cis.open()):
+        v, b = r["value"], bar.get((r["arm"], r["panel"]))
+        if not v or not b:
+            continue
+        v, b = float(v), float(b)
+        if abs(v - b) / max(abs(b), 1e-9) > 0.002:
+            bad.append((r["arm"], r["panel"], b, v, 100 * abs(v - b) / abs(b)))
+    for arm, panel, b, v, pct in bad:
+        print(f"  FAIL  {arm:16s} {panel:12s} bar={b:.4f} vs CI centre={v:.4f}  ({pct:.2f}% apart)")
+    if not bad:
+        print("  OK - every drawn bar equals the centre of its own error bar")
+    else:
+        print(f"  {len(bad)} bar(s) whose whisker is centred somewhere else - the two artefacts in "
+              f"that run dir are different vintages; do NOT ship the affected panel")
+    return len(bad)
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
                  check_estimand(), check_panelset(), check_geometry(),
-                 check_comparator_scope()])
+                 check_comparator_scope(), check_bar_vs_ci()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

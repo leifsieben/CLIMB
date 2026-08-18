@@ -1,6 +1,6 @@
 """Fig E -- corrupted pretraining objectives: does the benefit survive garbling the chemistry?
 
-ONE script, ONE figure: figures_v2/figE.png / .pdf   (two panels, a + b)
+ONE script, ONE figure: figures_v2/fig_E.png / .pdf   (two panels, a + b)
 
 Both panels hold objective family, data volume, compute, schedule, architecture and probe fixed
 and remove only the CHEMICAL CONTENT of the pretraining signal. Bars are lift over
@@ -9,9 +9,10 @@ objective bought nothing".
 
 (a) SUPERVISED (descriptor regression). Real targets vs targets permuted across the batch: the
     molecule->descriptor mapping is destroyed, the target distribution is untouched.
-    Reading: the real arm helps on every task; permuting the targets does not merely erase the
-    gain, it lands BELOW the untrained floor on all six tasks. A supervised objective with no
-    molecule->label correspondence is actively harmful, not neutral.
+    Reading: the real arm helps on every one of the six panels; permuting the targets does not
+    merely erase the gain, it lands BELOW the untrained floor everywhere -- most sharply on the two
+    panels that need genuine structure-activity signal (CBS -28%, MoleculeACE -15%). A supervised
+    objective with no molecule->label correspondence is actively harmful, not neutral.
 
 (b) UNSUPERVISED (MLM), a ladder of increasingly destroyed SMILES statistics:
       shuffled tokens  -- token order permuted inside each sequence (grammar gone, token
@@ -20,11 +21,11 @@ objective bought nothing".
                           only)
       unigram corpus   -- sequences resampled from the corpus unigram marginal (no structure)
       wiki             -- English Wikipedia text: real language, ZERO chemistry
-    Reading: the benefit is NOT specific to real chemistry. Shuffled tokens retain essentially all
-    of it (ESOL +27.9 vs real +25.0), bigram retains a large part, and even Wikipedia -- with no
-    molecules in it at all -- is positive on 5 of 6 tasks. Only the unigram rung, which destroys
-    all sequential structure, collapses to the floor. What the MLM buys is largely a generic
-    sequence prior, not chemical knowledge.
+    Reading: the benefit is NOT specific to real chemistry. Shuffled tokens keep most of it and are
+    the BEST rung on 3 of 6 panels; Wikipedia -- with no molecules in it at all -- is positive on
+    5 of 6 and actually beats the real corpus on MoleculeACE. Only the unigram rung, which destroys
+    all sequential structure, collapses to the floor on every panel (-1.2 to +1.2%). What the MLM
+    buys is largely a generic sequence prior, not chemical knowledge.
 
 Together: the supervised objective's value IS its molecule->label correspondence (destroy it and
 you go negative), while the unsupervised objective's value is mostly structure-agnostic.
@@ -32,29 +33,20 @@ you go negative), while the unsupervised objective's value is mostly structure-a
 Data / statistics
 -----------------
 Everything is read from `figure_data/fig_E/fig_E_lift.csv`, built by `scripts/build_fig_E_table.py`
-(see that module for the full sourcing and floor argument). In brief: 5-fold scaffold CV, frozen
-probe, native units; each panel lifts over the SAME three random-init encoders scored in that
+(see that module for the full sourcing and floor argument). In brief: the paper's canonical six
+panels, frozen probe; each panel lifts over the SAME random-init frozen encoder scored in that
 panel's own eval wave; error bars are ONE estimand everywhere -- +-1 SD across the 3 PRETRAINING
 seeds, propagated through the lift transform with the floor held fixed.
 
-`corrupt_mtr_8M` (the permuted-targets arm) exists as a SINGLE pretraining run, so it has no seed
-SD and is drawn WITHOUT a whisker -- flagged as "1 seed" in the legend -- rather than borrowing a
-fold SD, which would not be the same estimand.
+Lift over a floor is exactly scale-invariant, so the z-scored-vs-native QM7 unit split that
+constrains the ABSOLUTE panels (fig_A, fig_B) cannot reach this figure.
 
-Scope note: these arms were only ever evaluated on MoleculeNet, so this figure runs on the six
-MoleculeNet tasks rather than the paper's canonical six panels (of which it shares BACE, Tox21 and
-QM7). Putting it on the canonical panels needs MoleculeACE / CBS / hERG evals of all seven
-corrupted encoders.
+Cells built from fewer than 2 pretraining runs are drawn WITHOUT a whisker rather than borrowing a
+fold SD, which would not be the same estimand. As of 2026-08-18 that is `corrupt_mtr_8M` on
+BACE / Tox21 / QM7 (its _s1/_s2 replicates have MoleculeACE / CBS / Ames but not yet the MolNet
+suite) and on Ames (_s2's Polaris run is still missing). Every other cell in the figure is 3-seed.
 
 Run:  python3 scripts/build_fig_E_table.py && python3 -m figures.fig_E
-
-!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
-This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
-paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
-on code: the 13 corrupted/synthetic encoders (corrupt_mlm/mtr, unigram, bigram,
-wiki_real) have MoleculeNet evals ONLY.
-Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
-land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """
 from __future__ import annotations
 from pathlib import Path
@@ -72,7 +64,7 @@ check_font()
 
 ROOT = Path(__file__).resolve().parent.parent
 TABLE = ROOT / "figure_data" / "fig_E" / "fig_E_lift.csv"
-TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
+TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
 
 # (arm key, legend label, colour).  Supervised = the red family; the unsupervised ladder walks the
 # blue family dark->light as chemical content is removed, and the zero-chemistry Wikipedia control
@@ -80,7 +72,7 @@ TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
 PANELS = [
     ("supervised", "a", "Supervised: permuted targets",
      [("real",             "supervised, dense",                    SHADES["sup"][0]),
-      ("targets_permuted", "corrupted targets (1 seed)",           SHADES["sup"][2])]),
+      ("targets_permuted", "corrupted targets",                    SHADES["sup"][2])]),
     ("unsupervised", "b", "Unsupervised: degraded corpus statistics",
      [("real",     "unsupervised",       SHADES["unsup"][0]),
       ("shuffled", "shuffled tokens",    SHADES["unsup"][1]),
@@ -108,7 +100,9 @@ def draw(fig, ax, d, series, tag, subtitle, ylim):
 
     ax.axhline(0, color=STYLE["ink"], lw=0.8, zorder=2)
     ax.set_xticks(x)
-    ax.set_xticklabels(TASKS)
+    # rotated in BOTH panels: "MoleculeACE" does not fit horizontally in panel a, and
+    # rotating only one panel would make the shared category axis look like two axes.
+    ax.set_xticklabels(TASKS, rotation=22, ha="right", rotation_mode="anchor")
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
     ax.set_ylim(*ylim)
@@ -135,7 +129,7 @@ def main():
     # bigram partial, unigram at the floor) lives between 0 and 30%. Each panel is now scaled to
     # its own data. The axes are both "% lift over the same floor", so a reader compares by
     # reading values, not bar heights — the tick labels carry % for exactly that reason.
-    def _lim(sub, pad_lo=0.08, pad_hi=0.10):
+    def _lim(sub, pad_lo=0.08, pad_hi=0.30):
         lo = min((sub.lift_pct - sub.lift_sd_pct.fillna(0)).min(), 0)
         hi = (sub.lift_pct + sub.lift_sd_pct.fillna(0)).max()
         sp = hi - lo
@@ -144,16 +138,16 @@ def main():
     ylims = {panel: _lim(d[d.panel == panel]) for panel, _, _, _ in PANELS}
 
     # With the per-bar labels gone, panel b no longer needs extra width to keep them apart, so the
-    # ratio is set by what panel a needs for its six task labels ("Tox21"/"BBBP" collide below
+    # ratio is set by what panel a needs for its six task labels ("MoleculeACE"/"Tox21" collide below
     # ~2.5in of axes width).
-    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1),
-                             gridspec_kw=dict(width_ratios=[1.0, 1.6], wspace=0.24))
+    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.35),
+                             gridspec_kw=dict(width_ratios=[1.0, 1.45], wspace=0.26))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
         draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylims[panel])
     axes[0].set_ylabel("Lift over no pretrain, frozen")
     axes[1].set_ylabel("Lift over no pretrain, frozen")
 
-    fig.subplots_adjust(top=0.90, bottom=0.085, left=0.072, right=0.995)
+    fig.subplots_adjust(top=0.905, bottom=0.155, left=0.078, right=0.995)
     save(fig, "fig_E")
     plt.close(fig)
 

@@ -31,6 +31,26 @@ a figure silently off the canonical suite, a figure whose authored width makes L
 fonts, or the external comparator creeping outside the headline figure. Run it before you believe
 any of these figures.
 
+## Units: never pool two subdirs of one arm
+
+QM7 in the phase-2 wave is stored in two conventions — most runs report the z-scored RMSE (~0.85),
+a few report native kcal/mol (~200) — and the fix is a re-evaluated copy in a SEPARATE subdir,
+`moleculenet_cv_qm7native/`, written run by run. That means an arm is routinely mid-migration: two
+of its three pretraining dirs have the native subdir and one does not.
+
+Resolving the preferred subdir **per dir** rather than **per arm** pooled 10 native folds with 5
+z-scored ones and gave `no pretrain, end2end` a QM7 mean of **129.9** — which does not read as a
+unit error, it reads as a spectacular result (the untrained baseline beating ECFP+desc by 30%).
+`check_panel_units` could not see it, because that check compares arms and every *other* arm was
+internally consistent.
+
+So: `_pick_subdir()` chooses ONE subdir for the whole arm — the first candidate any of its dirs
+has — and uses only the dirs that have it, printing a `SUBDIR SKIP` line. Fewer seeds is a visible,
+honest degradation; mixed units is an invisible, wrong one. `check_cell_units()` applies the same
+25x spread test WITHIN each (arm, panel) as a backstop. `scripts/a2_bootstrap_errorbars.py` carries
+the identical rule for per-molecule OOF. If you add another re-evaluated subdir, wire it into
+`QM7_SUBDIRS`-style tuples — do not glob.
+
 ## Nomenclature (fixed — use verbatim, never invent a new label)
 
 `ECFP` · `ECFP+desc` · `supervised, <readout>` · `unsupervised` · `unsup→sup, <readout>` ·

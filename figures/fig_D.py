@@ -35,16 +35,28 @@ no honest floor to lift against (same restriction as Fig C2; n_tasks: 2 property
 
 Run:  python3 -m figures.fig_D
 
-!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
-This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
-paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
-on code: the seq_* evals LANDED 2026-08-18, so THIS figure's inputs are complete and it
-could move on its own. It is deliberately held back: fig_C_D is one figure, and putting its
-bottom row on the canonical panels while fig_C1/fig_C2 stay on MoleculeNet would make the
-assembled figure internally inconsistent — worse for a reader than being uniformly old and
-labelled as such. All six panels move together, once the two similarity tables land.
-Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
-land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
+PANEL SET — MIGRATED to the canonical six on 2026-08-18. The matrix is 6 families x 6 tasks. Values resolve through figures.sixpanel.canonical_value (which delegates to
+scripts/six_panel_aggregate.py), so a cell here means exactly what the same cell means in fig_A.
+
+TWO GUARDS run here, identical to fig_C2's — one helper each, so the two figures cannot diverge.
+Cross-wave floor agreement (crosswave_safe) caught a stale pre-2026-08-05 Tox21 scoring in the
+local ablation tree, fixed by syncing, waves now agree to 0.000%. Joint unit resolution
+(joint_molnet_subdirs) caught a +99.6% phantom QM7 lift caused by reading a native floor against a
+z-scored arm; both sides now use the convention both trees can supply. See fig_C2's docstring for
+the full account of each.
+
+PANEL (c) IS WEAKENED BY THE MIGRATION, and the caption should say so. Its contrast is
+descriptor-like vs bioassay labels, and the canonical six contains exactly ONE descriptor-like task
+(QM7) against four bioassay tasks — the set drops ESOL and Lipophilicity, and MoleculeACE groups
+with the bioassays because its labels are ChEMBL potencies, not descriptor-predictable quantities.
+Under that 1-vs-5 split the a-priori mapping does NOT separate: five of the six families, dense and
+sparse alike, do worse on QM7 than on the bioassay group (gaps -8.9 to -0.2; only dense+sparse
+inverts, at +7.7, and it is the one family that is negative everywhere). That reads as "QM7 is hard
+for everything" rather than as label-type matching. The pre-canonical 2-vs-4 version of this
+panel should not be quoted as if it survived the migration.
+
+The ESOL/Lipophilicity unit defect that contaminated the pre-canonical property group is MOOT:
+neither task is in the canonical six.
 """
 from __future__ import annotations
 import json
@@ -57,6 +69,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 
+from figures.sixpanel import (suite_run_mean, suite_wave_mean, canonical_value,
+                              canonical_lift, crosswave_safe, report_crosswave,
+                              joint_molnet_subdirs)
 from figures.style import STYLE, FS, save, title, check_font
 from figures.arms import ARMS, SHADES
 
@@ -84,26 +99,40 @@ FAM_MARKER = {"seq_mtr": "o", "seq_dense_plus_sparse": "s", "seq_pcba": "D",
               "seq_l1000": "v", "seq_pcqm": "^", "seq_sparse_all": "P"}
 SLOPE_FAMS = ["seq_mtr", "seq_sparse_all"]          # panel (c): only these two (user decision)
 
-TASKS = ["ESOL", "QM7", "BACE", "BBBP", "HIV", "Tox21"]          # property | bioassay
-TASK_GROUP = {"ESOL": "property", "QM7": "property",
-              "BACE": "bioassay", "BBBP": "bioassay", "HIV": "bioassay", "Tox21": "bioassay"}
+TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]    # the paper's canonical six
+# Panel (c) groups by LABEL TYPE, not by metric. MoleculeACE is a regression task but its labels
+# are ChEMBL potencies -- a context-dependent screen, exactly what "bioassay" means here -- so it
+# groups with the classifiers, not with QM7. That leaves QM7 as the canonical six's ONLY
+# descriptor-like task (the set drops ESOL and Lipophilicity), which is a real weakening of panel
+# (c)'s contrast: it is now 1 task vs 4, and vs 5 once Tox21 is restored. Flagged, not hidden.
+TASK_GROUP = {"QM7": "property",
+              "MoleculeACE": "bioassay", "CBS": "bioassay", "BACE": "bioassay",
+              "Ames": "bioassay", "Tox21": "bioassay"}
 GROUPS = ["property", "bioassay"]
 GROUP_LABEL = {"property": "property\nregression", "bioassay": "bioassay\nclassification"}
-GROUP_MEMBERS = "descriptor-like: ESOL, QM7          bioassay: BACE, BBBP, HIV, Tox21"
-LOWER_BETTER = {"ESOL", "QM7"}                                   # rmse; the rest are roc_auc
+GROUP_MEMBERS = "descriptor-like: QM7          bioassay: MoleculeACE, CBS, BACE, Ames"
+LOWER_BETTER = {"MoleculeACE", "QM7"}                            # rmse; the rest are roc_auc/nef1
+# only these three live in the MolNet CV tree, so only these can drift between the two waves
+MOLNET_TASKS = ["BACE", "Tox21", "QM7"]
 
 FLOOR_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]
 FROZEN = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]
 FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]
 
 # panel (a) context rows: the shared MLM base itself (phase2 wave) and the XGBoost anchor
-BASE_RUN = PHASE2 / "unsup_2M"
-ANCHOR_RUN = ABL / "ecfp4_anchor"
+BASE_SRC = dict(mace="unsup_2M", mol=["unsup_2M"])               # the shared MLM base itself
+ANCHOR_SRC = ARMS["ecfp"]["src"]                                 # the XGBoost anchor, from arms.py
 BASE_LABEL = "unsupervised"      # the (2M MLM base) detail lives in the caption, not the label
 ANCHOR_LABEL = ARMS["ecfp"]["label"] + " (XGBoost)"
 
 
 def _suite_mean(run_dir, task):
+    # delegated so the QM7 (and ESOL/Lipophilicity) z-scored-vs-native split is resolved in ONE
+    # place for every figure -- see figures/sixpanel.NATIVE_SUBDIRS.
+    return suite_run_mean(run_dir, task)
+
+
+def _suite_mean_raw(run_dir, task):
     p = run_dir / "moleculenet_cv" / "suite_summary.json"
     if not p.exists():
         return np.nan
@@ -112,47 +141,60 @@ def _suite_mean(run_dir, task):
 
 
 def _wave_mean(wave, runs, task):
+    return suite_wave_mean(wave, runs, task)
+
+
+def _wave_mean_raw(wave, runs, task):
     vs = [v for v in (_suite_mean(wave / r, task) for r in runs) if np.isfinite(v)]
     return float(np.mean(vs)) if vs else np.nan
 
 
 def _lift(arm_val, task, floor_val):
-    if not (np.isfinite(arm_val) and np.isfinite(floor_val)) or floor_val == 0:
-        return np.nan
-    if task in LOWER_BETTER:
-        return 100 * (floor_val - arm_val) / abs(floor_val)
-    return 100 * (arm_val - floor_val) / abs(floor_val)
+    return canonical_lift(arm_val, floor_val, task)
+
+
+def _joint(task, run):
+    """The one MolNet subdir BOTH trees can supply — see figures.sixpanel.joint_molnet_subdirs."""
+    return joint_molnet_subdirs(task, [(ABL.name, [run]), (PHASE2.name, FLOOR_RUNS)])
+
+
+def _arm_value(run, task):
+    """One ablation-wave arm on one canonical panel. The seq_* families and the two context runs
+    all use the SAME directory name in the MolNet tree and in the three benchmark trees."""
+    return canonical_value(task, dict(mace=run, mol=run), molnet_root=ABL.name,
+                           molnet_subdirs=_joint(task, run))
+
+
+def _floor_value(task, run):
+    """Floor read in the SAME convention as the arm it is lifted against."""
+    return canonical_value(task, ARMS["e2e_no_pretrain"]["src"], molnet_subdirs=_joint(task, run))
 
 
 def compute():
     """All D numbers, once. Shared by the standalone figure and the assembled fig_C."""
-    # cross-wave floor safety (same check as Fig C2)
-    drift = [(t, _wave_mean(ABL, FROZEN, t), _wave_mean(PHASE2, FROZEN, t)) for t in TASKS]
-    drift = [(t, a, b) for t, a, b in drift
-             if np.isfinite(a) and np.isfinite(b) and abs(a - b) > 5e-3]
-    if drift:
-        print("   WARNING - frozen floors drifted apart across waves; borrowed end2end floor "
-              "unsafe:")
-        for t, a, b in drift:
-            print(f"      {t}: ablation={a:.4f} vs phase2={b:.4f}")
+    # cross-wave floor safety (identical rule to Fig C2 -- one helper, one threshold, both figures)
+    tasks, dropped = crosswave_safe(TASKS, ABL, PHASE2, FROZEN, MOLNET_TASKS)
+    report_crosswave(dropped, FLOOR_LABEL)
 
-    # lift matrix: family x task
-    H = pd.DataFrame(index=FAMILIES, columns=TASKS, dtype=float)
+    # lift matrix: family x task. The floor is resolved PER ARM, because the convention both
+    # trees can supply depends on which arm is being lifted (see _joint).
+    H = pd.DataFrame(index=FAMILIES, columns=tasks, dtype=float)
     for fam in FAMILIES:
-        for t in TASKS:
-            H.loc[fam, t] = _lift(_suite_mean(ABL / fam, t), t, _wave_mean(PHASE2, FLOOR_RUNS, t))
+        for t in tasks:
+            H.loc[fam, t] = _lift(_arm_value(fam, t), t, _floor_value(t, fam))
 
     # context rows for panel (a): MLM base + XGBoost anchor, lifted against the same floor
-    base_row = {t: _lift(_suite_mean(BASE_RUN, t), t, _wave_mean(PHASE2, FLOOR_RUNS, t))
-                for t in TASKS}
-    anchor_row = {t: _lift(_suite_mean(ANCHOR_RUN, t), t, _wave_mean(PHASE2, FLOOR_RUNS, t))
-                  for t in TASKS}
+    base_row = {t: _lift(canonical_value(t, BASE_SRC, molnet_subdirs=_joint(t, BASE_SRC["mol"][0])),
+                         t, _floor_value(t, BASE_SRC["mol"][0])) for t in tasks}
+    anchor_row = {t: _lift(canonical_value(t, ANCHOR_SRC,
+                                           molnet_subdirs=_joint(t, ANCHOR_SRC["mol"][0])),
+                           t, _floor_value(t, ANCHOR_SRC["mol"][0])) for t in tasks}
     bar_rows = ([(BASE_LABEL, float(np.nanmean(list(base_row.values()))), ARMS["unsup"]["color"])]
-                + [(FAM_LABEL[f], float(np.nanmean([H.loc[f, t] for t in TASKS])), FAM_COL[f])
+                + [(FAM_LABEL[f], float(np.nanmean([H.loc[f, t] for t in tasks])), FAM_COL[f])
                    for f in FAMILIES]
                 + [(ANCHOR_LABEL, float(np.nanmean(list(anchor_row.values()))),
                     ARMS["ecfp"]["color"])])
-    return dict(H=H, bar_rows=bar_rows)
+    return dict(H=H, bar_rows=bar_rows, tasks=tasks, dropped=dropped)
 
 
 def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
@@ -189,9 +231,9 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     vmax = max(20.0, np.ceil(vmax / 10) * 10)
     norm = mpl.colors.SymLogNorm(linthresh=5, linscale=1.0, vmin=-vmax, vmax=vmax, base=10)
     im = axM.imshow(H.values, cmap="PuOr_r", norm=norm, aspect="auto")
-    axM.set_xticks(range(len(TASKS)))
-    axM.set_xticklabels([t for t in TASKS] if compact else
-                        [f"{t}\n[{TASK_GROUP[t][:4]}.]" for t in TASKS],
+    axM.set_xticks(range(len(H.columns)))
+    axM.set_xticklabels(list(H.columns) if compact else
+                        [f"{t}\n[{TASK_GROUP[t][:4]}.]" for t in H.columns],
                         fontsize=FS["annot"], rotation=30, ha="right")
     axM.set_yticks(range(len(FAMILIES)))
     axM.set_yticklabels([FAM_SHORT[f] for f in FAMILIES], fontsize=FS["annot"])
@@ -218,7 +260,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     # family set was unreadable). The two canonical representatives carry the claim; legend +
     # distinct markers (user request) instead of end-of-line text labels.
     for fam in SLOPE_FAMS:
-        per_task = {g: [H.loc[fam, t] for t in TASKS if TASK_GROUP[t] == g] for g in GROUPS}
+        per_task = {g: [H.loc[fam, t] for t in H.columns if TASK_GROUP[t] == g] for g in GROUPS}
         means = [float(np.nanmean(per_task[g])) for g in GROUPS]
         axS.plot([0, 1], means, color=FAM_COL[fam], marker=FAM_MARKER[fam], ms=5,
                  mec="white", mew=0.6, lw=STYLE["lw"], zorder=3)
@@ -275,7 +317,7 @@ def main():
         print(f"   {name:<28} {v:+6.1f}%")
     print("\nD mapping (mean lift per task group):")
     for fam in FAMILIES:
-        ms = {g: float(np.nanmean([H.loc[fam, t] for t in TASKS if TASK_GROUP[t] == g]))
+        ms = {g: float(np.nanmean([H.loc[fam, t] for t in H.columns if TASK_GROUP[t] == g]))
               for g in GROUPS}
         print(f"   {FAM_LABEL[fam]:<24} property {ms['property']:+6.1f}%   "
               f"bioassay {ms['bioassay']:+6.1f}%   gap {ms['property']-ms['bioassay']:+6.1f}")

@@ -14,27 +14,33 @@ Four feature sets, same XGBoost head, same splits, same seeds:
   desc+CLM      descriptors + CLIMB   (drops the fingerprint)
   fp+desc+CLM   everything            — the concatenation test
 
-THE RESULT: concatenation helps on 1 of 6 tasks. On five — ESOL, QM7, BACE, Tox21, HIV —
-`fp+desc+CLM` is WORSE than `fp+desc` alone, clearly so on the two regressions (ESOL 0.757 vs
-0.730 RMSE; QM7 190.5 vs 187.5). The single exception is BBBP (+0.048 ROC-AUC, beyond its SD) —
-and BBBP is exactly the dataset dropped from the paper's panel set for failing to discriminate:
-its whole field spans 1.8% of ROC-AUC and an UNTRAINED random encoder ranks 7 of 16 on it
-(notes/bbbp-anchor-verification-2026-08-16.md). A gain on the one benchmark we already decided
-cannot separate models does not rescue the conclusion.
+THE RESULT: concatenation helps on 1 of the 8 tasks run, and on NONE of the canonical panels.
+`fp+desc+CLM` is worse than `fp+desc` alone on all five canonical panels that have been run —
+MoleculeACE (0.750 vs 0.727 macro RMSE), CBS (0.631 vs 0.791 NEF1, the largest drop anywhere),
+QM7 (190.5 vs 187.5), BACE (-0.007) and Tox21 (-0.011) — and on ESOL and HIV besides. The single
+exception is BBBP (+0.048 ROC-AUC, beyond its SD), and BBBP is exactly the dataset dropped from
+the paper's panel set for failing to discriminate: its whole field spans 1.8% of ROC-AUC and an
+UNTRAINED random encoder ranks 7 of 16 on it (notes/bbbp-anchor-verification-2026-08-16.md). A
+gain on the one benchmark we already decided cannot separate models does not rescue the
+conclusion.
 
 So on every benchmark that discriminates, the CLIMB embedding is redundant to the classical
 featurization, and CLIMB alone is the weakest of the four feature sets on five of six tasks. This
 is a negative result and is reported as one. It is also the honest frame for Fig A1, where
 ECFP+desc ranks first overall: the transformer is not adding a missing view of the molecule.
 
-PANEL SCOPE: the concatenation experiment was run on MoleculeNet tasks only, so of the canonical
-six only BACE, Tox21 and QM7 are filled; MoleculeACE, CBS and hERG are drawn empty. ESOL, BBBP and
-HIV were also run and are NOT shown here — they are outside the canonical panel set — but they are
-in figure_data/fig_F/fig_F.csv and BBBP is the exception discussed above.
+PANEL SCOPE: ALL SIX canonical panels are filled (2026-08-18). MoleculeACE, CBS and Ames come from
+analysis/rigor/concat_panels_climb.csv; BACE, Tox21 and QM7 from the original MoleculeNet run.
+Ames was the last to land, and it was never a missing RUN — the predictions had been written all
+along and only the scoring failed, because that runner writes the FEATURE-SET name into the `seed`
+column while the Polaris scorer calls int(seed). Its cells are 1 replicate per feature set, so they
+are drawn WITHOUT a whisker rather than borrowing an SD from another panel (same rule as fig_E).
+ESOL, BBBP and HIV were also run and are NOT shown here — they are outside the canonical panel set
+— but they are in figure_data/fig_F/fig_F.csv and BBBP is the exception discussed above.
 
 Error bars are +-1 SD across the seeds of that (task, feature set) cell.
 
-Source: analysis/rigor/concat_redundancy.csv (git-tracked).
+Source: analysis/rigor/concat_redundancy.csv + concat_panels_climb.csv (git-tracked).
 
 Run:  python3 -m figures.fig_F
 """
@@ -56,18 +62,29 @@ check_font()
 INK = "#000000"
 
 ROOT = Path(__file__).resolve().parent.parent
+# TWO sources, concatenated. `concat_redundancy.csv` is the original MoleculeNet run
+# (ESOL/BBBP/BACE/HIV/Tox21/QM7); `concat_panels_climb.csv` is the canonical-panel top-up that
+# added MoleculeACE and CBS (landed 2026-08-18). Same four feature sets, same XGBoost head, each
+# task on its own canonical split. Ames landed 2026-08-18 in concat_panels_climb.csv: its
+# predictions had been written all along and only the SCORING failed, because that runner puts the
+# feature-set name in the `seed` column and the Polaris scorer does int(seed). Scored per feature
+# set and appended, so the MoleculeACE and CBS rows were not clobbered.
 SRC = ROOT / "analysis" / "rigor" / "concat_redundancy.csv"
+SRC_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_climb.csv"
 OUTDIR = ROOT / "figures_v2"
 # the per-task record is DATA, not a deliverable -- figures_v2/ holds only what goes in the paper
 DATADIR = ROOT / "figure_data" / "fig_F"
 
 # canonical panel -> task name in the source (None = experiment never run there)
-PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",
-              "Ames": None, "Tox21": "Tox21", "QM7": "QM7"}
-PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
-# every task in the source, for the CSV record (superset of the canonical panels)
-ALL_TASKS = {"ESOL": "rmse", "QM7": "rmse", "BACE": "roc_auc", "BBBP": "roc_auc",
-             "Tox21": "roc_auc", "HIV": "roc_auc"}
+PANEL_TASK = {"MoleculeACE": "MoleculeACE", "CBS": "CBS", "BACE": "BACE",
+              "Ames": "Ames", "Tox21": "Tox21", "QM7": "QM7"}
+PRIMARY = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "BACE": "roc_auc",
+           "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
+LOWER_BETTER_METRIC = {"rmse", "macro_rmse"}
+# every task in the sources, for the CSV record (superset of the canonical panels)
+ALL_TASKS = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "ESOL": "rmse", "QM7": "rmse",
+             "BACE": "roc_auc", "BBBP": "roc_auc", "Ames": "roc_auc", "Tox21": "roc_auc",
+             "HIV": "roc_auc"}
 # classical anchor keeps the anchor amber; anything containing CLIMB moves into the unsup blues,
 # darkening as more classical information is added back
 FEATURES = [("fp+desc", "ECFP4 + descriptors (classical anchor)", SHADES["anchor"][0]),
@@ -78,7 +95,7 @@ BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
 
 def main():
-    d = pd.read_csv(SRC)
+    d = pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
 
     # ---- data record: every task the experiment covers, not just the canonical panels ----
     rows = []
@@ -86,14 +103,16 @@ def main():
         g = d[(d.task == task) & (d.metric == metric)].set_index("features")
         if BASE not in g.index or CONCAT not in g.index:
             continue
-        sign = -1 if metric == "rmse" else 1
+        sign = -1 if metric in LOWER_BETTER_METRIC else 1
         delta = sign * (float(g.loc[CONCAT, "mean"]) - float(g.loc[BASE, "mean"]))
         sd = float(g.loc[CONCAT, "std"])
+        sd = 0.0 if not np.isfinite(sd) else sd     # 1-replicate cell: no SD to beat
         row = dict(task=task, metric=metric,
                    in_canonical_panels=int(task in {v for v in PANEL_TASK.values() if v}))
         for f, _, _ in FEATURES:
             row[f] = round(float(g.loc[f, "mean"]), 4) if f in g.index else ""
-            row[f + "_sd"] = round(float(g.loc[f, "std"]), 4) if f in g.index else ""
+            _sd = float(g.loc[f, "std"]) if f in g.index else float("nan")
+            row[f + "_sd"] = round(_sd, 4) if np.isfinite(_sd) else ""
         row.update(delta_vs_fp_desc=round(delta, 4), concat_sd=round(sd, 4),
                    beats_sd="yes" if delta > sd else "no")
         rows.append(row)
@@ -132,7 +151,11 @@ def main():
         g = d[(d.task == task) & (d.metric == metric)].set_index("features")
         x = np.arange(len(FEATURES))
         ys = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-        es = [float(g.loc[f, "std"]) if f in g.index else 0.0 for f, _, _ in FEATURES]
+        # a cell with a single replicate has no SD; draw NO whisker rather than borrow one from
+        # elsewhere, which would not be the same estimand (same rule as fig_E). Ames is currently
+        # the only such panel -- its concat runs are 1 seed per feature set.
+        es = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
+        es = [0.0 if not np.isfinite(e) else e for e in es]
         cs = [c for _, _, c in FEATURES]
         ax.bar(x, ys, width=0.72, color=cs, edgecolor=INK, linewidth=0.8,
                yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
@@ -163,10 +186,10 @@ def main():
 
     print("\nFig F — does concatenating CLIMB onto the classical features help?")
     print("  (delta signed so + = concatenation helped)\n")
-    print(f"  {'task':<7}{'canon':<7}" + "".join(f"{f:>16}" for f, _, _ in FEATURES) +
+    print(f"  {'task':<13}{'canon':<7}" + "".join(f"{f:>16}" for f, _, _ in FEATURES) +
           f"{'delta':>10}{'> SD?':>7}")
     for r in rows:
-        line = f"  {r['task']:<7}{'yes' if r['in_canonical_panels'] else '—':<7}"
+        line = f"  {r['task']:<13}{'yes' if r['in_canonical_panels'] else '—':<7}"
         for f, _, _ in FEATURES:
             line += f"{r[f]:>16.4f}"
         line += f"{r['delta_vs_fp_desc']:>+10.4f}{r['beats_sd']:>7}"

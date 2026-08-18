@@ -18,14 +18,21 @@ crossings:
 
   BACE   pretraining wins at EVERY size — end2end never catches up inside the range (0.725 vs
          0.825 at full data). This is the panel where pretraining pays.
+  HIV    the textbook shape, and the largest small-data gap in the figure: at 1.6k labels both
+         frozen encoders sit at 0.444 NEF1% against end2end's 0.339 (+31% relative). End2end has
+         closed most of it by 3.3k and passes `unsupervised` by 33k, but `supervised, dense` stays
+         ahead throughout (0.675 vs 0.611 at full data). Pretraining buys a real head start on a
+         rare-active screen and, for the supervised objective, keeps it.
   Tox21  end2end closes the gap and passes `supervised, dense` at full data (0.730 vs 0.722),
          though `unsupervised` still leads (0.736). The advantage of pretraining is spent by ~6k
          labels.
   QM7    end2end is AHEAD at every size below full data; the frozen unsupervised probe is poor on
          this task throughout (212.7 RMSE at full data). Pretraining does not pay here at all.
 
-So the honest answer is task-dependent: pretraining buys a large, durable margin on BACE, a margin
-that expires around a few thousand labels on Tox21, and nothing on QM7.
+So the honest answer is task-dependent: pretraining buys a large, durable margin on BACE and HIV, a
+margin that expires around a few thousand labels on Tox21, and nothing on QM7. Note that the two
+panels where it pays are the two where the label budget is smallest relative to the difficulty of
+the task — BACE tops out at 1.2k labels, and HIV is 3.5% active.
 
 NO error bars (matching Fig B, user decision 2026-08-17). The per-point SD across the seed cells is
 kept in figure_data/figF/figF_crossover.csv if a referee asks.
@@ -74,7 +81,9 @@ def main():
         d = PANELS[p]
         g_all = DF[DF.panel == p]
         arrow = "↑" if d["higher_better"] else "↓"
-        ax.set_title(f"{d['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
+        # a substituted panel is titled by the dataset actually drawn, never by the panel slot
+        title = g_all.task.iloc[0] if not g_all.empty else d["label"]
+        ax.set_title(f"{title} {arrow}", fontsize=FS["title"], fontweight="bold",
                      color=INK, pad=4)
         ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
         ax.set_xlabel("labelled training molecules", fontsize=FS["annot"], color=INK)
@@ -89,6 +98,11 @@ def main():
             ax.set_xticks([])
             ax.set_yticks([])
             continue
+
+        sub = g_all.substituted_for.iloc[0] if "substituted_for" in g_all else ""
+        if isinstance(sub, str) and sub:
+            ax.text(0.98, 0.04, f"stand-in for {sub}", transform=ax.transAxes, ha="right",
+                    va="bottom", fontsize=FS["annot"] - 1, color=STYLE["mute"], style="italic")
 
         lo, hi = np.inf, -np.inf
         for arm in LINES:
@@ -128,6 +142,8 @@ def main():
         if g_all.empty:
             print(f"   {p:<12} — no label-fraction sweep run")
             continue
+        if g_all.task.iloc[0] != p:
+            print(f"   [{p} panel draws {g_all.task.iloc[0]} — CBS cannot be subsampled]")
         n = sorted(g_all.n_train.unique())
         print(f"   {p} ({g_all.metric.iloc[0]}):   " + "".join(f"{x:>10}" for x in n))
         for arm in LINES:
