@@ -34,7 +34,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = "experiments/climb_v2_ablation/manifest.json"
+SRC = "experiments/climb_v2_ablation/manifest.json"  # AUDIT-OK: superseded-root — this IS the pre-dedup wave, read as the input to rebuild it
 NEW_WAVE = "climb_v2_ablation_dedup"
 NEW_BASE = "experiments/climb_v2_phase2/unsup_2M/encoder"
 BLOCKLIST = "s3://climb-s3-bucket/configs/eval_blocklist.json"

@@ -41,8 +41,28 @@ A2_ARMS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
            "random_encoder", "e2e_no_pretrain", "chemeleon_e2e"]
 
 
-def load_oof(root, run, dataset):
-    p = FD / root / run / "moleculenet_cv" / "test_predictions.csv"
+# QM7's phase-2 predictions are z-scored for most runs and native for a few; the native re-eval
+# writes to moleculenet_cv_qm7native/ and exists only for the runs that needed it. Same rule as
+# scripts/six_panel_aggregate: PREFER the native subdir, and never pool the two -- an arm whose
+# CI mixed z-scored and native OOF would produce a meaningless interval, exactly as a mixed point
+# estimate produced the bogus 129.9 QM7 mean for `no pretrain, end2end`.
+SUBDIRS = {"QM7": ("moleculenet_cv_qm7native", "moleculenet_cv")}
+
+
+def _oof_subdir(root, runs, dataset):
+    """One subdir for the whole arm: the first candidate any of its dirs has. (chosen, usable)."""
+    cands = SUBDIRS.get(dataset, ("moleculenet_cv",))
+    for sub in cands:
+        usable = [r for r in runs
+                  if (FD / root / r / sub / "test_predictions.csv").exists()
+                  or (FD / root / f"{r}_s0" / sub / "test_predictions.csv").exists()]
+        if usable:
+            return sub, usable
+    return cands[-1], list(runs)
+
+
+def load_oof(root, run, dataset, subdir="moleculenet_cv"):
+    p = FD / root / run / subdir / "test_predictions.csv"
     if not p.exists():
         return None
     d = pd.read_csv(p)
@@ -54,9 +74,10 @@ def load_oof_all(root, runs, dataset):
     """OOF from EVERY pretraining-seed dir, tagged by dir. The bar pools all seeds, so the CI must
     too -- using one dir made the interval describe a different estimator than the bar."""
     out = []
+    subdir, runs = _oof_subdir(root, list(runs), dataset)
     for run in runs:
         for cand in (run, f"{run}_s0"):
-            d = load_oof(root, cand, dataset)
+            d = load_oof(root, cand, dataset, subdir)
             if d is not None:
                 d = d.copy(); d["_dir"] = cand; out.append(d); break
     return pd.concat(out, ignore_index=True) if out else None
@@ -132,9 +153,17 @@ def scaffold_ci(d, kind, root, seed=0):
     return obs, float(lo), float(hi), K
 
 
+def _expand(base):
+    """<base> + its _s1/_s2 replicates -- unless arms.py already spelled the dirs out as a LIST
+    (random_encoder's are _00/_01/_02, s2u_dense's are _s0/_s1/_s2)."""
+    if isinstance(base, (list, tuple)):
+        return list(base)
+    return [base, f"{base}_s1", f"{base}_s2"]
+
+
 def mace_ci(base, seed=0):
     """95% CI by resampling the 30 targets (pooled over pretraining-seed dirs + eval seeds)."""
-    dirs = [d for d in (base, f"{base}_s1", f"{base}_s2")
+    dirs = [d for d in _expand(base)
             if (FD / "chemeleon_suite" / "moleculeace" / d / "results.csv").exists()]
     if not dirs:
         return None
@@ -155,7 +184,7 @@ def herg_se(base):
     the one panel that cannot be resampled -- flagged DERIVED so the caption can say so.
     2026-08-18: the panel moved hERG (n=132) -> Ames (n=1457). Ames has ~4x the effective sample and
     ~2.2x the headroom per SE, which is why the swap was made."""
-    dirs = [d for d in (base, f"{base}_s1", f"{base}_s2")
+    dirs = [d for d in _expand(base)
             if (FD / "chemeleon_suite" / "polaris" / d / "polaris_scores.csv").exists()]
     vals = []
     for d in dirs:

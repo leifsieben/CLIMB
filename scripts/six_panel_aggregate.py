@@ -45,7 +45,10 @@ def mace_seed_dirs(base):
     every mainline arm; until they land this silently returns just the base dir, and the moment
     they appear they are pooled in with no code change.
     """
-    cands = [base, f"{base}_s1", f"{base}_s2"]
+    # `base` may be an explicit LIST, exactly as arms.py's `mol` already is. Needed because the
+    # controls' replicates are named _00/_01/_02 rather than <base>/_s1/_s2, and renaming real
+    # result dirs to fit a resolver would be the tail wagging the dog (compute session, 2026-08-18).
+    cands = list(base) if isinstance(base, (list, tuple)) else [base, f"{base}_s1", f"{base}_s2"]
     return [d for d in cands
             if (FD / "chemeleon_suite" / "moleculeace" / d / "results.csv").exists()]
 
@@ -100,24 +103,61 @@ def cluster_bootstrap(by_target, n=2000):
 
 
 # ---------------------------------------------------------------- MoleculeNet / CBS -----------
-def _cv_dir(root, src):
-    """<root>/<src>/moleculenet_cv, falling back to <root>/<src>_s0/moleculenet_cv.
+# QM7 was evaluated with standardize=zscore in the phase-2 wave and the runner reported the
+# NORMALIZED rmse (~0.85) for MOST runs but native kcal/mol (~200) for a few, so the panel silently
+# mixed two units (see check_panel_units). The re-eval writes native values to a SEPARATE subdir,
+# moleculenet_cv_qm7native/, and it exists only for the runs that needed fixing -- the runs that
+# were already native were (correctly) not re-run. So the QM7 panel must PREFER the native subdir
+# and fall back to the ordinary one, which is what this tuple expresses. Every other panel reads
+# moleculenet_cv/ only.
+QM7_SUBDIRS = ("moleculenet_cv_qm7native", "moleculenet_cv")
+DEFAULT_SUBDIRS = ("moleculenet_cv",)
+
+
+def _pick_subdir(root, dirs, subdirs):
+    """Choose ONE subdir for the whole arm, so its dirs can never be read in mixed units.
+
+    THIS IS THE FIX FOR A BUG THAT REACHED A FIGURE. `moleculenet_cv_qm7native/` is written run by
+    run, so mid-re-eval some of an arm's 3 pretraining dirs have it and some do not. Resolving each
+    dir independently then pooled 2 native folds (~194 kcal/mol) with 5 z-scored ones (~0.85) into
+    one "mean" of 129.9 for `no pretrain, end2end` -- a number that looked like a spectacular
+    result rather than a unit error, and that check_panel_units could not catch because it compares
+    ACROSS arms and every other arm was internally fine.
+
+    Rule: take the first subdir in `subdirs` that ANY of the arm's dirs has, and then use only the
+    dirs that have it. Fewer seeds is a visible, honest degradation (n_seeds drops); mixed units is
+    an invisible, wrong one. Returns (chosen_subdir, usable_dirs, skipped_dirs).
+    """
+    for sub in subdirs:
+        usable = [d for d in dirs if (FD / root / d / sub).exists()
+                  or (FD / root / f"{d}_s0" / sub).exists()]
+        if usable:
+            return sub, usable, [d for d in dirs if d not in usable]
+    return subdirs[-1], list(dirs), []
+
+
+def _cv_dir(root, src, subdirs=DEFAULT_SUBDIRS):
+    """<root>/<src>/<subdir>, falling back to <root>/<src>_s0/<subdir>.
+
+    `subdirs` is tried in order and the FIRST that exists wins, so a per-panel override
+    (QM7_SUBDIRS) can prefer a re-evaluated copy without disturbing any other panel.
 
     The CBS e2e runner numbered its seeds <arm>_s0.._s2 while every other tree uses
     <arm>, <arm>_s1, <arm>_s2 -- so under cbs_benchmark the base name of an e2e arm does not
     exist and its seed-0 lives at <arm>_s0. Only fires when the plain name is absent, so it can
     never double-count a dir that IS present.
     """
-    d = FD / root / src / "moleculenet_cv"
-    if d.exists():
-        return d, src
-    d0 = FD / root / f"{src}_s0" / "moleculenet_cv"
-    if d0.exists():
-        return d0, f"{src}_s0"
+    for sub in subdirs:
+        d = FD / root / src / sub
+        if d.exists():
+            return d, src
+        d0 = FD / root / f"{src}_s0" / sub
+        if d0.exists():
+            return d0, f"{src}_s0"
     return None, src
 
 
-def mol_fold_values(dirs, dataset, metric, root="climb_v2_phase2"):
+def mol_fold_values(dirs, dataset, metric, root="climb_v2_phase2", subdirs=DEFAULT_SUBDIRS):
     """Per-(pretraining-seed-dir, fold) ENSEMBLE values for one MolNet-shaped panel.
 
     Reads the plain `<metric>` fold rows (fold0..foldK-1) -- NEVER `<metric>_cell`. eval_v2.py's
@@ -148,8 +188,14 @@ def mol_fold_values(dirs, dataset, metric, root="climb_v2_phase2"):
     Returns [(unit, value), ...] with unit = "<dir>:<fold>" -- ONE value per (dir, fold), 5 per dir.
     """
     out = []
+    if len(subdirs) > 1:
+        sub, dirs, skipped = _pick_subdir(root, list(dirs), subdirs)
+        if skipped:
+            print(f"  SUBDIR SKIP  {dataset}: using {sub}/ for {len(dirs)} dir(s); "
+                  f"dropped {','.join(skipped)} (no {sub}/ yet -- pooling them would MIX UNITS)")
+        subdirs = (sub,)
     for src in dirs:
-        d, resolved = _cv_dir(root, src)
+        d, resolved = _cv_dir(root, src, subdirs)
         if d is None:
             continue
         f = d / "moleculenet_summary.csv"
@@ -175,7 +221,7 @@ def _suite_key(dataset, metric):
     return f"{dataset}_nef1_MEAN" if (dataset, metric) == ("cbs", "nef1") else f"{dataset}_MEAN"
 
 
-def mol_dir_summaries(dirs, dataset, metric, root="climb_v2_phase2"):
+def mol_dir_summaries(dirs, dataset, metric, root="climb_v2_phase2", subdirs=DEFAULT_SUBDIRS):
     """[(dir, mean, fold_sd)] from suite_summary.json -- for e2e-style arms whose runner wrote no
     per-fold CSV (chemeleon_e2e on MolNet, s2u_dense on CBS). The json's STD is the POPULATION sd
     (ddof=0) over the 5 CV folds (verified 2026-08-17 against per_fold.csv: 0.12097 == ddof=0);
@@ -184,8 +230,14 @@ def mol_dir_summaries(dirs, dataset, metric, root="climb_v2_phase2"):
     """
     import json
     out = []
+    if len(subdirs) > 1:
+        sub, dirs, skipped = _pick_subdir(root, list(dirs), subdirs)
+        if skipped:
+            print(f"  SUBDIR SKIP  {dataset}: using {sub}/ for {len(dirs)} dir(s); "
+                  f"dropped {','.join(skipped)} (no {sub}/ yet -- pooling them would MIX UNITS)")
+        subdirs = (sub,)
     for src in dirs:
-        d, resolved = _cv_dir(root, src)
+        d, resolved = _cv_dir(root, src, subdirs)
         if d is None:
             continue
         f = d / "suite_summary.json"
@@ -248,11 +300,17 @@ def panel_stats(cells=None, dir_summaries=None):
 def polaris_cells(base, task, metric):
     """[(seed, value), ...] for one Polaris task. Polaris was run once per arm (no pretraining-seed
     replicates yet), so the replicates here are the 3 EVAL seeds of that single encoder."""
-    f = FD / "chemeleon_suite" / "polaris" / base / "polaris_scores.csv"
-    if not f.exists():
-        return []
-    return [(f"seed{r['seed']}", float(r["value"])) for r in csv.DictReader(open(f))
-            if r["task"] == task and r["metric"] == metric and r["value"] not in ("", "nan")]
+    # `base` may be an explicit LIST (see mace_seed_dirs); pool every dir that exists, tagging the
+    # replicate so two dirs cannot collide on the same seed label.
+    dirs = list(base) if isinstance(base, (list, tuple)) else [base]
+    out = []
+    for d in dirs:
+        f = FD / "chemeleon_suite" / "polaris" / d / "polaris_scores.csv"
+        if not f.exists():
+            continue
+        out += [(f"{d}:seed{r['seed']}", float(r["value"])) for r in csv.DictReader(open(f))
+                if r["task"] == task and r["metric"] == metric and r["value"] not in ("", "nan")]
+    return out
 
 
 # ---------------------------------------------------------------- main ----------------------
@@ -290,6 +348,37 @@ def check_panel_units(rows):
         print(f"  UNIT WARNING  {panel}: values span {hi[0]/lo[0]:.0f}x "
               f"({lo[1]}={lo[0]:.4g} vs {hi[1]}={hi[0]:.4g}) — almost certainly a unit mismatch "
               f"between arms, NOT a quality difference. Do not plot this panel until it is fixed.")
+    return bad
+
+
+def check_cell_units(long_rows):
+    """The same 25x test WITHIN one (arm, panel) -- across its replicate cells.
+
+    check_panel_units() compares arms and therefore cannot see an arm whose OWN folds are in two
+    units, which is exactly what a partially-completed re-eval produces. That is not hypothetical:
+    it happened to `no pretrain, end2end` on QM7 (2 native dirs + 1 z-scored dir -> a mean of
+    129.9). _pick_subdir now prevents it upstream; this is the belt-and-braces detector, because
+    the next unit split will not necessarily arrive through a subdir.
+    """
+    import collections
+    by = collections.defaultdict(list)
+    for r in long_rows:
+        try:
+            v = abs(float(r["value"]))
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            by[(r["arm"], r["panel"])].append((v, r["unit"]))
+    bad = []
+    for (arm, panel), vals in by.items():
+        if len(vals) < 2:
+            continue
+        lo, hi = min(vals), max(vals)
+        if hi[0] / lo[0] > 25:
+            bad.append((arm, panel, lo, hi))
+            print(f"  CELL UNIT WARNING  {arm}/{panel}: this ARM'S OWN cells span "
+                  f"{hi[0]/lo[0]:.0f}x ({lo[1]}={lo[0]:.4g} vs {hi[1]}={hi[0]:.4g}). Its point "
+                  f"estimate is an average of two units and is meaningless.")
     return bad
 
 
@@ -370,8 +459,9 @@ def main():
 
         # --- MoleculeNet panels ----------------------------------------------------------
         for ds, metric in MOL_PANELS.items():
-            folds = mol_fold_values(src["mol"], ds, metric) if src.get("mol") else []
-            dirs = mol_dir_summaries(src["mol"], ds, metric) \
+            subs = QM7_SUBDIRS if ds == "QM7" else DEFAULT_SUBDIRS
+            folds = mol_fold_values(src["mol"], ds, metric, subdirs=subs) if src.get("mol") else []
+            dirs = mol_dir_summaries(src["mol"], ds, metric, subdirs=subs) \
                 if src.get("mol") and not folds else None
             stats = panel_stats(cells=folds or None, dir_summaries=dirs)
             if stats:
@@ -402,6 +492,7 @@ def main():
     print(f"wrote {OUT/'mainline_8M_bootstrap.csv'}  {len(boot_rows):4d} rows")
     print(f"wrote {OUT/'STATUS.md'}")
     check_panel_units(rows)
+    check_cell_units(long_rows)
     print(f"\ncoverage: {len(ARM_ORDER)*len(PANEL_ORDER)-len(missing)}/{len(ARM_ORDER)*len(PANEL_ORDER)}"
           f" arm x panel cells filled; {len(missing)} missing")
     for a, p in missing:
@@ -452,41 +543,50 @@ def write_status(have):
     L += ["## What each panel averages over", "",
           "Replication is NOT uniform across the suite — check this before quoting an error bar.",
           "",
-          "| Panel | Pretraining seeds | Eval replicates | Pooled n |",
-          "|---|---|---|---|",
-          "| MoleculeACE | **1** (seed-0 encoder only) | 3 eval seeds × 30 targets | 90 |",
-          "| CBS / BACE / Tox21 / QM7 | 3 (`<arm>`, `_s1`, `_s2`; controls `_00/_01/_02`; "
-          "anchors + CheMeleon-frozen have 1, no pretraining seed to replicate) | "
-          "3 head seeds × 5 folds (CBS: the 5 provided UMAP folds) | 45 (15 for the anchors/CheMeleon) |",
-          "| hERG | **1** (Polaris run once per arm) | 3 eval seeds, benchmark-provided split | 3 |",
+          "| Panel | Source tree | Pretraining seeds | Eval replicates | Pooled cells |",
+          "|---|---|---|---|---|",
+          "| MoleculeACE | `chemeleon_suite/moleculeace/` | 3 for CLIMB arms and both controls; "
+          "1 for the anchors and CheMeleon | 3 eval seeds x 30 targets | 9 macro-means (3 for 1-seed arms) |",
+          "| CBS | `cbs_benchmark/` | 3 (`<arm>`, `_s1`, `_s2`; controls `_00/_01/_02`) | "
+          "3 head seeds ensembled, then 5 provided UMAP folds | 15 (5 for 1-seed arms) |",
+          "| BACE / Tox21 / QM7 | `climb_v2_phase2/` | 3 | 3 head seeds ensembled, then 5 scaffold "
+          "folds | 15 (5 for 1-seed arms) |",
+          "| Ames | `chemeleon_suite/polaris/` | **1** (Polaris run once per arm) | 3 eval seeds, "
+          "benchmark-provided split | 3 (9 where an arm has 3 dirs) |",
           "",
-          "**Error bar — ONE estimand for every panel (user decision 2026-08-17):** `sd_total`,",
-          "the total single-run SD: `sd_total² = var_between(seed-dir means) + mean(within-dir",
-          "fold variance)` — the spread of one (pretraining-seed × fold) evaluation of the panel.",
-          "Single-dir arms (anchors, chemeleon_frozen) reduce to the within-dir fold SD. MoleculeACE",
-          "uses the SD across per-(dir, eval-seed) macro-means; hERG the SD across its 3 eval seeds.",
-          "The pre-2026-08-17 mix (seed-SD for CLIMB, fold-SD for anchors, bootstrap CI for",
-          "MoleculeACE) made whisker lengths incomparable across bars and is retired.",
+          "**1-seed arms are a FACT, not a gap.** ECFP, ECFP+desc and CheMeleon have no pretraining "
+          "stage to replicate: XGBoost on a fixed classical featurization, and a frozen "
+          "externally-supplied model. Do not read `n_seeds=1` for those three as missing compute.",
           "",
-          "**Two data paths.** Arms with per-fold files contribute real cells (15 = 3 dirs × 5",
+          "**Error bar — the plotted estimand is a SAMPLING CI of the evaluation units,** not a "
+          "run-to-run SD. fig_A2/fig_A draw `a2_errorbars.csv`: a scaffold-cluster bootstrap for "
+          "BACE/Tox21/QM7/CBS, a target-cluster bootstrap over the 30 targets for MoleculeACE, and "
+          "an analytic Hanley-McNeil SE for Ames (Polaris withholds the test labels, so that one "
+          "panel cannot be resampled and is flagged DERIVED). The `sd_total` column below is "
+          "RETAINED for reference and for figures that legitimately want run-to-run spread "
+          "(fig_B, SI figs), but it is NOT what the headline whiskers show: it answers "
+          "\"how much does a rerun move\", where a reviewer is asking \"how much does the "
+          "benchmark sample move\".",
+          "",
+          "**Two data paths.** Arms with per-fold files contribute real cells (15 = 3 dirs x 5",
           "folds). e2e-style arms whose runner wrote only `suite_summary.json` (chemeleon_e2e on",
-          "MolNet, s2u_dense on CBS) contribute per-dir (mean, fold-sd) summaries — the json's",
+          "MolNet) contribute per-dir (mean, fold-sd) summaries — the json's",
           "fold sd is ddof=0 and is rescaled to ddof=1 in `panel_stats`. The CBS e2e runner",
           "numbered its seeds `<arm>_s0.._s2`; `_cv_dir` maps the base name onto `<arm>_s0`.",
           "",
-          "**Known asymmetry:** MoleculeACE and hERG still rest on a single pretraining",
-          "seed for the mainline arms — the `_s1`/`_s2` encoders exist on S3 but were never scored on",
-          "MoleculeACE. A frozen-probe top-up (Wave-2 machinery, ~14 arms × 30 targets) would close it.",
-          "",
-          "**s2u_dense (forgetting arm):** its MolNet landed in `moleculenet/` (single hold-out),",
-          "NOT `moleculenet_cv/` — deliberately NOT pooled here (a 5-fold CV re-run is in flight).",
-          "Its CBS (suite_summary path) and MoleculeACE are on the correct protocol.",
+          "**QM7 is stored in two unit conventions** — z-scored rmse (~0.85) for most phase-2 runs, "
+          "native kcal/mol (~200) for the rest — and the re-eval writes native values to "
+          "`moleculenet_cv_qm7native/`, one run at a time. `_pick_subdir` therefore chooses ONE "
+          "subdir for a whole arm and drops the dirs that lack it, printing a `SUBDIR SKIP` line. "
+          "Never pool the two: resolving per-dir instead of per-arm once averaged 10 native folds "
+          "with 5 z-scored ones and produced a QM7 mean of 129.9 for `no pretrain, end2end`, which "
+          "reads as a spectacular result rather than an error. `check_cell_units` is the backstop.",
           "",
           "Some runs stored only per-fold rows rather than per-(head-seed, fold) cells; those "
           "contribute 5 values per seed dir instead of 15 (see `n_cells` in `mainline_8M.csv`). The "
           "`MEAN`/`STD` rows in the source summaries are never treated as data.",
           "",
-          "## Compute waves", "", "| Wave | Marker / output | Status | Feeds |", "|---|---|---|---|"]
+                    "## Compute waves", "", "| Wave | Marker / output | Status | Feeds |", "|---|---|---|---|"]
     for name, marker, feeds in waves:
         state = "**done**" if marker.exists() else "*pending*"
         L.append(f"| {name} | `{marker.relative_to(ROOT)}` | {state} | {feeds} |")

@@ -43,6 +43,14 @@ def run(track, model, encoder_path, tokenizer_path, seeds, lr=None, epochs=None,
         idx = np.arange(len(smi))
         tr = idx[[s == "train" for s in split]]
         te = idx[[s == "test" for s in split]]
+        # Label-efficiency sweep (SI fig e): reduce the TRAIN budget only, on this benchmark's own
+        # native split, with the same per-task fraction and without-replacement draw the frozen
+        # runner and eval_v2._subsample_train use -- so the e2e arm's x-axis means exactly what the
+        # frozen arms' does. Test is never touched.
+        if TRAIN_FRACTION is not None and TRAIN_FRACTION < 1.0:
+            n_keep = max(1, int(round(TRAIN_FRACTION * len(tr))))
+            if n_keep < len(tr):
+                tr = np.sort(np.random.default_rng(SUBSAMPLE_SEED).choice(tr, size=n_keep, replace=False))
         te_smi = [smi[i] for i in te]
         yte = y[te]
         has_labels = bool(np.isfinite(yte).any())
@@ -84,6 +92,10 @@ def run(track, model, encoder_path, tokenizer_path, seeds, lr=None, epochs=None,
     print(f"[e2e] wrote {out_dir} ({n_done}/{len(tasks)} tasks)", flush=True)
 
 
+TRAIN_FRACTION = None
+SUBSAMPLE_SEED = 0
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--track", required=True, choices=["moleculeace", "polaris"])
@@ -91,12 +103,17 @@ def main():
     p.add_argument("--encoder", required=True, help="encoder weights to fine-tune FROM")
     p.add_argument("--tokenizer", required=True)
     p.add_argument("--seeds", type=int, nargs="+", default=[42, 117, 709])
+    p.add_argument("--train_fraction", type=float, default=None,
+                   help="Label-efficiency sweep: keep this FRACTION of each task's train split.")
+    p.add_argument("--subsample_seed", type=int, default=0)
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--patience", type=int, default=None)
     p.add_argument("--only_tasks", default=None, help="comma-separated task subset")
     p.add_argument("--suffix", default="_e2e", help="output dir suffix (e.g. _e2e_tuned)")
     a = p.parse_args()
+    global TRAIN_FRACTION, SUBSAMPLE_SEED
+    TRAIN_FRACTION, SUBSAMPLE_SEED = a.train_fraction, a.subsample_seed
     only = a.only_tasks.split(",") if a.only_tasks else None
     run(a.track, a.model, a.encoder, a.tokenizer, a.seeds, lr=a.lr, epochs=a.epochs,
         patience=a.patience, only_tasks=only, suffix=a.suffix)

@@ -11,12 +11,17 @@ PROTOCOL: each PANEL is internally consistent (its frozen and end2end numbers co
 wave, split and seed grid), which is what the within-panel frozen-vs-end2end comparison needs. The
 protocol DIFFERS BETWEEN panels and the `protocol` column says which:
 
-  MoleculeACE, hERG   mainline protocol. frozen from figure_data/six_panel/mainline_8M.csv;
+  MoleculeACE, Ames   mainline protocol. frozen from figure_data/six_panel/mainline_8M.csv;
                       end2end from chemeleon_suite/{moleculeace,polaris}/<arm>_e2e/.
+  CBS                 both sides from cbs_benchmark/<arm>{,_e2e}/moleculenet_cv/ (the end2end
+                      side landed 2026-08-18). The SAME 5 benchmark-provided UMAP folds, each fold
+                      already ensembled over the 3 seeds, on both sides -- so frozen and end2end
+                      carry the identical estimand (SD across 5 folds). NOTE: two dirs of the e2e
+                      names briefly existed as smoke stubs (1 fold, 2 epochs, NEF1 0.0); they are
+                      quarantined as *_SMOKE_STUB and this reader must never fall back to them.
   BACE, Tox21, QM7    label-efficiency protocol at the 100% fraction. frozen from
                       analysis/rigor/label_efficiency_fractions_all.csv; end2end from
                       figure_data/six_panel/six_panel_e2e.csv. Same pair SI Fig f uses.
-  CBS                 no end2end run of a pretrained CLIMB encoder exists -> emitted empty.
 
 NEVER compare a value in one panel to a value in another; compare frozen vs end2end WITHIN a panel.
 
@@ -37,9 +42,10 @@ FD = ROOT / "figure_data"
 OUT = FD / "SI_fig_a" / "SI_fig_a_e2e_need.csv"
 
 # arms.py key -> (mainline arm key, e2e run dir, label-efficiency frozen arm, wave-3 e2e arm)
-ENCODERS = [("unsup", "unsup", "unsup_8M_e2e", "unsup", "unsup_only", "unsupervised"),
-            ("sup_dense", "sup_dense", "skip_dense_8M_e2e", "sup", "sup_only:dense",
-             "supervised, dense")]
+# key, mainline arm key, FROZEN run dir, e2e run dir, label-eff frozen arm, wave-3 e2e arm, label
+ENCODERS = [("unsup", "unsup", "unsup_8M", "unsup_8M_e2e", "unsup", "unsup_only", "unsupervised"),
+            ("sup_dense", "sup_dense", "skip_dense_8M", "skip_dense_8M_e2e", "sup",
+             "sup_only:dense", "supervised, dense")]
 AMES = ("tdcommons/ames", "roc_auc")
 HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0}
 MOL_METRIC = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
@@ -64,7 +70,7 @@ def main() -> None:
                          sd=("" if not np.isfinite(sd) else round(float(sd), 6)),
                          n=n, protocol=protocol))
 
-    for key, main_arm, e2e_dir, le_arm, w3_arm, label in ENCODERS:
+    for key, main_arm, main_dir, e2e_dir, le_arm, w3_arm, label in ENCODERS:
         # ---- MoleculeACE + hERG: mainline protocol ----
         for panel in ("MoleculeACE", "Ames"):
             r = main_tbl[(main_tbl.arm == main_arm) & (main_tbl.panel == panel)]
@@ -85,6 +91,26 @@ def main() -> None:
             if len(v):
                 add("Ames", label, "end2end", v.mean(),
                     v.std(ddof=1) if len(v) > 1 else np.nan, len(v), "mainline")
+
+        # ---- CBS: both sides = the 5 benchmark-provided folds, each fold already the ensemble
+        # over the 3 seeds. Read BOTH from cbs_benchmark/ rather than taking frozen from
+        # mainline_8M.csv, so the two sides of the comparison are literally the same estimand
+        # (SD across 5 folds) instead of frozen-sd_total vs e2e-fold-SD.
+        fro_cbs = FD / "cbs_benchmark" / main_dir / "moleculenet_cv" / "moleculenet_summary.csv"
+        if fro_cbs.exists():
+            o = pd.read_csv(fro_cbs)
+            v = o[(o.main_metric == "nef1")
+                  & o.head_seed.astype(str).str.fullmatch(r"fold\d+")].main_value.astype(float)
+            if len(v):
+                add("CBS", label, "frozen", v.mean(),
+                    v.std(ddof=1) if len(v) > 1 else np.nan, len(v), "CBS provided folds")
+        # exact dir only: never glob, or the *_SMOKE_STUB dirs of the same stem could be picked up
+        e2e_cbs = FD / "cbs_benchmark" / e2e_dir / "moleculenet_cv" / "per_fold.csv"
+        if e2e_cbs.exists():
+            v = pd.read_csv(e2e_cbs).nef1.astype(float)
+            if len(v):
+                add("CBS", label, "end2end", v.mean(),
+                    v.std(ddof=1) if len(v) > 1 else np.nan, len(v), "CBS provided folds")
 
         # ---- BACE / Tox21 / QM7: label-efficiency protocol at 100% ----
         for panel, metric in MOL_METRIC.items():
@@ -115,7 +141,7 @@ def main() -> None:
     for panel in [p for p in HIGHER if p in set(d.panel)]:
         g = d[d.panel == panel]
         sign = 1 if g.higher_better.iloc[0] else -1
-        for _, _, _, _, _, label in ENCODERS:
+        for *_, label in ENCODERS:
             fr = g[(g.encoder == label) & (g.probe == "frozen")]
             ee = g[(g.encoder == label) & (g.probe == "end2end")]
             if not len(fr) or not len(ee):

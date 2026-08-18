@@ -23,7 +23,10 @@ n=$(awk -F, '$2=="MoleculeACE"' figure_data/_tanimoto/corpus_similarity.csv 2>/d
 say "MoleculeACE molecules available: $n"
 [ "$n" -gt 1000 ] || { say "FATAL corpus_similarity.csv lacks MoleculeACE rows -> staying UP"; exit 1; }
 
-I1_TASKS="QM7 MoleculeACE" ~/venvs/climb/bin/python scripts/dedup_i1_reanalysis.py >> "$LOG" 2>&1
+# --mode full is REQUIRED: the default is "exact", which computes the exact-match/near-dup table
+# for every dataset but never runs the full-12-shard Tanimoto pass, so
+# full_corpus_similarity_i1.csv is never written. That is what the first attempt did.
+I1_TASKS="QM7 MoleculeACE" ~/venvs/climb/bin/python scripts/dedup_i1_reanalysis.py --mode full >> "$LOG" 2>&1
 rc=$?; say "rc=$rc"
 
 OUT=analysis/dedup_i1/full_corpus_similarity_i1.csv

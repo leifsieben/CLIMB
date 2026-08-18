@@ -149,10 +149,58 @@ def do_herg():
         f"scripts/chemeleon_suite_score_polaris.py {out}")
 
 
+def do_polaris_all():
+    """FULL 28-task Polaris track for chemeleon_e2e (ASK 6).
+
+    do_herg() scored exactly one task, which left this arm at 39/66 all-suites coverage -- below
+    fig_A1's >=60/66 admission floor, so the e2e variant was excluded from the ranking panel while
+    the FROZEN variant appeared in it. One comparator name, two different models 65 kcal/mol apart
+    on QM7, in one figure. Scoring the whole track takes it to 66/66 and removes that split.
+
+    Writes ALL tasks in ONE pass: test_predictions.csv is opened "w", so a per-task run would
+    replace the file each time and leave only the last task -- the same rewrite trap that has bitten
+    this repo repeatedly (see notes/polaris-clobber-recovery-2026-08-17.md).
+    """
+    out = ROOT / "figure_data" / "chemeleon_suite" / "polaris" / RUN
+    out.mkdir(parents=True, exist_ok=True)
+    man = json.loads((POL_DIR / "polaris_manifest.json").read_text())
+    tasks = (ROOT / "chemeleon_suite" / "tasks" / "polaris_tasks.txt").read_text().split()
+    log(f"polaris ALL: {len(tasks)} tasks x {len(SEEDS)} seeds")
+    pred_rows = []
+    for ti, task in enumerate(tasks, 1):
+        fname = task.replace("/", "__") + ".csv"
+        fp = POL_DIR / fname
+        if not fp.exists():
+            log(f"  [{ti}/{len(tasks)}] SKIP {task}: {fname} missing"); continue
+        rows = list(csv.DictReader(fp.open()))
+        smi = [r["smiles"] for r in rows]
+        split = [r["split"] for r in rows]
+        tr = [i for i, sp in enumerate(split) if sp == "train"]
+        te = [i for i, sp in enumerate(split) if sp == "test"]
+        if not tr or not te:
+            log(f"  [{ti}/{len(tasks)}] SKIP {task}: empty split"); continue
+        ttype = man[task]["type"]
+        ytr = np.array([float(rows[i]["y"]) for i in tr])
+        for seed in SEEDS:
+            with tempfile.TemporaryDirectory() as t:
+                pred = train_predict(ttype, [smi[i] for i in tr], ytr,
+                                     [smi[i] for i in te], seed, Path(t))
+            for j, i in enumerate(te):
+                pred_rows.append(dict(task=task, seed=seed, test_index=j,
+                                      smiles=smi[i], y_pred=float(pred[j])))
+        log(f"  [{ti}/{len(tasks)}] {task} done ({len(te)} test)")
+    with (out / "test_predictions.csv").open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["task", "seed", "test_index", "smiles", "y_pred"])
+        w.writeheader(); w.writerows(pred_rows)
+    log(f"wrote {len(pred_rows)} rows across {len({r['task'] for r in pred_rows})} tasks")
+
+
 def main():
     if ONLY in ("", "mace"):
         do_moleculeace()
-    if ONLY in ("", "herg"):
+    if ONLY == "polaris_all":
+        do_polaris_all()
+    elif ONLY in ("", "herg"):
         do_herg()
     log("DONE")
 

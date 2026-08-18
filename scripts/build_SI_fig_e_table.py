@@ -14,11 +14,24 @@ difference is the model:
 Source: analysis/rigor/label_efficiency_fractions_all.csv (5 fractions x 3 subsample seeds x 3 head
 seeds; 3 cells at 100%, where there is nothing to subsample). Values are the MEAN over those cells.
 
-PANEL SCOPE — this figure CANNOT yet fill the canonical six. The label-fraction grid was only ever
-run on MoleculeNet, so MoleculeACE, CBS and hERG have no fraction sweep for ANY arm. They are
-emitted as empty panels so the gap is visible in the figure rather than hidden by silently
-reshaping it to the three tasks that happen to have data. Requested from the compute session
-2026-08-17.
+PANEL SCOPE — 4 of the canonical six. The label-fraction grid was built on MoleculeNet, so
+MoleculeACE and Ames have no fraction sweep for any arm yet; both were launched 2026-08-18 and are
+emitted as empty panels until they land, so the gap stays visible rather than being hidden by
+silently reshaping the figure to the tasks that happen to have data.
+
+CBS IS SUBSTITUTED BY HIV, and the caption must say so. CBS cannot be swept at all: it has 43
+actives in 10,445 molecules, so an 80% train split at the sweep's fractions leaves ~2 actives at 5%
+and ~3 at 10%. NEF1@1% computed from 2 actives is noise, and any crossover it produced would be an
+artefact of losing the positive class rather than a label-budget effect — which is why cbs_e2e.py
+was written without a fraction dimension in the first place. HIV is the right stand-in because it
+is the same KIND of task: a rare-active virtual screen scored with the same NEF1@1% metric, so the
+panel still asks the question CBS was there to ask. It has 32,901 training molecules, so the
+positive class survives subsampling. (Decision: user, via the compute session, 2026-08-18.)
+
+ARM MAPPING ON THE HIV PANEL is the same as every other panel: `e2e` / `sup` / `unsup`. The compute
+session suggested mapping the source's `random` arm to "no pretrain", but `random` is the FROZEN
+random-encoder floor, a different model from the end-to-end-from-random-init arm the other panels
+draw. Using it would have put a different estimand on one panel of a six-panel figure.
 
 PROTOCOL NOTE: single hold-out split, NOT the 5-fold scaffold CV of Figs A2/B — absolute values are
 not comparable across those figures. Verified 2026-08-17: native units (QM7 ~200 kcal/mol).
@@ -42,9 +55,12 @@ SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
 OUT = ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
-PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",
+PANEL_TASK = {"MoleculeACE": None, "CBS": "HIV", "BACE": "BACE",
               "Ames": None, "Tox21": "Tox21", "QM7": "QM7"}
-PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
+PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1"}
+# panel -> the task actually drawn there, when it is not the panel's own task. The figure prints
+# this so a reader can never mistake the HIV curve for a CBS curve; the caption explains why.
+SUBSTITUTED = {"CBS": "HIV"}
 # arm key in the source -> the canonical arms.py key whose colour/label the figure must use
 ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup")]
 
@@ -63,13 +79,14 @@ def main() -> None:
                 rows.append(dict(panel=panel, task=task, metric=m,
                                  higher_better=int(m != "rmse"), arm=arm_key,
                                  pct=int(pct), n_train=int(cell.n_train.iloc[0]),
+                                 substituted_for=panel if panel in SUBSTITUTED else "",
                                  value=round(float(np.mean(v)), 6),
                                  sd=round(float(np.std(v, ddof=1)), 6) if len(v) > 1 else "",
                                  n_cells=len(v)))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    cols = ["panel", "task", "metric", "higher_better", "arm", "pct", "n_train",
-            "value", "sd", "n_cells"]
+    cols = ["panel", "task", "metric", "higher_better", "arm", "substituted_for", "pct",
+            "n_train", "value", "sd", "n_cells"]
     with open(OUT, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
@@ -77,6 +94,9 @@ def main() -> None:
     missing = [p for p, t in PANEL_TASK.items() if t is None]
     print(f"wrote {OUT.relative_to(ROOT)}  {len(rows)} rows")
     print(f"panels with NO label-fraction sweep (drawn empty): {', '.join(missing)}")
+    for panel, task in SUBSTITUTED.items():
+        print(f"SUBSTITUTION: the {panel} panel draws {task} "
+              f"({PRIMARY[task]}) — {panel} has too few actives to subsample; state in caption")
 
     f = pd.DataFrame(rows)
     for panel in [p for p, t in PANEL_TASK.items() if t]:

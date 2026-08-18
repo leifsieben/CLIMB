@@ -145,6 +145,17 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
         idx = np.arange(len(smi))
         tr = idx[[s == "train" for s in split]]
         te = idx[[s == "test" for s in split]]
+        # Label-efficiency sweeps (SI fig e) need a REDUCED label budget on this benchmark's own
+        # native split. Subsample the TRAIN indices only -- never the test set -- using the same
+        # rng and without-replacement draw as eval_v2._subsample_train, so a point here means the
+        # same thing as the corresponding point on the MoleculeNet panels. FRACTION is per task
+        # (fraction * n_train), not a shared absolute count, so no two fractions collapse onto the
+        # same subset on small tasks.
+        if TRAIN_FRACTION is not None and TRAIN_FRACTION < 1.0:
+            n_keep = max(1, int(round(TRAIN_FRACTION * len(tr))))
+            if n_keep < len(tr):
+                rng_sub = np.random.default_rng(SUBSAMPLE_SEED)
+                tr = np.sort(rng_sub.choice(tr, size=n_keep, replace=False))
         sp = fit_standardizer(X[tr], std_method)
         Xtr, Xte = apply_standardizer(X[tr], sp), apply_standardizer(X[te], sp)
         ysc = eval_v2._fit_target_scaler(y[tr], ttype)
@@ -201,16 +212,29 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
     print(f"[suite] wrote {res}  ({n_tasks_done}/{len(tasks)} tasks)", flush=True)
 
 
+TRAIN_FRACTION = None
+SUBSAMPLE_SEED = 0
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--track", required=True, choices=["moleculeace", "polaris"])
     p.add_argument("--featurizer", required=True, choices=["ecfp4", "fp_desc", "chemeleon", "encoder"])
+    p.add_argument("--train_fraction", type=float, default=None,
+                   help="Label-efficiency sweep: keep this FRACTION of each task's own train split "
+                        "(test untouched). Per-task, so points cannot collapse on small tasks.")
+    p.add_argument("--subsample_seed", type=int, default=0)
     p.add_argument("--model", required=True, help="output label (e.g. unsup_8M, chemeleon_frozen, ecfp4)")
     p.add_argument("--head", default="mlp", choices=["mlp", "linear", "xgb"])
     p.add_argument("--seeds", type=int, nargs="+", default=[42, 117, 709])
     p.add_argument("--encoder", default=None)
     p.add_argument("--tokenizer", default=None)
     a = p.parse_args()
+    global TRAIN_FRACTION, SUBSAMPLE_SEED
+    TRAIN_FRACTION, SUBSAMPLE_SEED = a.train_fraction, a.subsample_seed
+    if TRAIN_FRACTION is not None:
+        print(f"[suite] label-efficiency: keeping {TRAIN_FRACTION:.0%} of each task's train split "
+              f"(seed {SUBSAMPLE_SEED}); test split untouched", flush=True)
     run(a.track, a.featurizer, a.model, a.head, a.seeds, a.encoder, a.tokenizer)
 
 

@@ -93,7 +93,14 @@ def check_superseded():
         # ignore the module docstring, which legitimately DISCUSSES the superseded roots
         code = re.sub(r'""".*?"""', "", code, flags=re.S)
         for token, better, why in SUPERSEDED:
-            if token in code:
+            # A line may opt out with a trailing `# AUDIT-OK: superseded-root <reason>`. The one
+            # legitimate case is a script that reads the OLD wave as its INPUT in order to rebuild
+            # the new one (build_ablation_dedup_manifests.py reads climb_v2_ablation/manifest.json
+            # to re-run it deduped). Opting out is per LINE, so it cannot silently cover a second,
+            # unintended read added later in the same file.
+            hits = [l for l in code.split("\n")
+                    if token in l and "AUDIT-OK: superseded-root" not in l]
+            if hits:
                 print(f"  FAIL  {p.name}: reads {token}\n        use {better}\n        ({why})")
                 bad += 1
     print("  OK — no figure or builder reads a superseded root" if not bad
@@ -230,6 +237,13 @@ def check_comparator_scope():
         txt = p.read_text()
         code = re.sub(r'\"\"\".*?\"\"\"', '', txt, flags=re.S)          # strip module docstring
         code = "\n".join(l for l in code.split("\n") if not l.strip().startswith("#"))
+        # Flag USE of the comparator, not mere presence of the string. `chemeleon_suite/` is the
+        # name of the MoleculeACE/Polaris BENCHMARK tree — every canonical panel reads it — and
+        # `figure_data/chemeleon_suite/...` in a path says nothing about whether the CheMeleon ARM
+        # is plotted. Likewise the retained-but-unplotted comparator files
+        # (concat_panels_chemeleon.csv, featurization_timing_chemeleon.json) exist on disk by
+        # design and must not fail this check. So: strip the tree name first, then look.
+        code = re.sub(r"chemeleon_suite", "BENCHTREE", code, flags=re.I)
         if re.search(r"chemeleon", code, re.I):
             hits = [l.strip() for l in code.split("\n") if re.search(r"chemeleon", l, re.I)]
             print(f"  FAIL  {p.stem} references CheMeleon outside the headline figure:")
