@@ -5,7 +5,7 @@ panels in different units, two figures reporting different error-bar estimands, 
 a superseded data wave. Those defects are invisible from inside any single script, because each one
 is internally self-consistent. This audit looks across the set.
 
-Six checks, each of which has caught a real defect in this repo:
+Seven checks, each of which has caught a real defect in this repo:
 
   1 SUPERSEDED ROOTS   a script reading a data wave that has been replaced. Cost us two wrong
                        findings: SI d was reported as 2/6 panels because it read climb_v2 (the
@@ -23,6 +23,10 @@ Six checks, each of which has caught a real defect in this repo:
   5 PANEL SET          which figures are on the canonical six and which are not, with the reason.
   6 PAGE GEOMETRY      authored width vs the A4 text block, so nothing is silently rescaled by
                        LaTeX into a different on-page font size.
+  7 COMPARATOR SCOPE   CheMeleon is an external comparator, not one of our arms. User decision
+                       2026-08-18: it appears in the headline figure ONLY (fig_A, i.e. its A1/A2
+                       components); every other figure must stand on CLIMB arms alone. Without
+                       this check the rule erodes one plausible-looking addition at a time.
 
 Exit code is 0 always: this reports, it does not gate. Read it before shipping.
 
@@ -216,10 +220,32 @@ def check_geometry():
     return bad
 
 
+def check_comparator_scope():
+    hdr(7, "COMPARATOR SCOPE (CheMeleon in the headline figure only)")
+    allowed = {"fig_A", "fig_A1", "fig_A2"}
+    bad = 0
+    for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
+        if p.stem in allowed:
+            continue
+        txt = p.read_text()
+        code = re.sub(r'\"\"\".*?\"\"\"', '', txt, flags=re.S)          # strip module docstring
+        code = "\n".join(l for l in code.split("\n") if not l.strip().startswith("#"))
+        if re.search(r"chemeleon", code, re.I):
+            hits = [l.strip() for l in code.split("\n") if re.search(r"chemeleon", l, re.I)]
+            print(f"  FAIL  {p.stem} references CheMeleon outside the headline figure:")
+            for h in hits[:3]:
+                print(f"          {h[:86]}")
+            bad += 1
+    print("  OK — CheMeleon appears only in fig_A and its components" if not bad
+          else f"  {bad} figure(s) leaking the comparator")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
-                 check_estimand(), check_panelset(), check_geometry()])
+                 check_estimand(), check_panelset(), check_geometry(),
+                 check_comparator_scope()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

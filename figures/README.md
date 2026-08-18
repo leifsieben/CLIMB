@@ -16,9 +16,20 @@ untouched as a reference and is **not** part of this pipeline.
 ## Run
 
 ```bash
-python3 scripts/six_panel_aggregate.py     # refresh the results tables + STATUS board
-python3 -m figures.fig_A1                  # render Fig A1 into figures_v2/
+python3 scripts/six_panel_aggregate.py          # refresh the results tables + STATUS board
+python3 -m figures.fig_A                        # render one figure into figures_v2/
+python3 scripts/audit_figure_consistency.py     # ALWAYS before shipping — see below
 ```
+
+## The audit is not optional
+
+`scripts/audit_figure_consistency.py` is the cross-figure check. Every defect it looks for has
+actually happened here, and none of them are visible from inside a single figure script, because
+each script is internally self-consistent: a superseded data root, two panels in different units,
+two arms in one panel on different seed counts, two figures drawing different error-bar estimands,
+a figure silently off the canonical suite, a figure whose authored width makes LaTeX rescale its
+fonts, or the external comparator creeping outside the headline figure. Run it before you believe
+any of these figures.
 
 ## Nomenclature (fixed — use verbatim, never invent a new label)
 
@@ -79,7 +90,11 @@ Tox21 (mean ROC-AUC, 12 assays) · QM7 (RMSE). BBBP was replaced by hERG on 2026
 by **Ames** on 2026-08-17 (hERG's 132 test molecules gave only ~5.6 SE of headroom against Ames'
 ~12.2 at n=1457); HIV and
 ESOL/Lipophilicity are dropped.
-CheMeleon appears in A1/A2 only — it is excluded from every ablation and scaling figure.
+**CheMeleon is an external comparator, not one of our arms** (user decision 2026-08-18). It appears
+in the HEADLINE FIGURE ONLY — `fig_A`, i.e. its `fig_A1`/`fig_A2` components. Every other figure
+stands on CLIMB arms alone, so no ablation, scaling, redundancy or cost result depends on an
+external model. Check 7 of the audit enforces this; without it the rule erodes one plausible
+addition at a time.
 
 ## Where the numbers come from
 
