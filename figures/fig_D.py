@@ -38,8 +38,11 @@ Run:  python3 -m figures.fig_D
 !!! OFF-SUITE — DO NOT SHIP AS-IS !!!
 This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
 paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
-on code: the six seq_* ablation arms have no MoleculeACE / CBS / Ames evals; the
-transfer matrix is indexed by the task set, so it cannot move without them.
+on code: the seq_* evals LANDED 2026-08-18, so THIS figure's inputs are complete and it
+could move on its own. It is deliberately held back: fig_C_D is one figure, and putting its
+bottom row on the canonical panels while fig_C1/fig_C2 stay on MoleculeNet would make the
+assembled figure internally inconsistent — worse for a reader than being uniformly old and
+labelled as such. All six panels move together, once the two similarity tables land.
 Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
 land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """

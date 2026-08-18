@@ -28,10 +28,11 @@ Run:  python3 -m figures.fig_C1
 !!! OFF-SUITE — DO NOT SHIP AS-IS !!!
 This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
 paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
-on code: the seq_* ablation arms have MoleculeNet evals only. Panels a/b need PER-MOLECULE
-predictions on the canonical panels; those come FREE with the queued run
-(chemeleon_suite_run.py writes test_predictions.csv on every track), so a/b move to the
-full canonical set rather than falling back to QM7 alone.
+on code: the seq_* evals LANDED 2026-08-18 (all 6 arms, incl. per-molecule
+test_predictions.csv), so the y-values exist. What is still missing is the X-AXIS:
+figure_data/_tanimoto/corpus_similarity.csv covers only the seven MoleculeNet datasets, so
+there is no max-Tanimoto-to-corpus value for MoleculeACE / CBS / Ames test molecules.
+Requested 2026-08-18 (RDKit/CPU, not GPU).
 Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
 land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
 """

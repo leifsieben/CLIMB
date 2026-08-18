@@ -21,8 +21,11 @@ Run:  python3 -m figures.fig_C_D
 
 !!! OFF-SUITE — DO NOT SHIP AS-IS !!!
 Every panel here (a-f) is still on the OLD MoleculeNet task set, because all three source figures
-are. Blocked on one compute request: the six seq_* ablation arms scored on MoleculeACE / CBS / Ames
-(plus per-molecule dumps for a/b). Verified absent on disk 2026-08-17 and requested the same day.
+are. The seq_* evals landed 2026-08-18 and are NOT the remaining blocker. What is missing now is the
+two SIMILARITY tables that panels a/b/c plot on their x-axes — figure_data/_tanimoto/
+corpus_similarity.csv and family_task_similarity.csv both cover only the seven MoleculeNet
+datasets. Requested 2026-08-18. All six panels move together when those land; fig_D alone could
+move today and is deliberately held back to avoid a figure that is half old-suite, half new.
 """
 from __future__ import annotations
 
