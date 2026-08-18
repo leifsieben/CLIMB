@@ -47,6 +47,7 @@ import glob
 import json
 import subprocess
 import sys
+import os
 import time
 from pathlib import Path
 
@@ -60,7 +61,16 @@ CORPUS_S3 = "s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/"
 CACHE = Path("figure_data/_tanimoto/_cache")
 SIMILARITY_CSV = Path("figure_data/_tanimoto/corpus_similarity.csv")
 NBITS = 2048
-I1_TASKS = ("ESOL", "QM7")          # the only datasets notebook_cells/22.py plots
+# The full-corpus (all 12 shards, TRUE max) pass is restricted to the tasks fig_C1 actually plots.
+# It was ESOL+QM7 for the old MoleculeNet figure; the canonical six has only two regression tasks,
+# MoleculeACE and QM7, so fig_C1's canonical form needs MoleculeACE added. This list can be
+# overridden with I1_TASKS="MoleculeACE QM7" to avoid re-doing tasks already computed.
+#
+# No schema change is needed here even though MoleculeACE predictions come from the chemeleon_suite
+# runner (task/smiles) rather than eval_v2 (dataset/raw_smiles): this script reads its molecules
+# from corpus_similarity.csv, which already carries MoleculeACE rows in the raw_smiles/dataset
+# form, so the join keys still match the figure exactly.
+I1_TASKS = tuple(os.environ.get("I1_TASKS", "ESOL QM7 MoleculeACE").split())
 NEAR_DUP_LO = 0.95                  # [0.95, 1.0) = near-duplicate band (non-identical fingerprint)
 
 
