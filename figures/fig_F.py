@@ -1,123 +1,138 @@
-"""Fig F -- freeze or fine-tune? Where end2end overtakes the frozen probe.
+"""Fig F — where does end-to-end training overtake a pretrained frozen encoder?
 
 ONE script, ONE figure: figures_v2/figF.png / .pdf
 
-A pretrained encoder can be used two ways: freeze it and fit a probe, or fine-tune the whole
-network end-to-end. The frozen probe has far fewer free parameters, so it should win when labels
-are scarce; end2end has more capacity, so it should win once labels are plentiful. This figure
-asks where the switch happens, using the SAME two encoders, the SAME label fractions, the SAME
-hold-out split and the SAME seed grid on both sides -- only the probe strategy differs.
+What it shows
+-------------
+Each panel is one benchmark of the canonical six; x is the number of LABELLED training molecules
+(log scale), y is absolute downstream performance. Three models, identical hold-out split,
+identical label fractions, identical seed grid — the only thing that differs is the model:
 
-Plotted quantity: end2end MINUS frozen, signed so that POSITIVE always means end2end is better
-(QM7 is RMSE, so its difference is negated). The dotted line at 0 is "the two strategies tie".
-Bands are +-1 SD of the difference, sd = sqrt(sd_e2e^2 + sd_frozen^2) over the (subsample x head)
-seed cells -- 9 per point at 5/10/25/50%, 3 at 100%.
+  no pretrain, end2end  — the whole network trained from a random init on the downstream task only
+  supervised, dense     — pretrained encoder, FROZEN, probe trained on the labels
+  unsupervised          — pretrained encoder, FROZEN, probe trained on the labels
 
-What it actually shows -- report this honestly, it is NOT a clean crossover:
-  Tox21 (7.8k, the largest panel) is the only task where the expected pattern resolves: end2end's
-    advantage GROWS with training size, reaching +0.039 ROC-AUC for the supervised encoder at full
-    data, well outside the seed noise.
-  BACE (1.5k) is inside the noise at every fraction -- the sign flips between neighbouring points,
-    so no crossover can be claimed.
-  QM7 shows end2end ahead at EVERY fraction for the unsupervised encoder (by 9-21 kcal/mol), i.e.
-    the opposite of the small-data expectation; the frozen unsupervised probe is unusually weak on
-    QM7 (212.7 RMSE at full data), which is what that gap is measuring.
-Conclusion for the text: fine-tuning end-to-end only reliably pays off on the largest task, and
-the size of the effect is small next to the choice of pretraining recipe.
+The case for pretraining is the small-data end: with a few hundred labels the frozen encoders
+should be far ahead, and end2end should only catch up once labels are plentiful. Reading the
+crossings:
 
-Scope: BACE, Tox21, QM7 -- the panels where a crossover can exist. MoleculeACE (<=3.7k per target)
-and hERG (132 test molecules) are entirely small-data and CBS e2e is a separate fine-tuning path,
-so Wave 3 deliberately did not run them. This figure is on the label-efficiency single hold-out
-split, NOT the 5-fold CV of A2/B -- absolute values are not comparable across those figures.
+  BACE   pretraining wins at EVERY size — end2end never catches up inside the range (0.725 vs
+         0.825 at full data). This is the panel where pretraining pays.
+  Tox21  end2end closes the gap and passes `supervised, dense` at full data (0.730 vs 0.722),
+         though `unsupervised` still leads (0.736). The advantage of pretraining is spent by ~6k
+         labels.
+  QM7    end2end is AHEAD at every size below full data; the frozen unsupervised probe is poor on
+         this task throughout (212.7 RMSE at full data). Pretraining does not pay here at all.
+
+So the honest answer is task-dependent: pretraining buys a large, durable margin on BACE, a margin
+that expires around a few thousand labels on Tox21, and nothing on QM7.
+
+NO error bars (matching Fig B, user decision 2026-08-17). The per-point SD across the seed cells is
+kept in figure_data/figF/figF_crossover.csv if a referee asks.
+
+PANEL SCOPE: MoleculeACE, CBS and hERG are drawn EMPTY — the label-fraction sweep was only ever run
+on MoleculeNet, so no arm has a fraction curve there. The panels are kept in place rather than
+silently reshaping the figure to the three tasks that have data; the evals are requested.
+
+PROTOCOL NOTE: single hold-out split, NOT the 5-fold scaffold CV of Figs A2/B, so absolute values
+are not comparable across those figures. Internally consistent, which is what the crossing needs.
 
 Data: figure_data/figF/figF_crossover.csv, built by scripts/build_figF_table.py.
 
 Run:  python3 scripts/build_figF_table.py && python3 -m figures.fig_F
 """
 from __future__ import annotations
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font
-from figures.arms import FAMILY_COLORS
+from figures.arms import ARMS, PANELS, PANEL_ORDER
+from figures.sixpanel import ROOT
 
 check_font()
+INK = "#000000"
 
-ROOT = Path(__file__).resolve().parent.parent
-TABLE = ROOT / "figure_data" / "figF" / "figF_crossover.csv"
+DF = pd.read_csv(ROOT / "figure_data" / "figF" / "figF_crossover.csv")
 
-TASKS = [("BACE", "BACE  (1.5k, ROC-AUC)"),
-         ("Tox21", "Tox21  (7.8k, ROC-AUC)"),
-         ("QM7", "QM7  (6.8k, RMSE)")]
-ENCODERS = [("unsup", "unsupervised", FAMILY_COLORS["unsup"]),
-            ("sup", "supervised, dense", FAMILY_COLORS["sup"])]
+# same three-line set in every panel; colour comes from arms.py (single source of truth)
+LINES = ["e2e_no_pretrain", "sup_dense", "unsup"]
+MARKER = {"e2e_no_pretrain": "o", "sup_dense": "s", "unsup": "D"}
+
+YMARGIN = 0.18
+
+
+def _fmt_n(v, _):
+    return f"{v/1000:.1f}k" if v >= 1000 else f"{v:g}"
 
 
 def main():
-    d = pd.read_csv(TABLE)
-    fig, axes = plt.subplots(1, 3, figsize=(STYLE["col2"], 2.5), sharex=True)
-
-    for ax, (task, subtitle) in zip(axes, TASKS):
-        sign = -1 if d[d.task == task].direction.iloc[0] == "lower" else 1
-        t = d[d.task == task]
-        for key, label, colour in ENCODERS:
-            fr = t[(t.encoder == key) & (t.probe == "frozen")].set_index("pct")
-            ee = t[(t.encoder == key) & (t.probe == "end2end")].set_index("pct")
-            pcts = sorted(set(fr.index) & set(ee.index))
-            n = [fr.loc[p, "n_train"] for p in pcts]
-            delta = np.array([sign * (ee.loc[p, "mean"] - fr.loc[p, "mean"]) for p in pcts])
-            sd = np.array([np.hypot(pd.to_numeric(ee.loc[p, "sd"], errors="coerce"),
-                                    pd.to_numeric(fr.loc[p, "sd"], errors="coerce"))
-                           for p in pcts])
-            sd = np.nan_to_num(sd)
-            ax.fill_between(n, delta - sd, delta + sd, color=colour, alpha=0.16, lw=0, zorder=2)
-            ax.plot(n, delta, "-o", color=colour, lw=STYLE["lw"],
-                    ms=STYLE["marker_size"] * 0.55, label=label, zorder=3)
-
-        ax.axhline(0, color=STYLE["ink"], lw=0.8, ls=":", zorder=1)
-        ax.set_xscale("log")
-        ax.set_xlabel("labelled training molecules")
-        ax.set_title(subtitle, fontsize=FS["title"], fontweight="bold", color=STYLE["ink"], pad=4)
-        ax.xaxis.set_major_formatter(ticker.FuncFormatter(
-            lambda v, _: f"{v/1000:g}k" if v >= 1000 else f"{v:g}"))
-        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
-        ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 5.1))
+    for ax, p in zip(axes.ravel(), PANEL_ORDER):
+        d = PANELS[p]
+        g_all = DF[DF.panel == p]
+        arrow = "↑" if d["higher_better"] else "↓"
+        ax.set_title(f"{d['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
+                     color=INK, pad=4)
+        ax.set_ylabel(d["metric_short"], fontsize=FS["annot"], color=INK)
+        ax.set_xlabel("labelled training molecules", fontsize=FS["annot"], color=INK)
+        ax.grid(ls=":", lw=0.5, color=STYLE["grid"])
         ax.set_axisbelow(True)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
 
-    axes[0].set_ylabel("end2end − frozen\n(+ = end2end better)")
-    axes[0].legend(loc="lower right", frameon=False, fontsize=FS["legend"],
-                   handletextpad=0.5, borderpad=0.2, labelspacing=0.25)
-    # a shaded "end2end ahead" half-plane reads instantly; only on the first panel to stay quiet
-    for ax in axes:
-        lo, hi = ax.get_ylim()
-        ax.axhspan(0, hi, color=STYLE["faint"], zorder=0)
-        ax.set_ylim(lo, hi)
+        if g_all.empty:                       # panel kept in place; the gap is the message
+            ax.text(0.5, 0.5, "no label-fraction\nsweep run", transform=ax.transAxes,
+                    ha="center", va="center", fontsize=FS["annot"], color=INK)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            continue
 
-    fig.subplots_adjust(top=0.88, bottom=0.20, left=0.105, right=0.995, wspace=0.30)
+        lo, hi = np.inf, -np.inf
+        for arm in LINES:
+            g = g_all[g_all.arm == arm].sort_values("n_train")
+            if g.empty:
+                continue
+            ax.plot(g.n_train, g.value, color=ARMS[arm]["color"], ls="-", lw=STYLE["lw"],
+                    marker=MARKER[arm], ms=4.6, mec="white", mew=0.6, zorder=3)
+            lo = min(lo, g.value.min())
+            hi = max(hi, g.value.max())
+
+        ax.set_xscale("log")
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(_fmt_n))
+        ax.xaxis.set_minor_locator(ticker.NullLocator())
+        ax.tick_params(axis="x", which="minor", bottom=False)
+        n = sorted(g_all.n_train.unique())
+        ax.xaxis.set_major_locator(ticker.FixedLocator(n))
+        ax.set_xlim(n[0] * 0.78, n[-1] * 1.28)
+        pad = YMARGIN * max(hi - lo, 1e-9)
+        y0, y1 = lo - pad, hi + pad
+        if d["metric"] == "roc_auc":
+            y1 = min(y1, 1.0)
+        ax.set_ylim(y0, y1)
+
+    handles = [Line2D([], [], color=ARMS[a]["color"], marker=MARKER[a], ms=4.5, lw=1.2,
+                      label=ARMS[a]["label"]) for a in LINES]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015),
+               ncol=3, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
+               columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
+    fig.tight_layout(rect=(0, 0.045, 1, 1))
     save(fig, "figF")
     plt.close(fig)
 
-    print("\nFig F — end2end minus frozen (+ = end2end better), by labelled training size:")
-    for task, _ in TASKS:
-        sign = -1 if d[d.task == task].direction.iloc[0] == "lower" else 1
-        t = d[d.task == task]
-        for key, label, _ in ENCODERS:
-            fr = t[(t.encoder == key) & (t.probe == "frozen")].set_index("pct")
-            ee = t[(t.encoder == key) & (t.probe == "end2end")].set_index("pct")
-            pcts = sorted(set(fr.index) & set(ee.index))
-            cells = []
-            for p in pcts:
-                dl = sign * (ee.loc[p, "mean"] - fr.loc[p, "mean"])
-                sd = np.hypot(pd.to_numeric(ee.loc[p, "sd"], errors="coerce"),
-                              pd.to_numeric(fr.loc[p, "sd"], errors="coerce"))
-                flag = "*" if np.isfinite(sd) and abs(dl) > sd else " "
-                cells.append(f"{p:>4}%:{dl:+8.4f}{flag}")
-            print(f"   {task:<6} {label:<18} " + " ".join(cells))
-    print("   * = |difference| exceeds 1 SD of the difference")
+    print("\nFig F — absolute performance vs labelled training size:")
+    for p in PANEL_ORDER:
+        g_all = DF[DF.panel == p]
+        if g_all.empty:
+            print(f"   {p:<12} — no label-fraction sweep run")
+            continue
+        n = sorted(g_all.n_train.unique())
+        print(f"   {p} ({g_all.metric.iloc[0]}):   " + "".join(f"{x:>10}" for x in n))
+        for arm in LINES:
+            g = g_all[g_all.arm == arm].sort_values("n_train")
+            print(f"      {ARMS[arm]['label']:<22}" + "".join(f"{v:>10.4f}" for v in g.value))
 
 
 if __name__ == "__main__":

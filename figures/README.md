@@ -81,5 +81,5 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 | D | task similarity (bars + transfer matrix + descriptor mapping) | `fig_D.py` | `figD` | final |
 | C+D | assembled a–f: C1+C2 top row, D bottom row | `fig_C_D.py` | `fig_C_D` | final; composes the three `compute()`+`draw()` pairs, no re-analysis |
 | E | corrupted objectives — 2 panels: (a) supervised real vs permuted targets, (b) unsupervised ladder real/shuffled/bigram/unigram/wiki | `fig_E.py` | `figE` | final on the 6 MoleculeNet tasks (5-fold CV); input table built by `scripts/build_figE_table.py`. Corrupted + synthetic arms have MoleculeNet evals ONLY, so a canonical-panel version needs MoleculeACE/CBS/hERG runs of 7 encoders |
-| F | where end2end starts winning | — | — | needs Wave 3 (hERG swap) |
+| F | where end2end overtakes a pretrained frozen encoder (absolute performance vs labelled training size) | `fig_F.py` | `figF` | built; input table from `scripts/build_figF_table.py`. MoleculeACE/CBS/hERG drawn EMPTY — the label-fraction sweep was only ever run on MoleculeNet; evals requested 2026-08-17 |
 | SI a–e | e2e necessity · vocab · featurization cost · redundancy · canonical vs augmented | — | — | |
