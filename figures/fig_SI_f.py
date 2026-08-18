@@ -1,4 +1,4 @@
-"""Fig F — where does end-to-end training overtake a pretrained frozen encoder?
+"""SI Fig f — where does end-to-end training overtake a pretrained frozen encoder?
 
 ONE script, ONE figure: figures_v2/figF.png / .pdf
 
@@ -37,9 +37,9 @@ silently reshaping the figure to the three tasks that have data; the evals are r
 PROTOCOL NOTE: single hold-out split, NOT the 5-fold scaffold CV of Figs A2/B, so absolute values
 are not comparable across those figures. Internally consistent, which is what the crossing needs.
 
-Data: figure_data/figF/figF_crossover.csv, built by scripts/build_figF_table.py.
+Data: figure_data/figF/figF_crossover.csv, built by scripts/build_SI_Fig_f_table.py.
 
-Run:  python3 scripts/build_figF_table.py && python3 -m figures.fig_F
+Run:  python3 scripts/build_SI_Fig_f_table.py && python3 -m figures.fig_SI_f
 """
 from __future__ import annotations
 import numpy as np
@@ -55,7 +55,7 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
-DF = pd.read_csv(ROOT / "figure_data" / "figF" / "figF_crossover.csv")
+DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_f" / "SI_Fig_f_crossover.csv")
 
 # same three-line set in every panel; colour comes from arms.py (single source of truth)
 LINES = ["e2e_no_pretrain", "sup_dense", "unsup"]
@@ -119,10 +119,10 @@ def main():
                ncol=3, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "figF")
+    save(fig, "SI_Fig_f")
     plt.close(fig)
 
-    print("\nFig F — absolute performance vs labelled training size:")
+    print("\nSI Fig f — absolute performance vs labelled training size:")
     for p in PANEL_ORDER:
         g_all = DF[DF.panel == p]
         if g_all.empty:

@@ -1,4 +1,4 @@
-"""Fig F — build the label-efficiency crossover table (the figure's ONLY input).
+"""SI Fig f — build the label-efficiency crossover table (the figure's ONLY input).
 
 The question: end-to-end training on the downstream task uses NO pretraining at all. Pretrained
 CLIMB encoders, used frozen, should beat it when labels are scarce — that is the whole case for
@@ -26,8 +26,8 @@ not comparable across those figures. Verified 2026-08-17: native units (QM7 ~200
 No error bars are emitted for the figure (user decision 2026-08-17, matching Fig B); the per-point
 SD across seed cells is kept in the `sd` column if a referee asks.
 
-Writes: figure_data/figF/figF_crossover.csv
-Run:    python3 scripts/build_figF_table.py
+Writes: figure_data/SI_Fig_f/SI_Fig_f_crossover.csv
+Run:    python3 scripts/build_SI_Fig_f_table.py
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
-OUT = ROOT / "figure_data" / "figF" / "figF_crossover.csv"
+OUT = ROOT / "figure_data" / "SI_Fig_f" / "SI_Fig_f_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
 PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",

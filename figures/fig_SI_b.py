@@ -1,4 +1,4 @@
-"""SI-b — does tokenizer family or vocabulary size matter?
+"""SI Fig b — does tokenizer family or vocabulary size matter?
 
 ONE script, ONE figure: figures_v2/figSIb.png / .pdf
 
@@ -31,9 +31,9 @@ internal: family vs family, vocab vs vocab, at matched compute.
 
 PANEL SCOPE: CBS is drawn EMPTY — no vocab-wave arm was ever run on it.
 
-Data: figure_data/figSI/figSIb_vocab.csv, built by scripts/build_figSIb_table.py.
+Data: figure_data/figSI/figSIb_vocab.csv, built by scripts/build_SI_Fig_b_table.py.
 
-Run:  python3 scripts/build_figSIb_table.py && python3 -m figures.fig_SIb
+Run:  python3 scripts/build_SI_Fig_b_table.py && python3 -m figures.fig_SI_b
 """
 from __future__ import annotations
 import numpy as np
@@ -49,7 +49,7 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
-DF = pd.read_csv(ROOT / "figure_data" / "figSI" / "figSIb_vocab.csv")
+DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_b" / "SI_Fig_b_vocab.csv")
 
 # the two tokenizer families; both are unsupervised (MLM) encoders, so both take the unsup family
 # hue, separated by lightness and marker rather than by an unrelated colour.
@@ -110,10 +110,10 @@ def main():
                ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "figSIb")
+    save(fig, "SI_Fig_b")
     plt.close(fig)
 
-    print("\nSI-b — vocabulary spread vs replicate noise (the near-null test):")
+    print("\nSI Fig b — vocabulary spread vs replicate noise (the near-null test):")
     print(f"   {'panel':<12}{'family':<9}{'range over vocab':>18}{'median sd':>12}  verdict")
     for p in PANEL_ORDER:
         g_all = DF[DF.panel == p]
