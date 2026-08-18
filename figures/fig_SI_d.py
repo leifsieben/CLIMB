@@ -9,28 +9,31 @@ per molecule) vs enumerated, at five corpus fractions x 3 pretraining seeds, so 
 at every rung of the ladder — augmentation could plausibly matter most where data is scarce, and
 this design would see that.
 
-THE RESULT IS NOT A NULL, AND IT SPLITS BY TASK:
+THE RESULT IS NOT A NULL, AND IT SPLITS BY TASK. Augmentation helps on four panels and hurts on
+one:
 
-  MoleculeACE  augmentation HELPS, consistently and at every corpus fraction (macro RMSE 0.784 ->
-               0.768 at full corpus; +0.015 to +0.019 across the ladder, every point beyond the
-               combined seed SD). The effect is flat in corpus size — it is not a small-data
-               crutch that washes out, it is a constant offset.
-  hERG         augmentation HURTS, by more than it helps MoleculeACE (0.753 -> 0.697 at full
-               corpus; up to -0.099 at the 0.01 fraction). CAVEAT: hERG has 132 test molecules and
-               its whiskers understate the true sampling uncertainty badly (see the A2 caption), so
-               read the direction, not the magnitude.
+  CBS          the largest effect anywhere: +0.09 to +0.14 NEF1% at full corpus and at the sparsest
+               fractions, beyond the seed SD at three of five rungs. On a rare-active screen,
+               seeing each molecule written many ways evidently matters.
+  MoleculeACE  helps consistently, at every corpus fraction (macro RMSE 0.784 -> 0.768 at full
+               corpus; +0.015 to +0.019 across the ladder, every point beyond the seed SD). Flat in
+               corpus size — a constant offset, not a small-data crutch that washes out.
+  BACE, QM7    within noise at almost every rung; no usable effect either way.
+  hERG         augmentation HURTS (0.753 -> 0.697 at full corpus, up to -0.099). CAVEAT: hERG has
+               132 test molecules and its sampling uncertainty is far larger than its seed SD
+               suggests (see the A2 caption) — read the direction, not the magnitude.
 
-The honest summary is that augmentation trades potency regression against this particular
-classification task, rather than being a free win — which is worth saying, because the practice is
-usually adopted without a matched control.
+So augmentation is worth doing for potency regression and rare-active screening, is neutral on the
+plain classification/regression panels, and is the one thing that looks actively harmful on hERG.
+That is a more useful answer than the "free win" the practice is usually adopted as.
 
 Error bars are +-1 SD across the 3 PRETRAINING seeds. They are drawn because the claim is about
 whether a difference clears the noise; the build script prints that test explicitly.
 
-PANEL SCOPE: only MoleculeACE and hERG are filled. BACE/Tox21/QM7 exist for these arms ONLY as a
-single-seed single hold-out eval (climb_v2/<arm>/moleculenet/), a different protocol from the
-5-fold CV used everywhere else, so filling them would put two protocols in one figure. CBS was
-never run for this wave.
+PANEL SCOPE: all six canonical panels, 3 pretraining seeds each. An earlier version filled only
+MoleculeACE and hERG — that was a wrong-root error (climb_v2 is the round-1 wave; the retrained
+wave every other figure uses is climb_v2_h1, and CBS lives under cbs_benchmark/ rather than the
+deprecated cbs summary CSV). See scripts/build_SI_Fig_d_table.py.
 
 Data: figure_data/SI_Fig_d/SI_Fig_d_augmentation.csv, built by scripts/build_SI_Fig_d_table.py.
 

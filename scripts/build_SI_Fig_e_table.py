@@ -43,7 +43,7 @@ OUT = ROOT / "figure_data" / "SI_Fig_e" / "SI_Fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
 PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",
-              "hERG": None, "Tox21": "Tox21", "QM7": "QM7"}
+              "Ames": None, "Tox21": "Tox21", "QM7": "QM7"}
 PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 # arm key in the source -> the canonical arms.py key whose colour/label the figure must use
 ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup")]

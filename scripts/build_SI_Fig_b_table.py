@@ -14,11 +14,15 @@ are NOT comparable to Fig A2/B. The figure deliberately carries no mainline refe
 that reason — the comparison that matters here is BPE vs Unigram and across vocab size, all at
 matched compute.
 
-Panels: the canonical six. CBS has no vocab-wave run for any arm and is emitted empty.
+Panels: the canonical six, all filled. CORRECTION 2026-08-17: CBS was previously emitted empty on
+the finding that no vocab arm had been run on it. Wrong source — the arms are all present under
+figure_data/cbs_benchmark/<run>/moleculenet_cv/; they are missing only from
+experiment_cbs/cbs_nef1_summary.csv, a deprecated precomputed file whose ARMS list never included
+this wave (the six-panel aggregator stopped reading it for exactly that reason).
 
   MoleculeACE  chemeleon_suite/moleculeace/<run>/results.csv  -> macro RMSE over 30 targets,
                mean over the 3 eval seeds; sd = SD across the 3 eval-seed macro-means
-  hERG         chemeleon_suite/polaris/<run>/polaris_scores.csv (tdcommons/herg, roc_auc)
+  hERG         chemeleon_suite/polaris/<run>/polaris_scores.csv (tdcommons/ames, roc_auc)
                -> mean over the 3 eval seeds; sd = SD across them
   BACE/Tox21/QM7  climb_v2_vocab/vocab_cv_summary.csv -> 5-fold CV mean; sd = fold_std
   CBS          not run
@@ -49,9 +53,10 @@ RUNS = [("bpe_261", "BPE", 261), ("bpe_1000", "BPE", 1000),
         ("unigram_1200", "Unigram", 1200), ("unigram_3000", "Unigram", 3000)]
 
 MOL_PANELS = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
-HERG = ("tdcommons/herg", "roc_auc")
-PANELS = ["MoleculeACE", "CBS", "BACE", "hERG", "Tox21", "QM7"]
-HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "hERG": 1, "Tox21": 1, "QM7": 0}
+AMES = ("tdcommons/ames", "roc_auc")
+CBS_ROOT = FD / "cbs_benchmark"
+PANELS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
+HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0}
 
 
 def mace(run):
@@ -65,12 +70,30 @@ def mace(run):
     return float(per_seed.mean()), float(per_seed.std(ddof=1)), len(per_seed)
 
 
-def herg(run):
+def cbs(run):
+    """CBS NEF1%. `cbs_MEAN` is ROC-AUC; the panel metric is `cbs_nef1_MEAN`. The per-fold CSV
+    carries `nef1_cell` rows per (seed, fold), so the SD is the spread over those cells."""
+    import json as _json
+    p = CBS_ROOT / run / "moleculenet_cv" / "suite_summary.json"
+    if not p.exists():
+        return None
+    j = _json.load(open(p))
+    m = j.get("cbs_nef1_MEAN")
+    if m is None:
+        return None
+    sd = j.get("cbs_nef1_STD")
+    # suite STDs are ddof=0 over the folds; rescale to the sample SD the rest of the figure uses
+    n = 5
+    sd = float(sd) * np.sqrt(n / (n - 1)) if sd is not None else np.nan
+    return float(m), sd, n
+
+
+def ames(run):
     p = FD / "chemeleon_suite" / "polaris" / run / "polaris_scores.csv"
     if not p.exists():
         return None
     d = pd.read_csv(p)
-    v = d[(d.task == HERG[0]) & (d.metric == HERG[1])].value.astype(float)
+    v = d[(d.task == AMES[0]) & (d.metric == AMES[1])].value.astype(float)
     if not len(v):
         return None
     return float(v.mean()), float(v.std(ddof=1)), len(v)
@@ -90,7 +113,8 @@ def main() -> None:
                              n=n, n_kind=n_label))
 
         add("MoleculeACE", mace(run), "eval seeds")
-        add("hERG", herg(run), "eval seeds")
+        add("Ames", ames(run), "eval seeds")
+        add("CBS", cbs(run), "CV folds")
         for panel, metric in MOL_PANELS.items():
             g = cv[(cv.run == run) & (cv.dataset == panel) & (cv.metric == metric)]
             if len(g):

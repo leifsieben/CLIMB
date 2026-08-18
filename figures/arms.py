@@ -210,10 +210,17 @@ PANELS = {
     # quality (notes/bbbp-anchor-verification-2026-08-16.md). hERG replaces it: the most
     # discriminative classification task we have (random encoder ranks LAST, anchors first) and
     # the only small-data panel in the suite (523 train / 132 test, benchmark-provided split).
-    "hERG":        dict(marker="s", label="hERG", metric="roc_auc", metric_label="ROC-AUC",
+    # hERG was replaced by Ames on 2026-08-17. hERG has 132 test molecules, so its analytic
+    # SE(AUC) is ~0.039 and its 0.215 field spans only ~5.6 SE -- it looked discriminative (the
+    # untrained controls ranked last) but could not support that ranking. Ames has 1457 test
+    # molecules: SE ~0.0116, field 0.141, i.e. ~12.2 SE of headroom, more than double hERG's, with
+    # the untrained controls still in the bottom third (10-11 of 16). It is also a standard
+    # regulatory tox endpoint. BBB-Martins was rejected (5.3 SE, and it re-introduces the BBB
+    # endpoint already dropped as non-discriminative in its BBBP form).
+    "Ames":        dict(marker="s", label="Ames", metric="roc_auc", metric_label="ROC-AUC",
                         metric_short="ROC-AUC",
-                        higher_better=True, group="cardiotoxicity", n_tasks=1,
-                        source="polaris", polaris_task="tdcommons/herg"),
+                        higher_better=True, group="mutagenicity", n_tasks=1,
+                        source="polaris", polaris_task="tdcommons/ames"),
     "Tox21":       dict(marker="v", label="Tox21", metric="roc_auc", metric_label="mean ROC-AUC (12 assays)",
                         metric_short="ROC-AUC (12)",
                         higher_better=True, group="toxicity classification", n_tasks=12),

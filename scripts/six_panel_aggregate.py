@@ -34,7 +34,7 @@ MOL_PANELS = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}      # from 
 
 # hERG replaced BBBP on 2026-08-16 and comes from Polaris (benchmark-provided split), not from our
 # scaffold CV -- so it is read from polaris_scores.csv, one value per eval seed.
-POLARIS_PANELS = {"hERG": ("tdcommons/herg", "roc_auc")}
+POLARIS_PANELS = {"Ames": ("tdcommons/ames", "roc_auc")}
 
 
 # ---------------------------------------------------------------- MoleculeACE ----------------

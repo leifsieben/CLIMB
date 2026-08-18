@@ -11,17 +11,24 @@ Five corpus fractions (0.001, 0.01, 0.1, 0.3, full) x 3 pretraining seeds each, 
 is made at matched corpus fraction all the way up the ladder — augmentation could plausibly help
 most where data is scarce, and this design can see that.
 
-PANEL SCOPE — MoleculeACE and hERG only. Those are the two canonical panels where all 30 runs were
-scored with 3 pretraining seeds. BACE/Tox21/QM7 exist for these arms ONLY as a single-seed, single
-hold-out eval under climb_v2/<arm>/moleculenet/ — a different protocol from the 5-fold CV every
-other figure uses, and one seed rather than three. Mixing that in would put two protocols in one
-figure, so those panels are emitted empty rather than filled with a number that cannot be compared.
-CBS was never run for this wave.
+PANEL SCOPE — ALL SIX canonical panels, 3 pretraining seeds each.
+
+CORRECTION 2026-08-17: an earlier version of this script filled only MoleculeACE and hERG and drew
+the other four empty, on the finding that BACE/Tox21/QM7 existed only as a single-seed single
+hold-out. That was a WRONG-ROOT error. `figure_data/climb_v2/` is the ROUND-1 wave, which never
+saved its encoders and only ever produced the single hold-out; the retrained wave that every other
+figure uses is `figure_data/climb_v2_h1/`, and there all 30 runs have the 5-fold scaffold CV. CBS
+was likewise present all along, under figure_data/cbs_benchmark/<run>/moleculenet_cv/ — it was
+absent only from experiment_cbs/cbs_nef1_summary.csv, a deprecated precomputed file whose ARMS list
+never included this wave (the aggregator itself stopped reading it for the same reason).
+
+Resolve MolNet paths through climb_v2_h1 and CBS through cbs_benchmark; never through climb_v2 or
+the cbs summary CSV.
 
   MoleculeACE  chemeleon_suite/moleculeace/<run>/results.csv -> macro RMSE over 30 targets, per
                (pretraining seed x eval seed); value = mean, sd = SD across the 3 pretraining-seed
                macro-means
-  hERG         chemeleon_suite/polaris/<run>/polaris_scores.csv (tdcommons/herg, roc_auc) -> mean
+  hERG         chemeleon_suite/polaris/<run>/polaris_scores.csv (tdcommons/ames, roc_auc) -> mean
                over 3 pretraining seeds x 3 eval seeds; sd = SD across the 3 pretraining-seed means
 
 Writes: figure_data/SI_Fig_d/SI_Fig_d_augmentation.csv
@@ -30,6 +37,7 @@ Run:    python3 scripts/build_SI_Fig_d_table.py
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -40,9 +48,30 @@ FD = ROOT / "figure_data"
 OUT = FD / "SI_Fig_d" / "SI_Fig_d_augmentation.csv"
 
 MODES = [("canonical", "canonical"), ("enumerated", "augmented")]
+H1 = FD / "climb_v2_h1"                     # the RETRAINED wave (climb_v2 is round-1: do not use)
+CBS_ROOT = FD / "cbs_benchmark"
+MOL_PANELS = {"BACE": "BACE_MEAN", "Tox21": "Tox21_MEAN", "QM7": "QM7_MEAN"}
 FRACTIONS = [("0p001", 0.001), ("0p01", 0.01), ("0p1", 0.1), ("0p3", 0.3), ("full", 1.0)]
 SEEDS = ["s0", "s1", "s2"]
-HERG = ("tdcommons/herg", "roc_auc")
+AMES = ("tdcommons/ames", "roc_auc")
+
+
+def _suite(root, run, key):
+    p = root / run / "moleculenet_cv" / "suite_summary.json"
+    if not p.exists():
+        return np.nan
+    v = json.load(open(p)).get(key)
+    return float(v) if v is not None else np.nan
+
+
+def molnet(run, key):
+    """One MolNet panel's 5-fold CV mean for a run, from the RETRAINED wave."""
+    return _suite(H1, run, key)
+
+
+def cbs(run):
+    """CBS NEF1% for a run. `cbs_MEAN` is ROC-AUC; the panel metric is `cbs_nef1_MEAN`."""
+    return _suite(CBS_ROOT, run, "cbs_nef1_MEAN")
 
 
 def mace_macro(run):
@@ -55,18 +84,21 @@ def mace_macro(run):
     return float(o.groupby("seed").value.mean().mean()) if len(o) else np.nan
 
 
-def herg_mean(run):
+def ames_mean(run):
     p = FD / "chemeleon_suite" / "polaris" / run / "polaris_scores.csv"
     if not p.exists():
         return np.nan
     d = pd.read_csv(p)
-    v = d[(d.task == HERG[0]) & (d.metric == HERG[1])].value.astype(float)
+    v = d[(d.task == AMES[0]) & (d.metric == AMES[1])].value.astype(float)
     return float(v.mean()) if len(v) else np.nan
 
 
 def main() -> None:
     rows = []
-    for panel, fn, higher in (("MoleculeACE", mace_macro, 0), ("hERG", herg_mean, 1)):
+    panels = [("MoleculeACE", mace_macro, 0), ("Ames", ames_mean, 1), ("CBS", cbs, 1)]
+    panels += [(p, (lambda k: (lambda run: molnet(run, k)))(k), 0 if p == "QM7" else 1)
+               for p, k in MOL_PANELS.items()]
+    for panel, fn, higher in panels:
         for mode_key, mode_label in MODES:
             for frac_key, frac in FRACTIONS:
                 per_seed = [fn(f"scaling_{mode_key}_frac{frac_key}_{s}") for s in SEEDS]
@@ -86,13 +118,15 @@ def main() -> None:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
         w.writerows(rows)
+    d0 = pd.DataFrame(rows)
+    filled = sorted(set(d0.panel))
     print(f"wrote {OUT.relative_to(ROOT)}  {len(rows)} rows")
-    print("panels drawn empty (protocol mismatch / not run): CBS, BACE, Tox21, QM7")
+    print(f"panels filled: {', '.join(filled)}")
 
     d = pd.DataFrame(rows)
     print("\ndoes augmentation beat canonical at matched corpus fraction?")
     print("  (delta signed so + = augmented better; compared against the pooled seed SD)")
-    for panel in ("MoleculeACE", "hERG"):
+    for panel in filled:
         p = d[d.panel == panel]
         sign = 1 if p.higher_better.iloc[0] else -1
         print(f"\n   {panel}:")

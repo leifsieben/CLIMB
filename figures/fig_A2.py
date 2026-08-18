@@ -156,7 +156,7 @@ def _err_pair(arm, panel):
 #   CBS             unique mol_index in cbs_benchmark/fp_desc_anchor/moleculenet_cv/test_predictions.csv
 #   hERG            n_test in chemeleon_suite/data/polaris/polaris_manifest.json["tdcommons/herg"]
 #   MoleculeACE     sum of test-split rows over the 30 chemeleon_suite/data/moleculeace/*.csv files
-TEST_N = {"MoleculeACE": 9802, "CBS": 10445, "BACE": 1513, "hERG": 132, "Tox21": 7823, "QM7": 6838}
+TEST_N = {"MoleculeACE": 9802, "CBS": 10445, "BACE": 1513, "Ames": 1457, "Tox21": 7823, "QM7": 6838}
 
 
 def short(a):

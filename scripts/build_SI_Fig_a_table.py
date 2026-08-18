@@ -40,8 +40,8 @@ OUT = FD / "SI_Fig_a" / "SI_Fig_a_e2e_need.csv"
 ENCODERS = [("unsup", "unsup", "unsup_8M_e2e", "unsup", "unsup_only", "unsupervised"),
             ("sup_dense", "sup_dense", "skip_dense_8M_e2e", "sup", "sup_only:dense",
              "supervised, dense")]
-HERG = ("tdcommons/herg", "roc_auc")
-HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "hERG": 1, "Tox21": 1, "QM7": 0}
+AMES = ("tdcommons/ames", "roc_auc")
+HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0}
 MOL_METRIC = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 
 
@@ -66,7 +66,7 @@ def main() -> None:
 
     for key, main_arm, e2e_dir, le_arm, w3_arm, label in ENCODERS:
         # ---- MoleculeACE + hERG: mainline protocol ----
-        for panel in ("MoleculeACE", "hERG"):
+        for panel in ("MoleculeACE", "Ames"):
             r = main_tbl[(main_tbl.arm == main_arm) & (main_tbl.panel == panel)]
             if len(r):
                 add(panel, label, "frozen", float(r.value.iloc[0]), _sd(r.extra.iloc[0]), 3,
@@ -81,9 +81,9 @@ def main() -> None:
         p = FD / "chemeleon_suite" / "polaris" / e2e_dir / "polaris_scores.csv"
         if p.exists():
             v = pd.read_csv(p)
-            v = v[(v.task == HERG[0]) & (v.metric == HERG[1])].value.astype(float)
+            v = v[(v.task == AMES[0]) & (v.metric == AMES[1])].value.astype(float)
             if len(v):
-                add("hERG", label, "end2end", v.mean(),
+                add("Ames", label, "end2end", v.mean(),
                     v.std(ddof=1) if len(v) > 1 else np.nan, len(v), "mainline")
 
         # ---- BACE / Tox21 / QM7: label-efficiency protocol at 100% ----

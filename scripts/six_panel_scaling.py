@@ -109,10 +109,10 @@ def main():
                 rows.append(dict(**base_row, panel="CBS", metric="nef1",
                                  value=round(value, 4), sd_total=round(sd_total, 4), n_cells=n_cells))
             # --- hERG ----------------------------------------------------------------
-            cells = polaris_cells(rung, *POLARIS_PANELS["hERG"])
+            cells = polaris_cells(rung, *POLARIS_PANELS["Ames"])
             if cells:
                 vals = [v for _, v in cells]
-                rows.append(dict(**base_row, panel="hERG", metric="roc_auc",
+                rows.append(dict(**base_row, panel="Ames", metric="roc_auc",
                                  value=round(st.mean(vals), 4),
                                  sd_total=round(st.stdev(vals) if len(vals) > 1 else 0.0, 4),
                                  n_cells=len(vals)))
@@ -135,7 +135,7 @@ def main():
 
     # coverage board
     print(f"wrote {OUT}  {len(rows)} rows\n")
-    panels = ["MoleculeACE", "CBS", "BACE", "hERG", "Tox21", "QM7"]
+    panels = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
     have = {(r["ladder"], r["rung"], r["panel"]) for r in rows}
     print(f"{'rung':32s} " + " ".join(f"{p[:6]:>6s}" for p in panels))
     for ladder, (_, rungs) in LADDERS.items():

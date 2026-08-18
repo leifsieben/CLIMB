@@ -61,7 +61,7 @@ OUTDIR = ROOT / "figures_v2"
 
 # canonical panel -> task name in the source (None = experiment never run there)
 PANEL_TASK = {"MoleculeACE": None, "CBS": None, "BACE": "BACE",
-              "hERG": None, "Tox21": "Tox21", "QM7": "QM7"}
+              "Ames": None, "Tox21": "Tox21", "QM7": "QM7"}
 PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 # every task in the source, for the CSV record (superset of the canonical panels)
 ALL_TASKS = {"ESOL": "rmse", "QM7": "rmse", "BACE": "roc_auc", "BBBP": "roc_auc",
