@@ -16,6 +16,7 @@ Writes analysis/rigor/concat_redundancy.csv.
 """
 from __future__ import annotations
 import warnings; warnings.filterwarnings("ignore")
+import os
 from pathlib import Path
 import numpy as np, pandas as pd, torch
 from rdkit import RDLogger; RDLogger.DisableLog("rdApp.*")
@@ -26,6 +27,14 @@ from descriptors_v2 import rdkit_descriptors
 from heads_v2 import make_head, compute_metric, compute_nef
 from transformers import ModernBertModel, PreTrainedTokenizerFast
 
+# EMB selects which foundation embedding is tested against the classical features.
+# "climb"     -> frozen CLIMB unsup_8M embedding      (labels: CLM / desc+CLM / fp+desc+CLM)
+# "chemeleon" -> frozen CheMeleon fingerprint         (labels: CheMeleon / desc+CheMeleon / ...)
+# Promoted to main-text Fig F 2026-08-18: if BOTH embeddings are redundant to fp+desc, the claim
+# generalises from "CLIMB is redundant" to "these molecular foundation embeddings are redundant".
+EMB = os.environ.get("CONCAT_EMB", "climb")
+TAG = {"climb": "CLM", "chemeleon": "CheMeleon"}[EMB]
+OUTFILE = os.environ.get("CONCAT_OUT", f"concat_redundancy{'' if EMB=='climb' else '_chemeleon'}.csv")
 ENC = "figure_data/climb_v2_phase2/unsup_8M/encoder"
 TOK = "figure_data/_tokenizer"
 TASKS = [("ESOL", "regression"), ("QM7", "regression"), ("BBBP", "classification"),
@@ -37,17 +46,24 @@ OUT = Path("analysis/rigor"); OUT.mkdir(parents=True, exist_ok=True)
 device = torch.device("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
                       else "cuda" if torch.cuda.is_available() else "cpu")
 print("device:", device, flush=True)
-encoder = ModernBertModel.from_pretrained(ENC, attn_implementation="sdpa", reference_compile=False).to(device)
-encoder.eval()
-tok = PreTrainedTokenizerFast.from_pretrained(TOK)
+if EMB == "climb":
+    encoder = ModernBertModel.from_pretrained(ENC, attn_implementation="sdpa", reference_compile=False).to(device)
+    encoder.eval()
+    tok = PreTrainedTokenizerFast.from_pretrained(TOK)
+else:
+    encoder = tok = None   # CheMeleon featurizer needs no local encoder (chemprop foundation)
 
 
 def feature_sets(smiles):
     fp = np.asarray(ecfp4_features(smiles), dtype=np.float32)
     d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32); d[~np.isfinite(d)] = np.nan
-    emb = E._encoder_features(encoder, tok, list(smiles), device, "mean", ML).astype(np.float32)
-    return {"fp+desc": np.concatenate([fp, d], 1), "CLM": emb,
-            "desc+CLM": np.concatenate([d, emb], 1), "fp+desc+CLM": np.concatenate([fp, d, emb], 1)}
+    if EMB == "climb":
+        emb = E._encoder_features(encoder, tok, list(smiles), device, "mean", ML).astype(np.float32)
+    else:
+        emb = np.asarray(E._chemeleon_features(list(smiles), device), dtype=np.float32)
+    return {"fp+desc": np.concatenate([fp, d], 1), TAG: emb,
+            f"desc+{TAG}": np.concatenate([d, emb], 1),
+            f"fp+desc+{TAG}": np.concatenate([fp, d, emb], 1)}
 
 
 rows = []
@@ -84,5 +100,5 @@ for ds, tt in TASKS:
                              mean=round(float(np.mean(fn)), 4), std=round(float(np.std(fn)), 4)))
         print(f"  {name:12} {met}={np.mean(fm):.4f}±{np.std(fm):.4f}", flush=True)
 
-pd.DataFrame(rows).to_csv(OUT / "concat_redundancy.csv", index=False)
-print("\nDONE -> analysis/rigor/concat_redundancy.csv", flush=True)
+pd.DataFrame(rows).to_csv(OUT / OUTFILE, index=False)
+print(f"\nDONE -> analysis/rigor/{OUTFILE}", flush=True)
