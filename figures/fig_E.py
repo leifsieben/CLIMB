@@ -85,7 +85,7 @@ PANELS = [
 def draw(fig, ax, d, series, tag, subtitle, ylim):
     x = np.arange(len(TASKS))
     n = len(series)
-    w = 0.76 / n
+    w = 0.80 / n
     for i, (key, label, colour) in enumerate(series):
         s = d[d.arm == key].set_index("dataset")
         ys = [s.lift_pct.get(t, np.nan) for t in TASKS]
@@ -97,14 +97,6 @@ def draw(fig, ax, d, series, tag, subtitle, ylim):
                yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
                                       ecolor=STYLE["ink"], zorder=6),
                label=label, zorder=3)
-        # vertical value labels have zero horizontal extent, so they can never reach a neighbour
-        for xi, v, e in zip(x + off, ys, es):
-            if not np.isfinite(v):
-                continue
-            pad = e + 0.9
-            ax.text(xi, v + pad if v >= 0 else v - pad, f"{0.0 if abs(v) < 0.05 else v:+.1f}%",
-                    rotation=90, ha="center", va="bottom" if v >= 0 else "top",
-                    fontsize=FS["annot"], clip_on=False, zorder=4)
 
     ax.axhline(0, color=STYLE["ink"], lw=0.8, zorder=2)
     ax.set_xticks(x)
@@ -134,14 +126,13 @@ def main():
     lo = min((d.lift_pct - d.lift_sd_pct.fillna(0)).min(), 0)
     hi = (d.lift_pct + d.lift_sd_pct.fillna(0)).max()
     sp = hi - lo
-    ylim = (lo - 0.21 * sp, hi + 0.26 * sp)          # headroom for the vertical value labels
+    ylim = (lo - 0.08 * sp, hi + 0.10 * sp)
 
-    # Panel b packs 5 bars per task group against panel a's 2, so sizing the panels purely by bar
-    # count starves panel a of room for its six task labels. This ratio is the compromise: b gets
-    # enough width that its rotated value labels clear each other, a keeps enough that "Tox21" and
-    # "BBBP" do not collide.
-    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.45),
-                             gridspec_kw=dict(width_ratios=[1.0, 2.05], wspace=0.13))
+    # With the per-bar labels gone, panel b no longer needs extra width to keep them apart, so the
+    # ratio is set by what panel a needs for its six task labels ("Tox21"/"BBBP" collide below
+    # ~2.5in of axes width).
+    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.1),
+                             gridspec_kw=dict(width_ratios=[1.0, 1.6], wspace=0.13))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
         draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylim)
     axes[0].set_ylabel("Lift over no pretrain, frozen")

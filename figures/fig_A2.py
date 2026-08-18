@@ -177,9 +177,11 @@ def build():
             ax.spines[sp].set_visible(False)
 
     fig.tight_layout(rect=(0, 0, 0.88, 1))
-    # single key for the one reference line, parked top-right of the panels
+    # Single key for the one reference line. It lives in the reserved right-hand margin, centred
+    # vertically between the two panel rows (user request 2026-08-17) rather than floating above
+    # the top-right panel, where it read as a stray label attached to BACE.
     fig.legend(handles=[Line2D([], [], color=INK, ls=":", lw=1.2, label="random encoder")],
-               loc="upper right", bbox_to_anchor=(1.0, 0.98), frameon=False,
+               loc="center left", bbox_to_anchor=(0.885, 0.50), frameon=False,
                fontsize=FS["legend"], handlelength=1.8, labelcolor=INK)
     return fig
 

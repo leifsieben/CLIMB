@@ -44,10 +44,14 @@ INK = "#000000"
 
 DF = pd.read_csv(ROOT / "figure_data" / "SI_Fig_a" / "SI_Fig_a_e2e_need.csv")
 
-ENCODERS = [("unsupervised", "unsup"), ("supervised, dense", "sup_dense")]
-# frozen = the arm's own family colour; end2end = the lighter shade of the same family, so the
-# pairing reads as "same encoder, two probes" rather than as four unrelated bars.
-PROBES = ["frozen", "end2end"]
+# Four bars per panel: each encoder frozen and end2end. Colour = encoder family (blue =
+# unsupervised, red = supervised), lightness = probe (dark = frozen, light = end2end). Same solid
+# bar + black edge treatment as Figs A2/E/SI-d -- no hatching, which read as noise at this size.
+SERIES = [("unsupervised",      "frozen",  "unsup",     0, "unsupervised, frozen"),
+          ("unsupervised",      "end2end", "unsup",     2, "unsupervised, end2end"),
+          ("supervised, dense", "frozen",  "sup_dense", 0, "supervised dense, frozen"),
+          ("supervised, dense", "end2end", "sup_dense", 2, "supervised dense, end2end")]
+XLABELS = ["unsup.\nfrozen", "unsup.\ne2e", "sup.\nfrozen", "sup.\ne2e"]
 
 
 def main():
@@ -72,41 +76,34 @@ def main():
             ax.set_yticks([])
             continue
 
-        x = np.arange(len(ENCODERS))
-        w = 0.34
-        vals, errs = [], []
-        for j, probe in enumerate(PROBES):
-            ys, es, cs = [], [], []
-            for label, arm_key in ENCODERS:
-                r = g_all[(g_all.encoder == label) & (g_all.probe == probe)]
-                ys.append(float(r.value.iloc[0]) if len(r) else np.nan)
-                es.append(float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0)
-                cs.append(SHADES[ARMS[arm_key]["family"]][0 if probe == "frozen" else 2])
-            es = [0.0 if not np.isfinite(e) else e for e in es]
-            ax.bar(x + (j - 0.5) * w, ys, width=w, color=cs, edgecolor=INK, linewidth=0.8,
-                   yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
-                                          ecolor=INK, zorder=6),
-                   hatch="" if probe == "frozen" else "///", zorder=3)
-            vals += [v for v in ys if np.isfinite(v)]
-            errs += es
-
+        x = np.arange(len(SERIES))
+        ys, es, cs = [], [], []
+        for enc_label, probe, arm_key, shade, _ in SERIES:
+            r = g_all[(g_all.encoder == enc_label) & (g_all.probe == probe)]
+            ys.append(float(r.value.iloc[0]) if len(r) else np.nan)
+            e = float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0
+            es.append(0.0 if not np.isfinite(e) else e)
+            cs.append(SHADES[ARMS[arm_key]["family"]][shade])
+        ax.bar(x, ys, width=0.72, color=cs, edgecolor=INK, linewidth=0.8,
+               yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
+                                      ecolor=INK, zorder=6), zorder=3)
         ax.set_xticks(x)
-        ax.set_xticklabels(["unsup.", "sup., dense"])
+        ax.set_xticklabels(XLABELS, fontsize=FS["annot"])
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
-        lo, hi = min(vals) - max(errs), max(vals) + max(errs)
-        pad = 0.35 * max(hi - lo, 1e-9)
+        lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
+        hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
+        pad = 0.30 * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
         if d["metric"] == "roc_auc":
             y1 = min(y1, 1.0)
         ax.set_ylim(y0, y1)
 
-    handles = [Patch(facecolor="#FFFFFF", edgecolor=INK, lw=0.8, label="frozen probe"),
-               Patch(facecolor="#FFFFFF", edgecolor=INK, lw=0.8, hatch="///",
-                     label="end-to-end fine-tuned")]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015),
-               ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
-               columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
+    handles = [Patch(facecolor=SHADES[ARMS[k]["family"]][sh], edgecolor=INK, lw=0.8, label=lab)
+               for _, _, k, sh, lab in SERIES]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=4,
+               fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
+               borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
     save(fig, "SI_Fig_a")
     plt.close(fig)
@@ -118,7 +115,7 @@ def main():
             print(f"   {p:<12} — no end2end run of a pretrained encoder")
             continue
         sign = 1 if g.higher_better.iloc[0] else -1
-        for label, _ in ENCODERS:
+        for label in ("unsupervised", "supervised, dense"):
             fr = g[(g.encoder == label) & (g.probe == "frozen")]
             ee = g[(g.encoder == label) & (g.probe == "end2end")]
             if not len(fr) or not len(ee):
