@@ -52,6 +52,9 @@ def _manifest():
                 m.append((f"scaling_{mode}_frac{frac}_{s}", "climb_v2_h1", False))  # standard vocab
     for p in ("bpe_261", "bpe_1000", "bpe_3000", "bpe_12000", "unigram_261", "unigram_700", "unigram_1200", "unigram_3000"):
         m.append((p, "climb_v2_vocab", True))  # own tokenizer (vocab differs)
+    # the two remaining A2/six-panel cells with no Polaris coverage at all
+    for p in ("s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"):
+        m.append((p, "climb_v2_phase2", False))
     return m
 
 
@@ -71,13 +74,17 @@ def _stage(prefix, wave, own_tok):
     return str(enc), tok
 
 
+SHARD = int(os.environ.get("SHARD", "0"))
+NSHARD = int(os.environ.get("NSHARD", "1"))
+
+
 def _herg_done(prefix):
+    """Full-track coverage. 2026-08-18 the Polaris panel moved hERG -> Ames; scoring one named task
+    means a panel swap invalidates the whole wave (these encoders had hERG and NO Ames for exactly
+    that reason). All 28 tasks is 47k molecules -- the same order as MoleculeACE."""
     f = ROOT / "figure_data" / "chemeleon_suite" / "polaris" / prefix / "polaris_scores.csv"
-    if not f.exists():
-        return False
     try:
-        return any(r["task"] == "tdcommons/herg" and r["metric"] == "roc_auc"
-                   for r in csv.DictReader(open(f)))
+        return len({r["task"] for r in csv.DictReader(open(f))}) >= 20
     except Exception:
         return False
 
@@ -109,12 +116,13 @@ def main():
         (ROOT / TOK_STD).mkdir(parents=True, exist_ok=True)
         sh(["aws", "s3", "sync", "s3://climb-s3-bucket/tokenizer_10M", TOK_STD, "--only-show-errors"])
     man = _manifest()
-    log(f"START hERG on {len(man)} scaling encoders")
+    man = [m for i, m in enumerate(man) if i % NSHARD == SHARD]
+    log(f"START full-Polaris on {len(man)} encoders (shard {SHARD}/{NSHARD})")
     ok = 0
     for prefix, wave, own_tok in man:
         if _herg_done(prefix):
             log(f"SKIP {prefix} (herg done)"); ok += 1; continue
-        if _would_clobber(prefix):
+        if False:  # full track is a superset of any single-task run
             log(f"REFUSE {prefix}: already has a full multi-task Polaris dir — running the "
                 f"herg-only task list here would destroy the other 27 tasks. Skipping.")
             ok += 1
