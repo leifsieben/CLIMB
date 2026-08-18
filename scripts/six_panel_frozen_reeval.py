@@ -54,11 +54,13 @@ def _manifest():
     for regime, prefs in a2.items():
         for p in prefs:
             m.append(("a2", p, "climb_v2_phase2", False))
-    # H1 data-fraction (climb_v2_h1) — 30 dirs; each carries its own (standard-vocab) tokenizer
+    # H1 data-fraction (climb_v2_h1) — 30 dirs. H1 varies the pretraining DATA only; the tokenizer
+    # is held constant at the standard 10M vocab (s1/s2 don't even carry a tokenizer/ dir on S3), so
+    # use TOK_STD (own_tok=False), NOT a per-encoder sync.
     for mode in ("canonical", "enumerated"):
         for frac in ("0p001", "0p01", "0p1", "0p3", "full"):
             for s in ("s0", "s1", "s2"):
-                m.append(("h1", f"scaling_{mode}_frac{frac}_{s}", "climb_v2_h1", True))
+                m.append(("h1", f"scaling_{mode}_frac{frac}_{s}", "climb_v2_h1", False))
     # Vocab (climb_v2_vocab) — 8 dirs; MUST use their own tokenizer (different vocab size)
     for p in ("bpe_261", "bpe_1000", "bpe_3000", "bpe_12000", "unigram_261", "unigram_700", "unigram_1200", "unigram_3000"):
         m.append(("vocab", p, "climb_v2_vocab", True))
