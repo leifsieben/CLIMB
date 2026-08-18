@@ -1,0 +1,227 @@
+"""Cross-figure consistency audit — the check a reviewer would run.
+
+Every figure in this paper can be individually correct and the SET still be indefensible: two
+panels in different units, two figures reporting different error-bar estimands, one script reading
+a superseded data wave. Those defects are invisible from inside any single script, because each one
+is internally self-consistent. This audit looks across the set.
+
+Six checks, each of which has caught a real defect in this repo:
+
+  1 SUPERSEDED ROOTS   a script reading a data wave that has been replaced. Cost us two wrong
+                       findings: SI d was reported as 2/6 panels because it read climb_v2 (the
+                       round-1 wave, single hold-out) instead of climb_v2_h1, and CBS was reported
+                       missing because it read the deprecated experiment_cbs summary instead of
+                       cbs_benchmark/.
+  2 UNITS WITHIN PANEL arms in one panel not on one scale. QM7 shipped with 15 arms normalized
+                       (~0.85) and 3 native (~199) — every arm internally consistent, the panel
+                       wrong, nothing complained.
+  3 REPLICATION        arms in one panel resting on different numbers of pretraining seeds. Four
+                       CBS arms sat at 1 seed beside neighbours at 3; when the replicates landed,
+                       sup_minimol moved 0.760 -> 0.693 and its SD doubled.
+  4 ESTIMAND           what each figure DRAWS as an error bar, in one table. The set previously
+                       mixed sd_total, seed SD, fold SD and a bootstrap CI without saying so.
+  5 PANEL SET          which figures are on the canonical six and which are not, with the reason.
+  6 PAGE GEOMETRY      authored width vs the A4 text block, so nothing is silently rescaled by
+                       LaTeX into a different on-page font size.
+
+Exit code is 0 always: this reports, it does not gate. Read it before shipping.
+
+Run:  python3 scripts/audit_figure_consistency.py
+"""
+from __future__ import annotations
+
+import sys
+import re
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+FIGDIR = ROOT / "figures"
+FD = ROOT / "figure_data"
+OUT = ROOT / "figures_v2"
+
+CANONICAL = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
+
+# (bad token, what to use instead, why it matters)
+SUPERSEDED = [
+    ("figure_data/climb_v2/", "figure_data/climb_v2_h1/",
+     "climb_v2 is the ROUND-1 wave: it never saved encoders and only has a single hold-out"),
+    ("climb_v2_ablation/", "climb_v2_ablation_dedup/",
+     "the pre-dedup ablation wave has no encoders and carries eval-test leakage"),
+    ("experiment_cbs/cbs_nef1_summary.csv", "figure_data/cbs_benchmark/<arm>/moleculenet_cv/",
+     "the precomputed CBS summary is deprecated; its ARMS list silently omits whole waves"),
+    ("moleculenet_cv/suite_summary.json\", \"QM7", "moleculenet_cv_qm7native/",
+     "QM7 in moleculenet_cv/ is the stale z-scored artifact predating the eval_v2 scaler fix"),
+]
+
+# what each figure is DECLARED to draw; check 4 verifies the script actually references it
+ESTIMAND = {
+    "fig_A":     ("sampling CI of the evaluation units (bootstrap; Ames analytic)", "a2_errorbars"),
+    "fig_A1":    ("+-1 SE of the mean rank, design-effect corrected", "se_rank"),
+    "fig_A2":    ("sampling CI of the evaluation units (bootstrap; Ames analytic)", "a2_errorbars"),
+    "fig_B":     ("none drawn (sd_total available in scaling_ladders.csv)", None),
+    "fig_C1":    ("95% bootstrap CI over molecules", "boot"),
+    "fig_C2":    ("none drawn (scatter of per-cell lifts)", None),
+    "fig_D":     ("none drawn (matrix of per-cell lifts)", None),
+    "fig_E":     ("+-1 SD across 3 pretraining seeds, propagated through the lift", "lift_sd_pct"),
+    "fig_F":     ("+-1 SD across the seeds of that (task, feature set) cell", "std"),
+    "SI_fig_a":  ("+-1 SD of the panel's replicate unit", "sd"),
+    "SI_fig_b":  ("+-1 SD of the panel's replicate unit (5 CV folds / 3 eval seeds)", "sd"),
+    "SI_fig_d":  ("+-1 SD across 3 pretraining seeds", "sd"),
+    "SI_fig_e":  ("none drawn (absolute performance vs labelled size)", None),
+}
+
+
+def hdr(n, t):
+    print(f"\n{'='*94}\n{n}. {t}\n{'='*94}")
+
+
+def check_superseded():
+    hdr(1, "SUPERSEDED DATA ROOTS")
+    bad = 0
+    for p in sorted(list(FIGDIR.glob("*.py")) + list((ROOT / "scripts").glob("build_*.py"))):
+        txt = p.read_text()
+        code = "\n".join(l for l in txt.split("\n") if not l.strip().startswith("#"))
+        # ignore the module docstring, which legitimately DISCUSSES the superseded roots
+        code = re.sub(r'""".*?"""', "", code, flags=re.S)
+        for token, better, why in SUPERSEDED:
+            if token in code:
+                print(f"  FAIL  {p.name}: reads {token}\n        use {better}\n        ({why})")
+                bad += 1
+    print("  OK — no figure or builder reads a superseded root" if not bad
+          else f"  {bad} occurrence(s)")
+    return bad
+
+
+def check_units():
+    hdr(2, "UNIT CONSISTENCY WITHIN EACH PANEL")
+    bad = 0
+    for f in sorted(FD.rglob("*.csv")):
+        try:
+            d = pd.read_csv(f)
+        except Exception:
+            continue
+        if "panel" not in d.columns:
+            continue
+        col = next((c for c in ("value", "mean") if c in d.columns), None)
+        if col is None:
+            continue
+        keys = ["panel"] + [c for c in ("dataset", "metric") if c in d.columns]
+        for panel, g in d.groupby(keys):
+            v = pd.to_numeric(g[col], errors="coerce").abs()
+            v = v[np.isfinite(v) & (v > 0)]
+            if len(v) < 2:
+                continue
+            if v.max() / v.min() > 25:
+                lo = g.loc[v.idxmin()]
+                hi = g.loc[v.idxmax()]
+                who = "arm" if "arm" in d.columns else ("label" if "label" in d.columns else None)
+                names = (f"{lo[who]}={v.min():.4g} vs {hi[who]}={v.max():.4g}") if who else \
+                        f"{v.min():.4g} vs {v.max():.4g}"
+                tag = panel if isinstance(panel, str) else "/".join(map(str, panel))
+                print(f"  FAIL  {f.relative_to(ROOT)} [{tag}]: spans {v.max()/v.min():.0f}x "
+                      f"({names})")
+                bad += 1
+    print("  OK — every panel is on one scale" if not bad else f"  {bad} panel(s) mixing units")
+    return bad
+
+
+def check_replication():
+    hdr(3, "REPLICATION WITHIN EACH PANEL")
+    f = FD / "six_panel" / "mainline_8M.csv"
+    if not f.exists():
+        print("  SKIP — mainline_8M.csv absent")
+        return 0
+    d = pd.read_csv(f)
+    d["n_seeds"] = d.extra.map(lambda x: int(m.group(1)) if (m := re.search(r"n_seeds=(\d+)", str(x))) else np.nan)
+    bad = 0
+    print(f"  {'panel':<13}{'n_seeds seen':<18}verdict")
+    for panel, g in d.groupby("panel"):
+        # anchors legitimately have 1 seed: no pretraining stage to replicate
+        clm = g[~g.arm.isin(["ecfp", "ecfp_desc", "chemeleon_frozen"])]
+        seen = sorted({int(x) for x in clm.n_seeds.dropna()})
+        ok = len(seen) <= 1
+        if not ok:
+            odd = clm[clm.n_seeds == min(seen)].arm.tolist()
+            print(f"  {panel:<13}{str(seen):<18}MIXED — {', '.join(odd[:5])} at {min(seen)}")
+            bad += 1
+        else:
+            print(f"  {panel:<13}{str(seen):<18}ok")
+    print("  OK — every panel's CLIMB arms share a seed count" if not bad else
+          f"  {bad} panel(s) mixing replication")
+    return bad
+
+
+def check_estimand():
+    hdr(4, "ERROR-BAR ESTIMAND PER FIGURE")
+    bad = 0
+    print(f"  {'figure':<12}{'declared estimand':<62}code")
+    for name, (desc, token) in ESTIMAND.items():
+        p = FIGDIR / f"{name}.py"
+        if not p.exists():
+            print(f"  {name:<12}{desc:<62}NO SCRIPT")
+            bad += 1
+            continue
+        txt = p.read_text()
+        # assembled figures (fig_A, fig_C_D) draw nothing themselves — they compose components,
+        # so look through the modules they import rather than calling it a mismatch
+        for imported in re.findall(r"import figures\.(\w+)", txt):
+            q = FIGDIR / f"{imported}.py"
+            if q.exists():
+                txt += q.read_text()
+        state = "-" if token is None else ("ok" if token in txt else "TOKEN MISSING")
+        if state == "TOKEN MISSING":
+            bad += 1
+        print(f"  {name:<12}{desc:<62}{state}")
+    print("  OK — each figure's drawn quantity is declared and present in its code" if not bad
+          else f"  {bad} mismatch(es)")
+    return bad
+
+
+def check_panelset():
+    hdr(5, "PANEL SET")
+    bad = 0
+    for p in sorted(FIGDIR.glob("*.py")):
+        txt = p.read_text()
+        if "OFF-SUITE" in txt:
+            why = re.search(r"blocked on data, not\s+on code: (.{0,90})", txt, re.S)
+            print(f"  OFF-SUITE  {p.stem}: {' '.join(why.group(1).split()) if why else 'see banner'}...")
+            bad += 1
+    print("  OK — every figure is on the canonical six" if not bad
+          else f"  {bad} figure(s) still off-suite (each carries a banner)")
+    return bad
+
+
+def check_geometry():
+    hdr(6, "PAGE GEOMETRY")
+    from figures.style import A4_TEXT, _pdf_width_in
+    wide = {"fig_A", "fig_C_D"}
+    bad = 0
+    for pdf in sorted(OUT.glob("*.pdf")):
+        w = _pdf_width_in(pdf)
+        if w is None:
+            continue
+        if pdf.stem in wide:
+            print(f"  {pdf.stem:<12}{w:6.2f}in   landscape by design (exempt)")
+        elif abs(w - A4_TEXT) / A4_TEXT > 0.05:
+            print(f"  FAIL  {pdf.stem:<12}{w:6.2f}in vs {A4_TEXT:.2f}in text block "
+                  f"({(w/A4_TEXT-1)*100:+.0f}%)")
+            bad += 1
+    print("  OK — every non-exempt figure is within 5% of the A4 text block" if not bad
+          else f"  {bad} figure(s) off-width")
+    return bad
+
+
+def main():
+    print("CROSS-FIGURE CONSISTENCY AUDIT")
+    total = sum([check_superseded(), check_units(), check_replication(),
+                 check_estimand(), check_panelset(), check_geometry()])
+    print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
+
+
+if __name__ == "__main__":
+    main()
