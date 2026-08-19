@@ -19,22 +19,32 @@ full_corpus_similarity_i1.csv, all 12 shards, NOT a subsample lower bound).
       bootstrap 95% CIs. Near-duplicates (0.95 <= T < 1.0) are distinct inputs and stay in the
       trend as the genuine interpolation regime.
 
-Regression tasks only (squared errors needed): ESOL (41.9% ECFP4-identical to corpus -- the
-circularity risk) and QM7 (15.7% identical, median max-Tanimoto 0.63 -- the clean control).
-Same 5-fold CV predictions on both sides of every comparison.
+Regression tasks only, because this needs per-molecule SQUARED ERRORS -- and the canonical six has
+exactly two: MoleculeACE (13.2% ECFP4-identical to corpus, median max-Tanimoto 0.76) and QM7
+(15.7% identical, median 0.63). Same predictions on both sides of every comparison; MoleculeACE
+labels are joined from the benchmark's own split files because its prediction dumps carry no
+y_true.
+
+THREE THINGS THE CAPTION MUST CARRY about the x-axis (compute session, 2026-08-19):
+  - The similarity distribution is BIMODAL, not a tail. MoleculeACE's p75 is 0.844 but its p90 is
+    already 1.0000: molecules are either clearly novel or fingerprint-identical, with little in
+    between. Quoting a median alone would read as "moderate overlap" and hide that structure,
+    which is why panel (a) reports the identical group SEPARATELY rather than as a percentile.
+  - The two panels differ in KIND, not just degree. QM7's near-duplicate count (1,081) barely
+    exceeds its exact-match count (1,075) -- essentially every QM7 near-neighbour IS an exact
+    fingerprint match, as expected for small saturated molecules where ECFP4 saturates. MoleculeACE
+    has a genuine 0.95-1.0 band (1,405 vs 1,206, ~200 real near-dups). So "13% overlap" and "16%
+    overlap" do not mean the same thing on the two panels.
+  - "Exact match" means ECFP4-IDENTICAL at 2048 bits, not necessarily the same molecule. Same
+    definition as compute_tanimoto_novelty.py, so it is consistent with fig_I1.
 
 Run:  python3 -m figures.fig_C1
 
-!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
-This figure is still on the OLD MoleculeNet task set (ESOL/BBBP/BACE/HIV/Tox21/QM7), not the
-paper's canonical six (MoleculeACE / CBS / BACE / Ames / Tox21 / QM7). It is blocked on data, not
-on code: the seq_* evals LANDED 2026-08-18 (all 6 arms, incl. per-molecule
-test_predictions.csv), so the y-values exist. What is still missing is the X-AXIS:
-figure_data/_tanimoto/corpus_similarity.csv covers only the seven MoleculeNet datasets, so
-there is no max-Tanimoto-to-corpus value for MoleculeACE / CBS / Ames test molecules.
-Requested 2026-08-18 (RDKit/CPU, not GPU).
-Verified absent on disk 2026-08-17; requested from the compute session the same day. When the evals
-land, the fix is a data-path + panel-list change in the builder and a re-render — not a redesign.
+PANEL SET — MIGRATED to the canonical six on 2026-08-19, when the full-corpus similarity for
+MoleculeACE landed (ASK 4). The x-axis is a TRUE max Tanimoto to all 12 shards of the 12M corpus
+(analysis/dedup_i1/full_corpus_similarity_i1.csv, 15,973 molecules), not the subsample lower bound
+in figure_data/_tanimoto/corpus_similarity.csv -- a lower bound cannot establish Tanimoto = 1.0
+identity, which is the whole point of panel (a).
 """
 from __future__ import annotations
 from pathlib import Path
@@ -55,8 +65,17 @@ EXACT = DEDUP / "exact_match_per_molecule.csv"     # literal isomeric-canonical 
 IDENTICAL_THR = 0.99999                            # ECFP4 Tanimoto = 1.0 => corpus-identical
 
 MODEL = "unsup_8M"                                 # the unsupervised arm (matched 8M budget)
-BASE_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]   # no pretrain, end2end
-TASKS = ["ESOL", "QM7"]
+BASE_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]   # no pretrain, end2end (MolNet)
+# MoleculeACE lives in its own tree with its own run names for the same two arms, and its
+# predictions carry no y_true -- the labels come from the benchmark's own split files.
+MACE_DIR = ROOT / "figure_data" / "chemeleon_suite" / "moleculeace"
+MACE_DATA = ROOT / "chemeleon_suite" / "data" / "moleculeace"
+MACE_MODEL = ["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"]
+MACE_BASE = ["no_pretrain_e2e_e2e", "no_pretrain_e2e_e2e_s1", "no_pretrain_e2e_e2e_s2"]
+# The canonical six has exactly TWO regression panels, and this figure needs per-molecule squared
+# errors, so these are the two it can use. (Pre-canonical it was ESOL + QM7.)
+TASKS = ["MoleculeACE", "QM7"]
+QM7_SUB = "moleculenet_cv_qm7native"               # both arm and floor have it -> one convention
 
 # colours: the arm under test is `unsup`, so similarity groups/tasks run dark (similar) -> light
 # (novel) along the unsupervised shade ladder; the excluded identity group is grey. No hard-coded
@@ -64,7 +83,7 @@ TASKS = ["ESOL", "QM7"]
 C_MEM = SHADES["e2e"][1]
 C_SIM = SHADES["unsup"][0]
 C_NOV = SHADES["unsup"][2]
-TASK_COL = {"ESOL": SHADES["unsup"][0], "QM7": SHADES["unsup"][2]}
+TASK_COL = {"MoleculeACE": SHADES["unsup"][0], "QM7": SHADES["unsup"][2]}
 FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]     # "no pretrain, end2end"
 
 NBOOT = 400
@@ -73,9 +92,48 @@ NBOOT = 400
 # ------------------------------------------------------------------------------------------------
 # data
 # ------------------------------------------------------------------------------------------------
+def _mace_truth():
+    """{smiles: y} for every MoleculeACE TEST molecule, from the benchmark's own split files.
+
+    The MoleculeACE prediction dumps carry (task, seed, test_index, smiles, y_pred) and no y_true,
+    so the labels are joined from chemeleon_suite/data/moleculeace/<task>.csv. Verified 2026-08-19
+    that `test_index` indexes the split=="test" rows of that file in order (smiles match exactly),
+    so the join is by SMILES and the index is only a cross-check.
+    """
+    out = {}
+    for f in sorted(MACE_DATA.glob("*.csv")):
+        d = pd.read_csv(f)
+        if "split" not in d.columns:
+            continue
+        te = d[d.split == "test"]
+        out.update(dict(zip(te.smiles, te.y)))
+    return out
+
+
+def _mace_preds(runs):
+    """Per-molecule mean prediction over eval seeds AND pretraining-seed dirs, MoleculeACE."""
+    truth = _mace_truth()
+    frames = []
+    for r in runs:
+        f = MACE_DIR / r / "test_predictions.csv"
+        if f.exists():
+            frames.append(pd.read_csv(f))
+    if not frames:
+        return None
+    d = pd.concat(frames, ignore_index=True)
+    d = d.rename(columns={"smiles": "raw_smiles"})
+    d["y_true"] = d.raw_smiles.map(truth)
+    d = d.dropna(subset=["y_true"])
+    d["dataset"] = "MoleculeACE"
+    return (d.groupby(["dataset", "raw_smiles"], as_index=False)
+             .agg(y_true=("y_true", "first"), y_pred=("y_pred", "mean")))
+
+
 def _preds(run):
     """Per-molecule mean prediction (over folds x head seeds) for one run, CV scheme."""
-    p = ROOT / "figure_data" / "climb_v2_phase2" / run / "moleculenet_cv" / "test_predictions.csv"
+    sub = QM7_SUB if (ROOT / "figure_data" / "climb_v2_phase2" / run / QM7_SUB /
+                      "test_predictions.csv").exists() else "moleculenet_cv"
+    p = ROOT / "figure_data" / "climb_v2_phase2" / run / sub / "test_predictions.csv"
     if not p.exists():
         return None
     d = pd.read_csv(p)
@@ -84,12 +142,21 @@ def _preds(run):
 
 
 def _floor_preds():
-    """Mean prediction across the floor's replicates."""
+    """Mean prediction across the floor's replicates, both trees."""
     bs = [b for b in (_preds(r) for r in BASE_RUNS) if b is not None]
+    m = _mace_preds(MACE_BASE)
+    if m is not None:
+        bs.append(m)
     if not bs:
         raise FileNotFoundError("no e2e floor predictions found")
     return (pd.concat(bs).groupby(["dataset", "raw_smiles"], as_index=False)
              .agg(y_true=("y_true", "first"), y_pred=("y_pred", "mean")))
+
+
+def _model_preds():
+    """The unsupervised arm, both trees."""
+    parts = [p for p in [_preds(MODEL), _mace_preds(MACE_MODEL)] if p is not None]
+    return pd.concat(parts, ignore_index=True)
 
 
 def _simframe():
@@ -178,7 +245,7 @@ def memorized_lift(m, seed=1):
 def compute():
     """All C1 numbers, once. Shared by the standalone figure and the assembled fig_C."""
     sim = _simframe()
-    mod = _preds(MODEL)
+    mod = _model_preds()
     base = _floor_preds()
     merged = {t: _merged(t, sim, mod, base) for t in TASKS}
     pairs = [(t, v) for t, v in ((t, quartile_lift(m)) for t, m in merged.items()) if v]
@@ -286,9 +353,12 @@ def main():
                   f"similarity there even among non-identical molecules.")
         else:
             print("Once corpus-identical molecules are removed, no task shows the lift "
-                  "concentrating on corpus-similar molecules (CIs overlap). The top-bin advantage "
-                  "is carried by the corpus-identical group in (a): memorization of in-corpus "
-                  "structures, not genuine interpolation.")
+                  "concentrating on corpus-similar molecules (CIs overlap). NOTE the corpus-"
+                  "identical group is ALSO flat on the canonical panels (MoleculeACE -0.1%, "
+                  "QM7 +0.1%), so on this task set there is no memorization advantage to explain "
+                  "away -- the unsupervised arm gains nothing on molecules it has effectively "
+                  "seen. That is a stronger statement than the pre-canonical ESOL/QM7 version, "
+                  "where the top bin WAS carried by the identical group.")
 
 
 if __name__ == "__main__":

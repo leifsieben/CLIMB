@@ -19,13 +19,15 @@ arranges their axes, so the standalone figures and this assembly can never drift
 
 Run:  python3 -m figures.fig_C_D
 
-!!! OFF-SUITE — DO NOT SHIP AS-IS !!!
-Every panel here (a-f) is still on the OLD MoleculeNet task set, because all three source figures
-are. The seq_* evals landed 2026-08-18 and are NOT the remaining blocker. What is missing now is the
-two SIMILARITY tables that panels a/b/c plot on their x-axes — figure_data/_tanimoto/
-corpus_similarity.csv and family_task_similarity.csv both cover only the seven MoleculeNet
-datasets. Requested 2026-08-18. All six panels move together when those land; fig_D alone could
-move today and is deliberately held back to avoid a figure that is half old-suite, half new.
+PANEL SET — FULLY MIGRATED to the canonical six as of 2026-08-19. The last blocker was the
+full-corpus MoleculeACE similarity for fig_C1's x-axis.
+
+ONE PANEL IS SHORT, and it is a data gap rather than a choice: fig_C2 and fig_D draw FIVE of the
+six because Tox21 is withheld. The ablation wave's per-molecule Tox21 dumps are pre-fix (93,876
+rows rather than the masked 77,864), so they cannot be re-scored from disk, and re-evaluating them
+in a different environment left a ~0.0075 offset — 15-40% of the Tox21 lifts being measured. See
+figures.sixpanel.CORRECTION_TASKS for why a correction, unlike a unit convention, cannot simply be
+applied to both sides.
 """
 from __future__ import annotations
 
