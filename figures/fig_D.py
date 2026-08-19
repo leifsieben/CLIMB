@@ -82,7 +82,7 @@ from figures.sixpanel import (suite_run_mean, suite_wave_mean, canonical_value,
                               canonical_lift, crosswave_safe, report_crosswave,
                               joint_molnet_subdirs)
 from figures.style import STYLE, FS, save, title, check_font
-from figures.arms import ARMS, SHADES
+from figures.arms import ARMS, SHADES, LIFT_YLABEL
 
 check_font()
 
@@ -253,11 +253,22 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
             if np.isfinite(v):
                 axM.text(j, i, f"{v:+.0f}", ha="center", va="center", fontsize=FS["annot"],
                          color="white" if abs(v) > 14 else "#222222")
-    cbt = [t for t in (-vmax, -20, -5, 0, 5, 20, vmax) if abs(t) <= vmax]
-    cb = axM.figure.colorbar(im, ax=axM, fraction=0.046, pad=0.03, ticks=cbt)
-    cb.ax.yaxis.set_major_formatter(ticker.FixedFormatter(
+    # The scale is SYMLOG, so |20| and |30| sit almost on top of each other at the ends. On the
+    # old vertical bar there was height to absorb that; horizontally the two labels collided into
+    # "-3020". Five ticks, and the symlog knee (+-5) is kept because that is the tick that tells a
+    # reader the scale is not linear.
+    cbt = [t for t in (-vmax, -5, 0, 5, vmax) if abs(t) <= vmax]
+    # HORIZONTAL, under the matrix (user 2026-08-19). A vertical colorbar takes its width out of
+    # the axes, so a 6-column x 6-row matrix was drawn into a stub and the cells came out clearly
+    # taller than they are wide. Moving the bar below returns that width to the matrix and the
+    # cells go back to roughly square -- the shape a reader needs in order to compare rows against
+    # columns rather than against the aspect ratio.
+    cb = axM.figure.colorbar(im, ax=axM, orientation="horizontal", location="bottom",
+                             fraction=0.055, pad=0.20, aspect=32, ticks=cbt)
+    cb.ax.xaxis.set_major_formatter(ticker.FixedFormatter(
         [f"{t:+.0f}".replace("+0", "0") for t in cbt]))
-    cb.set_label("lift (%)" if compact else "lift (%), symlog", fontsize=FS["legend"])
+    # same quantity as every other lift panel, said the same way
+    cb.set_label(LIFT_YLABEL if compact else LIFT_YLABEL + ", symlog", fontsize=FS["legend"])
     cb.ax.tick_params(labelsize=FS["annot"])
     axM.set_title("SFT family \u2192 eval task", loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)
@@ -303,7 +314,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
         axS.set_xticklabels([GROUP_LABEL[g] for g in GROUPS], fontsize=FS["annot"])
         axS.set_xlabel(GROUP_MEMBERS, fontsize=FS["annot"])
     # assembled row: d's xlabel and e's colorbar already define the quantity -- no y-label here
-    axS.set_ylabel("" if compact else f"mean lift over {FLOOR_LABEL} (%)")
+    axS.set_ylabel(LIFT_YLABEL)
     axS.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     axS.set_axisbelow(True)
     axS.set_title("Descriptor-like task mapping",

@@ -382,6 +382,63 @@ def check_tox21_vintage():
     return bad
 
 
+def check_replication_parity():
+    """Every arm on every panel must rest on the SAME NUMBER OF INDEPENDENT FITS.
+
+    Audit check 3 asks "does this arm have 3 replicates?" and is satisfied by 3 head seeds inside
+    one directory. That is not the same question as "is this comparison apples-to-apples?", which
+    is about whether two bars in the SAME panel were built from the same amount of evidence. They
+    were not: a CLIMB arm resolves to 3 pretraining dirs x 3 head seeds = 9 fits on every panel,
+    while ecfp, ecfp_desc, chemeleon_frozen and chemeleon_e2e resolved to 1 dir x 3 seeds = 3.
+
+    That asymmetry is NOT fixable by reseeding pretraining -- an ECFP fingerprint has no
+    pretraining stage and never will. What is fixable, and what the peer session did on MoleculeNet
+    and CBS in 3c52686, is the number of independent FITS: give those arms two more replicates on
+    DISJOINT head-seed triples so the bar rests on 9 fits either way. The two suite tracks were
+    left out of that pass, which is what this check exists to keep visible until
+    scripts/suite_replicates_run.sh has run.
+
+    Reported per (arm, panel) from the aggregator's own n_seeds, so it can never disagree with what
+    the figures draw.
+    """
+    print(f"\n{'='*94}\n11. REPLICATION PARITY (same number of dirs behind every bar in a panel)\n{'='*94}")
+    import csv as _csv, collections
+    f = ROOT / "figure_data/six_panel/mainline_8M.csv"
+    if not f.exists():
+        print("  SKIP - mainline_8M.csv missing")
+        return 0
+
+    def _n(extra):
+        for kv in (extra or "").split(";"):
+            if kv.startswith("n_seeds="):
+                return int(kv.split("=")[1])
+        return None
+
+    per_panel = collections.defaultdict(dict)
+    for r in _csv.DictReader(f.open()):
+        n = _n(r["extra"])
+        if n:
+            per_panel[r["panel"]][r["arm"]] = n
+    bad = 0
+    for panel in sorted(per_panel):
+        counts = per_panel[panel]
+        top = max(counts.values())
+        short = sorted(a for a, n in counts.items() if n < top)
+        if short:
+            detail = ", ".join(f"{a}={counts[a]}" for a in short)
+            print(f"  FAIL  {panel:12s} most arms rest on {top} dirs; {len(short)} rest on fewer "
+                  f"- {detail}")
+            bad += 1
+        else:
+            print(f"  OK    {panel:12s} all {len(counts)} arms on {top} dir(s)")
+    if not bad:
+        print("  OK - every panel compares arms built from the same number of dirs")
+    else:
+        print(f"  {bad} panel(s) mixing replication depths - run scripts/suite_replicates_run.sh")
+    return bad
+
+
+
 def check_qm7_convention():
     """Every QM7 value a figure draws must be in ONE convention, tested by VALUE not by path.
 
@@ -450,7 +507,8 @@ def main():
     total = sum([check_superseded(), check_units(), check_replication(),
                  check_estimand(), check_panelset(), check_geometry(),
                  check_comparator_scope(), check_bar_vs_ci(),
-                 check_qm7_convention(), check_tox21_vintage()])
+                 check_qm7_convention(), check_tox21_vintage(),
+                 check_replication_parity()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

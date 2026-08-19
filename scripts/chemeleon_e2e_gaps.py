@@ -28,7 +28,11 @@ CHEMPROP = os.environ.get("CHEMPROP_BIN", str(Path.home() / "venvs" / "chemeleon
 SEEDS = [int(s) for s in os.environ.get("CHEM_SEEDS", "42 117 709").split()]
 EPOCHS = int(os.environ.get("CHEM_EPOCHS", "50"))
 ONLY = os.environ.get("CHEM_ONLY", "")
-RUN = "chemeleon_e2e"
+# CHEM_RUN lets a replicate write to chemeleon_e2e_s1 / _s2 instead of overwriting the mainline
+# dir (2026-08-19). Three model seeds on the suite tracks needs three OUTPUT dirs, and this script
+# hardcoded one -- so a second run at a different CHEM_SEEDS would have silently replaced the
+# published one rather than sitting beside it.
+RUN = os.environ.get("CHEM_RUN", "chemeleon_e2e")
 MACE_DIR = ROOT / "chemeleon_suite" / "data" / "moleculeace"
 POL_DIR = ROOT / "chemeleon_suite" / "data" / "polaris"
 S3 = "s3://climb-s3-bucket/experiments/chemeleon_suite"

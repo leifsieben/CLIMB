@@ -141,5 +141,7 @@ aws s3 cp "$LOG" $S3/_logs/head_comparison.log --only-show-errors
 # 4 models x (MolNet + CBS) = 8 eval_v2 output dirs when the grid is complete
 n=$(ls -d figure_data/climb_v2_phase2/*__* figure_data/cbs_benchmark/*__* 2>/dev/null | wc -l)
 say "produced $n eval_v2 output dir(s) of 8"
-if [ "$n" -ge 8 ]; then say "complete -> shutdown"; sudo shutdown -h now
+if [ "$n" -ge 8 ]; then if [ -n "${CHAIN_NEXT:-}" ]; then
+    say "complete -> chaining to $CHAIN_NEXT"; exec bash "$CHAIN_NEXT"
+  else say "complete -> shutdown"; sudo shutdown -h now; fi
 else say "INCOMPLETE -> staying UP for inspection"; fi

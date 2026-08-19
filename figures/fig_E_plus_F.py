@@ -60,13 +60,17 @@ def main():
     # is set by what the two halves need: ~1.75in of axes for E's row and ~1.4in per row for F's
     # two. That lands well inside A4's 10.1in text height, so the figure and its caption share a
     # page.
+    RIGHT = 0.995
     fig = plt.figure(figsize=(STYLE["col2"], 6.6))
     # width_ratios [1.0, 1.45] is fig_E's own: panel b carries five series per group and panel a
     # only two, so b needs the extra width to keep the ladder legible.
+    # ONE right edge for both halves. The legend is right-aligned to the SAME number, which is
+    # what "aligned with the right side of E" means once E and F are stacked and share it.
     gsE = GridSpec(1, 2, figure=fig, width_ratios=[1.0, 1.45], wspace=0.24,
-                   left=0.082, right=0.995, top=0.962, bottom=0.700)
+                   left=0.082, right=RIGHT, top=0.962, bottom=0.700)
+    # F stops at 0.175 so its one-COLUMN legend has a band to sit in underneath (user 2026-08-19).
     gsF = GridSpec(2, 3, figure=fig, wspace=0.30, hspace=0.40,
-                   left=0.082, right=0.995, top=0.600, bottom=0.115)
+                   left=0.082, right=RIGHT, top=0.600, bottom=0.175)
 
     ylims = {panel: E._lim(dE[dE.panel == panel]) for panel, _, _, _ in E.PANELS}
     for col, (panel, tag, subtitle, series) in enumerate(E.PANELS):
@@ -82,11 +86,14 @@ def main():
         # point of the restack.
         F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig, ylims=ylims, xrot=0, bw=0.62)
 
-    # one row, centred under the F block, anchor dropped (it is the first bar in every panel, is
-    # tick-labelled "ECFP+d", and is the dotted reference line, so it needs no swatch)
-    fig.legend(handles=F.legend_handles(skip_anchor=True), loc="upper center",
-               bbox_to_anchor=(0.54, 0.062), ncol=3, fontsize=FS["legend"],
-               handletextpad=0.5, columnspacing=1.8, borderpad=0.0, frameon=False)
+    # VERTICAL, right edge flush with RIGHT (user 2026-08-19). loc="upper right" anchored at
+    # (RIGHT, ...) puts the legend's own right edge on that x, so it lines up with the right edge
+    # of both panel blocks above it rather than being centred under one of them. The anchor entry
+    # is dropped -- it is the first bar in every panel, tick-labelled "ECFP+d", and is the dotted
+    # reference line, so it needs no swatch.
+    fig.legend(handles=F.legend_handles(skip_anchor=True, wrap=True), loc="upper right",
+               bbox_to_anchor=(RIGHT, 0.150), ncol=1, fontsize=FS["legend"],
+               handletextpad=0.5, labelspacing=0.55, borderpad=0.0, frameon=False)
     save(fig, "fig_E+F")
     plt.close(fig)
     print("assembled fig_E+F from fig_E + fig_F (no recomputation beyond their own entry points)")

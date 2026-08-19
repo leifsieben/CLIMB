@@ -54,7 +54,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from figures.style import STYLE, FS, save, title, check_font
-from figures.arms import ARMS, SHADES
+from figures.arms import ARMS, SHADES, LIFT_YLABEL
 
 check_font()
 
@@ -295,7 +295,7 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     ax0.set_ylim(lo_ - 0.12 * span_, hi_ + 0.18 * span_)
     ax0.set_xticks(xpos)
     ax0.set_xticklabels([b[0] for b in bars], fontsize=FS["annot"])
-    ax0.set_ylabel(f"lift over {FLOOR_LABEL} (%)")
+    ax0.set_ylabel(LIFT_YLABEL)
     ax0.set_title("Lift by similarity group" if compact else
                   "Lift by corpus similarity group",
                   loc="left" if compact else "center",
@@ -321,7 +321,7 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
                handletextpad=0.4, labelspacing=0.25, borderaxespad=0.4)
     ax1.set_xlabel("max Tanimoto to corpus (bin mean)" if compact else
                    "max ECFP4 Tanimoto to corpus (bin mean)")
-    ax1.set_ylabel("lift (%)" if compact else f"lift over {FLOOR_LABEL} (%)")
+    ax1.set_ylabel(LIFT_YLABEL)
     ax1.set_title("Lift vs corpus similarity", loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)
     if tags and len(tags) > 1 and tags[1]:

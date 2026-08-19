@@ -209,12 +209,22 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         ax.set_ylim(y0, y1)
 
 
-def legend_handles(skip_anchor=False):
+# Wrapped forms for the VERTICAL legend. "CLIMB + descriptors + ECFP4" on one line is 3.3in wide,
+# which forces the legend into a horizontal strip; broken at the + signs it is 3 short lines and
+# the whole key becomes a tall narrow block (user 2026-08-19).
+WRAPPED = {"CLIMB + descriptors": "CLIMB\n+ descriptors",
+           "CLIMB + descriptors + ECFP4": "CLIMB\n+ descriptors\n+ ECFP4"}
+
+
+def legend_handles(skip_anchor=False, wrap=False):
     """`skip_anchor` drops the ECFP+desc entry so the remaining three fit on ONE row (user
     2026-08-19). The anchor stays identifiable without it: its bar is the first in every panel,
-    tick-labelled "ECFP+d", and it is the dotted reference line."""
+    tick-labelled "ECFP+d", and it is the dotted reference line.
+
+    `wrap` breaks the two long labels across lines for a single-column (vertical) legend."""
     feats = [f for f in FEATURES if not (skip_anchor and f[0] == "fp+desc")]
-    return [Patch(facecolor=c, edgecolor=INK, lw=0.8, label=lab) for _, lab, c in feats]
+    return [Patch(facecolor=c, edgecolor=INK, lw=0.8,
+                  label=(WRAPPED.get(lab, lab) if wrap else lab)) for _, lab, c in feats]
 
 
 def main():

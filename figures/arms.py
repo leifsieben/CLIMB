@@ -326,3 +326,12 @@ def color(arm_key: str) -> str:
 def ablation_arms():
     """Arms allowed in ablation/scaling figures (CheMeleon excluded by decision)."""
     return [k for k, v in ARMS.items() if v["in_ablation"]]
+
+
+# EVERY lift panel in the paper measures the same thing: lift over the no-pretraining end-to-end
+# floor. fig_C1 a/b, fig_C2 c, fig_D e/f and fig_E a/b all resolve their floor from
+# ARMS["e2e_no_pretrain"], so the axis label is one string, defined once. The compact (assembled)
+# variants used to shorten it to "lift (%)" or drop it entirely, which left a reader of fig_C+D
+# unable to tell whether the four panels shared a baseline -- they do (user 2026-08-19).
+LIFT_FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]
+LIFT_YLABEL = f"lift over {LIFT_FLOOR_LABEL} (%)"

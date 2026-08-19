@@ -85,7 +85,7 @@ from figures.sixpanel import (suite_run_mean, suite_wave_mean, canonical_value,
                               canonical_lift, crosswave_safe, report_crosswave,
                               joint_molnet_subdirs)
 from figures.style import STYLE, FS, save, title, check_font
-from figures.arms import ARMS, SHADES, TASK_COLORS
+from figures.arms import ARMS, SHADES, TASK_COLORS, LIFT_YLABEL
 
 check_font()
 
@@ -215,7 +215,7 @@ def draw(ax, data, tag=None, compact=False):
     ax.axhline(0, color=SHADES["e2e"][0], lw=STYLE["lw_thin"], zorder=1)
     ax.set_xlabel("mean max Tanimoto: task \u2194 SFT family" if compact else
                   "mean max ECFP4 Tanimoto: eval task \u2194 SFT family   (right = more similar)")
-    ax.set_ylabel("lift (%)" if compact else f"lift over {FLOOR_LABEL} (%)")
+    ax.set_ylabel(LIFT_YLABEL)
     ax.grid(ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
 
@@ -234,10 +234,13 @@ def draw(ax, data, tag=None, compact=False):
         # to lift=-12 -- right through the HIV point at (0.400, -17.96), the lowest in the cloud.
         # 3 rows is ~0.40in, so with the deepened floor below the box clears that point by ~6
         # y-units. Checked against the data, not by eye: see the assertion after set_ylim.
-        ax.legend(handles=task_handles, loc="lower right", ncol=2, frameon=True, framealpha=1.0,
+        # 3 x 2 (user 2026-08-19). Each column halved is a row saved, and every row saved comes
+        # straight off the forced floor below -- 2 columns needed the axis dropped to -32 to open
+        # an empty band, 3 columns need only -24, so the point cloud keeps 25% more of the panel.
+        ax.legend(handles=task_handles, loc="lower right", ncol=3, frameon=True, framealpha=1.0,
                   edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
-                  handletextpad=0.3, borderaxespad=0.4, borderpad=0.4, labelspacing=0.28,
-                  columnspacing=0.9, handlelength=1.0)
+                  handletextpad=0.25, borderaxespad=0.4, borderpad=0.35, labelspacing=0.25,
+                  columnspacing=0.7, handlelength=0.9)
     else:
         # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
         # expands savefig's tight bbox past the page width, so this figure came out 7.10in wide
@@ -254,11 +257,12 @@ def draw(ax, data, tag=None, compact=False):
 
     # The lower-right legend was landing on the point cloud. Dropping the floor opens an empty
     # band beneath the data for it to sit in, rather than shrinking the legend (user 2026-08-17).
-    # Only the FLOOR is forced; the top stays data-driven. -32 rather than -30 (user 2026-08-19):
-    # with the legend now 3 rows instead of 5 it needs ~11 y-units, and the deepest point is
-    # -17.96, so the band -32..-21 is empty by construction with ~3 units of margin.
+    # Only the FLOOR is forced; the top stays data-driven. -24 (user 2026-08-19): the 3x2 legend
+    # is 2 rows, ~7 y-units at this scale, and the deepest point is -17.96, so the band -24..-19
+    # clears it. Every row the legend loses comes straight off this number, which is why the
+    # arrangement and the floor are set together rather than independently.
     lo, hi = ax.get_ylim()
-    ax.set_ylim(min(lo, -32), hi)
+    ax.set_ylim(min(lo, -24), hi)
 
     ax.set_title("Transfer vs chemical similarity" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
