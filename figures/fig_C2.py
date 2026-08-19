@@ -224,17 +224,21 @@ def draw(ax, data, tag=None, compact=False):
     if compact:
         # inside, lower right (empty quadrant of the scatter) so the assembled figure's two rows
         # can share one left-to-right width -- no legend hanging outside the panel.
-        ax.legend(handles=task_handles, title="eval task", loc="lower right",
-                  frameon=False, fontsize=FS["legend"], title_fontsize=FS["legend"],
-                  handletextpad=0.3, borderaxespad=0.2)
+        # BOXED, and no title (user 2026-08-19): sitting unframed on the same axes as the scatter,
+        # the legend's own markers read as data points. A light frame separates key from data.
+        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=0.95,
+                  edgecolor=STYLE["grid"], facecolor="white", fontsize=FS["legend"],
+                  handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
     else:
         # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
         # expands savefig's tight bbox past the page width, so this figure came out 7.10in wide
         # against the set's 6.69in and LaTeX then downscaled its fonts relative to every other
         # figure. Keep every legend inside the canvas.
-        ax.legend(handles=task_handles, title="eval task", loc="lower right",
-                  frameon=False, fontsize=FS["legend"], title_fontsize=FS["legend"],
-                  handletextpad=0.3, borderaxespad=0.2)
+        # BOXED, and no title (user 2026-08-19): sitting unframed on the same axes as the scatter,
+        # the legend's own markers read as data points. A light frame separates key from data.
+        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=0.95,
+                  edgecolor=STYLE["grid"], facecolor="white", fontsize=FS["legend"],
+                  handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
 
     # The lower-right legend was landing on the point cloud. Dropping the floor to -30 opens an
     # empty band beneath the data for it to sit in, rather than shrinking the legend (user

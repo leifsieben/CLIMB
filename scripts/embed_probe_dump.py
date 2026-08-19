@@ -41,7 +41,13 @@ TOKENIZER = ROOT / "paper_artifacts" / "derived" / "tokenizer"
 # Every conclusion here is about an objective, not a checkpoint, so each arm must be replicated
 # across the same 3 pretraining seeds the rest of the paper uses.
 ARMS = {"unsup": ["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"],
-        "sup_desc": ["skip_dense_8M", "skip_dense_8M_s1", "skip_dense_8M_s2"]}
+        "sup_desc": ["skip_dense_8M", "skip_dense_8M_s1", "skip_dense_8M_s2"],
+        # CROSS-PROBE arms: supervised objectives that never saw an RDKit descriptor. If their
+        # embeddings are descriptor-explainable anyway, descriptor-likeness is a property of
+        # SUPERVISED PRETRAINING; if only sup_desc has it, the descriptor objective is doing it.
+        "sup_sparse": ["skip_sparse_all_8M", "skip_sparse_all_8M_s1", "skip_sparse_all_8M_s2"],
+        "sup_minimol": ["skip_minimol_full_8M", "skip_minimol_full_8M_s1",
+                        "skip_minimol_full_8M_s2"]}
 # ECFP4 is not an encoder -- it is the classical baseline the paper anchors on (fig_A1 #2 overall).
 # Included so "how descriptor-like is this representation?" has a reference point that is, by
 # construction, pure structure and no learned property knowledge.

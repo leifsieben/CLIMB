@@ -21,9 +21,9 @@ random-encoder floors agree -- checked at runtime, printed, never assumed.
       sparse" but also "does DESCRIPTOR pretraining map onto descriptor-LIKE tasks?".
       Only the two canonical representatives are drawn -- desc (MTR) and sparse all; the full
       6-family version was unreadable (user decision 2026-08-17). The other families stay in
-      (a) and (b). Eval tasks are grouped a priori: property regression = ESOL, QM7 (labels are
+      (a) and (b). Eval tasks are grouped a priori: property regression = QM7 (labels are
       descriptor-predictable physchem/quantum quantities -- the regime where the ECFP+desc anchor
-      is strongest) vs bioassay classification = BACE, BBBP, HIV, Tox21 (context-dependent
+      is strongest) vs bioassay classification = MoleculeACE, CBS, BACE, Ames (context-dependent
       screens). One line per family connects its mean lift in the two groups; small markers
       are the per-task values so the group means hide nothing. A clear mapping = the desc line
       falls left-to-right (helps descriptor-like tasks relatively more), the sparse line rises.
@@ -280,13 +280,25 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     handles = [Line2D([], [], color=FAM_COL[f], marker=FAM_MARKER[f], ls="-", ms=5,
                       lw=STYLE["lw"], mec="white", mew=0.6, label=FAM_SHORT[f])
                for f in SLOPE_FAMS]
-    axS.legend(handles=handles, loc="upper right", frameon=False, fontsize=FS["legend"],
-               handletextpad=0.4)
+    # lower right + boxed, matching panel (c): the two slope lines rise to the right, so an
+    # upper-right legend sat on top of them.
+    axS.legend(handles=handles, loc="lower right", frameon=True, framealpha=0.95,
+               edgecolor=STYLE["grid"], facecolor="white", fontsize=FS["legend"],
+               handletextpad=0.4, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
     axS.axhline(0, color=SHADES["random"][0], lw=0.6, zorder=1)
     axS.set_xlim(-0.38, 1.38)
     axS.set_xticks([0, 1])
     if compact:
-        axS.set_xticklabels(["property\n(ESOL, QM7)", "bioassay\n(BACE, BBBP,\nHIV, Tox21)"],
+        # derived from TASK_GROUP, never hardcoded again: these read "ESOL / BBBP / HIV" for a day
+        # after the canonical migration because they were a separate literal from GROUP_MEMBERS
+        # derived from the DRAWN columns, not from TASKS: a task dropped by the cross-wave guard
+        # must not be named in the group label (Tox21 reappeared here on 2026-08-19 for exactly
+        # that reason). Wrapped, because the bioassay group is four names wide.
+        def _members(g):
+            ms = [t for t in H.columns if TASK_GROUP[t] == g]
+            return ", ".join(ms) if len(ms) < 3 else ", ".join(ms[:2]) + ",\n" + ", ".join(ms[2:])
+        axS.set_xticklabels([f"property\n({_members('property')})",
+                             f"bioassay\n({_members('bioassay')})"],
                             fontsize=FS["annot"])
     else:
         axS.set_xticklabels([GROUP_LABEL[g] for g in GROUPS], fontsize=FS["annot"])

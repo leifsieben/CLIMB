@@ -288,7 +288,11 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     ax0.axhline(0, color=SHADES["random"][0], lw=0.6)
     vals = [b[1] for b in bars]; errs = [b[2] for b in bars]
     lo_, hi_ = min(0, *(v - e for v, e in zip(vals, errs))), max(0, *(v + e for v, e in zip(vals, errs)))
-    ax0.set_ylim(lo_ - abs(lo_) * 0.35 - 2, hi_ + abs(hi_) * 0.35 + 3)
+    # Pad proportionally to the DRAWN RANGE, not to |lo_|. The old form scaled the bottom pad with
+    # the magnitude of the lowest bar, so a -7.5 whisker pushed the floor past -10 and left a third
+    # of the panel empty (user 2026-08-19).
+    span_ = max(hi_ - lo_, 1e-9)
+    ax0.set_ylim(lo_ - 0.12 * span_, hi_ + 0.18 * span_)
     ax0.set_xticks(xpos)
     ax0.set_xticklabels([b[0] for b in bars], fontsize=FS["annot"])
     ax0.set_ylabel(f"lift over {FLOOR_LABEL} (%)")

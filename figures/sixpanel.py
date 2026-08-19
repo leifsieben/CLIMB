@@ -264,8 +264,24 @@ def joint_molnet_subdirs(task, groups):
     """
     from scripts.six_panel_aggregate import FD as _FD  # noqa: F401  (same FD, via the loaded module)
     cands = NATIVE_SUBDIRS.get(task, ("moleculenet_cv",))
+
+    def _usable(root, d, sub):
+        """A corrected subdir counts only if it was produced in the REFERENCE environment.
+
+        The 20 ablation/lrsweep runs whose Tox21 predictions were pre-fix had to be re-evaluated
+        against the checkpoints, on a box whose RDKit/DeepChem parses 7,831 Tox21 molecules where
+        the reference environment parses 7,823. They are scored on the shared molecule set and each
+        records `reference_scoring.json` (rows_kept 77,214 of 77,864), but a ~0.0075 offset from
+        environment drift remains -- 15-40% of the Tox21 lifts these figures measure. So the
+        marker's PRESENCE disqualifies the run from a cross-tree comparison: it is a fresh
+        measurement, not a restoration. Without this the directory simply appears and the task is
+        silently re-admitted, which is exactly what happened on 2026-08-19.
+        """
+        d_ = _spa.FD / root / d / sub
+        return d_.exists() and not (d_ / "reference_scoring.json").exists()
+
     have = [sub for sub in cands
-            if all(any((_spa.FD / root / d / sub).exists() for d in dirs) for root, dirs in groups)]
+            if all(any(_usable(root, d, sub) for d in dirs) for root, dirs in groups)]
     if task in CORRECTION_TASKS:
         # ONLY the corrected subdir will do. Falling back to the shared stale one would give a lift
         # of two wrong numbers -- internally consistent and still wrong, because the correction is

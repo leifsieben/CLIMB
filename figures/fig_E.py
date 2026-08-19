@@ -82,7 +82,18 @@ PANELS = [
 ]
 
 
-def draw(fig, ax, d, series, tag, subtitle, ylim):
+def _lim(sub, pad_lo=0.08, pad_hi=0.30):
+    """Per-panel y-range. Module scope so figures/fig_EF.py reuses the identical rule."""
+    lo = min((sub.lift_pct - sub.lift_sd_pct.fillna(0)).min(), 0)
+    hi = (sub.lift_pct + sub.lift_sd_pct.fillna(0)).max()
+    sp = hi - lo
+    return lo - pad_lo * sp, hi + pad_hi * sp
+
+
+def draw(fig, ax, d, series, tag, subtitle, ylim, compact=False):
+    """`compact` = the assembled fig_EF, where these panels occupy a narrow left column: the
+    subtitle must not run past the axes into the neighbouring block, and the legend must not sit
+    on the bars (panel b has five series against short bars)."""
     x = np.arange(len(TASKS))
     n = len(series)
     w = 0.80 / n
@@ -117,8 +128,15 @@ def draw(fig, ax, d, series, tag, subtitle, ylim):
     ax.text(0.0, 1.03, subtitle, fontsize=FS["title"], fontweight="bold", va="bottom", ha="left",
             color=STYLE["ink"],
             transform=ax.transAxes + ScaledTranslation(13 / 72, 0, fig.dpi_scale_trans))
-    ax.legend(loc="upper right", frameon=False, fontsize=FS["legend"],
-              ncol=1, handletextpad=0.5, borderpad=0.2, labelspacing=0.25)
+    if compact:
+        # INSIDE the axes, two columns, with extra headroom bought by the caller's ylim -- a legend
+        # below the axes collided with the assembled figure's own bottom legend.
+        ax.legend(loc="upper left", ncol=2, frameon=False, fontsize=FS["legend"] - 1,
+                  handletextpad=0.4, columnspacing=0.8, borderpad=0.0, labelspacing=0.2,
+                  handlelength=1.2)
+    else:
+        ax.legend(loc="upper right", frameon=False, fontsize=FS["legend"],
+                  ncol=1, handletextpad=0.5, borderpad=0.2, labelspacing=0.25)
 
 
 def main():
@@ -129,12 +147,6 @@ def main():
     # bigram partial, unigram at the floor) lives between 0 and 30%. Each panel is now scaled to
     # its own data. The axes are both "% lift over the same floor", so a reader compares by
     # reading values, not bar heights — the tick labels carry % for exactly that reason.
-    def _lim(sub, pad_lo=0.08, pad_hi=0.30):
-        lo = min((sub.lift_pct - sub.lift_sd_pct.fillna(0)).min(), 0)
-        hi = (sub.lift_pct + sub.lift_sd_pct.fillna(0)).max()
-        sp = hi - lo
-        return lo - pad_lo * sp, hi + pad_hi * sp
-
     ylims = {panel: _lim(d[d.panel == panel]) for panel, _, _, _ in PANELS}
 
     # With the per-bar labels gone, panel b no longer needs extra width to keep them apart, so the

@@ -94,8 +94,64 @@ FEATURES = [("fp+desc", "ECFP4 + descriptors (classical anchor)", SHADES["anchor
 BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
 
+def compute():
+    """The concatenation table. Exposed so figures/fig_EF.py can assemble this figure with fig_E
+    without re-implementing (and therefore drifting from) the analysis."""
+    return pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
+
+
+def draw_panel(ax, d, p, compact=False):
+    """Draw ONE canonical panel onto an existing axes. `compact` narrows the bars and drops the
+    y-label, for the assembled fig_EF where six panels share the right-hand half of the canvas."""
+    meta = PANELS[p]
+    task = PANEL_TASK[p]
+    arrow = "↑" if meta["higher_better"] else "↓"
+    ax.set_title(f"{meta['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
+                 color=INK, pad=3)
+    if not compact:
+        ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"], color=INK)
+    ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
+    ax.set_axisbelow(True)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    if task is None:
+        ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
+                ha="center", va="center", fontsize=FS["annot"], color=INK)
+        ax.set_xticks([]); ax.set_yticks([])
+        return
+    metric = PRIMARY[task]
+    g = d[(d.task == task) & (d.metric == metric)].set_index("features")
+    x = np.arange(len(FEATURES))
+    ys = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
+    es = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
+    es = [0.0 if not np.isfinite(e) else e for e in es]
+    cs = [c for _, _, c in FEATURES]
+    ax.bar(x, ys, width=0.58 if compact else 0.72, color=cs, edgecolor=INK, linewidth=0.7,
+           yerr=es, error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9, ecolor=INK, zorder=6),
+           zorder=3)
+    ax.axhline(ys[0], color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
+    ax.set_xticks(x)
+    ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"],
+                       fontsize=FS["annot"] - (1 if compact else 0))
+    ax.xaxis.set_minor_locator(ticker.NullLocator())
+    ax.tick_params(axis="x", which="minor", bottom=False)
+    if compact:
+        ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
+    lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
+    hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
+    pad = 0.30 * max(hi - lo, 1e-9)
+    y0, y1 = lo - pad, hi + pad
+    if meta["metric"] == "roc_auc":
+        y1 = min(y1, 1.0)
+    ax.set_ylim(y0, y1)
+
+
+def legend_handles():
+    return [Patch(facecolor=c, edgecolor=INK, lw=0.8, label=lab) for _, lab, c in FEATURES]
+
+
 def main():
-    d = pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
+    d = compute()
 
     # ---- data record: every task the experiment covers, not just the canonical panels ----
     rows = []
@@ -129,54 +185,9 @@ def main():
     # ---- the figure: canonical six ----
     fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 5.1))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
-        meta = PANELS[p]
-        task = PANEL_TASK[p]
-        arrow = "↑" if meta["higher_better"] else "↓"
-        ax.set_title(f"{meta['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
-                     color=INK, pad=4)
-        ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"], color=INK)
-        ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
-        ax.set_axisbelow(True)
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
+        draw_panel(ax, d, p)
 
-        if task is None:
-            ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
-                    ha="center", va="center", fontsize=FS["annot"], color=INK)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            continue
-
-        metric = PRIMARY[task]
-        g = d[(d.task == task) & (d.metric == metric)].set_index("features")
-        x = np.arange(len(FEATURES))
-        ys = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-        # a cell with a single replicate has no SD; draw NO whisker rather than borrow one from
-        # elsewhere, which would not be the same estimand (same rule as fig_E). Ames is currently
-        # the only such panel -- its concat runs are 1 seed per feature set.
-        es = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-        es = [0.0 if not np.isfinite(e) else e for e in es]
-        cs = [c for _, _, c in FEATURES]
-        ax.bar(x, ys, width=0.72, color=cs, edgecolor=INK, linewidth=0.8,
-               yerr=es, error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
-                                      ecolor=INK, zorder=6), zorder=3)
-        # the classical anchor as a reference line makes "does adding CLIMB beat it?" readable
-        ax.axhline(ys[0], color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
-        ax.set_xticks(x)
-        # The three CLIMB bars read as a cumulative build-up: CLIMB alone, then descriptors
-        # added, then the fingerprint added. The classical anchor keeps its own name.
-        ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"])
-        ax.xaxis.set_minor_locator(ticker.NullLocator())
-        ax.tick_params(axis="x", which="minor", bottom=False)
-        lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
-        hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
-        pad = 0.30 * max(hi - lo, 1e-9)
-        y0, y1 = lo - pad, hi + pad
-        if meta["metric"] == "roc_auc":
-            y1 = min(y1, 1.0)
-        ax.set_ylim(y0, y1)
-
-    handles = [Patch(facecolor=c, edgecolor=INK, lw=0.8, label=lab) for _, lab, c in FEATURES]
+    handles = legend_handles()
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=4,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
                borderpad=0.0, frameon=False, labelcolor=INK)
