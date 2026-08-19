@@ -677,6 +677,103 @@ def check_invariant_arms():
     return bad
 
 
+def check_regression_units():
+    """Every regression summary must agree with the RMSE recomputed from its OWN prediction dump.
+
+    This is the general form of check 9, and it exists because check 9 was not general enough.
+    Check 9 separates QM7's two conventions by MAGNITUDE (native ~200 kcal/mol, z-scored ~0.9),
+    which works only because that gap is three orders wide. ESOL's native RMSE runs 0.7-1.5 and its
+    z-scored 0.35-0.75; Lipophilicity's two conventions differ by a factor of 1.2. There is no
+    threshold that separates those, and both shipped corrupted for months underneath a passing
+    check 9.
+
+    Recomputation needs no thresholds and no prior knowledge of which convention a file is in: if
+    the summary says 0.4391 and the dir's own predictions say 0.9110, one of the two is wrong
+    regardless of what either is supposed to mean. That found 78 ESOL dirs and 42 Lipophilicity
+    dirs, including the arms feeding fig_A1's 66-dataset ranking, where a halved CLIMB value was
+    being ranked against native anchors.
+
+    NOTE the two exemptions, both real rather than convenient:
+      * Whole roots evaluated in z-scored space (climb_v2_ablation_dedup, climb_v2_lrsweep) are
+        internally CONSISTENT -- summary and dump agree -- so they pass on their own terms. They
+        are a different convention, not a corruption, and rebuilding them would be a no-op that
+        merely made them look handled.
+      * QM7's read path (moleculenet_cv_qm7native/_qm7clamped) carries no dumps, so it cannot be
+        recomputed here. Check 9 covers it by value, which for QM7 is sound.
+    """
+    print(f"\n{'='*94}\n14. REGRESSION SUMMARIES vs THEIR OWN PREDICTIONS\n{'='*94}")
+    import csv as _csv, math, statistics as _st, collections
+    from figures.sixpanel import NATIVE_SUBDIRS
+    FD = ROOT / "figure_data"
+    bad = collections.defaultdict(list)
+    superseded = collections.Counter()
+    checked = 0
+
+    def reader_subdir(rundir, ds):
+        """The subdir a FIGURE would resolve for this (run dir, dataset) -- same precedence the
+        readers use. Checking any other copy is checking data nobody draws: after the 2026-08-19
+        rebuild the original moleculenet_cv/ still holds the z-scored ESOL and always will, so a
+        naive sweep reports 120 permanent failures for numbers no figure reads. That is precisely
+        the crying-wolf failure check 11 had, and it ends the same way -- follow the redirect."""
+        for cand in NATIVE_SUBDIRS.get(ds, ("moleculenet_cv",)):
+            if (rundir / cand / "moleculenet_summary.csv").exists():
+                return cand
+        return "moleculenet_cv"
+
+    for summ in sorted(FD.glob("*/*/moleculenet_cv*/moleculenet_summary.csv")):
+        dump = summ.parent / "test_predictions.csv"
+        if not dump.exists():
+            continue                      # e.g. the QM7 native subdirs; check 9 covers those
+        vals = collections.defaultdict(list)
+        for r in _csv.DictReader(summ.open()):
+            if (r.get("main_metric") == "rmse" and r.get("head_seed") not in ("MEAN", "STD")
+                    and r.get("main_value") not in ("", "nan", None)):
+                try:
+                    vals[r["dataset"]].append(float(r["main_value"]))
+                except ValueError:
+                    pass
+        if not vals:
+            continue
+        agg = collections.defaultdict(lambda: [0.0, 0])
+        for r in _csv.DictReader(dump.open()):
+            try:
+                a = agg[r["dataset"]]
+                a[0] += (float(r["y_true"]) - float(r["y_pred"])) ** 2
+                a[1] += 1
+            except (KeyError, ValueError):
+                pass
+        for ds, vs in vals.items():
+            if agg[ds][1] < 50:
+                continue
+            if summ.parent.name != reader_subdir(summ.parent.parent, ds):
+                superseded[ds] += 1          # an older copy the figures do not read
+                continue
+            checked += 1
+            got, truth = _st.mean(vs), math.sqrt(agg[ds][0] / agg[ds][1])
+            if truth and abs(got / truth - 1) > 0.10:
+                rel = summ.parent.parent.parent.name + "/" + summ.parent.parent.name
+                bad[ds].append((rel, summ.parent.name, got, truth, truth / got))
+    if superseded:
+        print("  (skipped as superseded, not read by any figure: "
+              + ", ".join(f"{ds} {n}" for ds, n in sorted(superseded.items())) + ")")
+    if not bad:
+        print(f"  OK - all {checked} regression summary/dump pair(s) a figure reads agree within 10%")
+        return 0
+    for ds in sorted(bad):
+        rs = bad[ds]
+        ratios = sorted({round(r[4], 1) for r in rs})
+        print(f"  FAIL  {ds:<15} {len(rs)} dir(s) disagree with their own predictions, "
+              f"ratio(s) ~{ratios}")
+        for rel, sub, got, truth, ratio in rs[:3]:
+            print(f"        {rel}/{sub}: summary {got:.4f} vs recomputed {truth:.4f} (x{ratio:.2f})")
+        if len(rs) > 3:
+            print(f"        ... and {len(rs) - 3} more")
+    print(f"  {sum(len(v) for v in bad.values())} of {checked} pair(s) disagree - a summary and "
+          f"the predictions beside it cannot both be right; rebuild with "
+          f"scripts/regression_native_rebuild.py")
+    return len(bad)
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
@@ -684,7 +781,7 @@ def main():
                  check_comparator_scope(), check_bar_vs_ci(),
                  check_qm7_convention(), check_tox21_vintage(),
                  check_replication_parity(), check_aggregate_freshness(),
-                 check_invariant_arms()])
+                 check_invariant_arms(), check_regression_units()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

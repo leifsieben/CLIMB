@@ -51,15 +51,26 @@ per-dataset weighting and the frozen-vs-fine-tuned protocol above -- and the def
 that a descriptor-bearing classical anchor is the best model here, with CheMeleon competitive on
 MoleculeACE and Polaris when it is allowed to fine-tune.
 
-THE TOP TWO ROWS ARE A TIE AND MUST BE QUOTED AS ONE. R3FP+desc reads 3.88 +/- 1.25 and
-ECFP4+desc 3.97 +/- 1.12: a difference of 0.09 against a difference-SE of 1.68, i.e. 0.05 SE.
+THE TOP TWO ROWS ARE A TIE AND MUST BE QUOTED AS ONE. R3FP+desc reads 3.31 +/- 0.77 and
+ECFP4+desc 3.40 +/- 0.67: a difference of 0.09 against a difference-SE of 1.02, i.e. 0.09 SE.
 R3FP+desc sorts to the top of this table and IS NOT "the new best model" -- the fingerprint
 generation makes no measurable difference to the headline once the descriptor block is present.
-The bare pair is where the generation shows: R3FP 6.17 against ECFP4 8.32, still only 0.75
+The bare pair is where the generation shows: R3FP 5.82 against ECFP4 8.32, still only 1.0
 SE on mean rank, but same-signed on every panel (Ames +0.015, MoleculeACE -0.016 RMSE, Tox21
 +0.016, HIV +0.028). Read together with fig_A2 and fig_G that is one finding, not three: counts
 supply what the descriptor block was supplying, and adding descriptors on top of them buys almost
 nothing.
+
+THESE NUMBERS MOVED ON 2026-08-19 AND THE REASON MATTERS. ESOL and Lipophilicity summaries in 78
+run dirs were STANDARDIZED RMSEs carrying a native label, so a z-scored value -- roughly half the
+native one for ESOL, whose label SD is 2.0955 -- was being ranked against native values from the
+arms that had been re-run. It flattered every CLIMB arm and penalised every classical anchor:
+ECFP4+desc ranked 14th of 20 on ESOL and now ranks 2nd, while CLIMB supervised-mixed fell from 1st
+to 4th. The headline anchors gained ~0.5 mean rank and their SEs nearly halved (1.25 -> 0.77),
+because that one corrupted column had been an outlier for them. The order of the top four is
+unchanged. Rebuilt from each run's own predictions into moleculenet_cv_regnative/ and picked up
+through sixpanel.NATIVE_SUBDIRS; audit check 14 now recomputes every regression summary from its
+own dump so this cannot recur silently.
 
 CONSISTENT WITH THE CHEMELEON PAPER, and worth saying so explicitly (Burns et al.,
 arXiv:2506.15792v2). They evaluate on Polaris + MoleculeACE -- 58 datasets, which is EXACTLY the
