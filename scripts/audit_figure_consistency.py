@@ -487,6 +487,63 @@ def check_replication_parity():
 
 
 
+def check_aggregate_freshness():
+    """The derived tables must be NEWER than every run directory they summarise.
+
+    This is the failure that produced stale figures on 2026-08-19 and gave no warning at all:
+    the peer session re-ran the anchors with the stereo fix at 11:56, mainline_8M.csv had been
+    written at 11:35, and every figure downstream kept drawing stereo-blind numbers. Re-running
+    six_panel_aggregate is a MANUAL step with nothing anywhere in the chain checking that it
+    happened, so "the data landed" and "the figures show it" were two different facts and only
+    one of them was visible.
+
+    Compares each derived table's mtime against the newest moleculenet_summary.csv /
+    suite_summary.json / results.csv under the arms it reads. Cheap, and it fails loudly on the
+    exact thing that is otherwise invisible.
+    """
+    print(f"\n{'='*94}\n12. AGGREGATE FRESHNESS (derived tables newer than their inputs)\n{'='*94}")
+    import os
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from figures.arms import ARMS
+    fd = ROOT / "figure_data"
+    newest, newest_src = 0.0, None
+    for arm, meta in ARMS.items():
+        src = meta.get("src", {})
+        names = []
+        for key in ("mol", "mace"):
+            v = src.get(key)
+            names += (list(v) if isinstance(v, (list, tuple)) else [v]) if v else []
+        for n in names:
+            for root in ("climb_v2_phase2", "cbs_benchmark", "chemeleon_suite/moleculeace",
+                         "chemeleon_suite/polaris"):
+                for pat in ("moleculenet_summary.csv", "suite_summary.json", "results.csv",
+                            "polaris_scores.csv"):
+                    for f in (fd / root / n).glob(f"**/{pat}"):
+                        t = f.stat().st_mtime
+                        if t > newest:
+                            newest, newest_src = t, f
+    bad = 0
+    for tbl in ("six_panel/mainline_8M.csv", "six_panel/scaling_ladders.csv",
+                "six_panel/a2_errorbars.csv"):
+        f = fd / tbl
+        if not f.exists():
+            continue
+        age = f.stat().st_mtime
+        if newest_src is not None and age < newest - 60:      # 60s slack for a run in flight
+            import datetime as _d
+            print(f"  FAIL  {tbl} is OLDER than its inputs "
+                  f"({_d.datetime.fromtimestamp(age):%m-%d %H:%M} vs "
+                  f"{_d.datetime.fromtimestamp(newest):%m-%d %H:%M}, "
+                  f"{newest_src.relative_to(fd)}) - re-run the aggregator")
+            bad += 1
+        else:
+            print(f"  OK    {tbl}")
+    if not bad:
+        print("  OK - every derived table is newer than the runs it summarises")
+    return bad
+
+
+
 def check_qm7_convention():
     """Every QM7 value a figure draws must be in ONE convention, tested by VALUE not by path.
 
@@ -556,7 +613,7 @@ def main():
                  check_estimand(), check_panelset(), check_geometry(),
                  check_comparator_scope(), check_bar_vs_ci(),
                  check_qm7_convention(), check_tox21_vintage(),
-                 check_replication_parity()])
+                 check_replication_parity(), check_aggregate_freshness()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

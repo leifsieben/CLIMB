@@ -41,7 +41,7 @@ MOL = {"BACE": ("auc", "climb_v2_phase2"), "Tox21": ("auc", "climb_v2_phase2"),
 # reading that CheMeleon beats the classical anchor as a representation. It does not -- frozen, it
 # is best on 0 of 30 MoleculeACE targets (0.8256 macro RMSE vs ECFP+desc 0.6757) where fine-tuned
 # it is best on 21. Both bars belong in the panel so the gap between them is visible.
-A2_ARMS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
+A2_ARMS = ["ecfp", "ecfp_desc", "r3fp", "r3fp_desc", "sup_dense", "unsup", "u2s_dense",
            "random_encoder", "e2e_no_pretrain", "chemeleon_frozen", "chemeleon_e2e"]
 
 

@@ -44,7 +44,12 @@ FAMILY_COLORS = {
 
 # shade ladders (dark -> light) used for scaling/ablation plots that need more than one member
 SHADES = {
-    "anchor": ["#C8912F", "#8A5F1B", "#E0BC80"],          # ECFP4+desc amber, ECFP4 dark amber
+    # [0] ECFP4+desc, [1] ECFP4, [2] spare, [3] r3-counts+desc, [4] r3-counts. FOUR XGBoost arms
+    # as of 2026-08-19 (user: "I'd like to have our r3-fp + descriptors as the third XGBoost model.
+    # Let's actually include r3-fp too"), so the anchor family needs four separable ambers rather
+    # than two. The ladder runs light -> dark and the two r3-counts arms sit at the ends, so a
+    # reader can tell the fingerprint generation apart at a glance even in greyscale.
+    "anchor": ["#C8912F", "#8A5F1B", "#E0BC80", "#EBD3A6", "#4E340B"],
     "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6"],
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
@@ -101,6 +106,27 @@ ARMS = {
         in_ablation=True,
         src=dict(mace="fp_desc", cbs="fp_desc",
                  mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
+
+    # The r3-counts fingerprint as its OWN pair of arms rather than a replacement. Leif asked for
+    # both generations reported (2026-08-19): the orthodox ECFP4+stereo is the headline anchor and
+    # this is the variant, chosen by the peer session on a collision measure over 29,918 molecules
+    # -- Morgan radius 3, COUNT vector, chirality on, 2048-d, FP_VARIANT=morgan_r3_counts.
+    # Same XGBoost head, same splits, same seeds, same everything else, so the pair is a clean
+    # read on what the fingerprint generation buys: counts help bare ECFP on the harder panels
+    # (Tox21 +0.016, HIV +0.028, QM7 -0.96) and wash out once descriptors are present.
+    # MoleculeACE and Ames are still missing here (peer session is running them); until they land
+    # these two arms fall below fig_A1's 60-of-66 coverage floor and simply will not be drawn,
+    # which is the correct behaviour rather than a partial ranking.
+    "r3fp": dict(
+        label="Morgan r3c", short="Morgan r3c", family="anchor", color=SHADES["anchor"][4],
+        probe="xgb", in_ablation=False,
+        src=dict(mace="ecfp4_r3c", cbs="ecfp4_r3c",
+                 mol=["ecfp4_anchor_r3c", "ecfp4_anchor_s1_r3c", "ecfp4_anchor_s2_r3c"])),
+    "r3fp_desc": dict(
+        label="Morgan r3c+desc", short="Morgan r3c+desc", family="anchor",
+        color=SHADES["anchor"][3], probe="xgb", in_ablation=False,
+        src=dict(mace="fp_desc_r3c", cbs="fp_desc_r3c",
+                 mol=["fp_desc_anchor_r3c", "fp_desc_anchor_s1_r3c", "fp_desc_anchor_s2_r3c"])),
 
     # ---- supervised pretraining (red) -------------------------------------------------------
     "sup_dense": dict(

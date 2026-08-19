@@ -73,7 +73,12 @@ CLIMB_HATCH = "...."          # small black dots mark the CLIMB models (density 
 # REPRESENTATION: frozen, CheMeleon is best on 0 of 30 MoleculeACE targets (macro RMSE 0.8256 vs
 # ECFP+desc 0.6757); fine-tuned, it is best on 21 of 30. The two bars side by side are the honest
 # version of that, and they isolate what fine-tuning is worth on a message-passing network.
-MODELS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
+# The four XGBoost anchors sit together at the front so the fingerprint-generation comparison
+# (ECFP4+stereo vs Morgan r3-counts, each with and without descriptors) reads as one block rather
+# than being scattered through the CLIMB arms. r3fp/r3fp_desc are missing MoleculeACE and Ames
+# until the peer session's suite runs land; those two panels draw a gap for them rather than a
+# zero, which is the honest rendering of "not run yet".
+MODELS = ["ecfp", "ecfp_desc", "r3fp", "r3fp_desc", "sup_dense", "unsup", "u2s_dense",
           "e2e_no_pretrain", "random_encoder", "chemeleon_frozen", "chemeleon_e2e"]
 # 2026-08-17: was "chemeleon", a single arm labelled "end2end" but sourced from chemeleon_FROZEN --
 # which is what put the frozen arm's broken QM7 value (268.8, fold2=434, worse than a constant
