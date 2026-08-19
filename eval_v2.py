@@ -282,6 +282,26 @@ def _encoder_features(encoder, tokenizer, smiles: List[str], device, pool_mode: 
 _CHEMELEON_FP = None
 
 
+def _load_feature_table(path: str) -> dict:
+    """{canonical SMILES: vector} from an .npz holding `smiles` and `X`."""
+    z = np.load(path, allow_pickle=True)
+    smi, X = z["smiles"], z["X"]
+    if len(smi) != len(X):
+        raise ValueError(f"{path}: {len(smi)} smiles but {len(X)} vectors")
+    print(f"  [features] {len(smi)} precomputed vectors ({X.shape[1]}d) from {path}", flush=True)
+    return {str(s): X[i] for i, s in enumerate(smi)}
+
+
+def _lookup_features(table: dict, smiles) -> np.ndarray:
+    """Strict lookup. A miss RAISES: silently mean-filling would fabricate a molecule's
+    representation and quietly change the score, which is exactly the class of error this
+    split-featurization path exists to avoid."""
+    miss = [s for s in smiles if str(s) not in table]
+    if miss:
+        raise KeyError(f"{len(miss)} SMILES absent from the feature table, e.g. {miss[:3]}")
+    return np.asarray([table[str(s)] for s in smiles], dtype=np.float32)
+
+
 def _chemeleon_features(smiles: List[str], device, batch_size: int = 512) -> np.ndarray:
     """Fixed CheMeleon D-MPNN embedding (Burns et al. 2025, descriptor-pretrained graph model) per
     molecule — a frozen EXTERNAL featurizer, standardized then fed to the identical head our own
@@ -396,6 +416,7 @@ def evaluate(
     standardize: str = "zscore",
     head: str = "mlp",
     max_length: int = 256,
+    features_npz: Optional[str] = None,
     train_subsample: Optional[int] = None,
     subsample_seed: int = 0,
     cv_folds: Optional[int] = None,
@@ -428,6 +449,14 @@ def evaluate(
     # the SAME 217 descriptors used directly in a tree model vs learned by the CLM.
     std_method = "none" if featurizer in ("ecfp4", "rdkit_desc", "fp_desc") else standardize
 
+    # CheMeleon needs chemprop>=2.2 (Python >=3.11); the environment that DEFINES our Tox21
+    # numbers is Python 3.9 with deepchem 2.8.0, and deepchem 2.8.0 has no 3.12 wheel -- the two
+    # cannot coexist. Rather than accept the ~0.008 Tox21 drift that mismatched environments
+    # produce (the drift that already cost us a figure column), featurization is split out: a
+    # 3.12 box turns SMILES into vectors, and every parsing, fold and scoring decision stays
+    # here in the reference environment. --features_npz supplies that precomputed table.
+    _feature_table = _load_feature_table(features_npz) if features_npz else None
+
     def _featurize(smiles):
         if featurizer == "ecfp4":
             return np.asarray(ecfp4_features(smiles))
@@ -445,6 +474,8 @@ def evaluate(
             d[~np.isfinite(d)] = np.nan
             return np.concatenate([fp, d], axis=1)
         if featurizer == "chemeleon":
+            if _feature_table is not None:
+                return _lookup_features(_feature_table, smiles)
             return _chemeleon_features(smiles, device)
         return _encoder_features(encoder, tokenizer, smiles, device, pool_mode, max_length)
 
@@ -639,6 +670,11 @@ def main():
     p.add_argument("--standardize", choices=["zscore", "pca_whiten", "none"], default="zscore")
     p.add_argument("--head", choices=["linear", "mlp", "xgb"], default="mlp")
     p.add_argument("--max_length", type=int, default=256)
+    p.add_argument("--features_npz", default=None,
+                   help="Precomputed {smiles: vector} table (.npz with `smiles` and `X`), used "
+                        "instead of running the featurizer in-process. Lets CheMeleon embeddings "
+                        "be produced in a chemprop>=2.2 environment while scoring stays in the "
+                        "reference environment that defines the published numbers.")
     p.add_argument("--train_subsample", type=int, default=None)
     p.add_argument("--subsample_seed", type=int, default=0)
     p.add_argument("--cv_folds", type=int, default=None,
@@ -666,6 +702,7 @@ def main():
     evaluate(
         encoder_path=args.encoder, tokenizer_path=args.tokenizer, output_dir=args.output_dir,
         head_seeds=args.head_seeds, datasets=ds_list, featurizer=args.featurizer,
+        features_npz=args.features_npz,
         pool_mode=args.pool, standardize=args.standardize, head=args.head,
         max_length=args.max_length, train_subsample=args.train_subsample,
         subsample_seed=args.subsample_seed, cv_folds=args.cv_folds,
