@@ -78,13 +78,17 @@ PHASE2 = ROOT / "figure_data" / "climb_v2_phase2"
 RIGOR = ROOT / "analysis" / "rigor"
 OUT = ROOT / "figure_data" / "fig_E" / "fig_E_lift.csv"
 
-TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
+TASKS = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]
 LOWER_BETTER = {"MoleculeACE", "QM7"}
-METRIC = {"MoleculeACE": "rmse", "CBS": "nef1", "BACE": "roc_auc",
+METRIC = {"MoleculeACE": "rmse", "HIV": "nef1", "BACE": "roc_auc",
           "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 # The three panels that come from the benchmark trees rather than the MolNet suite summaries.
-BENCH = {"MoleculeACE", "CBS", "Ames"}
-MOLNET = [t for t in TASKS if t not in BENCH]                      # BACE, Tox21, QM7
+# HIV replaced CBS on 2026-08-19 and moved OUT of BENCH: it lives in the MoleculeNet CV tree, so
+# it is read by the same path as BACE/Tox21/QM7 -- including the expA/expB ladder summaries, which
+# carry HIV nef1 for every rung (verified: 5 folds on bigram/unigram/wiki/shuffled and the
+# baselines). CBS had needed its own tree and its own reader.
+BENCH = {"MoleculeACE", "Ames"}
+MOLNET = [t for t in TASKS if t not in BENCH]                      # HIV, BACE, Tox21, QM7
 
 def seeds(base: str) -> list[str]:
     return [base, f"{base}_s1", f"{base}_s2"]
@@ -155,7 +159,12 @@ def molnet_run_value(run: str, task: str) -> float:
         d = PHASE2 / run / sub
         p_ = d / "suite_summary.json"
         if p_.exists():
-            v = _json.load(open(p_)).get(f"{task}_MEAN")
+            # <DS>_MEAN holds the dataset's PRIMARY metric. HIV's panel metric is NEF1%, which is
+            # not primary, so it needs the explicit key -- otherwise the supervised side of the
+            # lift silently returns HIV ROC-AUC (0.746) against a NEF1% floor (0.541).
+            m = METRIC[task]
+            v = _json.load(open(p_)).get(
+                f"{task}_MEAN" if m in ("roc_auc", "rmse") else f"{task}_{m}_MEAN")
             if v is not None:
                 return float(v)
         # the rebuilt qm7native dirs carry only moleculenet_summary.csv (no suite json), so fall
@@ -164,8 +173,8 @@ def molnet_run_value(run: str, task: str) -> float:
         if c.exists():
             import csv as _csv
             vals = [float(r["main_value"]) for r in _csv.DictReader(open(c))
-                    if r["dataset"] == task and r["head_seed"].startswith("fold")
-                    and r["main_value"] not in ("", "nan")]
+                    if r["dataset"] == task and r["main_metric"] == METRIC[task]
+                    and r["head_seed"].startswith("fold") and r["main_value"] not in ("", "nan")]
             if vals:
                 return float(np.mean(vals))
     return np.nan

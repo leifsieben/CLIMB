@@ -36,7 +36,7 @@ POLARIS_PANEL, POLARIS_TASK = "Ames", "tdcommons/ames"
 POLARIS_NPOS, POLARIS_NNEG = 777, 680
 FD = ROOT / "figure_data"
 MOL = {"BACE": ("auc", "climb_v2_phase2"), "Tox21": ("auc", "climb_v2_phase2"),
-       "QM7": ("rmse", "climb_v2_phase2"), "CBS": ("nef1", "cbs_benchmark")}
+       "QM7": ("rmse", "climb_v2_phase2"), "HIV": ("nef1", "climb_v2_phase2")}
 A2_ARMS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
            "random_encoder", "e2e_no_pretrain", "chemeleon_e2e"]
 

@@ -63,7 +63,18 @@ ARM_ORDER = ["real (unsup_only)", "shuffle_tokens", "bigram_resample", "unigram_
              "no_pretrain (frozen)", "no_pretrain (e2e)"]
 
 
+# HIV took CBS's rare-active-screen slot in the canonical six on 2026-08-19 and is scored on NEF1%,
+# which is NOT the dataset's primary metric -- so the ladder has to emit it explicitly or fig_E's
+# unsupervised panel silently plots HIV ROC-AUC against a NEF1% floor.
+EXTRA_METRICS = {"HIV": ["nef1"]}
+
+
 def _read_cv(wave: str, run_id: str) -> pd.DataFrame | None:
+    # prefer a locally synced copy; fall back to S3
+    local = Path(__file__).resolve().parent.parent / "figure_data" / wave / run_id / \
+        "moleculenet_cv" / "moleculenet_summary.csv"
+    if local.exists():
+        return pd.read_csv(local)
     uri = f"{BUCKET}/{wave}/{run_id}/moleculenet_cv/moleculenet_summary.csv"
     r = subprocess.run(["aws", "s3", "cp", uri, "-"], capture_output=True)
     if r.returncode != 0:
@@ -88,15 +99,16 @@ def main() -> int:
             if arm == "no_pretrain (e2e)" and ttype == "regression":
                 continue
             primary = "rmse" if ttype == "regression" else "roc_auc"
-            gg = g[g.main_metric == primary]
-            if gg.empty:
-                continue
-            rows.append({
-                "arm": arm, "run_id": run_id, "seed": seed, "wave": wave,
-                "dataset": ds, "task_type": ttype, "metric": primary,
-                "cv_value": float(gg.main_value.mean()),  # mean over the 5 folds
-                "n_folds": int(len(gg)),
-            })
+            for metric in [primary] + EXTRA_METRICS.get(ds, []):
+                gg = g[g.main_metric == metric]
+                if gg.empty:
+                    continue
+                rows.append({
+                    "arm": arm, "run_id": run_id, "seed": seed, "wave": wave,
+                    "dataset": ds, "task_type": ttype, "metric": metric,
+                    "cv_value": float(gg.main_value.mean()),  # mean over the 5 folds
+                    "n_folds": int(len(gg)),
+                })
 
     per_run = pd.DataFrame(rows)
     out = Path("analysis/rigor"); out.mkdir(parents=True, exist_ok=True)
@@ -109,15 +121,16 @@ def main() -> int:
     # ---- printed sanity: ladder per task ----
     print(f"\nwrote analysis/rigor/expA_ladder_per_run.csv ({len(per_run)} rows) and expA_ladder_summary.csv")
     for ds in sorted(per_run.dataset.unique()):
-        d = summ[summ.dataset == ds]
-        ttype = d.task_type.iloc[0]; metric = d.metric.iloc[0]
-        better = "lower" if metric == "rmse" else "higher"
-        print(f"\n=== {ds} ({metric}, {better}=better) ===")
-        d = d.set_index("arm")
-        for arm in ARM_ORDER:
-            if arm in d.index:
-                r = d.loc[arm]
-                print(f"  {arm:24} {r['mean']:.4f} ± {r['std']:.4f}  (n={int(r['n_seeds'])})")
+        # a dataset can now carry MORE THAN ONE metric (HIV: roc_auc + nef1), so loop over them --
+        # indexing by arm alone returned a Series per cell and crashed the format string.
+        for metric, dm in summ[summ.dataset == ds].groupby("metric"):
+            better = "lower" if metric == "rmse" else "higher"
+            print(f"\n=== {ds} ({metric}, {better}=better) ===")
+            dm = dm.set_index("arm")
+            for arm in ARM_ORDER:
+                if arm in dm.index:
+                    r = dm.loc[arm]
+                    print(f"  {arm:24} {r['mean']:.4f} ± {r['std']:.4f}  (n={int(r['n_seeds'])})")
     return 0
 
 

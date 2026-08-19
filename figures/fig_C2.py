@@ -102,13 +102,13 @@ ARM2FAM = {"seq_pcba": ["PCBA"],
 ARM_LABEL = {"seq_pcba": "PCBA", "seq_l1000": "L1000", "seq_pcqm": "PCQM",
              "seq_sparse_all": "sparse all"}
 
-TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]   # the paper's canonical six
+TASKS = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]   # the paper's canonical six
 LOWER_BETTER = {"MoleculeACE", "QM7"}                            # rmse; the rest are roc_auc/nef1
 # BACE / Tox21 / QM7 come from the MoleculeNet CV tree, so the ablation wave has its OWN copy of
 # them and the cross-wave floor check below applies. MoleculeACE / CBS / Ames are scored in shared
 # benchmark trees (chemeleon_suite/, cbs_benchmark/) where the ablation families and the floor are
 # siblings in ONE tree -- there is no second wave to drift against, so they are not checked.
-MOLNET_TASKS = ["BACE", "Tox21", "QM7"]
+MOLNET_TASKS = ["BACE", "Tox21", "QM7", "HIV"]
 
 FLOOR_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]  # phase2, end2end floor
 FROZEN_ABL = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]

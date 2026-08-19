@@ -108,21 +108,21 @@ FAM_MARKER = {"seq_mtr": "o", "seq_dense_plus_sparse": "s", "seq_pcba": "D",
               "seq_l1000": "v", "seq_pcqm": "^", "seq_sparse_all": "P"}
 SLOPE_FAMS = ["seq_mtr", "seq_sparse_all"]          # panel (c): only these two (user decision)
 
-TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]    # the paper's canonical six
+TASKS = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]    # the paper's canonical six
 # Panel (c) groups by LABEL TYPE, not by metric. MoleculeACE is a regression task but its labels
 # are ChEMBL potencies -- a context-dependent screen, exactly what "bioassay" means here -- so it
 # groups with the classifiers, not with QM7. That leaves QM7 as the canonical six's ONLY
 # descriptor-like task (the set drops ESOL and Lipophilicity), which is a real weakening of panel
 # (c)'s contrast: it is now 1 task vs 4, and vs 5 once Tox21 is restored. Flagged, not hidden.
 TASK_GROUP = {"QM7": "property",
-              "MoleculeACE": "bioassay", "CBS": "bioassay", "BACE": "bioassay",
+              "MoleculeACE": "bioassay", "HIV": "bioassay", "BACE": "bioassay",
               "Ames": "bioassay", "Tox21": "bioassay"}
 GROUPS = ["property", "bioassay"]
 GROUP_LABEL = {"property": "property\nregression", "bioassay": "bioassay\nclassification"}
 GROUP_MEMBERS = "descriptor-like: QM7          bioassay: MoleculeACE, CBS, BACE, Ames"
 LOWER_BETTER = {"MoleculeACE", "QM7"}                            # rmse; the rest are roc_auc/nef1
 # only these three live in the MolNet CV tree, so only these can drift between the two waves
-MOLNET_TASKS = ["BACE", "Tox21", "QM7"]
+MOLNET_TASKS = ["BACE", "Tox21", "QM7", "HIV"]
 
 FLOOR_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]
 FROZEN = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]

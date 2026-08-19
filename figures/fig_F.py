@@ -76,9 +76,9 @@ OUTDIR = ROOT / "figures_v2"
 DATADIR = ROOT / "figure_data" / "fig_F"
 
 # canonical panel -> task name in the source (None = experiment never run there)
-PANEL_TASK = {"MoleculeACE": "MoleculeACE", "CBS": "CBS", "BACE": "BACE",
+PANEL_TASK = {"MoleculeACE": "MoleculeACE", "HIV": "HIV", "BACE": "BACE",
               "Ames": "Ames", "Tox21": "Tox21", "QM7": "QM7"}
-PRIMARY = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "BACE": "roc_auc",
+PRIMARY = {"MoleculeACE": "macro_rmse", "HIV": "nef1", "BACE": "roc_auc",
            "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 LOWER_BETTER_METRIC = {"rmse", "macro_rmse"}
 # every task in the sources, for the CSV record (superset of the canonical panels)
@@ -100,7 +100,34 @@ def compute():
     return pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
 
 
-def draw_panel(ax, d, p, compact=False, tag=None, fig=None):
+# Panels that share a METRIC share a y-RANGE, so a bar of a given height means the same thing in
+# each (user 2026-08-19: "some go to 1 others don't, seems inconsistent"). Panels on different
+# metrics cannot share one -- macro RMSE, NEF1% and kcal/mol are not commensurable -- so the rule is
+# per metric, not global. Computed from the drawn data rather than hardcoded.
+def shared_ylims(d):
+    """{metric: (lo, hi)} over every canonical panel scored on that metric."""
+    import collections
+    acc = collections.defaultdict(list)
+    for p in PANEL_ORDER:
+        task = PANEL_TASK.get(p)
+        if task is None:
+            continue
+        metric = PRIMARY[task]
+        g = d[(d.task == task) & (d.metric == metric)].set_index("features")
+        for f, _, _ in FEATURES:
+            if f in g.index:
+                v, e = float(g.loc[f, "mean"]), float(g.loc[f, "std"])
+                e = 0.0 if e != e else e
+                acc[metric] += [v - e, v + e]
+    out = {}
+    for metric, vs in acc.items():
+        lo, hi = min(vs), max(vs)
+        pad = 0.10 * max(hi - lo, 1e-9)
+        out[metric] = (lo - pad, min(hi + pad, 1.0) if metric == "roc_auc" else hi + pad)
+    return out
+
+
+def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None):
     """Draw ONE canonical panel onto an existing axes.
 
     `compact` narrows the bars and drops the y-label, for the assembled fig_EF where six panels
@@ -119,8 +146,10 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None):
         ax.text(0.0, 1.04, tag, transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
         # short label in the assembled figure: "Ames Mutagenicity" runs into the next panel's tag
-        short = {"Ames": "Ames"}.get(p, meta["label"])
-        ax.text(0.0, 1.04, f"{short} {arrow}", fontsize=FS["title"], fontweight="bold",
+        # short names in the assembled figure: the full labels run into the next panel's tag
+        short = {"Ames": "Ames", "MoleculeACE": "MolACE"}.get(p, meta["label"])
+        ax.text(0.0, 1.04, f"{short} {arrow}", fontsize=FS["title"] - (1 if compact else 0),
+                fontweight="bold",
                 va="bottom", ha="left", color=INK,
                 transform=ax.transAxes + ScaledTranslation(11 / 72, 0, fig.dpi_scale_trans))
     if not compact:
@@ -157,13 +186,16 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None):
     ax.tick_params(axis="x", which="minor", bottom=False)
     if compact:
         ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
-    lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
-    hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
-    pad = 0.30 * max(hi - lo, 1e-9)
-    y0, y1 = lo - pad, hi + pad
-    if meta["metric"] == "roc_auc":
-        y1 = min(y1, 1.0)
-    ax.set_ylim(y0, y1)
+    if ylims and metric in ylims:
+        ax.set_ylim(*ylims[metric])
+    else:
+        lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
+        hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
+        pad = 0.30 * max(hi - lo, 1e-9)
+        y0, y1 = lo - pad, hi + pad
+        if meta["metric"] == "roc_auc":
+            y1 = min(y1, 1.0)
+        ax.set_ylim(y0, y1)
 
 
 def legend_handles():

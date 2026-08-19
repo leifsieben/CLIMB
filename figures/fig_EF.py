@@ -55,9 +55,12 @@ def main():
     # than the right block; 1.35 : 1 : 1 : 1 keeps "MoleculeACE" legible on the E axes.
     # 50:50 (user 2026-08-19) -- the E column equals the three F columns combined, so the two
     # halves of the figure carry equal visual weight. F's bars narrow to 0.42 to suit.
-    gs = GridSpec(2, 4, figure=fig, width_ratios=[3.0, 1.0, 1.0, 1.0],
-                  wspace=0.50, hspace=0.58,
-                  left=0.075, right=0.995, top=0.930, bottom=0.125)
+    # The F legend moved to a vertical stack on the right (user 2026-08-19), which frees the whole
+    # bottom strip and lets the three F columns sit closer together -- so E keeps its 50% share of
+    # the PLOTTING area even though the canvas now reserves a legend column.
+    gs = GridSpec(2, 4, figure=fig, width_ratios=[3.05, 1.0, 1.0, 1.0],
+                  wspace=0.34, hspace=0.52,
+                  left=0.072, right=0.795, top=0.930, bottom=0.085)
 
     # extra top padding buys room for the in-axes legends, which have 2 and 5 entries
     ylims = {panel: E._lim(dE[dE.panel == panel], pad_hi=hi)
@@ -68,13 +71,14 @@ def main():
                compact=True)
         ax.set_ylabel("Lift over no pretrain, frozen", fontsize=FS["annot"])
 
+    ylims = F.shared_ylims(dF)          # panels on one metric share one y-range
     tags = "cdefgh"
     for k, p in enumerate(PANEL_ORDER):
         ax = fig.add_subplot(gs[k // 3, 1 + k % 3])
-        F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig)
+        F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig, ylims=ylims)
 
-    fig.legend(handles=F.legend_handles(), loc="lower center", bbox_to_anchor=(0.5, 0.002),
-               ncol=4, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.1,
+    fig.legend(handles=F.legend_handles(), loc="center left", bbox_to_anchor=(0.800, 0.5),
+               ncol=1, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.55,
                borderpad=0.0, frameon=False)
     save(fig, "fig_EF")
     plt.close(fig)

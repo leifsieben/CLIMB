@@ -55,13 +55,17 @@ SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
 OUT = ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
-PANEL_TASK = {"MoleculeACE": "MoleculeACE", "CBS": "HIV", "BACE": "BACE",
+PANEL_TASK = {"MoleculeACE": "MoleculeACE", "HIV": "HIV", "BACE": "BACE",
               "Ames": "Ames", "Tox21": "Tox21", "QM7": "QM7"}
 PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1",
            "MoleculeACE": "macro_rmse"}
 # panel -> the task actually drawn there, when it is not the panel's own task. The figure prints
 # this so a reader can never mistake the HIV curve for a CBS curve; the caption explains why.
-SUBSTITUTED = {"CBS": "HIV"}
+# No substitution any more: HIV took CBS's slot in the canonical six on 2026-08-19, for the same
+# reason it stood in here -- CBS cannot be subsampled (43 actives) and, as it turned out, could not
+# separate models either. This figure was the first place HIV replaced CBS; the panel set has now
+# caught up with it.
+SUBSTITUTED = {}
 # arm key in the source -> the canonical arms.py key whose colour/label the figure must use
 ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup")]
 

@@ -222,6 +222,19 @@ PANELS = {
     "MoleculeACE": dict(marker="^", label="MoleculeACE", metric="macro_rmse", metric_label="macro RMSE (30 targets)",
                         metric_short="macro RMSE",
                         higher_better=False, group="potency regression", n_tasks=30),
+    # HIV replaced CBS in the rare-active-screen slot on 2026-08-19. Same question, ~3x the
+    # resolution: CBS has 43 actives in 10,445 molecules and 8-10 per fold, so NEF1% is quantised
+    # in steps of ~1/9 and 0 OF 28 arm pairs had non-overlapping CIs -- it could not separate any
+    # two models, and a RANDOM encoder scored 0.758 against Truong's SOTA 0.764. Measured
+    # signal-to-noise (across-arm range / mean within-arm SD): CBS NEF1 1.80, CBS ROC-AUC 1.33
+    # (saturated, 0.92-0.995), HIV NEF1 3.00, HIV ROC-AUC 3.81. NEF1 is kept as the metric because
+    # early enrichment is why this panel exists; HIV is 3.5% active, so it is a genuine rare-active
+    # screen. CBS is NOT discarded -- it stays in the 66-dataset all-suites table and moves to an SI
+    # external-validation panel, where "no ligand-based model separates from a random encoder" is
+    # itself the finding.
+    "HIV":         dict(marker="D", label="HIV", metric="nef1", metric_label="NEF1%",
+                        metric_short="NEF1%",
+                        higher_better=True, group="rare-active screen", n_tasks=1),
     "CBS":         dict(marker="D", label="CBS", metric="nef1", metric_label="NEF1%",
                         metric_short="NEF1%",
                         higher_better=True, group="rare-active screen", n_tasks=1),
@@ -253,7 +266,9 @@ PANELS = {
                         metric_short="RMSE",
                         higher_better=False, group="quantum regression", n_tasks=1),
 }
-PANEL_ORDER = list(PANELS)
+# The canonical SIX. CBS stays defined above (the all-suites table and the SI external-validation
+# panel still use it) but is deliberately NOT one of the six, so `list(PANELS)` is not the order.
+PANEL_ORDER = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]
 
 # Categorical colour per MoleculeNet task, for the similarity/transfer analysis figures (C2/D)
 # where POINTS ARE TASKS, not arms. Muted hues drawn from the arm families; within those figures
@@ -266,7 +281,8 @@ PANEL_ORDER = list(PANELS)
 TASK_COLORS = {
     # --- canonical six -------------------------------------------------------------------
     "MoleculeACE":  "#3F6E9C",   # blue     (potency regression)
-    "CBS":          "#3D8073",   # teal     (rare-active screen)
+    "HIV":          "#3D8073",   # teal     (rare-active screen -- inherits CBS's slot AND colour)
+    "CBS":          "#4FA08F",   # light teal (external validation, SI only)
     "BACE":         "#A3455E",   # crimson  (binding classification)
     "Ames":         "#C8912F",   # amber    (mutagenicity)
     "Tox21":        "#8A8A8A",   # grey     (toxicity classification)
@@ -274,7 +290,6 @@ TASK_COLORS = {
     # --- pre-canonical MoleculeNet tasks, kept for the not-yet-migrated figures ------------
     "BBBP":         "#7E6BA8",   # violet
     "ESOL":         "#5B8FBF",   # light blue -- distinct from MoleculeACE, same family
-    "HIV":          "#7E6BA8",   # violet
     "Lipophilicity": "#4FA08F",  # light teal -- distinct from CBS, same family
 }
 

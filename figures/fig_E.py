@@ -11,7 +11,7 @@ objective bought nothing".
     molecule->descriptor mapping is destroyed, the target distribution is untouched.
     Reading: the real arm helps on every one of the six panels; permuting the targets does not
     merely erase the gain, it lands BELOW the untrained floor everywhere -- most sharply on the two
-    panels that need genuine structure-activity signal (CBS -28%, MoleculeACE -15%). A supervised
+    panels that need genuine structure-activity signal (HIV, MoleculeACE). A supervised
     objective with no molecule->label correspondence is actively harmful, not neutral.
 
 (b) UNSUPERVISED (MLM), a ladder of increasingly destroyed SMILES statistics:
@@ -64,7 +64,7 @@ check_font()
 
 ROOT = Path(__file__).resolve().parent.parent
 TABLE = ROOT / "figure_data" / "fig_E" / "fig_E_lift.csv"
-TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
+TASKS = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]
 
 # (arm key, legend label, colour).  Supervised = the red family; the unsupervised ladder walks the
 # blue family dark->light as chemical content is removed, and the zero-chemistry Wikipedia control

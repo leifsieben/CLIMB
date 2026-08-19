@@ -30,7 +30,11 @@ FD = ROOT / "figure_data"
 OUT = FD / "six_panel"
 random.seed(0)  # deterministic bootstrap
 
-MOL_PANELS = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}      # from MoleculeNet CV
+# HIV joined on 2026-08-19, replacing CBS in the rare-active-screen slot: it lives in the SAME
+# MoleculeNet CV tree as BACE/Tox21/QM7, so it needs no special case at all -- which is itself part
+# of why the swap simplifies things (CBS required its own tree, its own reader and its own
+# fallbacks). CBS is still aggregated below for the all-suites table and the SI panel.
+MOL_PANELS = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1"}
 
 # hERG replaced BBBP on 2026-08-16 and comes from Polaris (benchmark-provided split), not from our
 # scaffold CV -- so it is read from polaris_scores.csv, one value per eval seed.
@@ -222,7 +226,16 @@ def mol_fold_values(dirs, dataset, metric, root="climb_v2_phase2", subdirs=DEFAU
 # EXCEPT CBS -- our panel metric there is nef1, and `cbs_MEAN` is roc_auc. Lookup is
 # case-insensitive (the e2e runner writes "BACE_MEAN" but "cbs_nef1_MEAN").
 def _suite_key(dataset, metric):
-    return f"{dataset}_nef1_MEAN" if (dataset, metric) == ("cbs", "nef1") else f"{dataset}_MEAN"
+    """suite_summary.json key for a (dataset, metric) panel.
+
+    `<DS>_MEAN` holds the dataset's PRIMARY metric, so any panel scored on a non-primary metric
+    needs the explicit `<DS>_<metric>_MEAN` key. This was hardcoded to CBS until 2026-08-19 and
+    silently returned ROC-AUC when HIV took CBS's rare-active-screen slot: chemeleon_e2e, the one
+    arm with no per-fold CSV, came out at 0.7967 (its ROC-AUC) against every other arm's NEF1% of
+    0.43-0.71 -- a value that would have looked like a strong result rather than a wrong metric.
+    Keyed on the METRIC now, so it cannot mis-fire for the next panel either.
+    """
+    return f"{dataset}_MEAN" if metric in ("roc_auc", "rmse") else f"{dataset}_{metric}_MEAN"
 
 
 def mol_dir_summaries(dirs, dataset, metric, root="climb_v2_phase2", subdirs=DEFAULT_SUBDIRS):

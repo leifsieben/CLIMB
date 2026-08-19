@@ -165,7 +165,7 @@ def main():
 
     # coverage board
     print(f"wrote {OUT}  {len(rows)} rows\n")
-    panels = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
+    panels = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]
     have = {(r["ladder"], r["rung"], r["panel"]) for r in rows}
     print(f"{'rung':32s} " + " ".join(f"{p[:6]:>6s}" for p in panels))
     for ladder, (_, rungs) in LADDERS.items():

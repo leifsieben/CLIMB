@@ -222,8 +222,8 @@ _spec = _ilu.spec_from_file_location("_six_panel_aggregate", ROOT / "scripts" / 
 _spa = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_spa)
 
-CANON_METRIC = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "BACE": "roc_auc",
-                "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
+CANON_METRIC = {"MoleculeACE": "macro_rmse", "HIV": "nef1", "BACE": "roc_auc",
+                "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "CBS": "nef1"}
 CANON_LOWER_BETTER = {"MoleculeACE", "QM7"}
 
 
