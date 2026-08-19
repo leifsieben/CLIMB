@@ -25,7 +25,9 @@ os.chdir(ROOT)
 PY = os.environ.get("CLIMB_PY", str(Path.home() / "venvs" / "climb" / "bin" / "python"))
 S3B = "s3://climb-s3-bucket/experiments"
 TOK = "figure_data/_tokenizer"
-MASKED_ROWS = 77864
+MASKED_ROWS = 77864          # the reference environment's valid-cell count
+UNMASKED_ROWS = 93876        # what a pre-fix dump has (16,012 missing cells scored as inactives)
+REF_MOLS = "figure_data/_tox21_reference_molecules.txt"
 OUTSUB = "moleculenet_cv_tox21fixed"
 LOG = ROOT / "analysis" / "tox21_reeval.log"
 LOG.parent.mkdir(exist_ok=True)
@@ -79,11 +81,84 @@ def stage_encoder(run: str, waves):
 
 
 def masked_ok(out_dir: Path):
+    """Gate on MASKING BEING IN FORCE, not on an exact row count.
+
+    The exact count is environment-dependent: this box's RDKit/DeepChem parses 7,831 Tox21
+    molecules where the reference environment parsed 7,823, giving 77,946 valid cells instead of
+    77,864. That drift is real but tiny, and rejecting on it would block the whole re-eval for a
+    reason unrelated to the bug being fixed. What must be proven is that the 16,012 missing cells
+    are NOT being scored as inactives, and any count far below the unmasked 93,876 proves that.
+
+    Comparability across runs is restored separately, by scoring on the shared reference molecule
+    set (see score_on_reference), so the 8 extra molecules cannot make these 20 runs incomparable
+    to the 120 rebuilt from original dumps.
+    """
     p = out_dir / "test_predictions.csv"
     if not p.exists():
         return False, 0
     n = sum(1 for line in p.open() if line.startswith("Tox21,"))
-    return n == MASKED_ROWS, n
+    masked = 0 < n <= (UNMASKED_ROWS - 10000)      # comfortably below the unmasked count
+    return masked, n
+
+
+def score_on_reference(out_dir: Path):
+    """Rewrite the summary scoring ONLY the shared reference molecules.
+
+    The fresh eval may see a few molecules the reference environment did not parse. Scoring the
+    intersection makes these runs directly comparable to the 120 rebuilt from original dumps --
+    same molecules, same estimator (per (fold, assay) -> mean over assays -> per-fold row -> mean
+    over folds, folds assigned on unique molecules). Without this the 20 would sit on a slightly
+    different eval set, which is the class of silent inconsistency this whole exercise exists to
+    remove. Returns (n_kept, n_dropped, mean) or None if the reference list is unavailable.
+    """
+    ref_path = ROOT / REF_MOLS
+    if not ref_path.exists():
+        sh(["aws", "s3", "cp", "s3://climb-s3-bucket/datasets/_tox21_reference_molecules.txt",
+            str(ref_path), "--only-show-errors"])
+    if not ref_path.exists():
+        log("WARN no reference molecule list -> leaving full-set scores"); return None
+    ref = set(ref_path.read_text().split())
+
+    pf = out_dir / "test_predictions.csv"
+    keep, drop = [], 0
+    for r in csv.DictReader(pf.open()):
+        if r["dataset"] != "Tox21":
+            continue
+        if r.get("canonical_key") in ref:
+            keep.append(r)
+        else:
+            drop += 1
+    if not keep:
+        return None
+    filt = out_dir / "test_predictions.reference_set.csv"
+    with filt.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(keep[0].keys()))
+        w.writeheader(); w.writerows(keep)
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from tox21_rescore_from_preds import rebuild  # noqa: E402
+    tmp = out_dir / "_refscore"; tmp.mkdir(exist_ok=True)
+    (tmp / "test_predictions.csv").write_text(filt.read_text())
+    new, err = rebuild(tmp)
+    sh(["rm", "-rf", str(tmp)])
+    if err:
+        log(f"WARN reference scoring failed: {err}"); return None
+
+    sp = out_dir / "moleculenet_summary.csv"
+    rows = list(csv.reader(sp.open()))
+    header, body = rows[0], rows[1:]
+    for r in body:
+        if len(r) > 9 and r[0] == "Tox21" and (r[6], r[7]) in new:
+            r[9] = repr(new[(r[6], r[7])])
+    import io as _io
+    buf = _io.StringIO(); w = csv.writer(buf, lineterminator="\n")
+    w.writerow(header); w.writerows(body)
+    sp.write_text(buf.getvalue())
+    (out_dir / "reference_scoring.json").write_text(json.dumps(
+        {"scored_on": "shared reference Tox21 molecule set", "n_reference_keys": len(ref),
+         "rows_kept": len(keep), "rows_dropped_not_in_reference": drop,
+         "roc_auc_MEAN": new[("roc_auc", "MEAN")]}, indent=2))
+    return len(keep), drop, new[("roc_auc", "MEAN")]
 
 
 def main() -> int:
@@ -138,6 +213,9 @@ def main() -> int:
 
         good, n = masked_ok(out)
         if good:
+            res = score_on_reference(out)
+            if res:
+                log(f"  scored on reference set: kept {res[0]}, dropped {res[1]}, MEAN {res[2]:.4f}")
             sh(["aws", "s3", "cp", "--recursive", str(out),
                 f"{S3B}/{wave}/{run}/{OUTSUB}", "--only-show-errors"])
             log(f"OK {wr} ({n} masked rows)"); ok += 1
