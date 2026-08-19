@@ -577,6 +577,27 @@ def main():
         payload["hardware"] = {label: hw,
                                incoming.get("hardware_label", "merged"): incoming.get("hardware", {})}
 
+    # CARRY FORWARD rows this run could not measure (2026-08-19). This table is a CROSS-HARDWARE
+    # cost comparison, so it is assembled from more than one machine -- the A10G encoder row can
+    # only ever come from a GPU box. --merge_from exists for that, and requiring the operator to
+    # remember it is a trap: running the benchmark on a laptop without it silently DELETED the
+    # cuda row, and the figure then claimed the encoder was 7.4x faster than the anchor using a
+    # measurement no longer in its own table. Recovered only because figures_v2/ is git-tracked.
+    # Now any row whose DEVICE was not measured in this run is preserved and marked, so a partial
+    # re-run degrades to "stale row, labelled" instead of "row silently gone".
+    if out_path.exists():
+        try:
+            prev = json.loads(out_path.read_text()).get("results", [])
+        except Exception:
+            prev = []
+        measured = {r["device"] for r in payload["results"]}
+        kept = [dict(r, carried_from=prev_label) for r in prev if r.get("device") not in measured
+                for prev_label in [json.loads(out_path.read_text()).get("generated_at", "earlier run")]]
+        if kept:
+            payload["results"] = payload["results"] + kept
+            print(f"[bench] carried forward {len(kept)} row(s) from devices not measured here: "
+                  f"{sorted({r['device'] for r in kept})}")
+
     out_path.write_text(json.dumps(payload, indent=2))
     print()
     print_table(payload["results"])

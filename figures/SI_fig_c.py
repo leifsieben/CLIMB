@@ -7,9 +7,9 @@ not asserted. `scripts/bench_featurization.py` times the three featurizers we ac
 SAME 1000 MoleculeNet molecules with the SAME settings production uses, 5 repeats after a warm-up
 (RDKit lazy imports, torch kernel autotune / MPS shader compile).
 
-  Morgan counts        r=3, counts, chirality, 2048-d    (featurize_v2.ecfp4_features)
+  ECFP4 (stereo)       r=2, bits, chirality on, 2048-d   (featurize_v2.ecfp4_features)
   RDKit descriptors    217 descriptors                  (descriptors_v2.rdkit_descriptors)
-  Morgan + descriptors the Morgan+desc anchor's features
+  ECFP4 + descriptors  the ECFP4+desc anchor's features
   CLIMB encoder        ModernBERT ~41M, tokenize + forward + mean pool (eval_v2._encoder_features)
 
 THE RESULT: the transformer is not the expensive part — RDKit descriptors are. On one CPU core the
@@ -42,8 +42,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "figure_data" / "_bench" / "featurization_timing.json"
 OUTDIR = ROOT / "figures_v2"
 
-METHOD_LABEL = {"ecfp4": "Morgan counts", "rdkit_desc": "RDKit descriptors",
-                "fp_desc": "Morgan + descriptors", "encoder": "CLIMB encoder"}
+METHOD_LABEL = {"ecfp4": "ECFP4 (stereo)", "rdkit_desc": "RDKit descriptors",
+                "fp_desc": "ECFP4 + descriptors", "encoder": "CLIMB encoder"}
 # the rows worth printing in the paper; the rest stay in the JSON
 KEEP = [("ecfp4", "cpu", "single core"), ("ecfp4", "cpu", "12 processes"),
         ("rdkit_desc", "cpu", "single core"), ("rdkit_desc", "cpu", "12 processes"),

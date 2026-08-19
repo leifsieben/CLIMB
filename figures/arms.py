@@ -44,7 +44,7 @@ FAMILY_COLORS = {
 
 # shade ladders (dark -> light) used for scaling/ablation plots that need more than one member
 SHADES = {
-    "anchor": ["#C8912F", "#8A5F1B", "#E0BC80"],          # Morgan+desc amber, Morgan dark amber
+    "anchor": ["#C8912F", "#8A5F1B", "#E0BC80"],          # ECFP4+desc amber, ECFP4 dark amber
     "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6"],
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
@@ -79,13 +79,14 @@ SHADES = {
 ARMS = {
     # ---- XGBoost anchors (orange) -----------------------------------------------------------
     "ecfp": dict(
-        # NOT "ECFP4" any more (2026-08-19). ECFP4 means Morgan RADIUS 2, BINARY; the anchor is now
-        # Morgan radius 3, COUNT vector, chirality on, 2048-d. A chemist reviewer reads "ECFP4" as a
-        # specific object and would catch the mismatch immediately, so the label states the family
-        # and the exact spec lives in the caption. The pre-fix binary r=2 anchor is still exactly
-        # reproducible via featurize_v2.ecfp4_features(radius=2, counts=False,
-        # include_chirality=False) and is kept as the standard-ECFP4 ablation.
-        label="Morgan", short="Morgan", family="anchor", color=SHADES["anchor"][1], probe="xgb",
+        # "ECFP4" IS correct again (user 2026-08-19: "let's please run ECFP4 with stereochemistry
+        # and then out of curiosity let's also get your current version... what you came up with is
+        # non-orthodox"). FP_VARIANT=ecfp4_stereo is the headline anchor -- Morgan r=2, BINARY,
+        # chirality ON -- which is an ECFP4 in every respect that the name denotes, plus the stereo
+        # flag RDKit leaves off by default. The label went to "Morgan" for ~1h while the default was
+        # a radius-3 COUNT vector, where "ECFP4" would have been a factual error; it is not one now.
+        # The r=3 count version is FP_VARIANT=morgan_r3_counts and is reported as a variant.
+        label="ECFP4", short="ECFP4", family="anchor", color=SHADES["anchor"][1], probe="xgb",
         in_ablation=True,
         # THREE MODEL SEEDS as of 2026-08-19 (peer session, commit 3c52686). The anchors used to
         # be a single run, so sd_seeds was literally 0.0 on the arms that beat the CLMs. Each
@@ -96,7 +97,7 @@ ARMS = {
         src=dict(mace="ecfp4", cbs="ecfp4",
                  mol=["ecfp4_anchor", "ecfp4_anchor_s1", "ecfp4_anchor_s2"])),
     "ecfp_desc": dict(
-        label="Morgan+desc", short="Morgan+desc", family="anchor", color=SHADES["anchor"][0], probe="xgb",
+        label="ECFP4+desc", short="ECFP4+desc", family="anchor", color=SHADES["anchor"][0], probe="xgb",
         in_ablation=True,
         src=dict(mace="fp_desc", cbs="fp_desc",
                  mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
@@ -321,7 +322,7 @@ def label(arm_key: str) -> str:
 
 
 def two_line_label(arm_key: str) -> str:
-    """'XGBoost\nMorgan+desc' / 'CLIMB\nsupervised, desc' / 'CheMeleon\nend2end'."""
+    """'XGBoost\nECFP4+desc' / 'CLIMB\nsupervised, desc' / 'CheMeleon\nend2end'."""
     return f"{system(arm_key)}\n{label(arm_key)}"
 
 
