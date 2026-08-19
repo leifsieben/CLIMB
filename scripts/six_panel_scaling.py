@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from figures.arms import ARMS  # noqa: E402
 from scripts.six_panel_aggregate import (  # noqa: E402
-    FD, MOL_PANELS, POLARIS_PANELS, QM7_SUBDIRS, DEFAULT_SUBDIRS, mol_fold_values,
+    FD, MOL_PANELS, POLARIS_PANELS, QM7_SUBDIRS, TOX21_SUBDIRS, DEFAULT_SUBDIRS, mol_fold_values,
     mol_dir_summaries, panel_stats, mace_per_target, mace_seed_macros, polaris_cells,
     cluster_bootstrap)
 import statistics as st  # noqa: E402
@@ -146,7 +146,8 @@ def main():
                                  n_cells=len(vals)))
             # --- MoleculeNet ---------------------------------------------------------
             for ds, metric in MOL_PANELS.items():
-                subs = qm7_sub if ds == "QM7" else DEFAULT_SUBDIRS
+                subs = (qm7_sub if ds == "QM7" else
+                        TOX21_SUBDIRS if ds == "Tox21" else DEFAULT_SUBDIRS)
                 folds = mol_fold_values([rung], ds, metric, subdirs=subs)
                 dirs = mol_dir_summaries([rung], ds, metric, subdirs=subs) if not folds else None
                 stats = panel_stats(cells=folds or None, dir_summaries=dirs)

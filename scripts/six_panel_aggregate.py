@@ -111,6 +111,10 @@ def cluster_bootstrap(by_target, n=2000):
 # and fall back to the ordinary one, which is what this tuple expresses. Every other panel reads
 # moleculenet_cv/ only.
 QM7_SUBDIRS = ("moleculenet_cv_qm7native", "moleculenet_cv")
+# Tox21's 2026-08-05 missing-label fix reached the predictions but only fold0 of the summary rows
+# (interrupted re-run); moleculenet_cv_tox21fixed/ is re-scored from each run's own predictions by
+# scripts/rescore_tox21.py. Same all-or-nothing rule as QM7: one subdir per arm, never a mix.
+TOX21_SUBDIRS = ("moleculenet_cv_tox21fixed", "moleculenet_cv")
 DEFAULT_SUBDIRS = ("moleculenet_cv",)
 
 
@@ -298,11 +302,19 @@ def panel_stats(cells=None, dir_summaries=None):
 
 # ---------------------------------------------------------------- Polaris -------------------
 def polaris_cells(base, task, metric):
-    """[(seed, value), ...] for one Polaris task. Polaris was run once per arm (no pretraining-seed
-    replicates yet), so the replicates here are the 3 EVAL seeds of that single encoder."""
+    """[(unit, value), ...] for one Polaris task, pooled over PRETRAINING-SEED dirs x EVAL seeds.
+
+    Seed expansion is the same rule as mace_seed_dirs: <base> plus <base>_s1/_s2 where they exist.
+    Until 2026-08-18 this read ONLY <base>, so 11 of the mainline arms had their Ames panel built
+    from 1 of the 3 pretraining seeds sitting on disk -- and STATUS.md duly reported "Ames
+    n_seeds=1" as a FACT about the data, when it was a reader gap. Caught by audit check 8: the
+    a2 bootstrap expands the seed dirs, so its CI centre disagreed with the bar it was drawn
+    around (unsup 0.7987 vs 0.8006, u2s_dense 0.8157 vs 0.8135).
+    """
     # `base` may be an explicit LIST (see mace_seed_dirs); pool every dir that exists, tagging the
     # replicate so two dirs cannot collide on the same seed label.
-    dirs = list(base) if isinstance(base, (list, tuple)) else [base]
+    dirs = (list(base) if isinstance(base, (list, tuple))
+            else [base, f"{base}_s1", f"{base}_s2"])
     out = []
     for d in dirs:
         f = FD / "chemeleon_suite" / "polaris" / d / "polaris_scores.csv"
@@ -446,10 +458,13 @@ def main():
             if cells:
                 vals = [v for _, v in cells]
                 sd = st.stdev(vals) if len(vals) > 1 else 0.0
+                # n_seeds is the number of PRETRAINING-seed dirs actually pooled -- it was hardcoded
+                # to 1 until 2026-08-18, which made a reader gap look like a property of the data.
+                n_dirs = len({u.split(":")[0] for u, _ in cells})
                 rows.append(dict(arm=arm, panel=panel, metric=metric,
                                  value=round(st.mean(vals), 4),
                                  extra=f"sd_total={round(sd, 4)};sd_evalseeds={round(sd, 4)};"
-                                       f"n_seeds=1;n_cells={len(vals)}"))
+                                       f"n_seeds={n_dirs};n_cells={len(vals)}"))
                 for unit, v in cells:
                     long_rows.append(dict(arm=arm, panel=panel, metric=metric, unit=unit,
                                           subset="overall", value=round(v, 6)))
@@ -459,7 +474,8 @@ def main():
 
         # --- MoleculeNet panels ----------------------------------------------------------
         for ds, metric in MOL_PANELS.items():
-            subs = QM7_SUBDIRS if ds == "QM7" else DEFAULT_SUBDIRS
+            subs = (QM7_SUBDIRS if ds == "QM7" else
+                    TOX21_SUBDIRS if ds == "Tox21" else DEFAULT_SUBDIRS)
             folds = mol_fold_values(src["mol"], ds, metric, subdirs=subs) if src.get("mol") else []
             dirs = mol_dir_summaries(src["mol"], ds, metric, subdirs=subs) \
                 if src.get("mol") and not folds else None

@@ -132,10 +132,17 @@ def arm_colors(index) -> list:
 # (b) never pool two subdirs into one mean -- resolving per-run instead of per-arm is what produced
 # a QM7 mean of 129.9 for `no pretrain, end2end` (10 native folds averaged with 5 z-scored ones).
 # See figures/README.md, "Units: never pool two subdirs of one arm".
+# task -> subdirs in PREFERENCE order. The mechanism is "prefer the re-evaluated copy, and never
+# pool two of them"; the reason for the re-eval differs by task. QM7/ESOL/Lipophilicity are UNIT
+# re-evals (native vs z-scored). Tox21 is a VINTAGE re-eval: the 2026-08-05 missing-label fix was
+# applied to the predictions but the per-fold summary rows were only partly rewritten (fold0 only,
+# an interrupted re-run), so moleculenet_cv_tox21fixed/ holds rows re-scored from each run's own
+# predictions. See scripts/rescore_tox21.py.
 NATIVE_SUBDIRS = {
     "QM7": ("moleculenet_cv_qm7native", "moleculenet_cv"),
     "ESOL": ("moleculenet_cv_regnative", "moleculenet_cv"),
     "Lipophilicity": ("moleculenet_cv_regnative", "moleculenet_cv"),
+    "Tox21": ("moleculenet_cv_tox21fixed", "moleculenet_cv"),
 }
 
 
