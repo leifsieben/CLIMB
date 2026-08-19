@@ -141,6 +141,24 @@ def _usable_dir(root, d, sub):
     return False
 
 
+def _skip_reason(root, d, sub):
+    """WHY a dir was dropped, checked rather than assumed.
+
+    The message used to say "no <sub>/ yet" for every skip, which is only one of the two reasons and
+    was the wrong one for e2e_random_01/_02: those dirs HAVE moleculenet_cv_tox21fixed/, they are
+    refused because it carries reference_scoring.json. Reporting a missing directory that is sitting
+    right there sends the reader to re-run something that already ran.
+    """
+    # Same candidate resolution as _usable_dir (`<d>` or `<d>_s0`) -- building the path a second,
+    # slightly different way is how a diagnostic ends up confidently reporting the wrong reason.
+    for cand in (d, f"{d}_s0"):
+        dd = FD / root / cand / sub
+        if dd.exists():
+            return ("foreign re-eval (reference_scoring.json)"
+                    if (dd / "reference_scoring.json").exists() else "unusable")
+    return "not written yet"
+
+
 def _pick_subdir(root, dirs, subdirs):
     """Choose ONE subdir for the whole arm, so its dirs can never be read in mixed units.
 
@@ -229,8 +247,9 @@ def mol_fold_values(dirs, dataset, metric, root="climb_v2_phase2", subdirs=DEFAU
     if len(subdirs) > 1:
         sub, dirs, skipped = _pick_subdir(root, list(dirs), subdirs)
         if skipped:
+            why = "; ".join(f"{d}: {_skip_reason(root, d, sub)}" for d in skipped)
             print(f"  SUBDIR SKIP  {dataset}: using {sub}/ for {len(dirs)} dir(s); "
-                  f"dropped {','.join(skipped)} (no {sub}/ yet -- pooling them would MIX UNITS)")
+                  f"dropped {len(skipped)} ({why}) -- pooling them would MIX UNITS")
         subdirs = (sub,)
     for src in dirs:
         d, resolved = _cv_dir(root, src, subdirs)
@@ -280,8 +299,9 @@ def mol_dir_summaries(dirs, dataset, metric, root="climb_v2_phase2", subdirs=DEF
     if len(subdirs) > 1:
         sub, dirs, skipped = _pick_subdir(root, list(dirs), subdirs)
         if skipped:
+            why = "; ".join(f"{d}: {_skip_reason(root, d, sub)}" for d in skipped)
             print(f"  SUBDIR SKIP  {dataset}: using {sub}/ for {len(dirs)} dir(s); "
-                  f"dropped {','.join(skipped)} (no {sub}/ yet -- pooling them would MIX UNITS)")
+                  f"dropped {len(skipped)} ({why}) -- pooling them would MIX UNITS")
         subdirs = (sub,)
     for src in dirs:
         d, resolved = _cv_dir(root, src, subdirs)

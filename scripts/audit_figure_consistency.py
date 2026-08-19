@@ -451,6 +451,7 @@ def check_replication_parity():
     """
     print(f"\n{'='*94}\n11. REPLICATION PARITY (same number of dirs behind every bar in a panel)\n{'='*94}")
     import csv as _csv, collections
+    from figures.arms import ARMS
     f = ROOT / "figure_data/six_panel/mainline_8M.csv"
     if not f.exists():
         print("  SKIP - mainline_8M.csv missing")
@@ -467,22 +468,37 @@ def check_replication_parity():
         n = _n(r["extra"])
         if n:
             per_panel[r["panel"]][r["arm"]] = n
+    # Arms with NO pretraining stage are compared only against each other. An XGBoost anchor on a
+    # fixed classical featurization has exactly one run dir on the suite tracks because there is
+    # nothing to re-pretrain -- its whole model variance is head/eval-seed variance, and three eval
+    # seeds of it sit inside that dir. Flagging it as under-replicated is a FALSE ALARM, and this
+    # check emitted six of them a day while STATUS.md said in writing that those arms are complete.
+    # A check that cries wolf on known-good arms trains the reader to skim the line where a real
+    # failure appears, which is exactly what nearly happened to e2e_no_pretrain on Tox21 below.
+    # The exemption is DECLARED IN arms.py, not listed here, so a new anchor inherits it correctly.
+    def _exempt(a):
+        return ARMS.get(a, {}).get("pretrain_replicates", True) is False
+
     bad = 0
     for panel in sorted(per_panel):
         counts = per_panel[panel]
-        top = max(counts.values())
-        short = sorted(a for a, n in counts.items() if n < top)
-        if short:
-            detail = ", ".join(f"{a}={counts[a]}" for a in short)
-            print(f"  FAIL  {panel:12s} most arms rest on {top} dirs; {len(short)} rest on fewer "
-                  f"- {detail}")
-            bad += 1
-        else:
-            print(f"  OK    {panel:12s} all {len(counts)} arms on {top} dir(s)")
+        for label, group in (("", {a: n for a, n in counts.items() if not _exempt(a)}),
+                             ("no-pretrain arms: ", {a: n for a, n in counts.items() if _exempt(a)})):
+            if not group:
+                continue
+            top = max(group.values())
+            short = sorted(a for a, n in group.items() if n < top)
+            if short:
+                detail = ", ".join(f"{a}={group[a]}" for a in short)
+                print(f"  FAIL  {panel:12s} {label}most arms rest on {top} dirs; {len(short)} rest "
+                      f"on fewer - {detail}")
+                bad += 1
+            else:
+                print(f"  OK    {panel:12s} {label}all {len(group)} arms on {top} dir(s)")
     if not bad:
         print("  OK - every panel compares arms built from the same number of dirs")
     else:
-        print(f"  {bad} panel(s) mixing replication depths - run scripts/suite_replicates_run.sh")
+        print(f"  {bad} group(s) mixing replication depths - run scripts/suite_replicates_run.sh")
     return bad
 
 

@@ -73,6 +73,14 @@ SHADES = {
 # color          -> exact colour
 # probe          -> how the downstream head sees the model ("frozen" / "e2e" / "xgb")
 # in_ablation    -> include in ablation/scaling figures (CheMeleon is excluded by decision)
+# pretrain_replicates -> does this arm HAVE a pretraining stage that can be replicated? Default
+#                   True. False for the XGBoost anchors (a fixed classical featurization) and for
+#                   CheMeleon (a frozen, externally-supplied encoder). Those arms have exactly ONE
+#                   run dir on the suite tracks and that is a fact about the model, not missing
+#                   compute -- their full model variance is head/eval-seed variance, and 3 eval
+#                   seeds of it live INSIDE the single dir. Declared here rather than as a name
+#                   list inside the audit, which is how audit check 11 spent a day failing on six
+#                   arms that were complete.
 # src            -> where the raw numbers live, per suite
 #                   mace: figure_data/chemeleon_suite/moleculeace/<src>/results.csv, AND the
 #                         polaris dir of the same name. A bare string is expanded to
@@ -95,7 +103,7 @@ ARMS = {
         # flag RDKit leaves off by default. The label went to "Morgan" for ~1h while the default was
         # a radius-3 COUNT vector, where "ECFP4" would have been a factual error; it is not one now.
         # The r=3 count version is FP_VARIANT=morgan_r3_counts and is reported as a variant.
-        label="ECFP4", short="ECFP4", family="anchor", color=SHADES["anchor"][1], probe="xgb",
+        label="ECFP4", short="ECFP4", family="anchor", color=SHADES["anchor"][1], probe="xgb", pretrain_replicates=False,
         in_ablation=True,
         # THREE MODEL SEEDS as of 2026-08-19 (peer session, commit 3c52686). The anchors used to
         # be a single run, so sd_seeds was literally 0.0 on the arms that beat the CLMs. Each
@@ -106,7 +114,7 @@ ARMS = {
         src=dict(mace="ecfp4", cbs="ecfp4",
                  mol=["ecfp4_anchor", "ecfp4_anchor_s1", "ecfp4_anchor_s2"])),
     "ecfp_desc": dict(
-        label="ECFP4+desc", short="ECFP4+desc", family="anchor", color=SHADES["anchor"][0], probe="xgb",
+        label="ECFP4+desc", short="ECFP4+desc", family="anchor", color=SHADES["anchor"][0], probe="xgb", pretrain_replicates=False,
         in_ablation=True,
         src=dict(mace="fp_desc", cbs="fp_desc",
                  mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
@@ -123,12 +131,12 @@ ARMS = {
     # which is the correct behaviour rather than a partial ranking.
     "r3fp": dict(
         label="Morgan r3c", short="Morgan r3c", family="anchor", color=SHADES["anchor"][4],
-        probe="xgb", in_ablation=False,
+        probe="xgb", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="ecfp4_r3c", cbs="ecfp4_r3c",
                  mol=["ecfp4_anchor_r3c", "ecfp4_anchor_s1_r3c", "ecfp4_anchor_s2_r3c"])),
     "r3fp_desc": dict(
         label="Morgan r3c+desc", short="Morgan r3c+desc", family="anchor",
-        color=SHADES["anchor"][3], probe="xgb", in_ablation=False,
+        color=SHADES["anchor"][3], probe="xgb", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="fp_desc_r3c", cbs="fp_desc_r3c",
                  mol=["fp_desc_anchor_r3c", "fp_desc_anchor_s1_r3c", "fp_desc_anchor_s2_r3c"])),
 
@@ -233,12 +241,12 @@ ARMS = {
     # lands, at which point NO code change is needed (the same `mace` key names the polaris dir).
     "chemeleon_e2e": dict(
         label="CheMeleon (e2e)", short="CheMeleon e2e", family="chemeleon", color=SHADES["chemeleon"][0],
-        probe="e2e", in_ablation=False,
+        probe="e2e", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="chemeleon_e2e", mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
                  cbs="chemeleon_e2e")),
     "chemeleon_frozen": dict(
         label="CheMeleon (frozen)", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
-        probe="frozen", in_ablation=False,
+        probe="frozen", pretrain_replicates=False, in_ablation=False,
         # QM7 REPLICATION (2026-08-18). chemeleon_frozen's original single run put a 427.7 fold in
         # the mean and shipped 268.8. Four probe runs settled it: the elevation is REAL (every run
         # has one or two badly degraded folds, under three different head-seed sets AND two
