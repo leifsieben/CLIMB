@@ -40,6 +40,13 @@ def log(m): print(f"[famsim {time.strftime('%H:%M:%S')}] {m}", flush=True)
 
 
 def pack(smiles):
+    # DELIBERATELY STEREO-BLIND, unlike featurize_v2.ecfp4_features (fixed 2026-08-19 to carry
+    # chirality). Different question, different answer. This is a SIMILARITY axis: the "memorized"
+    # group asks "did the model effectively already read this molecule", and a stereo-blind match
+    # is the LOOSER test, so it OVER-counts memorization. The finding is that the memorized group
+    # shows no advantage, so over-counting is the conservative direction -- turning chirality on
+    # would shrink the group and weaken a null result in our own favour. Corpus Tanimoto is also
+    # conventionally computed without chirality. Do not "fix" this to match the featurizer.
     gen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=NBITS)
     rows = []
     for s in smiles:
