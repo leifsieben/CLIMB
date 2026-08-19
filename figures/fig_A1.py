@@ -52,6 +52,22 @@ weighting and the frozen-vs-fine-tuned protocol above -- and the defensible clai
 ECFP+desc is the best model here, with CheMeleon competitive on MoleculeACE and Polaris when it is
 allowed to fine-tune.
 
+CONSISTENT WITH THE CHEMELEON PAPER, and worth saying so explicitly (Burns et al.,
+arXiv:2506.15792v2). They evaluate on Polaris + MoleculeACE -- 58 datasets, which is EXACTLY the
+two suites where we also find CheMeleon ahead, and which supply 58 of our 66 under per-dataset
+weighting. Their reported Polaris win rate is CheMeleon 75% (21/28) against Random Forest 68%
+(19/28), where a "win" counts being best OR statistically indistinguishable from best (Tukey HSD),
+i.e. a two-benchmark margin over the classical baseline rather than a decisive one. Their headline
+also uses END-TO-END fine-tuning, matching what we find drives the gap.
+Two things we add rather than contradict: the suites they did not test (MoleculeNet, CBS) are the
+ones where the classical anchor wins outright, and their classical baseline is Random Forest, not
+XGBoost on ECFP+descriptors.
+NOTE ALSO what CheMeleon IS: a D-MPNN pretrained to predict 1613 Mordred descriptors on 1M PubChem
+molecules. That is our `supervised, desc` objective in a different architecture -- so it belongs in
+fig_E's supervised panel conceptually, and our descriptor-residual finding (a descriptor-pretrained
+encoder is 81-88% linearly explained by the descriptors it was trained on, and adds nothing on top
+of ECFP+desc in fig_F) is a direct comment on its premise, not an unrelated result.
+
 Caption text is NOT drawn into the figure — it goes in the LaTeX \\caption{}. Use the paragraphs
 above as its source.
 
