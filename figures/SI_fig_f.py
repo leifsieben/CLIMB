@@ -79,6 +79,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 
 # The y axis is "success", not "resolved": in class B a HIGH bar means the representation correctly
 # did NOT separate two spellings of one molecule. Labelling it "resolved" would make the class B
@@ -90,7 +91,7 @@ from figures.arms import ARMS
 
 check_font()
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "figure_data" / "embedding_resolution" / "success_rates.csv"
+SRC = ROOT / "figure_data" / "embedding_resolution" / "relative_response.csv"
 INK = "#000000"
 TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "different rule"
 
@@ -113,37 +114,40 @@ MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
          ("A", "regioisomer",         "ortho vs meta\nsubstitution"),
          ("A", "matched_mw",          "Different molecules,\nsame MW"),
          ("A", "matched_descriptors", "Different molecules,\nsame descriptors"),
+         ("B", "smiles_enumeration",  "Re-written\nSMILES"),
          ("B", "kekule",              "Kekulé\nform"),
          ("B", "symmetry_equivalent", "Equivalent\npositions")]
 NCOL = 5
 
 
 def compute():
-    """(median separation, resolved %, per-representation noise floor).
-
-    `null_p95` is one number per representation -- the 95th percentile of its OWN distance
-    distribution over 200 anchors x 10 random re-writings of the identical compound -- so it is
-    taken from any row of that embedding rather than pivoted per mode.
-    """
+    """{(klass, mode): relative response}, one frame. `relative_response` is this model's response
+    to the change divided by ITS OWN response to a genuinely different molecule of matched MW, so
+    1.00 means "moves the embedding as far as swapping in a different compound" and the reference
+    is measured per model rather than assumed."""
     d = pd.read_csv(SRC)
-    return (d.pivot_table(index=["klass", "mode"], columns="embedding", values="median_separation"),
-            d.pivot_table(index=["klass", "mode"], columns="embedding", values="success"),
-            d.drop_duplicates("embedding").set_index("embedding")["null_p95"])
+    return d.pivot_table(index=["klass", "mode"], columns="embedding", values="relative_response")
 
 
-NULL_FLOOR = 1e-6     # the measured null for an exactly invariant fingerprint is degenerate at 0
+REF = 1.0             # the matched-MW reference: "as far as a different molecule"
 
 
 def _panel(ax, vals, title, klass):
-    """One mode. Bars are the RESOLVED RATE: the share of pairs separated by more than that
-    representation's own 95th-percentile noise."""
+    """One mode. Bars are the response RELATIVE to swapping in a different molecule of matched MW.
+
+    The reference line at 1.0 is the whole point of the unit: without it a reader has no way to
+    know whether 0.68 is large. With it, panel (a) reads "an inverted stereocentre moves ECFP4 two
+    thirds as far as a completely different compound, and CLIMB sup one hundredth as far".
+    """
     if klass == "B":
         ax.set_facecolor(TINT)
     x = np.arange(len(SERIES))
     ax.bar(x, vals, width=0.74, color=[ARMS[k]["color"] for _, k, _ in SERIES],
            edgecolor=INK, linewidth=0.6, zorder=3)
-    ax.set_ylim(0, 108)
-    ax.set_yticks([0, 50, 100])
+    ax.axhline(REF, color=INK, ls=(0, (3, 2)), lw=0.7, zorder=4)
+    ax.set_ylim(0, 1.52)
+    ax.set_yticks([0, 0.5, 1.0, 1.5])
+    ax.set_yticklabels(["0", "0.5", "1", "1.5"])
     ax.set_xticks([])
     ax.set_xlim(-0.72, len(SERIES) - 0.28)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
@@ -154,112 +158,54 @@ def _panel(ax, vals, title, klass):
     ax.set_title(title, fontsize=FS["annot"], fontweight="bold", color=INK, pad=3, loc="center")
 
 
-def _calibration(ax, nulls):
-    """The panel that makes the rest of the figure readable: each representation's OWN noise floor.
-
-    This slot used to hold `smiles_enumeration`, and it is the same transformation the null is
-    built from -- 200 anchors x 10 random re-writings of the identical compound -- so scoring it
-    would be circular. Showing the calibration here instead turns the one unscorable mode into the
-    explanation of the scoring: a fingerprint must clear essentially nothing before a chemical
-    difference counts, while a SMILES model must clear a third to four fifths of the distance to a
-    RANDOM molecule. Those four numbers are the experiment, not a nuisance parameter.
-    """
-    x = np.arange(len(SERIES))
-    ax.bar(x, [max(v, NULL_FLOOR) for v in nulls], width=0.74,
-           color=[ARMS[k]["color"] for _, k, _ in SERIES], edgecolor=INK, linewidth=0.6,
-           zorder=3, bottom=NULL_FLOOR)
-    ax.set_yscale("log")
-    ax.set_ylim(NULL_FLOOR, 3)
-    ax.set_yticks([1e-5, 1e-3, 1e-1])
-    ax.set_yticklabels(["$10^{-5}$", "$10^{-3}$", "$10^{-1}$"])
-    ax.set_xticks([])
-    ax.set_xlim(-0.72, len(SERIES) - 0.28)
-    ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
-    ax.set_axisbelow(True)
-    for sp in ("top", "right"):
-        ax.spines[sp].set_visible(False)
-    ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
-    ax.set_ylabel("noise floor", fontsize=FS["annot"])
-    ax.set_title("CALIBRATION: each model's\nown noise floor",
-                 fontsize=FS["annot"], fontweight="bold", color=INK, pad=3)
-
-
 def main():
-    P, R, NULL = compute()
-    fig = plt.figure(figsize=(STYLE["col2"], 5.15))
-    # Two BLOCKS, not one grid: the score means opposite things in each, so they are separated by a
-    # real gap and labelled on the left. Class A is 10 panels (2 rows of 5); the bottom row holds
-    # class B's two scorable modes plus the CALIBRATION panel that explains the threshold.
-    gsA = fig.add_gridspec(2, NCOL, left=0.140, right=0.995, top=0.915, bottom=0.435,
-                           wspace=0.40, hspace=0.62)
-    gsB = fig.add_gridspec(1, NCOL, left=0.140, right=0.995, top=0.315, bottom=0.145,
-                           wspace=0.40)
-    A = [m for m in MODES if m[0] == "A"]
-    B = [m for m in MODES if m[0] == "B"]
-    missing = []
-    for i, (kl, mode, title) in enumerate(A):
-        ax = fig.add_subplot(gsA[i // NCOL, i % NCOL])
-        rates = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan for lab, _, _ in SERIES]
-        if not np.isfinite(rates).any():
-            missing.append(mode)
-        _panel(ax, rates, title, kl)
-        if i % NCOL == 0:
-            ax.set_ylabel("resolved (%)", fontsize=FS["annot"])
-    for i, (kl, mode, title) in enumerate(B):
-        ax = fig.add_subplot(gsB[0, i])
-        rates = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan for lab, _, _ in SERIES]
-        if not np.isfinite(rates).any():
-            missing.append(mode)
-        _panel(ax, rates, title, kl)
-        if i == 0:
-            ax.set_ylabel("resolved (%)", fontsize=FS["annot"])
-    # the calibration goes in the LAST column of the bottom row, visually apart from the scored
-    # panels because it is not one of them
-    _calibration(fig.add_subplot(gsB[0, NCOL - 1]), [NULL.get(lab, np.nan) for lab, _, _ in SERIES])
-    assert not missing, f"SI fig f: no data for {missing}"
+    """SI fig f is class B: the same molecule written two ways. The ten class-A panels are fig_G in
+    the main text (user 2026-08-19). Both read this file's compute() and _panel(), so the two
+    figures cannot disagree about a number.
 
-    # the two block labels carry the DIRECTION, which is the thing a reader must not miss
-    fig.text(0.048, (0.915 + 0.435) / 2, "Different molecules\nmust SEPARATE", rotation=90,
-             va="center", ha="center", fontsize=FS["annot"], fontweight="bold", color=INK)
-    fig.text(0.048, (0.315 + 0.145) / 2, "Same molecule\nmust NOT separate", rotation=90,
+    smiles_enumeration is a scored panel again. It was briefly the calibration for a noise-based
+    metric that has since been withdrawn -- the null was SMILES re-writing, a known CLM property,
+    and in the actual pipeline every molecule is embedded from its CANONICAL SMILES, so that
+    variation never occurs at inference. Charging the CLMs for it and reporting the result as
+    chemistry was the error; under canonical input every representation here is deterministic.
+    """
+    R = compute()
+    B = [m for m in MODES if m[0] == "B"]
+    fig = plt.figure(figsize=(STYLE["col2"], 2.45))
+    gs = fig.add_gridspec(1, 3, left=0.135, right=0.995, top=0.775, bottom=0.315, wspace=0.34)
+    for i, (kl, mode, title) in enumerate(B):
+        ax = fig.add_subplot(gs[0, i])
+        vals = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
+                for lab, _, _ in SERIES]
+        assert np.isfinite(vals).any(), f"SI fig f: no data for {mode}"
+        _panel(ax, vals, title, kl)
+        ax.text(0.0, 1.22, "abc"[i], transform=ax.transAxes, fontsize=FS["panel_tag"],
+                fontweight="bold", va="bottom", ha="left", color=INK)
+        if i == 0:
+            ax.set_ylabel("response relative to a\ndifferent molecule", fontsize=FS["annot"])
+
+    fig.text(0.030, (0.775 + 0.315) / 2, "Same molecule\nmust NOT separate", rotation=90,
              va="center", ha="center", fontsize=FS["annot"], fontweight="bold", color=INK)
 
     handles = [Patch(facecolor=ARMS[k]["color"], edgecolor=INK, lw=0.7, label=lab)
                for _, k, lab in SERIES]
-    # the two glyphs a reader cannot guess: an EXACT zero is not a small bar, and the dashed lines
-    # are where a success-rate threshold would cut -- which is how this figure shows that four
-    # modes are knife-edge without needing a footnote to say so
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.54, 0.085), ncol=5,
+    handles.append(Line2D([], [], color=INK, ls=(0, (3, 2)), lw=0.7,
+                          label="= a different molecule (matched MW)"))
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.555, 0.150), ncol=3,
                fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.5, labelspacing=0.35,
                borderpad=0.0, frameon=False)
     save(fig, "SI_fig_f")
     plt.close(fig)
 
-    print("\nSI Fig f — median separation, with the binary resolved-rate where it is not 100%\n")
+    print("\nSI Fig f — response relative to swapping in a different molecule (matched MW)\n")
     print(f"   {'class':<6}{'mode':<22}" + "".join(f"{lab:>14s}" for lab, _, _ in SERIES))
     for kl, mode, _ in MODES:
         row = f"   {kl:<6}{mode:<22}"
         for lab, _, _ in SERIES:
-            v = P.loc[(kl, mode), lab] if (kl, mode) in P.index else np.nan
-            row += (f"{v:>14.2e}" if np.isfinite(v) else f"{'—':>14}")
+            v = R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
+            row += (f"{v:>14.3f}" if np.isfinite(v) else f"{'—':>14}")
         print(row)
-    d = pd.read_csv(SRC)
-    e = d[d.embedding.isin([lab for lab, _, _ in SERIES])].copy()
-    # The metric is threshold-free now, so there is no eps sensitivity left to report. What IS
-    # worth printing is where the binary rate says something the bars do not.
-    nb = e[e.success < 99.5]
-    print(f"\n   BINARY RESOLVED-RATE below 100% in {len(nb)} of {len(e)} cells (these are the "
-          f"annotated bars):")
-    for _, r in nb.sort_values("success").iterrows():
-        print(f"     {r.klass} {r['mode']:<20} {r.embedding:<14} {r.success:5.0f}%   "
-              f"median separation {r.median_separation:.2e}")
-    ctl = d[d.embedding.isin(["random encoder", "ECFP4 stereo-blind"])]
-    print("\n   CONTROLS (not drawn; caption material):")
-    for emb, g in ctl.groupby("embedding"):
-        g = g.set_index("mode")
-        bits = "  ".join(f"{m}={g.loc[m,'success']:.0f}%" for m in
-                         ("stereo_flip", "ez_flip", "kekule") if m in g.index)
-        print(f"     {emb:<22}{bits}")
+    print("\n   1.000 = moves the embedding as far as a completely different compound.")
 
 
 if __name__ == "__main__":

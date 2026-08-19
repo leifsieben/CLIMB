@@ -253,8 +253,10 @@ def check_comparator_scope():
     # and therefore no protocol to confound, and CheMeleon's presence is the point rather than a
     # leak -- the finding is that the blind spots are COMPLEMENTARY (CheMeleon is blind to isotopes
     # and stereochemistry where the CLMs are perfect, and best of the five at ring size). Removing
-    # it would delete the result.
-    allowed = {"fig_A", "fig_A1", "fig_A2", "SI_fig_f"}
+    # it would delete the result. fig_G is the main-text half of the same probe (class A; SI fig f
+    # keeps class B and the calibration) and imports SI_fig_f's own drawing code, so the exemption
+    # covers both halves of one experiment rather than two separate concessions.
+    allowed = {"fig_A", "fig_A1", "fig_A2", "SI_fig_f", "fig_G"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:
