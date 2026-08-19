@@ -438,6 +438,41 @@ def _prep(x, med, clip=10.0, post=False):
     return a
 
 
+def _bound_ood(pred, y_train, task_type, margin=0.25):
+    """Clip regression predictions to the TRAIN target range + `margin`; identity otherwise.
+
+    This is scripts/chemeleon_suite_run.py's clamp, verbatim in intent, moved here so the two
+    protocols agree. Until 2026-08-19 the suite tracks (MoleculeACE, Polaris) bounded regression
+    predictions and the MoleculeNet/CBS track did not, so the SAME model was scored under two rules
+    -- and the difference is not academic. An unbounded MLP over CheMeleon fingerprints predicted
+    -15,012 kcal/mol for one QM7 molecule whose true value is in [-2190, -693]: that single
+    molecule is 75.5% of its fold's squared error, and the fold reads 427.7 RMSE against ~205 for
+    every other fold. CheMeleon-frozen's QM7 bar was 268.8 where the clamp gives 208.8.
+
+    It is close to a no-op for well-behaved features, which is what makes it fair rather than a
+    thumb on the scale. Measured across every arm with a native QM7 dump:
+
+        chemeleon_frozen  268.8 -> 208.8   (-60.0)
+        random_encoder    205.3 -> 201.0    (-4.3)
+        unsup             199.3 -> 197.4    (-1.9)
+        e2e_no_pretrain   194.3 -> 194.1    (-0.2)
+        sup_dense, ecfp_desc, chemeleon_e2e   unchanged to 0.1
+
+    The two arms it moves at all are the two whose encoders are not trained to represent chemistry
+    (an untrained encoder, and an external fingerprint used out of its intended pairing), which is
+    exactly where OOD extrapolation is expected.
+    """
+    if task_type != "regression":
+        return pred
+    yt = np.asarray(y_train, dtype=np.float64)
+    yt = yt[np.isfinite(yt)]
+    if not len(yt):
+        return pred
+    lo, hi = float(yt.min()), float(yt.max())
+    m = margin * (hi - lo + 1e-9)
+    return np.clip(pred, lo - m, hi + m)
+
+
 def evaluate(
     encoder_path: Optional[str],
     tokenizer_path: Optional[str],
@@ -576,6 +611,7 @@ def evaluate(
                     hd = make_head(head, task_type, n_outputs, seed).fit(
                         trx, _scale_targets(y_all[tr_idx], ysc), vax, _scale_targets(y_all[va_idx], ysc))
                     sp_pred = _unscale_preds(np.asarray(hd.predict(tex), dtype=np.float64), ysc)  # back to native units
+                    sp_pred = _bound_ood(sp_pred, y_all[tr_idx], task_type)
                     seed_preds.append(sp_pred)
                     # Per-(seed, fold) metric. The seed-averaged rows below stay exactly as they
                     # were -- this only ADDS the un-averaged cells. Without them the CV scheme can
@@ -639,6 +675,7 @@ def evaluate(
             hd = make_head(head, task_type, n_outputs, seed).fit(
                 tr_x, _scale_targets(tr_y, ysc), va_x, _scale_targets(va_y, ysc))
             te_pred = _unscale_preds(np.asarray(hd.predict(te_x), dtype=np.float64), ysc)  # native units
+            te_pred = _bound_ood(te_pred, tr_y, task_type)
             seed_preds.append(np.asarray(te_pred, dtype=np.float64))
             metric = compute_metric(te_pred, te_y, task_type)
             per_seed.append(metric)
