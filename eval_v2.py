@@ -404,6 +404,40 @@ def _dump_test_predictions(out: Path, ds_name: str, task_type: str, te_s: List[s
 
 # ---------- main ----------
 
+def _impute_stats(x, tree_head):
+    """Per-column TRAIN medians for NaN imputation; None for XGBoost, which wants the NaNs."""
+    if tree_head:
+        return None
+    a = np.asarray(x, dtype=np.float64).copy()
+    a[~np.isfinite(a)] = np.nan
+    med = np.nanmedian(a, axis=0)
+    return np.where(np.isfinite(med), med, 0.0)
+
+
+def _prep(x, med, clip=10.0, post=False):
+    """Make a feature block safe for a gradient-trained head; a no-op for XGBoost (med is None).
+
+    XGBoost reads NaN as "missing" and is invariant to monotone rescaling, so the classical
+    featurizers hand it raw descriptors on purpose. An MLP can do neither: a NaN poisons every
+    weight it touches and an unbounded column (RDKit's Ipc reaches 3.9e23 on BACE) saturates the
+    first layer. So for non-tree heads, non-finite entries are imputed with the TRAIN column
+    MEDIAN -- not 0, which would sit at an arbitrary point on an unstandardized column and drag
+    that column's mean and sd -- and the standardized values are then clipped to +-`clip` sigma,
+    the same clip descriptors_v2.normalize() already uses for the MTR targets.
+
+    `post=True` is the after-standardization pass: only the clip applies there.
+    """
+    if med is None:
+        return x
+    a = np.asarray(x, dtype=np.float32 if post else np.float64)
+    if post:
+        return np.clip(a, -clip, clip).astype(np.float32)
+    bad = ~np.isfinite(a)
+    if bad.any():
+        a = np.where(bad, np.broadcast_to(med, a.shape), a)
+    return a
+
+
 def evaluate(
     encoder_path: Optional[str],
     tokenizer_path: Optional[str],
@@ -447,7 +481,18 @@ def evaluate(
     # both, the intended head is XGBoost (scale-invariant, native NaN handling), so skip
     # standardization. This makes rdkit_desc the classical control for the dense-MTR arm:
     # the SAME 217 descriptors used directly in a tree model vs learned by the CLM.
-    std_method = "none" if featurizer in ("ecfp4", "rdkit_desc", "fp_desc") else standardize
+    #
+    # ...BUT ONLY FOR THAT HEAD (2026-08-19). "Skip standardization" encodes an assumption about
+    # the head that stopped holding when the SI head comparison started running these featurizers
+    # under the MLP. An MLP on raw fp_desc gets columns spanning 20+ orders of magnitude -- Ipc
+    # reaches 3.9e23 on BACE -- plus literal NaNs, and it diverges: ESOL RMSE came back as
+    # 4,382,073 and BBBP produced NaN predictions that crashed roc_auc_score. Reporting that as
+    # "the MLP probe is worse" would be measuring a broken configuration, not a probe. Non-tree
+    # heads therefore get exactly what the encoder path gets -- z-score on TRAIN statistics --
+    # plus the finite-clip below, so the comparison isolates the head.
+    tree_head = head == "xgb"
+    std_method = ("none" if (featurizer in ("ecfp4", "rdkit_desc", "fp_desc") and tree_head)
+                  else standardize)
 
     # CheMeleon needs chemprop>=2.2 (Python >=3.11); the environment that DEFINES our Tox21
     # numbers is Python 3.9 with deepchem 2.8.0, and deepchem 2.8.0 has no 3.12 wheel -- the two
@@ -521,8 +566,10 @@ def evaluate(
                 n_va = max(1, int(0.1 * len(train_pool)))
                 va_idx = train_pool[perm[:n_va]]
                 tr_idx = train_pool[perm[n_va:]]
-                sp = fit_standardizer(X_all[tr_idx], std_method)
-                trx, vax, tex = (apply_standardizer(X_all[ix], sp) for ix in (tr_idx, va_idx, test_idx))
+                med = _impute_stats(X_all[tr_idx], tree_head)
+                sp = fit_standardizer(_prep(X_all[tr_idx], med), std_method)
+                trx, vax, tex = (_prep(apply_standardizer(_prep(X_all[ix], med), sp), med,
+                                       post=True) for ix in (tr_idx, va_idx, test_idx))
                 ysc = _fit_target_scaler(y_all[tr_idx], task_type)   # regression: fit on THIS fold's train only
                 seed_preds = []
                 for seed in head_seeds:
@@ -577,10 +624,11 @@ def evaluate(
         n_outputs = tr_y.shape[1] if tr_y.ndim > 1 else 1
 
         tr_x, va_x, te_x = _featurize(tr_s), _featurize(va_s), _featurize(te_s)
-        std_params = fit_standardizer(tr_x, std_method)
-        tr_x = apply_standardizer(tr_x, std_params)
-        va_x = apply_standardizer(va_x, std_params)
-        te_x = apply_standardizer(te_x, std_params)
+        med = _impute_stats(tr_x, tree_head)
+        std_params = fit_standardizer(_prep(tr_x, med), std_method)
+        tr_x = _prep(apply_standardizer(_prep(tr_x, med), std_params), med, post=True)
+        va_x = _prep(apply_standardizer(_prep(va_x, med), std_params), med, post=True)
+        te_x = _prep(apply_standardizer(_prep(te_x, med), std_params), med, post=True)
 
         ysc = _fit_target_scaler(tr_y, task_type)   # regression: fit on the hold-out TRAIN split only
         per_seed = []
