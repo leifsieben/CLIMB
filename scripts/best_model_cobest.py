@@ -119,6 +119,20 @@ def _primary_dir(arm):
     return ARMS[arm]["src"]["mol"][0]
 
 
+def _suite_dir(arm, suite):
+    """The ONE run dir this arm's co-best analysis reads for a suite.
+
+    Most arms carry a bare string here, but the ones whose replicate dirs do not follow the
+    <src>/<src>_s1/<src>_s2 convention (s2u_dense, random_encoder) carry an explicit LIST -- and
+    this script indexed the field directly, so it crashed the moment ARM_ORDER reached one. The
+    co-best test is a per-molecule comparison between arms on a SINGLE representative run (the
+    lowest seed, see load_moleculeace), so the first dir is the right element rather than an
+    arbitrary one: it is the same run the string convention would have resolved to.
+    """
+    src = ARMS[arm]["src"][suite]
+    return src[0] if isinstance(src, list) else src
+
+
 def _align(frames):
     """Align per-arm prediction frames on the molecules they SHARE.
 
@@ -190,7 +204,7 @@ def load_moleculeace(task):
     base = pd.DataFrame({"raw_smiles": te.smiles, "output_index": 0, "y_true": te["y"].astype(float)})
     preds = {}
     for a in ARM_ORDER:
-        f = FD / "chemeleon_suite" / "moleculeace" / ARMS[a]["src"]["mace"] / "test_predictions.csv"
+        f = FD / "chemeleon_suite" / "moleculeace" / _suite_dir(a, "mace") / "test_predictions.csv"
         if not f.exists():
             continue
         d = pd.read_csv(f)
@@ -220,7 +234,7 @@ def load_polaris(task, man):
                          "y_true": te[ycol].astype(float)})
     preds = {}
     for a in ARM_ORDER:
-        f = FD / "chemeleon_suite" / "polaris" / ARMS[a]["src"]["mace"] / "test_predictions.csv"
+        f = FD / "chemeleon_suite" / "polaris" / _suite_dir(a, "mace") / "test_predictions.csv"
         if not f.exists():
             continue
         d = pd.read_csv(f)

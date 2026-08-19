@@ -365,9 +365,49 @@ def main(only=None):
     print(f"\nwrote {out} ({len(rows)} rows)")
 
 
+def _acquire_lock(force=False):
+    """Refuse to run while another copy of this script is running.
+
+    This is an HOUR-LONG job that ends in a single overwrite of a2_errorbars.csv, so two
+    overlapping runs do not merely waste CPU -- whichever finishes LAST wins, and on 2026-08-19
+    that was nearly a run started before the r3-counts dirs landed. It would have written a table
+    missing two arms with a BRAND-NEW mtime, which is precisely the one thing the audit's freshness
+    check cannot see: that check compares timestamps, and a stale writer produces a fresh one.
+
+    The lock stores the pid so a crashed run does not wedge the next one.
+    """
+    lock = ROOT / "figure_data" / "six_panel" / ".a2_bootstrap.lock"
+    if lock.exists():
+        try:
+            pid = int(lock.read_text().split()[0])
+        except (ValueError, IndexError):
+            pid = None
+        alive = False
+        if pid is not None:
+            try:
+                os.kill(pid, 0)
+                alive = True
+            except (OSError, ProcessLookupError):
+                alive = False
+        if alive and not force:
+            raise SystemExit(
+                f"another a2_bootstrap_errorbars.py is running (pid {pid}, lock {lock}).\n"
+                f"Two runs race on a2_errorbars.csv and the LAST writer wins, which can silently "
+                f"publish an older data vintage under a fresh timestamp. Wait for it, or pass "
+                f"--force if you are certain that pid is not this job.")
+        if not alive:
+            print(f"  stale lock from dead pid {pid}; taking it")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text(f"{os.getpid()} {time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
+    return lock
+
+
 if __name__ == "__main__":
-    import argparse
+    import argparse, atexit, os, time
     ap = argparse.ArgumentParser()
     ap.add_argument("--arms", help="comma-separated subset of A2_ARMS to recompute and merge")
+    ap.add_argument("--force", action="store_true", help="take the lock even if another run holds it")
     a = ap.parse_args()
+    _lock = _acquire_lock(force=a.force)
+    atexit.register(lambda: _lock.exists() and _lock.unlink())
     main(only=[x for x in a.arms.split(",") if x] if a.arms else None)
