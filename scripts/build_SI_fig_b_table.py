@@ -36,13 +36,14 @@ Run:    python3 scripts/build_SI_fig_b_table.py
 """
 from __future__ import annotations
 
-import csv
+import csv, sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 FD = ROOT / "figure_data"
 OUT = FD / "SI_fig_b" / "SI_fig_b_vocab.csv"
 
@@ -52,11 +53,18 @@ RUNS = [("bpe_261", "BPE", 261), ("bpe_1000", "BPE", 1000),
         ("unigram_261", "Unigram", 261), ("unigram_700", "Unigram", 700),
         ("unigram_1200", "Unigram", 1200), ("unigram_3000", "Unigram", 3000)]
 
-MOL_PANELS = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
+# HIV added 2026-08-19. It took CBS's canonical slot in the panel swap and this list was not
+# updated with it, so SI fig b drew an EMPTY HIV panel and printed "not run in the vocabulary
+# wave" -- while all 8 vocab encoders had HIV on disk in climb_v2_vocab/*/moleculenet_cv/ the
+# whole time. A hardcoded panel list that is right for one panel set and silently wrong for the
+# next; the fourth of these this week.
+MOL_PANELS = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1"}
 AMES = ("tdcommons/ames", "roc_auc")
 CBS_ROOT = FD / "cbs_benchmark"
-PANELS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
-HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0}
+# derived, never hand-listed -- see MOL_PANELS above for why
+from figures.arms import PANEL_ORDER as _PO
+PANELS = list(_PO) + ["CBS"]
+HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0, "HIV": 1}
 
 
 def mace(run):

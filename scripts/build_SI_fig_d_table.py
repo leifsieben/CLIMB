@@ -53,7 +53,12 @@ OUT = FD / "SI_fig_d" / "SI_fig_d_augmentation.csv"
 MODES = [("canonical", "canonical"), ("enumerated", "augmented")]
 H1 = FD / "climb_v2_h1"                     # the RETRAINED wave (climb_v2 is round-1: do not use)
 CBS_ROOT = FD / "cbs_benchmark"
-MOL_PANELS = {"BACE": "BACE_MEAN", "Tox21": "Tox21_MEAN", "QM7": "QM7_MEAN"}
+# HIV added 2026-08-19. It took CBS's canonical slot in the panel swap and this list was not
+# updated with it, so SI fig d drew an EMPTY HIV panel and printed "not run on this protocol" --
+# while all 30 climb_v2_h1/scaling_* runs had HIV on disk the whole time. Same shape as the
+# hardcoded lists in build_SI_fig_b_table and six_panel_scaling.
+MOL_PANELS = {"BACE": "BACE_MEAN", "Tox21": "Tox21_MEAN", "QM7": "QM7_MEAN",
+              "HIV": "HIV_nef1_MEAN"}
 FRACTIONS = [("0p001", 0.001), ("0p01", 0.01), ("0p1", 0.1), ("0p3", 0.3), ("full", 1.0)]
 SEEDS = ["s0", "s1", "s2"]
 AMES = ("tdcommons/ames", "roc_auc")
