@@ -34,7 +34,13 @@ sys.path.insert(0, str(ROOT))
 
 OUT = Path("figure_data/embedding_resolution")
 EMB_DIR = OUT / "embeddings"; EMB_DIR.mkdir(parents=True, exist_ok=True)
-PAIRS = OUT / "pairs.csv"
+# RESOLUTION_INPUT=canonical runs the whole thing on RDKit-canonical strings. That is the fair
+# setup for the class A chemistry questions: the notation modes are a separate question, and
+# leaving them mixed in charges a sequence model for a difference the pipeline could remove.
+_CANON = os.environ.get("RESOLUTION_INPUT") == "canonical"
+PAIRS = OUT / ("pairs_canonical.csv" if _CANON else "pairs.csv")
+MOLS = OUT / ("molecules_canonical.txt" if _CANON else "molecules.txt")
+SUFFIX = "_canonical" if _CANON else ""
 BACKGROUND_N = 1000
 SEED = 0
 
@@ -42,10 +48,19 @@ SEED = 0
 EMBEDDINGS = [
     ("ECFP4+stereo",     "fp",      dict(variant="ecfp4_stereo", desc=False)),
     ("ECFP4+desc",       "fp",      dict(variant="ecfp4_stereo", desc=True)),
+    ("Morgan r3-counts", "fp",      dict(variant="morgan_r3_counts", desc=False)),
     ("CLIMB sup",        "encoder", "figure_data/climb_v2_phase2/skip_dense_8M/encoder"),
     ("CLIMB unsup",      "encoder", "figure_data/climb_v2_phase2/unsup_8M/encoder"),
-    ("CheMeleon",        "npz",     "figure_data/embedding_resolution/chemeleon_pairs.npz"),
+    ("CheMeleon",        "npz",     "figure_data/embedding_resolution/chemeleon_pairs.npz"),  # swapped below when canonical
+    # CLIMB unsup pretrained WITH SMILES-enumeration augmentation. The mainline arms are
+    # augmentation="canonical" (checked in their own config.yaml and metadata.json), so this is
+    # the only encoder in the repo that saw randomized SMILES during pretraining -- it answers
+    # directly whether augmentation buys notation-invariance, rather than leaving it assumed.
+    ("CLIMB unsup (enum-aug)", "encoder",
+     "figure_data/climb_v2_h1/scaling_enumerated_fracfull_s0/encoder"),
     # ---- controls ----
+    ("CLIMB unsup (canon-ctrl)", "encoder",
+     "figure_data/climb_v2_h1/scaling_canonical_fracfull_s0/encoder"),
     ("random encoder",   "encoder", "figure_data/climb_v2_phase2/random_baseline_00/encoder"),
     ("ECFP4 stereo-blind", "fp",    dict(variant="ecfp4_legacy", desc=False)),
 ]
@@ -119,11 +134,14 @@ def main() -> int:
     rng = random.Random(SEED)
     pairs = load_pairs()
     bg = background_smiles(rng, BACKGROUND_N)
-    uniq = sorted({r["smiles_a"] for r in pairs} | {r["smiles_b"] for r in pairs} | set(bg))
+    if _CANON:
+        uniq = MOLS.read_text().split("\n")
+        bg = [s for s in uniq if s not in ({r["smiles_a"] for r in pairs} | {r["smiles_b"] for r in pairs})][:BACKGROUND_N]
+    uniq = sorted(set(uniq) | set(bg)) if not _CANON else uniq
     idx = {s: i for i, s in enumerate(uniq)}
     print(f"{len(pairs)} pairs, {len(uniq)} unique molecules "
           f"(incl. {len(bg)} background)\n")
-    (OUT / "molecules.txt").write_text("\n".join(uniq))
+    MOLS.write_text("\n".join(uniq))
 
     ia = np.array([idx[r["smiles_a"]] for r in pairs])
     ib = np.array([idx[r["smiles_b"]] for r in pairs])
@@ -132,13 +150,15 @@ def main() -> int:
     rows = []
     for name, kind, spec in EMBEDDINGS:
         print(f"=== {name} ===", flush=True)
+        if kind == "npz" and _CANON:
+            spec = "figure_data/embedding_resolution/chemeleon_canonical.npz"
         X = featurize(name, kind, spec, uniq)
         if X is None:
             continue
         # Persist the raw vectors, not just the derived distances: any later question -- a
         # different metric, a probe, an adversarial split -- needs the embeddings themselves, and
         # recomputing them means re-standing-up a chemprop box for CheMeleon.
-        np.savez_compressed(EMB_DIR / f"{name.replace(' ', '_').replace('+', '_')}.npz",
+        np.savez_compressed(EMB_DIR / f"{name.replace(' ', '_').replace('+', '_')}{SUFFIX}.npz",
                             smiles=np.array(uniq, dtype=object), X=X)
         A, B = X[ia], X[ib]
         d_cos = cosine(A, B)
@@ -159,11 +179,11 @@ def main() -> int:
                              separation=float(dc / mb)))
         print(f"  identical pairs: {int(exact.sum())}/{len(pairs)}", flush=True)
 
-    with (OUT / "distances.csv").open("w", newline="") as f:
+    with (OUT / f"distances{SUFFIX}.csv").open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["embedding", "mode", "klass", "pair_id", "cosine",
                                           "tanimoto", "identical", "bg_median", "separation"])
         w.writeheader(); w.writerows(rows)
-    print(f"\nwrote {OUT/'distances.csv'}: {len(rows)} rows")
+    print(f"\nwrote {OUT}/distances{SUFFIX}.csv: {len(rows)} rows")
     return 0
 
 

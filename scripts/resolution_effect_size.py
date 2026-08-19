@@ -26,19 +26,25 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "figure_data/embedding_resolution"
 EMB_DIR = OUT / "embeddings"
-NAMES = {"ECFP4+stereo": "ECFP4_stereo", "ECFP4+desc": "ECFP4_desc", "CLIMB sup": "CLIMB_sup",
+import os
+CANON = os.environ.get("RESOLUTION_INPUT") == "canonical"
+SUFFIX = "_canonical" if CANON else ""
+NAMES = {"ECFP4+stereo": "ECFP4_stereo", "ECFP4+desc": "ECFP4_desc",
+         "Morgan r3-counts": "Morgan_r3-counts", "CLIMB sup": "CLIMB_sup",
          "CLIMB unsup": "CLIMB_unsup", "CheMeleon": "CheMeleon",
+         "CLIMB unsup (enum-aug)": "CLIMB_unsup_(enum-aug)",
+         "CLIMB unsup (canon-ctrl)": "CLIMB_unsup_(canon-ctrl)",
          "random encoder": "random_encoder", "ECFP4 stereo-blind": "ECFP4_stereo-blind"}
 
 
 def main() -> int:
-    pairs = list(csv.DictReader((OUT / "pairs.csv").open()))
-    bg = set((OUT / "molecules.txt").read_text().split("\n"))
+    pairs = list(csv.DictReader((OUT / ("pairs" + SUFFIX + ".csv")).open()))
+    bg = set((OUT / ("molecules" + SUFFIX + ".txt")).read_text().split("\n"))
     paired = {r["smiles_a"] for r in pairs} | {r["smiles_b"] for r in pairs}
     bg = sorted(bg - paired)          # background = molecules not in any reported pair
     rows = []
     for label, fname in NAMES.items():
-        p = EMB_DIR / f"{fname}.npz"
+        p = EMB_DIR / f"{fname}{SUFFIX}.npz"
         if not p.exists():
             continue
         z = np.load(p, allow_pickle=True)
@@ -53,11 +59,11 @@ def main() -> int:
                              pair_id=r["pair_id"], effect=float(np.sqrt(np.mean(d ** 2))),
                              n_live_dims=int(live.sum())))
         print(f"{label:22} {int(live.sum())}/{len(sigma)} live dimensions", flush=True)
-    with (OUT / "effect_sizes.csv").open("w", newline="") as f:
+    with (OUT / f"effect_sizes{SUFFIX}.csv").open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["embedding", "mode", "klass", "pair_id", "effect",
                                           "n_live_dims"])
         w.writeheader(); w.writerows(rows)
-    print(f"\nwrote {OUT/'effect_sizes.csv'}: {len(rows)} rows")
+    print(f"\nwrote {OUT}/effect_sizes{SUFFIX}.csv: {len(rows)} rows")
     return 0
 
 

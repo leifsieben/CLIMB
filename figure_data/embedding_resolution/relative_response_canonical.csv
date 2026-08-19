@@ -1,0 +1,105 @@
+input,klass,mode,embedding,relative_response,effect
+canonical,A,stereo_flip,ECFP4+stereo,0.6792,0.6349
+canonical,A,stereo_flip,ECFP4+desc,0.636,0.6049
+canonical,A,stereo_flip,Morgan r3-counts,0.9198,0.6987
+canonical,A,stereo_flip,CLIMB sup,0.009,0.0126
+canonical,A,stereo_flip,CLIMB unsup,0.0341,0.0703
+canonical,A,stereo_flip,CLIMB unsup (enum-aug),0.0271,0.0713
+canonical,A,stereo_flip,CLIMB unsup (canon-ctrl),0.0302,0.0621
+canonical,A,stereo_flip,CheMeleon,0.0063,0.0143
+canonical,A,ez_flip,ECFP4+stereo,1.0173,0.951
+canonical,A,ez_flip,ECFP4+desc,0.9527,0.906
+canonical,A,ez_flip,Morgan r3-counts,1.0573,0.8032
+canonical,A,ez_flip,CLIMB sup,0.0126,0.0175
+canonical,A,ez_flip,CLIMB unsup,0.0641,0.1322
+canonical,A,ez_flip,CLIMB unsup (enum-aug),0.0334,0.0878
+canonical,A,ez_flip,CLIMB unsup (canon-ctrl),0.0593,0.1218
+canonical,A,ez_flip,CheMeleon,0.0216,0.049
+canonical,A,c_to_n,ECFP4+stereo,0.7697,0.7195
+canonical,A,c_to_n,ECFP4+desc,0.7254,0.6899
+canonical,A,c_to_n,Morgan r3-counts,1.008,0.7657
+canonical,A,c_to_n,CLIMB sup,0.0541,0.0754
+canonical,A,c_to_n,CLIMB unsup,0.0299,0.0617
+canonical,A,c_to_n,CLIMB unsup (enum-aug),0.0725,0.1904
+canonical,A,c_to_n,CLIMB unsup (canon-ctrl),0.0331,0.0679
+canonical,A,c_to_n,CheMeleon,0.1168,0.2653
+canonical,A,add_methyl,ECFP4+stereo,0.7712,0.7209
+canonical,A,add_methyl,ECFP4+desc,0.7236,0.6882
+canonical,A,add_methyl,Morgan r3-counts,0.9855,0.7486
+canonical,A,add_methyl,CLIMB sup,0.2255,0.3147
+canonical,A,add_methyl,CLIMB unsup,0.2496,0.5151
+canonical,A,add_methyl,CLIMB unsup (enum-aug),0.1395,0.3667
+canonical,A,add_methyl,CLIMB unsup (canon-ctrl),0.2343,0.4812
+canonical,A,add_methyl,CheMeleon,0.1186,0.2695
+canonical,A,add_fluorine,ECFP4+stereo,0.7481,0.6993
+canonical,A,add_fluorine,ECFP4+desc,0.7057,0.6711
+canonical,A,add_fluorine,Morgan r3-counts,0.978,0.7429
+canonical,A,add_fluorine,CLIMB sup,0.2027,0.2828
+canonical,A,add_fluorine,CLIMB unsup,0.1956,0.4036
+canonical,A,add_fluorine,CLIMB unsup (enum-aug),0.0944,0.2482
+canonical,A,add_fluorine,CLIMB unsup (canon-ctrl),0.161,0.3305
+canonical,A,add_fluorine,CheMeleon,0.1679,0.3816
+canonical,A,isotope_13c,ECFP4+stereo,0.0,0.0
+canonical,A,isotope_13c,ECFP4+desc,0.0054,0.0052
+canonical,A,isotope_13c,Morgan r3-counts,0.0,0.0
+canonical,A,isotope_13c,CLIMB sup,0.2142,0.2989
+canonical,A,isotope_13c,CLIMB unsup,0.2895,0.5974
+canonical,A,isotope_13c,CLIMB unsup (enum-aug),0.1829,0.4808
+canonical,A,isotope_13c,CLIMB unsup (canon-ctrl),0.2687,0.5518
+canonical,A,isotope_13c,CheMeleon,0.0004,0.0009
+canonical,A,ring_size,ECFP4+stereo,0.1037,0.0969
+canonical,A,ring_size,ECFP4+desc,0.1002,0.0953
+canonical,A,ring_size,Morgan r3-counts,0.3883,0.2949
+canonical,A,ring_size,CLIMB sup,0.0719,0.1003
+canonical,A,ring_size,CLIMB unsup,0.069,0.1424
+canonical,A,ring_size,CLIMB unsup (enum-aug),0.0358,0.094
+canonical,A,ring_size,CLIMB unsup (canon-ctrl),0.0533,0.1094
+canonical,A,ring_size,CheMeleon,0.1069,0.243
+canonical,A,regioisomer,ECFP4+stereo,0.8168,0.7635
+canonical,A,regioisomer,ECFP4+desc,0.766,0.7285
+canonical,A,regioisomer,Morgan r3-counts,0.8766,0.6659
+canonical,A,regioisomer,CLIMB sup,0.345,0.4814
+canonical,A,regioisomer,CLIMB unsup,0.4918,1.0148
+canonical,A,regioisomer,CLIMB unsup (enum-aug),0.3807,1.0007
+canonical,A,regioisomer,CLIMB unsup (canon-ctrl),0.4406,0.9048
+canonical,A,regioisomer,CheMeleon,0.464,1.0543
+canonical,A,matched_mw,ECFP4+stereo,1.0,0.9348
+canonical,A,matched_mw,ECFP4+desc,1.0,0.9511
+canonical,A,matched_mw,Morgan r3-counts,1.0,0.7596
+canonical,A,matched_mw,CLIMB sup,1.0,1.3955
+canonical,A,matched_mw,CLIMB unsup,1.0,2.0637
+canonical,A,matched_mw,CLIMB unsup (enum-aug),1.0,2.6285
+canonical,A,matched_mw,CLIMB unsup (canon-ctrl),1.0,2.0533
+canonical,A,matched_mw,CheMeleon,1.0,2.2722
+canonical,A,matched_descriptors,ECFP4+stereo,1.3577,1.2691
+canonical,A,matched_descriptors,ECFP4+desc,1.2781,1.2156
+canonical,A,matched_descriptors,Morgan r3-counts,1.6169,1.2283
+canonical,A,matched_descriptors,CLIMB sup,0.4892,0.6826
+canonical,A,matched_descriptors,CLIMB unsup,0.4957,1.0229
+canonical,A,matched_descriptors,CLIMB unsup (enum-aug),0.3072,0.8076
+canonical,A,matched_descriptors,CLIMB unsup (canon-ctrl),0.4848,0.9956
+canonical,A,matched_descriptors,CheMeleon,0.3448,0.7834
+canonical,B,smiles_enumeration,ECFP4+stereo,0.0,0.0
+canonical,B,smiles_enumeration,ECFP4+desc,0.0,0.0
+canonical,B,smiles_enumeration,Morgan r3-counts,0.0,0.0
+canonical,B,smiles_enumeration,CLIMB sup,0.0,0.0
+canonical,B,smiles_enumeration,CLIMB unsup,0.0,0.0
+canonical,B,smiles_enumeration,CLIMB unsup (enum-aug),0.0,0.0
+canonical,B,smiles_enumeration,CLIMB unsup (canon-ctrl),0.0,0.0
+canonical,B,smiles_enumeration,CheMeleon,0.0,0.0
+canonical,B,kekule,ECFP4+stereo,0.0,0.0
+canonical,B,kekule,ECFP4+desc,0.0,0.0
+canonical,B,kekule,Morgan r3-counts,0.0,0.0
+canonical,B,kekule,CLIMB sup,0.0,0.0
+canonical,B,kekule,CLIMB unsup,0.0,0.0
+canonical,B,kekule,CLIMB unsup (enum-aug),0.0,0.0
+canonical,B,kekule,CLIMB unsup (canon-ctrl),0.0,0.0
+canonical,B,kekule,CheMeleon,0.0,0.0
+canonical,B,symmetry_equivalent,ECFP4+stereo,0.0,0.0
+canonical,B,symmetry_equivalent,ECFP4+desc,0.0,0.0
+canonical,B,symmetry_equivalent,Morgan r3-counts,0.0,0.0
+canonical,B,symmetry_equivalent,CLIMB sup,0.0,0.0
+canonical,B,symmetry_equivalent,CLIMB unsup,0.0,0.0
+canonical,B,symmetry_equivalent,CLIMB unsup (enum-aug),0.0,0.0
+canonical,B,symmetry_equivalent,CLIMB unsup (canon-ctrl),0.0,0.0
+canonical,B,symmetry_equivalent,CheMeleon,0.0,0.0
