@@ -84,7 +84,7 @@ def main():
     assert len(B) == 2, f"fig_G expects the two class-B controls, found {[m[1] for m in B]}"
 
     fig = plt.figure(figsize=(STYLE["col2"], 3.85))
-    gs = fig.add_gridspec(2, NCOL, left=0.068, right=0.952, top=0.875, bottom=0.235,
+    gs = fig.add_gridspec(2, NCOL, left=0.068, right=0.995, top=0.875, bottom=0.250,
                           wspace=0.38, hspace=0.72)
     tags = "abcdefghij"
     for i, (kl, mode, title) in enumerate(A):
@@ -108,22 +108,17 @@ def main():
         ax.text(0.0, 1.30, "kl"[j], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
 
-    # The control column must state the INVERSION -- in (k) and (l) a high bar is a FAILURE.
-    # Without it a reader carries the class-A reading across and gets both panels exactly
-    # backwards, the single most likely misreading of this figure.
-    #
-    # It is a ROTATED SIDE LABEL rather than a header because a header sits exactly where panel
-    # (k)'s two-line title already is, and because SI fig f labels its class-B block the same way
-    # on the left -- so the two figures teach the reader one idiom instead of two.
-    top = gs[0, NCOL_A].get_position(fig)
-    bot = gs[1, NCOL_A].get_position(fig)
-    fig.text(top.x1 + 0.030, (top.y1 + bot.y0) / 2,
-             "CONTROL: same molecule, two spellings\nLOW is correct",
-             rotation=270, ha="center", va="center", fontsize=FS["annot"] - 1,
-             fontweight="bold", color=INK, linespacing=1.3)
+    # NO in-figure label on the control column (user 2026-08-19: it goes in the caption). The
+    # inversion -- in (k) and (l) a HIGH bar is a failure -- is therefore carried by the tinted
+    # background alone, and the caption MUST state it: a reader who carries the class-A reading
+    # across gets both panels backwards. Keep that sentence in the caption if this figure is
+    # ever re-cut.
 
-    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.500, 0.155),
-               ncol=3, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.4,
+    # 2 rows x 5 columns for the 9 entries (8 arms + the reference line), user request. Checked
+    # against the canvas below rather than assumed -- a legend wider than the figure is what
+    # pushes savefig's tight bbox out and silently rescales the whole plate in LaTeX.
+    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.500, 0.175),
+               ncol=5, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
                labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)

@@ -75,13 +75,17 @@ TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "diff
 # MATCHED PAIR that exists only in this measurement -- they are not benchmark arms and are
 # deliberately NOT registered in arms.py -- so they take two shades of the unsup family rather than
 # the mainline `unsup` colour, which would falsely imply they are the arm the benchmark plots.
-SERIES = [("ECFP",      ARMS["ecfp"]["color"],             "ECFP4+stereo"),
+# Labels: "supervised" spelled out, "unsuperv." abbreviated, used the same way in every entry
+# (user 2026-08-19). "ECFP4" rather than "ECFP4+stereo" because arms.py -- the single source of
+# truth -- calls it ECFP4 everywhere else, and R3FP has chirality on too, so the suffix was
+# marking a property both fingerprints share.
+SERIES = [("ECFP",      ARMS["ecfp"]["color"],             "ECFP4"),
           ("ECFP+d",    ARMS["ecfp_desc"]["color"],        "ECFP4+desc"),
           ("r3fp",      ARMS["r3fp"]["color"],             "R3FP"),
           ("r3fp+d",    ARMS["r3fp_desc"]["color"],        "R3FP+desc"),
-          ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB unsup, enum-augmented"),
-          ("uns-CANON", SHADES["unsup"][2],                "CLIMB unsup, canonical"),
-          ("sup",       ARMS["sup_dense"]["color"],        "CLIMB sup"),
+          ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB unsuperv., augmented"),
+          ("uns-CANON", SHADES["unsup"][2],                "CLIMB unsuperv., canonical"),
+          ("sup",       ARMS["sup_dense"]["color"],        "CLIMB supervised"),
           ("CheMel",    ARMS["chemeleon_frozen"]["color"], "CheMeleon")]
 
 # (class, mode, two-line panel title). The class blocks are drawn as separate figures.
