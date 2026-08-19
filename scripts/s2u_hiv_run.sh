@@ -17,6 +17,15 @@ for r in $RUNS; do
   d=figure_data/climb_v2_phase2/$r
   mkdir -p "$d"
   aws s3 sync "$S3/$r/encoder" "$d/encoder" --only-show-errors
+  # Stage the EXISTING results too. Merging presupposes a destination: on a fresh box the
+  # destination summary does not exist, the merge keeps 0 rows, and the single-dataset file is
+  # then synced back OVER the full one on S3. That is how the first attempt at this top-up
+  # silently dropped BACE/QM7/Tox21 from all three dirs.
+  aws s3 sync "$S3/$r/moleculenet_cv" "$d/moleculenet_cv" --only-show-errors
+  if [ ! -s "$d/moleculenet_cv/moleculenet_summary.csv" ]; then
+    say "$r: no existing summary staged -- refusing to write a single-dataset file over S3"
+    ok=0; continue
+  fi
   if [ ! -f "$d/encoder/model.safetensors" ] && [ ! -f "$d/encoder/pytorch_model.bin" ]; then
     say "$r: NO ENCODER WEIGHTS -> skipping"; ok=0; continue
   fi

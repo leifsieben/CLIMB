@@ -104,6 +104,37 @@ def merge_summary(new_dir: Path, dest: Path, datasets):
     print(f"[anchor] merged {len(rows_new)} rows into {dest} (kept {len(keep)})", flush=True)
 
 
+def merge_preds(new_dir: Path, dest: Path, datasets):
+    """Replace only `datasets`' prediction rows in dest, keeping every other dataset's."""
+    src = new_dir / "test_predictions.csv"
+    if not src.exists():
+        return
+    rows_new = list(csv.DictReader(src.open()))
+    keep = []
+    if dest.exists():
+        keep = [r for r in csv.DictReader(dest.open()) if r["dataset"] not in datasets]
+    fields = list(rows_new[0].keys()) if rows_new else None
+    if not fields:
+        return
+    with dest.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        for r in keep + rows_new:
+            w.writerow({k: r.get(k, "") for k in fields})
+    print(f"[anchor] merged {len(rows_new)} pred rows into {dest} (kept {len(keep)})", flush=True)
+
+
+def merge_suite(new_dir: Path, dest: Path):
+    """Union the suite keys, so the point estimates stay in step with the merged rows."""
+    src = new_dir / "suite_summary.json"
+    if not src.exists():
+        return
+    import json
+    d = json.loads(dest.read_text()) if dest.exists() else {}
+    d.update(json.loads(src.read_text()))
+    dest.write_text(json.dumps(d, indent=1))
+
+
 def main(only=None) -> int:
     fails = []
     # ANCHOR_DS restricts the pass to named datasets, so a later addition (HIV joining the
@@ -129,9 +160,13 @@ def main(only=None) -> int:
                              f"{name} {ds}")
                     if ok:
                         merge_summary(tmp, dest_dir / "moleculenet_summary.csv", {ds})
-                        for extra in ("test_predictions.csv", "suite_summary.json"):
-                            if (tmp / extra).exists() and not (dest_dir / extra).exists():
-                                shutil.copy2(tmp / extra, dest_dir / extra)
+                        # The prediction dump has to be merged on the SAME rule as the summary.
+                        # Skipping it when the file already exists leaves a dump covering fewer
+                        # datasets than the summary claims, and a2_bootstrap then pools 3 seed
+                        # dirs for the bar while the CI sees 1 -- a mismatch that reads as a
+                        # tight CI rather than as missing data.
+                        merge_preds(tmp, dest_dir / "test_predictions.csv", {ds})
+                        merge_suite(tmp, dest_dir / "suite_summary.json")
                     shutil.rmtree(tmp, ignore_errors=True)
                 else:
                     ok = run(common + seed_args + ["--datasets", ds, "--output_dir", str(dest_dir)],
