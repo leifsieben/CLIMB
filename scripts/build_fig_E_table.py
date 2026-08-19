@@ -125,12 +125,31 @@ def bench_run_value(run: str, task: str) -> float:
 
 
 def molnet_run_value(run: str, task: str) -> float:
-    """<task>_MEAN from climb_v2_phase2/<run>/moleculenet_cv/suite_summary.json (the phase-2 wave)."""
-    p = PHASE2 / run / "moleculenet_cv" / "suite_summary.json"
-    if not p.exists():
-        return np.nan
-    v = json.load(open(p)).get(f"{task}_MEAN")
-    return float(v) if v is not None else np.nan
+    """<task>_MEAN for one phase-2 run, via figures.sixpanel.suite_run_mean.
+
+    Delegated rather than reading moleculenet_cv/suite_summary.json directly, so this file picks up
+    per-task subdir preference (Tox21's corrected re-score) from the ONE place that defines it.
+    Tox21 matters here even though a lift is scale-invariant: the 2026-08-18 correction is NOT a
+    uniform factor -- it moves arms by +0.015 to +0.032 -- so a lift built from stale values is not
+    the same number as one built from corrected values.
+    """
+    import json as _json
+    # Per-task subdir preference, chosen HERE rather than delegated wholesale, because this file's
+    # QM7 rule is deliberately different from every other figure's (see the UNITS note above):
+    #   QM7   -> ALWAYS the plain moleculenet_cv/. corrupt_mtr_8M has no native re-eval, and
+    #            preferring native per run would read 194.7 for the real arm against 0.96 for the
+    #            corrupted one -- the exact mixing the lift's scale-invariance depends on avoiding.
+    #   Tox21 -> prefer the corrected re-score. This is NOT a unit choice but a vintage one, and
+    #            the correction is not a uniform factor (+0.015...+0.032 by arm), so a lift built
+    #            from stale values is a different number, not a rescaled one.
+    subs = ("moleculenet_cv_tox21fixed", "moleculenet_cv") if task == "Tox21" else ("moleculenet_cv",)
+    for sub in subs:
+        p_ = PHASE2 / run / sub / "suite_summary.json"
+        if p_.exists():
+            v = _json.load(open(p_)).get(f"{task}_MEAN")
+            if v is not None:
+                return float(v)
+    return np.nan
 
 
 def agg(vals: list[float]) -> tuple[float, float, int]:

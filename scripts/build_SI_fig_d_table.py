@@ -38,10 +38,13 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # for figures.sixpanel
 
 ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
@@ -57,11 +60,21 @@ AMES = ("tdcommons/ames", "roc_auc")
 
 
 def _suite(root, run, key):
-    p = root / run / "moleculenet_cv" / "suite_summary.json"
-    if not p.exists():
-        return np.nan
-    v = json.load(open(p)).get(key)
-    return float(v) if v is not None else np.nan
+    """Read `key` from a run's suite summary, preferring the per-task corrected subdir.
+
+    `key` is "<task>_MEAN" for the MolNet panels, so the task is recoverable and the same subdir
+    preference the figures use (figures.sixpanel.NATIVE_SUBDIRS: qm7native, tox21fixed) applies
+    here too. Anything else falls back to moleculenet_cv/.
+    """
+    from figures.sixpanel import NATIVE_SUBDIRS
+    task = key[:-5] if key.endswith("_MEAN") else None
+    for sub in NATIVE_SUBDIRS.get(task, ("moleculenet_cv",)):
+        p = root / run / sub / "suite_summary.json"
+        if p.exists():
+            v = json.load(open(p)).get(key)
+            if v is not None:
+                return float(v)
+    return np.nan
 
 
 def molnet(run, key):

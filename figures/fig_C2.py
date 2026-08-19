@@ -39,6 +39,15 @@ design as the pre-canonical version. MoleculeACE / CBS / Ames values come from t
 to scripts/six_panel_aggregate.py so this figure's definition of a panel value is byte-identical to
 every other figure's.
 
+TOX21 IS DROPPED AGAIN as of 2026-08-18 (final state), and this time it is a hard data gap, not a
+stale file. The ablation wave's per-molecule Tox21 dumps are PRE-fix: 93,876 rows rather than the
+masked 77,864, so nothing in that tree can produce the corrected number and it cannot be re-scored
+from disk at all -- it needs a re-eval against the checkpoints. Phase 2 IS corrected, so the two
+trees are not comparable and the panel is withheld. Note this is deliberately NOT treated like the
+QM7 unit split: falling back to the stale copy on both sides would give a lift of two wrong numbers,
+internally consistent and still wrong, because the missing-label correction moves arms by
++0.015...+0.032 non-uniformly rather than rescaling them. See figures.sixpanel.CORRECTION_TASKS.
+
 TWO GUARDS RUN HERE, and both caught a live fault on 2026-08-18. Neither is decorative.
 
 1. CROSS-WAVE FLOOR AGREEMENT (figures.sixpanel.crosswave_safe). The lift borrows phase 2's end2end

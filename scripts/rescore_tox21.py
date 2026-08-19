@@ -65,6 +65,13 @@ DEFAULT_ROOTS = ["climb_v2_phase2", "climb_v2_ablation_dedup", "climb_v2_h1", "c
 METRICS = ["roc_auc", "nef1"]          # both are carried in moleculenet_summary.csv
 KIND = {"roc_auc": "auc", "nef1": "nef1"}
 NFOLD = 5
+# A run's Tox21 dump is only usable if it is MASKED. DeepChem's Tox21 is 7,823 x 12 = 93,876 cells,
+# of which 16,012 have w==0; a post-fix dump therefore carries 93,876 - 16,012 = 77,864 rows and a
+# PRE-fix dump carries all 93,876. Nothing in a pre-fix directory can produce the corrected number,
+# so re-scoring one yields a stale value wearing a `tox21fixed` label -- the worst possible state,
+# because the readers PREFER that directory. 12 such directories were written and quarantined on
+# 2026-08-18 before this guard existed. Refuse, loudly, rather than write a confident wrong file.
+TOX21_MASKED_ROWS = 77_864
 
 
 def rescore_run(root: str, run_dir: Path):
@@ -78,6 +85,8 @@ def rescore_run(root: str, run_dir: Path):
     d = d[d.dataset == "Tox21"]
     if d.empty:
         return None
+    if len(d) != TOX21_MASKED_ROWS:
+        return ("UNMASKED", len(d))       # caller reports and skips; never writes
     m = d.rename(columns={"y_true": "y_true_a", "y_pred": "y_pred_a", "raw_smiles": "raw_smiles_a"})
     key = "mol_index" if "mol_index" in m.columns else "raw_smiles_a"
     uniq = m.drop_duplicates(subset=[key]).sort_values(key)
@@ -156,7 +165,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    done = changed = 0
+    done = changed = refused = 0
     for root in [r for r in a.roots.split(",") if r]:
         base = FD / root
         if not base.exists():
@@ -165,6 +174,12 @@ def main():
         for run_dir in sorted(p for p in base.iterdir() if p.is_dir()):
             vals = rescore_run(root, run_dir)
             if not vals:
+                continue
+            if isinstance(vals, tuple) and vals[0] == "UNMASKED":
+                print(f"  REFUSE {run_dir.name:<40} Tox21 dump has {vals[1]:,} rows, not "
+                      f"{TOX21_MASKED_ROWS:,} -- PRE-fix predictions, cannot be re-scored from "
+                      f"disk; needs a re-eval against the checkpoint", flush=True)
+                refused += 1
                 continue
             tmpl, cols = template_row(run_dir)
             old = []
@@ -195,7 +210,7 @@ def main():
         if a.limit and done >= a.limit:
             break
     print(f"\n{'DRY RUN: ' if a.dry_run else ''}re-scored {done} run(s); "
-          f"{changed} moved by more than 0.002 ROC-AUC")
+          f"{changed} moved by more than 0.002 ROC-AUC; {refused} REFUSED (pre-fix predictions)")
 
 
 if __name__ == "__main__":

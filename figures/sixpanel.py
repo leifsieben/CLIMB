@@ -236,6 +236,17 @@ def _molnet_mean(dirs, dataset, metric, root, subdirs):
     return float(_st.mean(m for _, m, _ in summ)) if summ else float("nan")
 
 
+# Tasks whose alternate subdir is a CORRECTION (a different, better answer) rather than a
+# CONVENTION (the same answer in other units). The distinction decides what to do when only some
+# trees have it:
+#   convention (QM7 native, ESOL regnative) -> fall back to the shared convention. A lift is exactly
+#       scale-invariant, so comparing two z-scored values gives the same number as two native ones.
+#   correction (Tox21)                      -> DROP the task. A stale value is not a rescaled value:
+#       the missing-label error moves arms by +0.015...+0.032, non-uniformly, so a lift of two
+#       stale numbers is simply the wrong lift, not the right one in other units.
+CORRECTION_TASKS = {"Tox21"}
+
+
 def joint_molnet_subdirs(task, groups):
     """ONE MolNet subdir that EVERY (root, dirs) group can supply, for a cross-tree comparison.
 
@@ -253,10 +264,15 @@ def joint_molnet_subdirs(task, groups):
     """
     from scripts.six_panel_aggregate import FD as _FD  # noqa: F401  (same FD, via the loaded module)
     cands = NATIVE_SUBDIRS.get(task, ("moleculenet_cv",))
-    for sub in cands:
-        if all(any((_spa.FD / root / d / sub).exists() for d in dirs) for root, dirs in groups):
-            return (sub,)
-    return (cands[-1],)
+    have = [sub for sub in cands
+            if all(any((_spa.FD / root / d / sub).exists() for d in dirs) for root, dirs in groups)]
+    if task in CORRECTION_TASKS:
+        # ONLY the corrected subdir will do. Falling back to the shared stale one would give a lift
+        # of two wrong numbers -- internally consistent and still wrong, because the correction is
+        # not a uniform factor. If every tree already lacks the corrected copy the task is simply
+        # uncorrected everywhere, which is a different (and currently non-existent) situation.
+        return (cands[0],) if cands[0] in have else None
+    return (have[0],) if have else (cands[-1],)
 
 
 def canonical_value(task, src, molnet_root="climb_v2_phase2", molnet_subdirs=None):
@@ -335,9 +351,13 @@ def crosswave_safe(tasks, abl_wave, ph2_wave, frozen_runs, molnet_tasks, tol=0.0
         if t not in molnet_tasks:
             safe.append(t)
             continue
-        sub = joint_molnet_subdirs(t, [(abl_wave.name, frozen_runs), (ph2_wave.name, frozen_runs)])[0]
-        a = suite_wave_mean(abl_wave, frozen_runs, t, verbose=False, subdir=sub)
-        b = suite_wave_mean(ph2_wave, frozen_runs, t, verbose=False, subdir=sub)
+        subs = joint_molnet_subdirs(t, [(abl_wave.name, frozen_runs), (ph2_wave.name, frozen_runs)])
+        if subs is None:
+            # a corrected re-score exists for one tree and not the other: not comparable at all
+            dropped.append((t, float("nan"), float("nan"), float("inf")))
+            continue
+        a = suite_wave_mean(abl_wave, frozen_runs, t, verbose=False, subdir=subs[0])
+        b = suite_wave_mean(ph2_wave, frozen_runs, t, verbose=False, subdir=subs[0])
         if not (_np.isfinite(a) and _np.isfinite(b)) or b == 0:
             safe.append(t)
             continue
@@ -354,4 +374,8 @@ def report_crosswave(dropped, floor_label):
           f"so a lift over the borrowed {floor_label} floor would charge a protocol offset to "
           f"pretraining:")
     for t, a, b, pct in dropped:
-        print(f"      {t}: ablation frozen floor={a:.4f} vs phase2={b:.4f}  ({pct:.1f}% apart)")
+        if not np.isfinite(pct):
+            print(f"      {t}: one wave has the CORRECTED re-score and the other does not — its "
+                  f"predictions are pre-fix, so it cannot be re-scored from disk at all")
+        else:
+            print(f"      {t}: ablation frozen floor={a:.4f} vs phase2={b:.4f}  ({pct:.1f}% apart)")

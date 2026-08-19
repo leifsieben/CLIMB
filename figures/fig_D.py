@@ -38,6 +38,15 @@ Run:  python3 -m figures.fig_D
 PANEL SET — MIGRATED to the canonical six on 2026-08-18. The matrix is 6 families x 6 tasks. Values resolve through figures.sixpanel.canonical_value (which delegates to
 scripts/six_panel_aggregate.py), so a cell here means exactly what the same cell means in fig_A.
 
+TOX21 IS DROPPED AGAIN as of 2026-08-18 (final state), and this time it is a hard data gap, not a
+stale file. The ablation wave's per-molecule Tox21 dumps are PRE-fix: 93,876 rows rather than the
+masked 77,864, so nothing in that tree can produce the corrected number and it cannot be re-scored
+from disk at all -- it needs a re-eval against the checkpoints. Phase 2 IS corrected, so the two
+trees are not comparable and the panel is withheld. Note this is deliberately NOT treated like the
+QM7 unit split: falling back to the stale copy on both sides would give a lift of two wrong numbers,
+internally consistent and still wrong, because the missing-label correction moves arms by
++0.015...+0.032 non-uniformly rather than rescaling them. See figures.sixpanel.CORRECTION_TASKS.
+
 TWO GUARDS run here, identical to fig_C2's — one helper each, so the two figures cannot diverge.
 Cross-wave floor agreement (crosswave_safe) caught a stale pre-2026-08-05 Tox21 scoring in the
 local ablation tree, fixed by syncing, waves now agree to 0.000%. Joint unit resolution
