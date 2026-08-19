@@ -47,9 +47,19 @@ def sh(c):
     return subprocess.run(c, check=False)
 
 
-def run_cfg(run_dir: Path):
-    """featurizer/pool/standardize/head from this run's own Tox21 row."""
+def run_cfg(run_dir: Path, wave: str = "", run: str = ""):
+    """featurizer/pool/standardize/head from this run's own Tox21 row.
+
+    Staged from S3 when absent: a fresh box has no figure_data tree, and this file is only READ
+    (for protocol fidelity), never written -- the corrected output goes to a separate subdir.
+    """
     p = run_dir / "moleculenet_cv" / "moleculenet_summary.csv"
+    if not p.exists() and wave and run:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        sh(["aws", "s3", "cp", f"{S3B}/{wave}/{run}/moleculenet_cv/moleculenet_summary.csv",
+            str(p), "--only-show-errors"])
+    if not p.exists():
+        return None
     for r in csv.reader(p.open()):
         if len(r) > 6 and r[0] == "Tox21":
             return dict(featurizer=r[2], pool=r[3], standardize=r[4], head=r[5])
@@ -98,7 +108,7 @@ def main() -> int:
         good, n = masked_ok(out)
         if good:
             log(f"SKIP {wr} (already masked, {n} rows)"); ok += 1; continue
-        cfg = run_cfg(base)
+        cfg = run_cfg(base, wave, run)
         if not cfg:
             log(f"ERROR {wr}: no Tox21 row to read protocol from"); continue
         out.mkdir(parents=True, exist_ok=True)
