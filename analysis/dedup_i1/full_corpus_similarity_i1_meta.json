@@ -3,10 +3,10 @@
   "corpus_molecules": 11996074,
   "fingerprint": "ECFP4 (Morgan r=2, 2048 bits) \u2014 identical to compute_tanimoto_novelty.py",
   "tasks": [
-    "ESOL",
-    "QM7"
+    "QM7",
+    "MoleculeACE"
   ],
-  "n_scored": 7956,
+  "n_scored": 15973,
   "near_dup_band": [
     0.95,
     1.0
@@ -17,7 +17,7 @@
     "n_corpus_neardup_0p95": "count of corpus molecules with Tanimoto in [0.95,1.0)"
   },
   "median_max_tanimoto": {
-    "ESOL": 0.9444444179534912,
-    "QM7": 0.625
+    "QM7": 0.625,
+    "MoleculeACE": 0.7594936490058899
   }
 }

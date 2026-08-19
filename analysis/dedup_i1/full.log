@@ -1,0 +1,17 @@
+[dedup 15:06:07] I1 eval molecules (ESOL+QM7): 7,956
+[dedup 15:06:07] query matrix (7956, 32) (0 unparseable dropped)
+[dedup 15:11:10]   shard_00000.parquet: corpus 999,671  (304s, eta 3339s)
+[dedup 15:16:14]   shard_00001.parquet: corpus 1,999,344  (607s, eta 3033s)
+[dedup 15:21:17]   shard_00002.parquet: corpus 2,999,028  (910s, eta 2731s)
+[dedup 15:26:20]   shard_00003.parquet: corpus 3,998,694  (1213s, eta 2426s)
+[dedup 15:31:22]   shard_00004.parquet: corpus 4,998,359  (1516s, eta 2122s)
+[dedup 15:36:28]   shard_00005.parquet: corpus 5,998,025  (1821s, eta 1821s)
+[dedup 15:41:35]   shard_00006.parquet: corpus 6,997,706  (2128s, eta 1520s)
+[dedup 15:46:39]   shard_00007.parquet: corpus 7,997,365  (2432s, eta 1216s)
+[dedup 15:51:37]   shard_00008.parquet: corpus 8,997,027  (2730s, eta 910s)
+[dedup 15:56:37]   shard_00009.parquet: corpus 9,996,708  (3030s, eta 606s)
+[dedup 16:02:54]   shard_00010.parquet: corpus 10,996,399  (3407s, eta 310s)
+[dedup 16:11:04]   shard_00011.parquet: corpus 11,996,074  (3897s, eta 0s)
+[dedup 16:11:04] wrote analysis/dedup_i1/full_corpus_similarity_i1.csv
+[dedup 16:11:04]   ESOL: median max-Tanimoto(full)=0.944
+[dedup 16:11:04]   QM7: median max-Tanimoto(full)=0.625

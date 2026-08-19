@@ -1,0 +1,23 @@
+[dedup 14:58:27] eval molecules (all datasets): 63,675
+[dedup 14:58:37] unique eval keys: 62,155 nosalt, 61,751 salt
+[dedup 14:58:56]   shard_00000.parquet: corpus so far 1,000,000  matched nosalt=30 salt=2336  (19s)
+[dedup 14:59:14]   shard_00001.parquet: corpus so far 2,000,000  matched nosalt=59 salt=3522  (37s)
+[dedup 14:59:33]   shard_00002.parquet: corpus so far 3,000,000  matched nosalt=80 salt=4313  (56s)
+[dedup 14:59:51]   shard_00003.parquet: corpus so far 4,000,000  matched nosalt=100 salt=4986  (74s)
+[dedup 15:00:10]   shard_00004.parquet: corpus so far 5,000,000  matched nosalt=129 salt=5557  (93s)
+[dedup 15:00:29]   shard_00005.parquet: corpus so far 6,000,000  matched nosalt=152 salt=6016  (112s)
+[dedup 15:00:49]   shard_00006.parquet: corpus so far 7,000,000  matched nosalt=172 salt=6445  (132s)
+[dedup 15:01:08]   shard_00007.parquet: corpus so far 8,000,000  matched nosalt=209 salt=6830  (151s)
+[dedup 15:01:28]   shard_00008.parquet: corpus so far 9,000,000  matched nosalt=245 salt=7158  (171s)
+[dedup 15:01:46]   shard_00009.parquet: corpus so far 10,000,000  matched nosalt=261 salt=7461  (190s)
+[dedup 15:02:05]   shard_00010.parquet: corpus so far 11,000,000  matched nosalt=291 salt=7750  (209s)
+[dedup 15:02:24]   shard_00011.parquet: corpus so far 12,000,000  matched nosalt=321 salt=8010  (228s)
+[dedup 15:02:25] wrote analysis/dedup_i1/exact_match_per_molecule.csv and exact_match_summary.json
+[dedup 15:02:25] EXACT-MATCH per dataset (n / nosalt / salt):
+[dedup 15:02:25]   BACE           n=  1513  nosalt=    0 (0.00%)  salt=   15 (0.99%)
+[dedup 15:02:25]   BBBP           n=  1941  nosalt=    5 (0.26%)  salt=  772 (39.77%)
+[dedup 15:02:25]   ESOL           n=  1117  nosalt=   15 (1.34%)  salt=  814 (72.87%)
+[dedup 15:02:25]   HIV            n= 40716  nosalt=   88 (0.22%)  salt= 1349 (3.31%)
+[dedup 15:02:25]   Lipophilicity  n=  4155  nosalt=    1 (0.02%)  salt=  578 (13.91%)
+[dedup 15:02:25]   QM7            n=  6839  nosalt=  132 (1.93%)  salt= 1307 (19.11%)
+[dedup 15:02:25]   Tox21          n=  7394  nosalt=   89 (1.20%)  salt= 4574 (61.86%)

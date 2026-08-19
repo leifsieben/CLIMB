@@ -7,6 +7,13 @@
     "key_salt": "largest-fragment then isomeric canonical (matches leakage_audit._ikey / 0-7% key)"
   },
   "per_dataset": {
+    "Ames": {
+      "n": 1451,
+      "exact_nosalt": 7,
+      "exact_salt": 368,
+      "pct_nosalt": 0.48,
+      "pct_salt": 25.36
+    },
     "BACE": {
       "n": 1513,
       "exact_nosalt": 0,
@@ -15,46 +22,60 @@
       "pct_salt": 0.99
     },
     "BBBP": {
-      "n": 1941,
-      "exact_nosalt": 5,
-      "exact_salt": 772,
-      "pct_nosalt": 0.26,
-      "pct_salt": 39.77
+      "n": 2024,
+      "exact_nosalt": 6,
+      "exact_salt": 849,
+      "pct_nosalt": 0.3,
+      "pct_salt": 41.95
+    },
+    "CBS": {
+      "n": 10445,
+      "exact_nosalt": 3,
+      "exact_salt": 86,
+      "pct_nosalt": 0.03,
+      "pct_salt": 0.82
     },
     "ESOL": {
-      "n": 1117,
-      "exact_nosalt": 15,
-      "exact_salt": 814,
-      "pct_nosalt": 1.34,
-      "pct_salt": 72.87
+      "n": 778,
+      "exact_nosalt": 8,
+      "exact_salt": 508,
+      "pct_nosalt": 1.03,
+      "pct_salt": 65.3
     },
     "HIV": {
-      "n": 40716,
-      "exact_nosalt": 88,
-      "exact_salt": 1349,
-      "pct_nosalt": 0.22,
-      "pct_salt": 3.31
+      "n": 40958,
+      "exact_nosalt": 93,
+      "exact_salt": 1536,
+      "pct_nosalt": 0.23,
+      "pct_salt": 3.75
     },
     "Lipophilicity": {
-      "n": 4155,
+      "n": 4054,
       "exact_nosalt": 1,
-      "exact_salt": 578,
+      "exact_salt": 493,
       "pct_nosalt": 0.02,
-      "pct_salt": 13.91
+      "pct_salt": 12.16
+    },
+    "MoleculeACE": {
+      "n": 9130,
+      "exact_nosalt": 0,
+      "exact_salt": 264,
+      "pct_nosalt": 0.0,
+      "pct_salt": 2.89
     },
     "QM7": {
-      "n": 6839,
+      "n": 6843,
       "exact_nosalt": 132,
       "exact_salt": 1307,
       "pct_nosalt": 1.93,
-      "pct_salt": 19.11
+      "pct_salt": 19.1
     },
     "Tox21": {
-      "n": 7394,
-      "exact_nosalt": 89,
-      "exact_salt": 4574,
-      "pct_nosalt": 1.2,
-      "pct_salt": 61.86
+      "n": 7063,
+      "exact_nosalt": 93,
+      "exact_salt": 4379,
+      "pct_nosalt": 1.32,
+      "pct_salt": 62.0
     }
   }
 }
