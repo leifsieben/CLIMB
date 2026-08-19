@@ -135,10 +135,18 @@ def probe_score(kind, Xtr, ytr, Xte, yte, classification):
     if classification and (len(np.unique(ytr)) < 2 or len(np.unique(yte)) < 2):
         return np.nan
     m = make_probe(kind, classification)
-    m.fit(Xtr, ytr)
     if classification:
+        m.fit(Xtr, ytr)
         return roc_auc_score(yte, m.predict_proba(Xte)[:, 1])
-    return float(np.sqrt(np.mean((m.predict(Xte) - yte) ** 2)))
+    # STANDARDISE THE REGRESSION TARGET for the MLP, then invert. QM7's labels are ~-1500 kcal/mol;
+    # an MLP with default init cannot fit that scale and came out WORSE than ridge on every single
+    # column (225 vs 206 RMSE, residual 358), which is a property of the optimiser, not of the
+    # representation. Ridge is scale-equivariant so it needs no such treatment -- but it is applied
+    # to both probes so the two columns differ only in the probe, which is the whole comparison.
+    mu, sg = float(np.mean(ytr)), float(np.std(ytr)) or 1.0
+    m.fit(Xtr, (ytr - mu) / sg)
+    pred = m.predict(Xte) * sg + mu
+    return float(np.sqrt(np.mean((pred - yte) ** 2)))
 
 
 # ------------------------------------------------------------------ (2)+(3) residual probing

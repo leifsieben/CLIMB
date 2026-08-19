@@ -56,7 +56,7 @@ OUT = ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
 PANEL_TASK = {"MoleculeACE": "MoleculeACE", "CBS": "HIV", "BACE": "BACE",
-              "Ames": None, "Tox21": "Tox21", "QM7": "QM7"}
+              "Ames": "Ames", "Tox21": "Tox21", "QM7": "QM7"}
 PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1",
            "MoleculeACE": "macro_rmse"}
 # panel -> the task actually drawn there, when it is not the panel's own task. The figure prints
@@ -74,6 +74,38 @@ ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup")]
 MACE_DIR = ROOT / "figure_data" / "chemeleon_suite" / "moleculeace"
 MACE_DATA = ROOT / "chemeleon_suite" / "data" / "moleculeace"
 MACE_ARMS = {"unsup": "unsup", "sup_dense": "sup", "e2e": "e2e"}   # dir token -> source-arm name
+
+# Ames arrives pre-scored (Polaris withholds test labels, so scoring is always post-hoc through
+# bench.evaluate() -- an EMPTY results.csv under chemeleon_suite/polaris/ is the normal state for
+# every arm there, not a failed run).
+AMES_SCORES = ROOT / "figure_data" / "label_eff_ames.csv"
+AMES_SPLIT = ROOT / "chemeleon_suite" / "data" / "polaris" / "tdcommons__ames.csv"
+AMES_ARM_KEY = {"unsup": "unsup", "sup_dense": "sup_dense", "e2e": "e2e_no_pretrain"}
+
+
+def ames_train_total() -> int:
+    """Labelled TRAINING molecules for Ames, from the benchmark's own split column (5,821)."""
+    import csv as _csv
+    with open(AMES_SPLIT) as fh:
+        return sum(1 for r in _csv.DictReader(fh) if r.get("split") == "train")
+
+
+def ames_rows():
+    """[(arm_key, pct, n_train, roc_auc, sd, n_seeds)] -- mean over the 3 EVAL seeds."""
+    if not AMES_SCORES.exists():
+        return []
+    total = ames_train_total()
+    d = pd.read_csv(AMES_SCORES)
+    d = d[d.metric == "roc_auc"]
+    out = []
+    for (arm, frac), g in d.groupby(["arm", "fraction"]):
+        key = AMES_ARM_KEY.get(arm)
+        if key is None:
+            continue
+        v = g.value.to_numpy(float)
+        out.append((key, int(round(float(frac) * 100)), int(round(float(frac) * total)),
+                    float(v.mean()), float(v.std(ddof=1)) if len(v) > 1 else float("nan"), len(v)))
+    return out
 
 
 def mace_train_total() -> int:
@@ -121,6 +153,13 @@ def main() -> None:
     rows = []
     for panel, task in PANEL_TASK.items():
         if task is None:
+            continue
+        if panel == "Ames":
+            for arm_key, pct, n_train, v, sd, n in ames_rows():
+                rows.append(dict(panel=panel, task="Ames", metric="roc_auc", higher_better=1,
+                                 arm=arm_key, substituted_for="", pct=pct, n_train=n_train,
+                                 value=round(v, 6), sd=round(sd, 6) if sd == sd else "",
+                                 n_cells=n))
             continue
         if panel == "MoleculeACE":
             for arm_key, pct, n_train, v, sd, n in mace_rows(panel):

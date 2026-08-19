@@ -142,13 +142,32 @@ def molnet_run_value(run: str, task: str) -> float:
     #   Tox21 -> prefer the corrected re-score. This is NOT a unit choice but a vintage one, and
     #            the correction is not a uniform factor (+0.015...+0.032 by arm), so a lift built
     #            from stale values is a different number, not a rescaled one.
-    subs = ("moleculenet_cv_tox21fixed", "moleculenet_cv") if task == "Tox21" else ("moleculenet_cv",)
+    # QM7: read the NATIVE subdir. Until 2026-08-18 this file deliberately used the plain
+    # moleculenet_cv/ because corrupt_mtr_8M seed 0 had no native re-eval; the compute session has
+    # since rebuilt all three seeds from their own prediction dumps (which were native all along --
+    # only the SUMMARY was z-scored), so the native path is now complete and is the one that lets
+    # this cell use 3 seeds instead of 1. The mixed-unit originals in moleculenet_cv/ are untouched,
+    # so the content guard below stays as the backstop.
+    subs = (("moleculenet_cv_tox21fixed", "moleculenet_cv") if task == "Tox21" else
+            ("moleculenet_cv_qm7native", "moleculenet_cv") if task == "QM7" else
+            ("moleculenet_cv",))
     for sub in subs:
-        p_ = PHASE2 / run / sub / "suite_summary.json"
+        d = PHASE2 / run / sub
+        p_ = d / "suite_summary.json"
         if p_.exists():
             v = _json.load(open(p_)).get(f"{task}_MEAN")
             if v is not None:
                 return float(v)
+        # the rebuilt qm7native dirs carry only moleculenet_summary.csv (no suite json), so fall
+        # back to the fold-ENSEMBLE rows -- the same estimand the aggregator uses
+        c = d / "moleculenet_summary.csv"
+        if c.exists():
+            import csv as _csv
+            vals = [float(r["main_value"]) for r in _csv.DictReader(open(c))
+                    if r["dataset"] == task and r["head_seed"].startswith("fold")
+                    and r["main_value"] not in ("", "nan")]
+            if vals:
+                return float(np.mean(vals))
     return np.nan
 
 

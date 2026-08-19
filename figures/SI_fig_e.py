@@ -16,6 +16,10 @@ The case for pretraining is the small-data end: with a few hundred labels the fr
 should be far ahead, and end2end should only catch up once labels are plentiful. Reading the
 crossings:
 
+  MoleculeACE and Ames  the arms SEPARATE as labels increase rather than converging: on
+         MoleculeACE all three sit at ~1.17 macro RMSE with 1.9k labels and end at 0.775 / 0.777
+         (pretrained) vs 0.905 (end2end) with 38.9k. Whatever pretraining supplies here is not a
+         head start that fine-tuning erases -- it is a ceiling that end2end does not reach.
   BACE   pretraining wins at EVERY size — end2end never catches up inside the range (0.725 vs
          0.825 at full data). This is the panel where pretraining pays.
   HIV    the textbook shape, and the largest small-data gap in the figure: at 1.6k labels both

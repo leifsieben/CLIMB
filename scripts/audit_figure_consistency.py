@@ -294,11 +294,75 @@ def check_bar_vs_ci():
     return len(bad)
 
 
+def check_qm7_convention():
+    """Every QM7 value a figure draws must be in ONE convention, tested by VALUE not by path.
+
+    QM7 is stored z-scored (~0.85) or native kcal/mol (~200), and on 2026-08-18 the directory name
+    stopped being a reliable indicator: corrupt_mtr_8M_s1/_s2 landed with native values written
+    into moleculenet_cv/ next to a z-scored seed 0, and the `standardize` column said "zscore" for
+    all three, so BOTH the path and the metadata lied. Only the value separates them.
+
+    This matters beyond that one arm. Sweeping the waves by content: climb_v2_h1 (30 runs) and
+    climb_v2_vocab (8) are 100% NATIVE inside moleculenet_cv/, while climb_v2_phase2 is 80
+    z-scored against 13 native. figures/allsuites.py spans all three roots, so the all-suites
+    ranking table could mix conventions in a single column -- and a rank column is computed ACROSS
+    arms, so one arm in the wrong unit corrupts the whole column, not just its own cell. It happens
+    to be clean today only because every phase-2 arm has a moleculenet_cv_qm7native/ for the
+    resolver to prefer. That is luck, not design, so it is checked here.
+    """
+    print(f"\n{'='*94}\n9. QM7 UNIT CONVENTION (checked by VALUE -- the path and metadata both lie)\n{'='*94}")
+    import csv as _csv
+    bad = 0
+    # (label, rows) where each row yields a QM7 value
+    sources = []
+    m = ROOT / "figure_data/six_panel/mainline_8M.csv"
+    if m.exists():
+        sources.append(("mainline_8M.csv", [(r["arm"], float(r["value"]))
+                        for r in _csv.DictReader(m.open())
+                        if r["panel"] == "QM7" and r["value"] not in ("", "nan")]))
+    sc = ROOT / "figure_data/six_panel/scaling_ladders.csv"
+    if sc.exists():
+        sources.append(("scaling_ladders.csv", [(r["rung"], float(r["value"]))
+                        for r in _csv.DictReader(sc.open())
+                        if r["panel"] == "QM7" and r["value"] not in ("", "nan")]))
+    try:
+        import figures.allsuites as A
+        from figures.arms import ARM_ORDER
+        S, _ = A.wide_table(ARM_ORDER)
+        col = [c for c in S.columns if "QM7" in str(c)]
+        if col:
+            v = S[col[0]].dropna()
+            sources.append(("allsuites ranking table", list(zip(v.index, v.to_numpy(float)))))
+    except Exception as e:
+        print(f"  (allsuites table unavailable: {e})")
+    for label, rows in sources:
+        if not rows:
+            continue
+        zs = [k for k, v in rows if v < 10]
+        nat = [k for k, v in rows if v > 50]
+        gap = [k for k, v in rows if 10 <= v <= 50]
+        if gap:
+            print(f"  FAIL  {label}: {len(gap)} value(s) between 10 and 50 -- neither convention: "
+                  f"{', '.join(map(str, gap[:4]))}")
+            bad += 1
+        elif zs and nat:
+            print(f"  FAIL  {label}: MIXED -- {len(zs)} z-scored ({', '.join(map(str, zs[:3]))}) "
+                  f"vs {len(nat)} native")
+            bad += 1
+        else:
+            conv = "native kcal/mol" if nat else "z-scored"
+            print(f"  OK    {label}: all {len(rows)} value(s) {conv}")
+    if not bad:
+        print("  OK — every QM7 value a figure draws is in one convention")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
                  check_estimand(), check_panelset(), check_geometry(),
-                 check_comparator_scope(), check_bar_vs_ci()])
+                 check_comparator_scope(), check_bar_vs_ci(),
+                 check_qm7_convention()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 
