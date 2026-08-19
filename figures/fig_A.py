@@ -27,12 +27,20 @@ import matplotlib.pyplot as plt
 from figures.style import STYLE, FS, save, check_font
 import figures.fig_A1 as A1
 import figures.fig_A2 as A2
+from figures.arms import PANEL_ORDER
 
 check_font()
 INK = "#000000"
 
 # right-hand grid, grouped by metric direction (both "lower is better" panels share row 1)
-PANEL_GRID = [["MoleculeACE", "QM7", "CBS"], ["BACE", "Ames", "Tox21"]]
+# The 2x3 arrangement is NOT PANEL_ORDER: it groups by metric so a reader scans one kind of number
+# per row -- top row the two regression panels plus the rare-active screen, bottom row the three
+# ROC-AUC panels. HIV took CBS's slot in the 2026-08-19 swap and this list was not updated with it,
+# which is why fig_A stopped rendering (KeyError: 'CBS') rather than silently drawing a stale
+# panel. The assert makes the next such swap fail at import instead of at draw time.
+PANEL_GRID = [["MoleculeACE", "QM7", "HIV"], ["BACE", "Ames", "Tox21"]]
+assert sorted(p for row in PANEL_GRID for p in row) == sorted(PANEL_ORDER), \
+    f"fig_A's grid {PANEL_GRID} has drifted from arms.PANEL_ORDER {PANEL_ORDER}"
 
 
 # DELIBERATELY WIDER THAN THE A4 TEXT BLOCK. At 6.69in this figure had to run 8.1in down the page

@@ -122,6 +122,20 @@ TOX21_SUBDIRS = ("moleculenet_cv_tox21fixed", "moleculenet_cv")
 DEFAULT_SUBDIRS = ("moleculenet_cv",)
 
 
+def _usable_dir(root, d, sub):
+    """Does `<root>/<d>/<sub>` exist AND come from the reference environment?
+
+    `reference_scoring.json` marks a re-evaluation done on a foreign box (see _pick_subdir). Its
+    PRESENCE disqualifies the dir: the number is a fresh measurement, not a restoration of the
+    original one, and mixing the two inside a single arm is invisible in the output.
+    """
+    for cand in (d, f"{d}_s0"):
+        dd = FD / root / cand / sub
+        if dd.exists():
+            return not (dd / "reference_scoring.json").exists()
+    return False
+
+
 def _pick_subdir(root, dirs, subdirs):
     """Choose ONE subdir for the whole arm, so its dirs can never be read in mixed units.
 
@@ -135,10 +149,21 @@ def _pick_subdir(root, dirs, subdirs):
     Rule: take the first subdir in `subdirs` that ANY of the arm's dirs has, and then use only the
     dirs that have it. Fewer seeds is a visible, honest degradation (n_seeds drops); mixed units is
     an invisible, wrong one. Returns (chosen_subdir, usable_dirs, skipped_dirs).
+
+    A dir is NOT usable if its corrected subdir carries `reference_scoring.json`. That marker means
+    the copy is a FRESH RE-EVALUATION against the checkpoint on a box whose RDKit/DeepChem parses
+    7,831 Tox21 molecules where the reference environment parses 7,823 -- it is scored on the
+    shared molecule set (rows_kept 77,214 of 77,864) but carries a ~0.0075 ROC-AUC offset from
+    environment drift. figures/sixpanel.py::_usable has refused those since 2026-08-19; this
+    function did not, and the gap put `e2e_no_pretrain` on the Tox21 panel as ONE re-scored dir
+    (e2e_random_00) averaged with TWO foreign re-evals (e2e_random_01/_02) -- three seeds of two
+    different measurements. It surfaced as audit check 8: the bar (3 mixed dirs, 0.7709) and its
+    own whisker (the 2 dirs that have predictions there, 0.7678) described different estimators.
+    A 0.0075 offset is 15-40% of the Tox21 differences these figures measure, so it is not
+    absorbable; one honest seed beats three mixed ones.
     """
     for sub in subdirs:
-        usable = [d for d in dirs if (FD / root / d / sub).exists()
-                  or (FD / root / f"{d}_s0" / sub).exists()]
+        usable = [d for d in dirs if _usable_dir(root, d, sub)]
         if usable:
             return sub, usable, [d for d in dirs if d not in usable]
     return subdirs[-1], list(dirs), []

@@ -18,7 +18,7 @@ the paper's OWN A1 rigor protocol (2026-08-05 cluster-bootstrap CI).
                             flagged `derived` so the caption can say so.
 
 Writes figure_data/six_panel/a2_errorbars.csv:
-  arm,panel,metric,value,ci_lo,ci_hi,se,method,n_units
+  arm,panel,metric,value,ci_lo,ci_hi,se,method,n_units,n_dirs
 """
 from __future__ import annotations
 import csv, math, os, sys, collections, statistics as st
@@ -52,14 +52,46 @@ A2_ARMS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
 # estimate produced the bogus 129.9 QM7 mean for `no pretrain, end2end`.
 SUBDIRS = {"QM7": ("moleculenet_cv_qm7native", "moleculenet_cv")}
 
+# Tox21 is the opposite shape to QM7. Its point estimate is read from moleculenet_cv_tox21fixed/,
+# but its PREDICTIONS stay in moleculenet_cv/ -- scripts/rescore_tox21.py derived the fixed summary
+# from exactly that file, so bootstrapping moleculenet_cv reproduces the bar to the last digit and
+# no SUBDIRS entry is needed. The exception is a dir whose tox21fixed is a FOREIGN RE-EVAL against
+# the checkpoint (marked `reference_scoring.json`, ~0.0075 ROC-AUC of environment drift): there the
+# summary was NOT derived from the local predictions, so the two paths describe different
+# measurements and cannot be made to agree. six_panel_aggregate drops those dirs from the bar; this
+# map lets the CI drop the same ones, which is the whole point of check 8 -- both paths must be
+# looking at the same seeds.
+VINTAGE_SUBDIRS = {"Tox21": "moleculenet_cv_tox21fixed"}
+
+
+def _has_rows(root, run, dataset, sub):
+    """True iff <root>/<run>/<sub>/test_predictions.csv actually holds rows for `dataset`."""
+    for cand in (run, f"{run}_s0"):
+        f = FD / root / cand / sub / "test_predictions.csv"
+        if f.exists():
+            return load_oof(root, cand, dataset, sub) is not None
+    return False
+
 
 def _oof_subdir(root, runs, dataset):
     """One subdir for the whole arm: the first candidate any of its dirs has. (chosen, usable)."""
+    vsub = VINTAGE_SUBDIRS.get(dataset)
+    if vsub:
+        import six_panel_aggregate as _spa
+        keep = [r for r in runs if _spa._usable_dir(root, r, vsub)]
+        # only narrow -- if NO dir survives, the arm has no corrected copy at all and the bar is
+        # reading the uncorrected subdir too, so both paths still agree.
+        runs = keep or runs
     cands = SUBDIRS.get(dataset, ("moleculenet_cv",))
     for sub in cands:
-        usable = [r for r in runs
-                  if (FD / root / r / sub / "test_predictions.csv").exists()
-                  or (FD / root / f"{r}_s0" / sub / "test_predictions.csv").exists()]
+        # COVERAGE, not existence. `test_predictions.csv` existing says nothing about whether it
+        # holds THIS dataset: chemeleon_frozen_s1/_s2 carry a dump pruned to QM7 alone, so on HIV,
+        # BACE and Tox21 they passed the existence test, contributed no rows, and the CI silently
+        # pooled 1 seed while the bar pooled 3. That is the exact failure the pooling comment on
+        # load_oof_all warns about, reintroduced one level up. It only surfaced on HIV because
+        # NEF1 is a discrete top-k statistic and seed spread there exceeded audit check 8's
+        # tolerance; on BACE and Tox21 the same 1-vs-3 mismatch sat under it, unflagged.
+        usable = [r for r in runs if _has_rows(root, r, dataset, sub)]
         if usable:
             return sub, usable
     return cands[-1], list(runs)
@@ -131,9 +163,15 @@ def scaffold_ci(d, kind, root, seed=0):
     # (molecule, output_index) -- 12 rows per molecule -- and feeding that duplicated SMILES list to
     # _scaffold_kfold_indices produced a partition that only approximated the real one (residual
     # ~1.3% on Tox21 after the pooling fix). Deduplicate on mol_index first.
-    d0 = dirs == dirs[0]
-    sub = m.loc[d0]
-    key = "mol_index" if "mol_index" in sub.columns else "raw_smiles_a"
+    # ...and on the MOST COMPLETE dir, not dirs[0]. `fold_ids` reconstructs the partition eval_v2
+    # computed over the dataset's FULL molecule list, so the reference dump should be the one
+    # closest to that list. e2e_no_pretrain's HIV dump is 41,120 rows in e2e_random_00 against
+    # 41,127 in _01/_02; taking dirs[0] as the reference mapped those 7 molecules to fold -1 in
+    # EVERY dir, so two dirs that are complete were scored on a truncated set and neither matched
+    # its own eval-time summary. Ties keep the first dir, so single-dir arms are unaffected.
+    key = "mol_index" if "mol_index" in m.columns else "raw_smiles_a"
+    ref = max(np.unique(dirs), key=lambda d: m.loc[dirs == d, key].nunique())
+    sub = m.loc[dirs == ref]
     uniq = sub.drop_duplicates(subset=[key]).sort_values(key)
     folds_u = fold_ids(root, uniq["raw_smiles_a"].tolist(), uniq["y_true_a"].to_numpy())
     fmap = dict(zip(uniq["raw_smiles_a"], folds_u))
@@ -224,12 +262,17 @@ def main(only=None):
             got = load_oof_all(root, [r for r in runs if r], panel)
             if got is None:
                 rows.append(dict(arm=arm, panel=panel, metric=kind, value="", ci_lo="", ci_hi="",
-                                 se="", method="MISSING_OOF", n_units=0)); continue
+                                 se="", method="MISSING_OOF", n_units=0, n_dirs=0)); continue
             v, lo, hi, K = scaffold_ci(got, kind, root)
+            # n_dirs = how many pretraining-seed dirs the INTERVAL pooled. The bar's own seed count
+            # lives in mainline_8M.csv's `extra`; audit check 8 compares the two, because a CI over
+            # fewer seeds than the bar is an interval for a different estimator (see _oof_subdir).
+            nd = int(got["_dir"].nunique()) if "_dir" in got.columns else 1
             rows.append(dict(arm=arm, panel=panel, metric=kind, value=round(v, 4),
                              ci_lo=round(lo, 4), ci_hi=round(hi, 4), se=round((hi-lo)/3.92, 4),
-                             method="scaffold_cluster_bootstrap", n_units=K))
-            print(f"  {arm:16s} {panel:12s} {v:.4f} [{lo:.4f},{hi:.4f}] ({K} scaffolds)", flush=True)
+                             method="scaffold_cluster_bootstrap", n_units=K, n_dirs=nd))
+            print(f"  {arm:16s} {panel:12s} {v:.4f} [{lo:.4f},{hi:.4f}] ({K} scaffolds, "
+                  f"{nd} seed dir(s))", flush=True)
         # MoleculeACE
         if src.get("mace"):
             r = mace_ci(src["mace"])
@@ -237,7 +280,8 @@ def main(only=None):
                 v, lo, hi, K = r
                 rows.append(dict(arm=arm, panel="MoleculeACE", metric="macro_rmse", value=round(v,4),
                                  ci_lo=round(lo,4), ci_hi=round(hi,4), se=round((hi-lo)/3.92,4),
-                                 method="target_cluster_bootstrap", n_units=K))
+                                 method="target_cluster_bootstrap", n_units=K,
+                                 n_dirs=len(_expand(src["mace"]))))
                 print(f"  {arm:16s} {'MoleculeACE':12s} {v:.4f} [{lo:.4f},{hi:.4f}] ({K} targets)", flush=True)
         # hERG
         r = herg_se(src.get("mace") or "")
@@ -245,17 +289,19 @@ def main(only=None):
             v, lo, hi, se, n = r
             rows.append(dict(arm=arm, panel=POLARIS_PANEL, metric="roc_auc", value=round(v,4),
                              ci_lo=round(lo,4), ci_hi=round(hi,4), se=round(se,4),
-                             method="analytic_hanley_mcneil_DERIVED", n_units=1457))
+                             method="analytic_hanley_mcneil_DERIVED", n_units=1457, n_dirs=n))
             print(f"  {arm:16s} {POLARIS_PANEL:12s} {v:.4f} [{lo:.4f},{hi:.4f}] SE={se:.4f} (derived)", flush=True)
     out = FD / "six_panel" / "a2_errorbars.csv"
     if only and out.exists():
         keep = [r for r in csv.DictReader(out.open()) if r["arm"] not in set(only)]
+        for r in keep:
+            r.setdefault("n_dirs", "")      # rows written before n_dirs existed
         # preserve the canonical A2_ARMS order rather than appending the recomputed arms at the end
         order = {a: i for i, a in enumerate(A2_ARMS)}
         rows = sorted(keep + rows, key=lambda r: order.get(r["arm"], len(order)))
         print(f"  merged: recomputed {len(only)} arm(s), carried {len(keep)} existing rows through")
     with out.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["arm","panel","metric","value","ci_lo","ci_hi","se","method","n_units"])
+        w = csv.DictWriter(f, fieldnames=["arm","panel","metric","value","ci_lo","ci_hi","se","method","n_units","n_dirs"])
         w.writeheader(); w.writerows(rows)
     print(f"\nwrote {out} ({len(rows)} rows)")
 

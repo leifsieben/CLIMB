@@ -44,9 +44,18 @@ def molnet_dir(prefix, subdir="moleculenet_cv"):
     `suite_summary.json` (e2e-style runners like chemeleon_e2e write only this). Requiring the CSV
     made those arms read as "not run" on all 7 MolNet datasets, and since fig_A1 admits arms by
     coverage COUNT, a loader gap was silently deciding which arms appear in the ranking panel.
+
+    A corrected subdir carrying `reference_scoring.json` is REFUSED. That marker means the copy is
+    a fresh re-evaluation on a box whose RDKit/DeepChem parses 7,831 Tox21 molecules against the
+    reference environment's 7,823; it is scored on the shared set but keeps a ~0.0075 ROC-AUC
+    offset from environment drift. The ranking column here is computed ACROSS arms, so one arm on
+    the foreign vintage shifts relative order on that dataset for everyone -- the same reason
+    figures/sixpanel.py::_usable and six_panel_aggregate._usable_dir refuse it.
     """
     for root in MOLNET_ROOTS:
         d = FD / root / prefix / subdir
+        if (d / "reference_scoring.json").exists():
+            continue
         if (d / "moleculenet_summary.csv").exists() or (d / "suite_summary.json").exists():
             return d
     return None

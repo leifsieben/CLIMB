@@ -38,6 +38,7 @@ import sys
 import re
 import json
 from pathlib import Path
+import datetime as _dt
 
 import numpy as np
 import pandas as pd
@@ -290,23 +291,95 @@ def check_bar_vs_ci():
     if not (bars.exists() and cis.exists()):
         print("  SKIP - one of the two tables is missing")
         return 0
-    bar = {(r["arm"], r["panel"]): r["value"] for r in _csv.DictReader(bars.open())}
-    bad = []
+    bar = {(r["arm"], r["panel"]): r for r in _csv.DictReader(bars.open())}
+
+    def _nseeds(extra):
+        for kv in (extra or "").split(";"):
+            if kv.startswith("n_seeds="):
+                return int(kv.split("=")[1])
+        return None
+
+    bad, seedgap = [], []
     for r in _csv.DictReader(cis.open()):
-        v, b = r["value"], bar.get((r["arm"], r["panel"]))
-        if not v or not b:
+        br = bar.get((r["arm"], r["panel"]))
+        if not r["value"] or not br or not br["value"]:
             continue
-        v, b = float(v), float(b)
+        v, b = float(r["value"]), float(br["value"])
         if abs(v - b) / max(abs(b), 1e-9) > 0.002:
             bad.append((r["arm"], r["panel"], b, v, 100 * abs(v - b) / abs(b)))
+        # SEED COVERAGE. Equal numbers are not enough: the bar and the whisker must also be built
+        # from the SAME set of pretraining seeds. chemeleon_frozen_s1/_s2 carry prediction dumps
+        # pruned to QM7, so on HIV/BACE/Tox21 the bar pooled 3 seed dirs and the CI pooled 1 --
+        # invisible in the value comparison above wherever seed spread happens to be small, which
+        # is why it went unnoticed on BACE and Tox21 and only tripped the value check on HIV.
+        nb, nc = _nseeds(br.get("extra")), r.get("n_dirs")
+        if nb and nc not in (None, "") and int(nc) and int(nc) != nb:
+            seedgap.append((r["arm"], r["panel"], nb, int(nc)))
     for arm, panel, b, v, pct in bad:
         print(f"  FAIL  {arm:16s} {panel:12s} bar={b:.4f} vs CI centre={v:.4f}  ({pct:.2f}% apart)")
+    for arm, panel, nb, nc in seedgap:
+        print(f"  FAIL  {arm:16s} {panel:12s} bar pools {nb} pretraining seed(s), CI pools {nc} "
+              f"- the interval describes a different estimator than the bar")
+    bad = bad + seedgap
     if not bad:
         print("  OK - every drawn bar equals the centre of its own error bar")
     else:
         print(f"  {len(bad)} bar(s) whose whisker is centred somewhere else - the two artefacts in "
               f"that run dir are different vintages; do NOT ship the affected panel")
     return len(bad)
+
+
+# Tox21's masking fix (79a0dfb, 2026-08-05: y[w==0]=NaN in the MoleculeNet loader) raises ROC-AUC by
+# +0.015..0.020. Runs evaluated BEFORE it carry a stale value in moleculenet_cv/ and were repaired
+# into moleculenet_cv_tox21fixed/; runs evaluated AFTER it were never wrong and correctly have no
+# fixed copy. Both therefore read from moleculenet_cv when no fixed copy exists, and only the
+# EVALUATION DATE separates "already correct" from "silently stale".
+TOX21_FIX_EPOCH = _dt.datetime(2026, 8, 5).timestamp()
+
+
+def check_tox21_vintage():
+    """Every arm's Tox21 cell must be on the POST-fix scale, whichever subdir it comes from.
+
+    This is the third distinct way the Tox21 correction has leaked into a figure. First the
+    direction was inferred from which tree a file came from (backwards). Then 12 `tox21fixed` dirs
+    were built from pre-fix predictions. Then an arm mixed one re-scored dir with two foreign
+    re-evals. All three shared a root cause: the VINTAGE was inferred from a path instead of
+    established. Here it is established -- corrected subdir, or an evaluation newer than the fix.
+
+    s2u_dense is the case that motivated the second branch: it has no tox21fixed/ and no
+    test_predictions.csv to rescore, which reads like an unrepaired stale cell. It was evaluated
+    2026-08-17, twelve days after the fix, and its per-fold values (0.8187/0.8117/0.8108/0.8153)
+    sit on the corrected scale, not the pre-fix one (compare unsup_8M: 0.8202/0.8237/0.8177/0.8110
+    corrected vs 0.7999/0.7892/0.7964/0.7794 pre-fix). Nothing to repair.
+    """
+    print(f"\n{'='*94}\n10. TOX21 VINTAGE (corrected subdir, or evaluated after the fix)\n{'='*94}")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import six_panel_aggregate as _spa
+    from figures.arms import ARMS
+    bad = 0
+    for arm, meta in ARMS.items():
+        mol = meta.get("src", {}).get("mol")
+        if not mol:
+            continue
+        dirs = list(mol) if isinstance(mol, (list, tuple)) else [mol]
+        sub, usable, _ = _spa._pick_subdir("climb_v2_phase2", dirs, _spa.TOX21_SUBDIRS)
+        if not usable or sub != "moleculenet_cv":
+            continue                      # on the corrected subdir: fine by construction
+        stale = []
+        for d in usable:
+            f = _spa.FD / "climb_v2_phase2" / d / sub / "moleculenet_summary.csv"
+            if f.exists() and f.stat().st_mtime < TOX21_FIX_EPOCH:
+                stale.append(d)
+        if stale:
+            print(f"  FAIL  {arm:18s} reads Tox21 from moleculenet_cv/ and {len(stale)} of "
+                  f"{len(usable)} dir(s) predate the 2026-08-05 masking fix: {stale}")
+            bad += 1
+        else:
+            print(f"  OK    {arm:18s} no corrected copy needed - all {len(usable)} dir(s) "
+                  f"evaluated after the fix")
+    if not bad:
+        print("  OK - no arm is drawing a pre-fix Tox21 number")
+    return bad
 
 
 def check_qm7_convention():
@@ -377,7 +450,7 @@ def main():
     total = sum([check_superseded(), check_units(), check_replication(),
                  check_estimand(), check_panelset(), check_geometry(),
                  check_comparator_scope(), check_bar_vs_ci(),
-                 check_qm7_convention()])
+                 check_qm7_convention(), check_tox21_vintage()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 
