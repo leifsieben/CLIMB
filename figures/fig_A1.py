@@ -173,7 +173,13 @@ def draw(ax, compact=False):
         # sits to the RIGHT of the dot rather than above it, clear of the SE bar and of the row
         # above, which is what the vertical room was actually being spent on.
         if compact:
-            ax.text(r.mean_rank + r.se_rank + 0.45, yi, f"{r.mean_rank:.1f}", ha="left",
+            # PAST THE RIGHTMOST MARK ON THIS ROW, not past the whisker. The four open suite
+            # markers routinely sit outside the SE bar -- CBS is a single dataset, so its rank
+            # swings far from the mean -- and anchoring to mean+se dropped the label straight on
+            # top of them ("2.7" over ECFP+desc's Polaris square, "14.6" over MiniMol's triangle).
+            rightmost = max([r.mean_rank + r.se_rank] +
+                            [r[s_] for s_ in SUITES if np.isfinite(r[s_])])
+            ax.text(rightmost + 0.55, yi, f"{r.mean_rank:.1f}", ha="left",
                     va="center", fontsize=FS["annot"] - 1, color=INK, zorder=5)
         else:
             ax.text(r.mean_rank, yi + 0.30, f"{r.mean_rank:.1f}", ha="center", va="bottom",
@@ -182,13 +188,12 @@ def draw(ax, compact=False):
         # via tick labels because matplotlib cannot mix weights inside one tick string.
         ax.text(-0.012, yi + 0.19, system(a), transform=ytrans, ha="right", va="center",
                 fontsize=FS["tick"], fontweight="bold", color=INK)
-        ax.text(-0.012, yi - 0.19, label(a) + (" †" if a in E2E_ARMS else ""),
-                transform=ytrans, ha="right", va="center",
+        ax.text(-0.012, yi - 0.19, label(a), transform=ytrans, ha="right", va="center",
                 fontsize=FS["tick"], color=INK)
 
     ax.set_yticks(y); ax.set_yticklabels([])
     ax.set_ylim(-0.62, N - 0.42)
-    ax.set_xlim(0.4, N + 0.6); ax.set_xticks(range(1, N + 1, 3) if compact else range(1, N + 1))
+    ax.set_xlim(0.4, N + (3.1 if compact else 0.6)); ax.set_xticks(range(1, N + 1, 3) if compact else range(1, N + 1))
     ax.set_xlabel(f"mean rank, suites equally weighted" if compact else
                   f"mean of the 4 suite mean-ranks  ({NDS} datasets, 1 = best of {N})")
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
@@ -196,24 +201,21 @@ def draw(ax, compact=False):
         ax.spines[sp].set_visible(False)
     ax.tick_params(axis="y", length=0)
 
-    # Decode the dagger ON THE CANVAS. It carries the single most important caveat in this figure
-    # -- two arms fine-tune the whole network, sixteen use a frozen encoder -- and until now
-    # nothing on the page said so (user 2026-08-19: "Chemeleon e2e also has a cross which I don't
-    # understand"). An unexplained mark next to the arm that places second is worse than no mark.
-    ax.text(0.5, -0.105 if compact else -0.115,
-            "†  fine-tuned end-to-end; every other arm is a frozen encoder with a trained probe",
-            transform=ax.transAxes, ha="center", va="top", fontsize=FS["annot"] - 1, color=INK)
+    # NO DAGGER AND NO FOOTNOTE (user 2026-08-19). The frozen-vs-fine-tuned split is still the most
+    # important caveat in this figure -- see the module docstring, which carries the numbers -- but
+    # it belongs in the LaTeX caption, not as a mark on the plot. E2E_ARMS is kept because the
+    # docstring and the caption are written from it.
 
     if not compact:
         ax.legend(handles=suite_handles(), loc="upper center",
-                  bbox_to_anchor=(0.5, -0.150), ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
+                  bbox_to_anchor=(0.5, -0.095), ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
                   columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
 
 
 def build():
     fig, ax = plt.subplots(figsize=(STYLE["col2"], 0.38 * N + 0.75))
     draw(ax)
-    title(ax, f"Overall standing across every benchmark ({NDS} datasets, 4 suites)")
+    title(ax, f"Overall standing: mean of the 4 suite ranks ({NDS} datasets)")
     return fig
 
 

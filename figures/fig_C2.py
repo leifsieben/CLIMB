@@ -234,10 +234,13 @@ def draw(ax, data, tag=None, compact=False):
         # to lift=-12 -- right through the HIV point at (0.400, -17.96), the lowest in the cloud.
         # 3 rows is ~0.40in, so with the deepened floor below the box clears that point by ~6
         # y-units. Checked against the data, not by eye: see the assertion after set_ylim.
-        # 3 x 2 (user 2026-08-19). Each column halved is a row saved, and every row saved comes
-        # straight off the forced floor below -- 2 columns needed the axis dropped to -32 to open
-        # an empty band, 3 columns need only -24, so the point cloud keeps 25% more of the panel.
-        ax.legend(handles=task_handles, loc="lower right", ncol=3, frameon=True, framealpha=1.0,
+        # 3 x 2 in the UPPER right (user 2026-08-19). Lower-right needed the floor forced down to
+        # open an empty band, which spent a quarter of the panel on whitespace. The upper-right
+        # quadrant is already empty in the data -- every point above +4% lift sits at x < 0.37,
+        # while every point at x > 0.40 sits below +1% -- so the legend costs nothing and the
+        # floor goes back to being data-driven. Checked against the points, not by eye: the
+        # assertion below fails the build if a future rerun moves one into the box.
+        ax.legend(handles=task_handles, loc="upper right", ncol=3, frameon=True, framealpha=1.0,
                   edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
                   handletextpad=0.25, borderaxespad=0.4, borderpad=0.35, labelspacing=0.25,
                   columnspacing=0.7, handlelength=0.9)
@@ -257,12 +260,18 @@ def draw(ax, data, tag=None, compact=False):
 
     # The lower-right legend was landing on the point cloud. Dropping the floor opens an empty
     # band beneath the data for it to sit in, rather than shrinking the legend (user 2026-08-17).
-    # Only the FLOOR is forced; the top stays data-driven. -24 (user 2026-08-19): the 3x2 legend
-    # is 2 rows, ~7 y-units at this scale, and the deepest point is -17.96, so the band -24..-19
-    # clears it. Every row the legend loses comes straight off this number, which is why the
-    # arrangement and the floor are set together rather than independently.
+    # NOTHING is forced any more -- the legend moved out of the data's way instead of the axis
+    # being stretched to make room for it, so the range is what the points need plus headroom for
+    # the legend box itself.
     lo, hi = ax.get_ylim()
-    ax.set_ylim(min(lo, -24), hi)
+    span = hi - lo
+    ax.set_ylim(lo, hi + 0.34 * span)
+    # the legend sits in the top-right; assert the corner it occupies is empty in the DATA
+    y0 = hi + 0.34 * span - 0.42 * (hi + 0.34 * span - lo)
+    x0 = X.min() + 0.55 * (X.max() - X.min())
+    intruders = [(x, y) for x, y in zip(X, Y) if x >= x0 and y >= y0]
+    assert not intruders, (f"fig_C2 legend box (x>={x0:.3f}, y>={y0:.2f}) now covers "
+                           f"{len(intruders)} point(s): {intruders}")
 
     ax.set_title("Transfer vs chemical similarity" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
