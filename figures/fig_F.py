@@ -14,20 +14,31 @@ Four feature sets, same XGBoost head, same splits, same seeds:
   desc+CLM      descriptors + CLIMB   (drops the fingerprint)
   fp+desc+CLM   everything            — the concatenation test
 
-THE RESULT: concatenation helps on 1 of the 8 tasks run, and on NONE of the canonical panels.
-`fp+desc+CLM` is worse than `fp+desc` alone on all five canonical panels that have been run —
-MoleculeACE (0.750 vs 0.727 macro RMSE), CBS (0.631 vs 0.791 NEF1, the largest drop anywhere),
-QM7 (190.5 vs 187.5), BACE (-0.007) and Tox21 (-0.011) — and on ESOL and HIV besides. The single
-exception is BBBP (+0.048 ROC-AUC, beyond its SD), and BBBP is exactly the dataset dropped from
-the paper's panel set for failing to discriminate: its whole field spans 1.8% of ROC-AUC and an
-UNTRAINED random encoder ranks 7 of 16 on it (notes/bbbp-anchor-verification-2026-08-16.md). A
-gain on the one benchmark we already decided cannot separate models does not rescue the
-conclusion.
+THE RESULT: concatenation helps on 1 of the 9 tasks run, and on NONE of the canonical panels.
+`fp+desc+CLM` is worse than `fp+desc` alone on MoleculeACE (0.728 vs 0.690 macro RMSE), Ames
+(-0.028), ESOL (-0.028), QM7 (-2.20), HIV (-0.018), Tox21 (-0.012) and BACE (-0.006), and EXACTLY
+TIES on CBS (0.930 both). That tie is real rather than a duplicated row: NEF1 counts hits in the
+top 1%, so it is quantised, and the two runs do differ on the continuous metric beside it
+(ROC-AUC 0.9917 vs 0.9963).
+
+The single exception is BBBP (+0.048 ROC-AUC, beyond its SD), and BBBP is exactly the dataset
+dropped from the paper's panel set for failing to discriminate: its whole field spans 1.8% of
+ROC-AUC and an UNTRAINED random encoder ranks 7 of 16 on it
+(notes/bbbp-anchor-verification-2026-08-16.md). A gain on the one benchmark we already decided
+cannot separate models does not rescue the conclusion. BBBP is also the only task where CLM alone
+is NOT the weakest of the four feature sets — it is weakest on the other 8 of 9.
 
 So on every benchmark that discriminates, the CLIMB embedding is redundant to the classical
-featurization, and CLIMB alone is the weakest of the four feature sets on five of six tasks. This
-is a negative result and is reported as one. It is also the honest frame for Fig A1, where
-ECFP+desc ranks first overall: the transformer is not adding a missing view of the molecule.
+featurization. This is a negative result and is reported as one. It is also the honest frame for
+Fig A1, where the descriptor-bearing classical anchors rank first overall: the transformer is not
+adding a missing view of the molecule.
+
+DATA VINTAGE, AND WHAT THIS PAIR OF TABLES CANNOT SHOW. Both tables were re-run 2026-08-19 on
+current code with FP_VARIANT=ecfp4_stereo. The earlier copies are kept beside them, but old-vs-new
+IS NOT A FEATURIZER COMPARISON and must not be presented as one: the CLM-only arm uses no
+fingerprint at all, yet it moves (MoleculeACE 0.840 -> 0.819, CBS NEF1 0.509 -> 0.768). Three
+commits landed on this path between the runs -- 0ab0388, c4f1c23, 3c52686 -- so the pair confounds
+featurizer with code version.
 
 PANEL SCOPE: ALL SIX canonical panels are filled (2026-08-18). MoleculeACE, CBS and Ames come from
 analysis/rigor/concat_panels_climb.csv; BACE, Tox21 and QM7 from the original MoleculeNet run.
@@ -69,8 +80,21 @@ ROOT = Path(__file__).resolve().parent.parent
 # predictions had been written all along and only the SCORING failed, because that runner puts the
 # feature-set name in the `seed` column and the Polaris scorer does int(seed). Scored per feature
 # set and appended, so the MoleculeACE and CBS rows were not clobbered.
-SRC = ROOT / "analysis" / "rigor" / "concat_redundancy.csv"
-SRC_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_climb.csv"
+# THE _stereo TABLES ARE THE CURRENT ONES. Both were re-run on 2026-08-19 with the current code and
+# FP_VARIANT=ecfp4_stereo; the un-suffixed files are the 2026-08-05 / 08-18 vintage and are kept
+# only as the provenance trail (concat_panels_climb.PREFIX_BACKUP.csv is a byte-identical copy).
+#
+# DO NOT PRESENT old-vs-new AS A FEATURIZER COMPARISON. It is not one, and the numbers invite the
+# claim: the CLM-only arm uses no fingerprint at all, yet it moves (MoleculeACE 0.8401 -> 0.8185,
+# CBS nef1 0.5089 -> 0.7678). A featurizer cannot do that. Three commits also landed on this path
+# between the two runs -- 0ab0388 (standardize + median-impute classical features for non-tree
+# heads), c4f1c23 (OOD prediction bounding), 3c52686 (anchor re-runs) -- so the pair confounds the
+# featurizer with the code version. The defensible statement is "re-run on current code with the
+# current featurizer", full stop. A clean single-variable isolation needs the same code at
+# FP_VARIANT=ecfp4_legacy, where the CLM rows matching to the digit IS the check that the
+# isolation worked.
+SRC = ROOT / "analysis" / "rigor" / "concat_redundancy_stereo.csv"
+SRC_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_climb_stereo.csv"
 OUTDIR = ROOT / "figures_v2"
 # the per-task record is DATA, not a deliverable -- figures_v2/ holds only what goes in the paper
 DATADIR = ROOT / "figure_data" / "fig_F"

@@ -1,10 +1,12 @@
-method,machine,device,precision,config,n_molecules,s_per_1k,sd_s,mol_per_s,hours_per_1M,hours_per_1B,vs_ECFP4_1core
-ECFP4,Apple M4 Pro,cpu,,single core,1000,0.0782,0.0013,12782.1,0.022,21.7,1.0
-ECFP4,Apple M4 Pro,cpu,,12 processes,1000,0.0174,0.0022,57545.6,0.005,4.8,0.22
-RDKit descriptors,Apple M4 Pro,cpu,,single core,1000,4.3731,0.1182,228.7,1.215,1214.8,55.92
-RDKit descriptors,Apple M4 Pro,cpu,,12 processes,1000,0.6825,0.0287,1465.1,0.19,189.6,8.73
-ECFP4 + descriptors,Apple M4 Pro,cpu,,single core,1000,4.4571,0.1302,224.4,1.238,1238.1,57.0
-ECFP4 + descriptors,Apple M4 Pro,cpu,,12 processes,1000,0.757,0.0327,1321.0,0.21,210.3,9.68
-CLIMB encoder,Apple M4 Pro,cpu,fp32,"8 threads, bs256, dynamic pad",1000,8.7489,1.3798,114.3,2.43,2430.3,111.88
-CLIMB encoder,Apple M4 Pro (GPU),mps,fp16,"bs256, dynamic pad",1000,4.991,0.0502,200.4,1.386,1386.4,63.82
-CLIMB encoder,AWS g5.2xlarge (A10G),cuda,bf16,"bs256, dynamic pad",1000,0.5869,0.0018,1703.9,0.163,163.0,7.51
+method,machine,device,precision,config,n_molecules,s_per_1k,sd_s,mol_per_s,hours_per_1M,hours_per_1B,vs_ecfp4_1core,ratio_vs,source
+ECFP4 (stereo),Apple M4 Pro,cpu,,single core,1000,0.0937,0.0018,10677.7,0.026,26.0,1.0,published ECFP4,measured in this run
+ECFP4 (stereo),Apple M4 Pro,cpu,,12 processes,1000,0.0181,0.0018,55370.6,0.005,5.0,0.19,published ECFP4,measured in this run
+"ECFP4 (stereo), paired control",Apple M4 Pro,cpu,,single core (paired A/B),1000,0.0766,0.001,13048.0,0.021,21.3,1.0,paired control,measured in this run
+Morgan r3-counts,Apple M4 Pro,cpu,,single core,1000,0.0883,0.0003,11324.2,0.025,24.5,1.15,paired control,measured in this run
+RDKit descriptors,Apple M4 Pro,cpu,,single core,1000,4.7088,0.0612,212.4,1.308,1308.0,50.25,published ECFP4,measured in this run
+RDKit descriptors,Apple M4 Pro,cpu,,12 processes,1000,0.8181,0.1317,1222.3,0.227,227.3,8.73,published ECFP4,measured in this run
+ECFP4 + descriptors,Apple M4 Pro,cpu,,single core,1000,4.6529,0.0893,214.9,1.292,1292.5,49.66,published ECFP4,measured in this run
+ECFP4 + descriptors,Apple M4 Pro,cpu,,12 processes,1000,0.7639,0.0043,1309.0,0.212,212.2,8.15,published ECFP4,measured in this run
+CLIMB encoder,Apple M4 Pro,cpu,fp32,"8 threads, bs256, dynamic pad",1000,9.3012,0.5975,107.5,2.584,2583.7,99.27,published ECFP4,measured in this run
+CLIMB encoder,Apple M4 Pro (GPU),mps,fp16,"bs256, dynamic pad",1000,5.4049,0.0694,185.0,1.501,1501.4,57.68,published ECFP4,measured in this run
+CLIMB encoder,AWS g5.2xlarge (A10G),cuda,bf16,"bs256, dynamic pad",1000,0.5869,0.0018,1703.9,0.163,163.0,6.26,published ECFP4,"AWS g5.2xlarge (A10G) run, recovered from figures_v2/SI_Fig_c.csv @970229f"
