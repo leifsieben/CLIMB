@@ -212,7 +212,8 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
 # Wrapped forms for the VERTICAL legend. "CLIMB + descriptors + ECFP4" on one line is 3.3in wide,
 # which forces the legend into a horizontal strip; broken at the + signs it is 3 short lines and
 # the whole key becomes a tall narrow block (user 2026-08-19).
-WRAPPED = {"CLIMB + descriptors": "CLIMB\n+ descriptors",
+WRAPPED = {"CLIMB alone": "CLIMB\nalone",
+           "CLIMB + descriptors": "CLIMB\n+ descriptors",
            "CLIMB + descriptors + ECFP4": "CLIMB\n+ descriptors\n+ ECFP4"}
 
 

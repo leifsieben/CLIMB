@@ -10,6 +10,10 @@ to the model repo separately, weights only.
 
 Idempotent: it re-lists the repo and skips runs already present, so it can be re-run after an
 interruption without duplicating uploads.
+
+Uploads one commit PER WAVE, not per run. The Hub caps commits at 128/hour and a per-run loop
+burns that on a single wave -- upload_folder batches any number of files into one commit, so the
+cap stops being reachable at this scale.
 """
 from __future__ import annotations
 import sys
@@ -94,7 +98,20 @@ def main(argv) -> int:
             continue
         print(f"  {w}: {len(miss)} to upload")
         for r in miss:
-            n += push(api, RESULTS_REPO, "dataset", w, r, RESULT_NAMES, dry)
+            d = FD / w / r
+            fs = files_for(d, RESULT_NAMES)
+            print(f"    {w}/{r}: {len(fs)} files, "
+                  f"{sum(f.stat().st_size for f in fs)/1e6:.1f} MB", flush=True)
+        if dry:
+            continue
+        api.upload_folder(
+            repo_id=RESULTS_REPO, repo_type="dataset", folder_path=str(FD / w),
+            path_in_repo=w,
+            allow_patterns=[f"{r}/**/{nm}" for r in miss for nm in RESULT_NAMES]
+                           + [f"{r}/{nm}" for r in miss for nm in RESULT_NAMES],
+            ignore_patterns=[f"*{m}*" for m in SKIP_DIR_MARKERS] + ["*_superseded_*"],
+            commit_message=f"backup {w}: {len(miss)} runs")
+        n += len(miss)
 
     print("\n=== ENCODERS ===")
     m = 0

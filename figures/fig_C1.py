@@ -1,6 +1,24 @@
 """Fig C1 -- does molecular similarity (pretrain corpus <-> eval molecule) explain the benefit of
 UNSUPERVISED pretraining?
 
+READ THIS FIRST: THERE IS NO BENEFIT TO EXPLAIN, AND THAT IS THE RESULT.
+Against the honest floor -- a random-init encoder FINE-TUNED end-to-end -- unsupervised pretraining
+is worth, over ALL molecules and before any binning:
+
+    MoleculeACE   -0.29%  [-0.40, -0.18]        QM7   -2.68%  [-5.25, -0.94]
+
+i.e. nothing, or slightly negative, on both tasks. So this figure is not apportioning a benefit
+between similar and novel molecules; it is showing that no apportionment is available, INCLUDING
+on the molecules the model has literally read. That is the stronger claim, and it is what panel (a)
+means: the corpus-identical group sits at -0.0%, so there is no memorization advantage to explain
+away in the first place.
+
+Do not read this against fig_E, which reports the same arm at +6.4% (MoleculeACE) and +2.9% (QM7).
+Fig E's floor is no pretraining FROZEN; this figure's floor is no pretraining FINE-TUNED. Both are
+true and together they are the point: pretraining beats an untrained encoder held fixed, and does
+not beat the same untrained encoder allowed to learn. Beating a frozen random encoder is close to
+automatic, which is exactly why it is not the comparator here.
+
 ONE script, ONE figure: figures_v2/figC1.png / .pdf
 
 What it shows
@@ -76,6 +94,9 @@ MACE_BASE = ["no_pretrain_e2e_e2e", "no_pretrain_e2e_e2e_s1", "no_pretrain_e2e_e
 # errors, so these are the two it can use. (Pre-canonical it was ESOL + QM7.)
 TASKS = ["MoleculeACE", "QM7"]
 QM7_SUB = "moleculenet_cv_qm7native"               # both arm and floor have it -> one convention
+# panels scored by RMSE, i.e. the ones _merged clamps. MoleculeACE is macro RMSE over 30 targets
+# with per-target scales, so it is excluded: one band over pooled targets would be meaningless.
+_REGRESSION_TASKS = {"QM7"}
 
 # colours: the arm under test is `unsup`, so similarity groups/tasks run dark (similar) -> light
 # (novel) along the unsupervised shade ladder; the excluded identity group is grey. No hard-coded
@@ -175,6 +196,19 @@ def _merged(task, sim, mod, base):
                                        on=["dataset", "raw_smiles"], suffixes=("_m", "_b"))
     m = m.merge(sim[sim.dataset == task][["raw_smiles", "max_tanimoto_to_corpus", "memorized"]],
                 on="raw_smiles", how="inner")
+    # CLAMP REGRESSION PREDICTIONS, both arms, before squaring (user 2026-08-19). QM7's `[H]` --
+    # a lone hydrogen atom, and by construction the least corpus-similar "molecule" in the set --
+    # was predicted at +1,199.8 kcal/mol by the unsupervised arm against a true -1,739.2 and a
+    # dataset that is negative everywhere. That single point carried 15% of the lowest-similarity
+    # bin's squared error and set panel (b)'s first marker at -8.0%; without it the bin reads
+    # -1.8%. The bound is eval_v2._bound_ood, the same one the suite tracks have always applied
+    # and that the aggregator now uses -- so this panel and the bars in fig_A describe the same
+    # predictions. Fit on the OTHER molecules of the task, not on the test molecule.
+    if task in _REGRESSION_TASKS:
+        import eval_v2
+        for pred, true in (("y_pred_m", "y_true_m"), ("y_pred_b", "y_true_b")):
+            m[pred] = eval_v2._bound_ood(m[pred].to_numpy(float), m[true].to_numpy(float),
+                                         "regression")
     m["se_m"] = (m.y_pred_m - m.y_true_m) ** 2
     m["se_b"] = (m.y_pred_b - m.y_true_b) ** 2
     return m
@@ -296,8 +330,11 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     ax0.set_xticks(xpos)
     ax0.set_xticklabels([b[0] for b in bars], fontsize=FS["annot"])
     ax0.set_ylabel(LIFT_YLABEL)
-    ax0.set_title("Lift by similarity group" if compact else
-                  "Lift by corpus similarity group",
+    # NOT "Lift by similarity group" (user 2026-08-19: "is that result real? identical SMILES have
+    # no change?"). It is real, and the old title made it read as an apportionment of a benefit
+    # that does not exist -- the overall lift is -0.29% / -2.68%. The title now states the finding.
+    ax0.set_title("No lift, at any corpus similarity" if compact else
+                  "No lift over fine-tuned no-pretraining, at any corpus similarity",
                   loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)
     if tags and tags[0]:

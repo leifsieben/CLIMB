@@ -31,9 +31,13 @@ S3B = "s3://climb-s3-bucket/experiments/climb_v2_phase2"
 TOK = "figure_data/_tokenizer"
 # best-two CLIMB arms -> their 8M encoder prefix
 ENCODERS = {"unsup_only": "unsup_8M", "sup_only:dense": "skip_dense_8M"}
-TASKS = ["BACE", "BBBP", "Tox21", "QM7"]
+# Env-overridable so a later panel (HIV joining the canonical six) can be topped up
+# without editing the driver -- a second hardcoded list is how the CBS->HIV swap
+# produced five separate "not run" bugs.
+TASKS = os.environ.get("W3_TASKS", "BACE BBBP Tox21 QM7").split()
 TYPE = dict(MOLECULENET_TASKS_V2)
-FRACTIONS = [0.05, 0.10, 0.25, 0.50, 1.00]
+FRACTIONS = [float(x) for x in
+             os.environ.get("W3_FRACTIONS", "0.05 0.10 0.25 0.50 1.00").split()]
 FT_SEEDS = [0, 1, 2]
 EPOCHS = FT_HPARAMS["epochs"]
 

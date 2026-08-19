@@ -114,7 +114,12 @@ def cluster_bootstrap(by_target, n=2000):
 # were already native were (correctly) not re-run. So the QM7 panel must PREFER the native subdir
 # and fall back to the ordinary one, which is what this tuple expresses. Every other panel reads
 # moleculenet_cv/ only.
-QM7_SUBDIRS = ("moleculenet_cv_qm7native", "moleculenet_cv")
+# CLAMPED FIRST (user 2026-08-19). moleculenet_cv_qm7clamped/ is the SAME predictions with
+# eval_v2._bound_ood applied -- regression predictions clipped to each fold's TRAIN target
+# range +-25%, the bound scripts/chemeleon_suite_run.py has always applied on the suite
+# tracks and eval_v2 did not. Without it CheMeleon-frozen's QM7 reads 268.8 because ONE
+# molecule is predicted at -15,012 kcal/mol; with it, 208.8. Near-noop elsewhere (<=4.3).
+QM7_SUBDIRS = ("moleculenet_cv_qm7clamped", "moleculenet_cv_qm7native", "moleculenet_cv")
 # Tox21's 2026-08-05 missing-label fix reached the predictions but only fold0 of the summary rows
 # (interrupted re-run); moleculenet_cv_tox21fixed/ is re-scored from each run's own predictions by
 # scripts/rescore_tox21.py. Same all-or-nothing rule as QM7: one subdir per arm, never a mix.

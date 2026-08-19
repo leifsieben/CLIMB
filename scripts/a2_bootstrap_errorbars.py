@@ -183,6 +183,29 @@ def pooled_metric(m, kind, dirs, folds):
     return float(np.mean(per_dir)) if per_dir else np.nan
 
 
+# The CI must describe the SAME estimator as the bar, and the bar is now clamped (QM7_SUBDIRS
+# prefers moleculenet_cv_qm7clamped/). That dir holds summaries only -- the clamp is a scoring-time
+# operation, so the predictions never needed rewriting -- which means the bootstrap has to apply it
+# itself, once, before resampling. Applying it INSIDE the resample would refit the band on each
+# bootstrap draw's own targets and make the bound a random variable.
+def clamp_regression(m, kind, folds):
+    """Clip y_pred to each fold's TRAIN target range +-25%; identity for classification metrics."""
+    if kind not in ("rmse", "macro_rmse"):
+        return m
+    import eval_v2
+    out = m["y_pred_a"].to_numpy(float).copy()
+    y = m["y_true_a"].to_numpy(float)
+    for f in np.unique(folds):
+        if f < 0:
+            continue
+        te = folds == f
+        tr = (folds != f) & (folds >= 0)
+        if not te.any() or not tr.any():
+            continue
+        out[te] = eval_v2._bound_ood(out[te], y[tr], "regression")
+    return m.assign(y_pred_a=out)
+
+
 def scaffold_ci(d, kind, root, seed=0):
     """95% CI by resampling whole Bemis-Murcko scaffold clusters, recomputing the SAME pooled
     estimator the bar reports (all seed dirs; per-fold then averaged)."""
@@ -211,6 +234,7 @@ def scaffold_ci(d, kind, root, seed=0):
         groups[s].append(pos)
     keys = list(groups); idx = {k: np.array(v) for k, v in groups.items()}; K = len(keys)
     rng = np.random.default_rng(seed)
+    m = clamp_regression(m, kind, folds)
     obs = pooled_metric(m, kind, dirs, folds)
     vals = []
     for _ in range(N_BOOT):

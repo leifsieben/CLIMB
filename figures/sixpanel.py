@@ -139,7 +139,12 @@ def arm_colors(index) -> list:
 # an interrupted re-run), so moleculenet_cv_tox21fixed/ holds rows re-scored from each run's own
 # predictions. See scripts/rescore_tox21.py.
 NATIVE_SUBDIRS = {
-    "QM7": ("moleculenet_cv_qm7native", "moleculenet_cv"),
+    # CLAMPED FIRST (user 2026-08-19). moleculenet_cv_qm7clamped/ is the SAME predictions with
+    # eval_v2._bound_ood applied -- regression predictions clipped to each fold's TRAIN target
+    # range +-25%, the bound scripts/chemeleon_suite_run.py has always applied on the suite
+    # tracks and eval_v2 did not. Without it CheMeleon-frozen's QM7 reads 268.8 because ONE
+    # molecule is predicted at -15,012 kcal/mol; with it, 208.8. Near-noop elsewhere (<=4.3).
+    "QM7": ("moleculenet_cv_qm7clamped", "moleculenet_cv_qm7native", "moleculenet_cv"),
     "ESOL": ("moleculenet_cv_regnative", "moleculenet_cv"),
     "Lipophilicity": ("moleculenet_cv_regnative", "moleculenet_cv"),
     "Tox21": ("moleculenet_cv_tox21fixed", "moleculenet_cv"),
