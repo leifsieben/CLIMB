@@ -12,12 +12,14 @@ SAME 1000 MoleculeNet molecules with the SAME settings production uses, 5 repeat
   ECFP4 + descriptors  the ECFP4+desc anchor's features
   CLIMB encoder        ModernBERT ~41M, tokenize + forward + mean pool (eval_v2._encoder_features)
 
-THE RESULT: the transformer is not the expensive part — RDKit descriptors are. On one CPU core the
-descriptors cost 4.80 s/1000 molecules against the Morgan block's 0.098 s, a 49x gap, and they
-ECFP+desc anchor almost entirely (4.46 s, i.e. 98% descriptors). The encoder on one A10G runs
-1000 molecules in 0.59 s — 7.5x the cost of single-core ECFP4, but 7.4x FASTER than the ECFP+desc
-anchor that outranks it in Fig A1. At 1B molecules that is 163 GPU-hours for the encoder against
-1238 single-core CPU-hours for ECFP+desc.
+THE RESULT: the transformer is not the expensive part -- RDKit descriptors are. On one CPU core the
+descriptors cost 4.71 s/1000 molecules against ECFP4's 0.094 s, a 50x gap. Concatenating the
+fingerprint on top costs nothing measurable: ECFP4+desc comes in at 4.65 s against the descriptors'
+own 4.71 s, a difference inside the run-to-run spread, so the anchor's featurization cost IS its
+descriptor block. The encoder on one A10G runs 1000 molecules in
+0.587 s -- 6.3x the cost of single-core ECFP4, but 7.9x FASTER than the ECFP4+desc anchor that
+outranks it in Fig A1. At 1B molecules that is 163 GPU-hours for the encoder against
+1292 single-core CPU-hours for ECFP4+desc.
 
 So "transformers are too slow to screen with" is not supported by our own measurements: the
 classical baseline that beats CLIMB on accuracy is the slower of the two to featurize, unless the
@@ -71,14 +73,24 @@ def main():
         if not cands:
             continue
         r = cands[0]
-        t = np.array(r["times_s"], dtype=float)
+        # A CARRIED-FORWARD row has the summary statistics but not the raw repeats -- it was
+        # recovered from the published CSV of a run on hardware this machine does not have (the
+        # A10G encoder row). Its mean and sd are the real measured ones; synthesising a `times_s`
+        # list that happens to reproduce them would be fabricating measurements to satisfy a
+        # schema, so the reader takes the summaries directly and the row stays labelled.
+        if "times_s" in r:
+            t = np.array(r["times_s"], dtype=float)
+            mean_s, sd_s = float(t.mean()), float(t.std(ddof=1))
+        else:
+            mean_s, sd_s = float(r["s_per_1k"]), float(r.get("sd_s", float("nan")))
         row = dict(method=METHOD_LABEL[method], machine=MACHINE[device], device=device,
                    precision=r.get("precision") if r.get("precision") != "n/a" else "",
                    config=notes, n_molecules=n,
-                   s_per_1k=round(float(t.mean()), 4), sd_s=round(float(t.std(ddof=1)), 4),
+                   s_per_1k=round(mean_s, 4), sd_s=round(sd_s, 4),
                    mol_per_s=round(float(r["mol_per_s"]), 1),
-                   hours_per_1M=round(float(r["hours_1M"]), 3),
-                   hours_per_1B=round(float(r["hours_1B"]), 1))
+                   hours_per_1M=round(float(r.get("hours_1M", r.get("hours_per_1M"))), 3),
+                   hours_per_1B=round(float(r.get("hours_1B", r.get("hours_per_1B"))), 1),
+                   source=r.get("carried_from", "measured in this run"))
         if base is None:
             base = row["s_per_1k"]                      # Morgan counts, single core = the reference
         row["vs_morgan_1core"] = round(row["s_per_1k"] / base, 2)
@@ -86,7 +98,7 @@ def main():
 
     OUTDIR.mkdir(exist_ok=True)
     cols = ["method", "machine", "device", "precision", "config", "n_molecules", "s_per_1k",
-            "sd_s", "mol_per_s", "hours_per_1M", "hours_per_1B", "vs_morgan_1core"]
+            "sd_s", "mol_per_s", "hours_per_1M", "hours_per_1B", "vs_morgan_1core", "source"]
     with open(OUTDIR / "SI_fig_c.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
