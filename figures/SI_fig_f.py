@@ -11,6 +11,19 @@ The axis therefore means opposite things in the two blocks, which is why they ar
 labelled blocks with the class B panels tinted rather than as one 13-panel grid. A reader who
 misses the flip reads the figure exactly backwards.
 
+WHY THIS PLOTS SEPARATION AND NOT A SUCCESS RATE
+------------------------------------------------
+The first version drew success % at eps=0.01 and it was not defensible: 19 of the 65 drawn cells
+move by MORE THAN 20 POINTS across eps=0.001..0.05, and four modes invert outright. The worst case
+carried a headline -- CLIMB unsup on inverted stereocentres reads 94% at eps=0.001, BEATING
+ECFP4+stereo's 89%, and 4% at eps=0.01. "CLIMB unsup resolves 4% of stereocentres" was an artefact
+of where the line was drawn, and no caption caveat rescues a bar chart with that property.
+
+So the figure plots the underlying quantity -- MEDIAN SEPARATION, log axis -- and draws the three
+eps thresholds as reference lines. A reader sees the magnitude AND how close it sits to any cut,
+so a knife-edge cell is knife-edge by inspection rather than by footnote. The quantity spans five
+orders of magnitude (8.6e-5 to 4.4), which is precisely why thresholding it lost information.
+
 Success is NOT bit-equality — that is meaningless for a continuous embedding, and it was the peer
 session's first cut: CheMeleon reads 0% identical on class B purely from floating-point summation
 order while its true separation is exactly zero. It is a scale-free SEPARATION RATIO instead:
@@ -98,21 +111,40 @@ NCOL = 5
 
 def compute():
     d = pd.read_csv(SRC)
-    return d.pivot_table(index=["klass", "mode"], columns="embedding", values="success")
+    return d.pivot_table(index=["klass", "mode"], columns="embedding", values="median_separation")
+
+
+FLOOR = 3e-6          # log-axis bottom; exact zeros are drawn AT it with an open marker
+EPS = (0.001, 0.01, 0.05)
 
 
 def _panel(ax, vals, title, klass):
+    """One mode. Bars are median separation on a LOG axis; the three eps cuts are reference lines.
+
+    An EXACT zero is not a small number -- for a fingerprint on class B it means invariant by
+    construction -- so it cannot share the log axis with 1e-5. Those are drawn as an open marker
+    sitting on the floor, which reads as "off the bottom of this scale" rather than as a short bar.
+    """
     if klass == "B":
         ax.set_facecolor(TINT)
     x = np.arange(len(SERIES))
-    ax.bar(x, vals, width=0.74,
-           color=[ARMS[k]["color"] for _, k, _ in SERIES],
-           edgecolor=INK, linewidth=0.6, zorder=3)
-    ax.set_ylim(0, 108)
-    ax.set_yticks([0, 50, 100])
+    v = np.asarray(vals, dtype=float)
+    drawn = np.where(v > 0, v, FLOOR)
+    ax.bar(x[v > 0], drawn[v > 0], width=0.74,
+           color=[ARMS[k]["color"] for (_, k, _), keep in zip(SERIES, v > 0) if keep],
+           edgecolor=INK, linewidth=0.6, zorder=3, bottom=FLOOR)
+    for xi, (_, k, _) in zip(x[v == 0], [S for S, z in zip(SERIES, v == 0) if z]):
+        ax.plot(xi, FLOOR * 2.2, marker="o", ms=3.4, mfc="white", mec=ARMS[k]["color"],
+                mew=1.1, ls="none", zorder=4, clip_on=False)
+    for e in EPS:
+        ax.axhline(e, color=STYLE["ink"], ls=(0, (2, 2)), lw=0.55, zorder=2)
+    ax.set_yscale("log")
+    ax.set_ylim(FLOOR, 20)
+    ax.set_yticks([1e-5, 1e-3, 1e-1])
+    ax.set_yticklabels(["$10^{-5}$", "$10^{-3}$", "$10^{-1}$"])
     ax.set_xticks([])
     ax.set_xlim(-0.72, len(SERIES) - 0.28)
-    ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
+    ax.grid(axis="y", ls=":", lw=0.5, color=STYLE["grid"])
     ax.set_axisbelow(True)
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
@@ -139,7 +171,7 @@ def main():
             missing.append(mode)
         _panel(ax, vals, title, kl)
         if i % NCOL == 0:
-            ax.set_ylabel("success (%)", fontsize=FS["annot"])
+            ax.set_ylabel("median separation", fontsize=FS["annot"])
     for i, (kl, mode, title) in enumerate(B):
         ax = fig.add_subplot(gsB[0, i])
         vals = [P.loc[(kl, mode), lab] if (kl, mode) in P.index else np.nan for lab, _, _ in SERIES]
@@ -147,7 +179,7 @@ def main():
             missing.append(mode)
         _panel(ax, vals, title, kl)
         if i == 0:
-            ax.set_ylabel("success (%)", fontsize=FS["annot"])
+            ax.set_ylabel("median separation", fontsize=FS["annot"])
     assert not missing, f"SI fig f: no data for {missing}"
 
     # the two block labels carry the DIRECTION, which is the thing a reader must not miss
@@ -156,22 +188,42 @@ def main():
     fig.text(0.012, (0.315 + 0.145) / 2, "Same molecule\nmust NOT separate", rotation=90,
              va="center", ha="center", fontsize=FS["annot"], fontweight="bold", color=INK)
 
-    fig.legend(handles=[Patch(facecolor=ARMS[k]["color"], edgecolor=INK, lw=0.7, label=lab)
-                        for _, k, lab in SERIES],
-               loc="upper center", bbox_to_anchor=(0.54, 0.085), ncol=5, fontsize=FS["legend"],
-               handletextpad=0.5, columnspacing=1.6, borderpad=0.0, frameon=False)
+    from matplotlib.lines import Line2D
+    handles = [Patch(facecolor=ARMS[k]["color"], edgecolor=INK, lw=0.7, label=lab)
+               for _, k, lab in SERIES]
+    # the two glyphs a reader cannot guess: an EXACT zero is not a small bar, and the dashed lines
+    # are where a success-rate threshold would cut -- which is how this figure shows that four
+    # modes are knife-edge without needing a footnote to say so
+    handles += [Line2D([], [], marker="o", ms=3.6, mfc="white", mec=INK, mew=1.1, ls="none",
+                       label="exactly 0 (invariant)"),
+                Line2D([], [], color=INK, ls=(0, (2, 2)), lw=0.55,
+                       label="success cut-offs (ε = 0.001, 0.01, 0.05)")]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.54, 0.098), ncol=4,
+               fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.5, labelspacing=0.35,
+               borderpad=0.0, frameon=False)
     save(fig, "SI_fig_f")
     plt.close(fig)
 
-    print("\nSI Fig f — resolution by failure mode (success %, eps=0.01)\n")
+    print("\nSI Fig f — median separation (threshold-free; eps cuts at 0.001/0.01/0.05)\n")
     print(f"   {'class':<6}{'mode':<22}" + "".join(f"{lab:>14s}" for lab, _, _ in SERIES))
     for kl, mode, _ in MODES:
         row = f"   {kl:<6}{mode:<22}"
         for lab, _, _ in SERIES:
             v = P.loc[(kl, mode), lab] if (kl, mode) in P.index else np.nan
-            row += f"{v:>14.0f}" if np.isfinite(v) else f"{'—':>14}"
+            row += (f"{v:>14.2e}" if np.isfinite(v) else f"{'—':>14}")
         print(row)
     d = pd.read_csv(SRC)
+    e = d[d.embedding.isin([lab for lab, _, _ in SERIES])].copy()
+    cols = ["success_eps0.001", "success_eps0.01", "success_eps0.05"]
+    e["span"] = e[cols].max(axis=1) - e[cols].min(axis=1)
+    bad = e[e.span > 20]
+    print(f"\n   THRESHOLD SENSITIVITY: {len(bad)} of {len(e)} cells move >20 points across eps.")
+    print("   Modes STABLE at every eps (safe to quote a success rate for):")
+    for m in sorted(set(e["mode"]) - set(bad["mode"])):
+        print(f"     {m}")
+    print("   Modes that are NOT (quote median separation instead):")
+    for m in sorted(set(bad["mode"])):
+        print(f"     {m}")
     ctl = d[d.embedding.isin(["random encoder", "ECFP4 stereo-blind"])]
     print("\n   CONTROLS (not drawn; caption material):")
     for emb, g in ctl.groupby("embedding"):
