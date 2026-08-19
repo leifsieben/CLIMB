@@ -1,4 +1,4 @@
-"""Fig G — can the representation tell two different molecules apart at all?
+"""Fig G — does the representation respond when the CHEMISTRY changes?
 
 ONE script, ONE figure: figures_v2/fig_G.png / .pdf   (panels a–j)
 
@@ -8,33 +8,48 @@ can check on the same axis: the shift the change produces, divided by THAT MODEL
 you swap in a completely different compound of matched molecular weight. 1.00 therefore means "this
 change moves the embedding as far as changing the molecule". No threshold anywhere, and the
 denominator is measured per model, so a 512-d transformer and a 2048-bit fingerprint sit on one
-axis honestly. Panel (i) IS that reference and is 1.00 by construction — it stays in the grid so
+axis honestly. Panel (i) IS that reference and is 1.000 by construction — it stays in the grid so
 the unit is visible rather than asserted.
 
-THE RESULT: an inverted stereocentre moves ECFP4 0.68 — two thirds as far as a different molecule —
-and CLIMB sup 0.009. Seventy-fold. E/Z is 1.02 against 0.013. Across the ten changes the CLMs sit
-at 0.01–0.35 where the fingerprints sit at 0.10–1.36. This is the mechanism behind fig_C1's bare
-negative (unsupervised pretraining is worth −0.29% over a fine-tuned random init) rather than a
-restatement of it: the representation barely moves when the chemistry does.
+INPUT IS RDKit-CANONICAL SMILES for every arm. Charging a sequence model for notation it never sees
+at inference would answer the wrong question; the notation question is class B, SI fig f. Under
+canonical input every representation here is deterministic — re-embedding reproduces the vectors
+bit for bit, 128/128 — so there is no significance question, only a size question, and this figure
+asks the size question.
 
-ring_size (g) is the one change every representation is weak on, 0.07–0.11 across the board, and
-isotopes (f) are the one place the CLMs win outright — 0.21/0.29 against exactly 0.000 for ECFP4
-and CheMeleon, because a [13C] token changes the string while Morgan atom invariants ignore it.
-Complementary blind spots, in a threshold-free unit.
+WHAT THE FIGURE SAYS
+--------------------
+1. THE STEREO GAP SURVIVES THE FAIR SETUP. An inverted stereocentre moves the fingerprints
+   0.64–0.92 and the CLMs 0.006–0.030: twenty- to hundredfold, on canonical input, with no
+   threshold. E/Z is 0.95–1.06 against 0.013–0.059. Across the ten changes the CLMs sit at
+   0.006–0.49 where the fingerprints sit at 0.000–1.62. This is the mechanism behind fig_C1's bare
+   negative (unsupervised pretraining is worth −0.29% over a fine-tuned random init) rather than a
+   restatement of it: the representation barely moves when the chemistry does.
+2. MORGAN r3-COUNTS IS THE MOST CHEMICALLY RESPONSIVE REPRESENTATION TESTED, and it is not close
+   where ECFP4 is weakest: stereo 0.920 vs 0.679, ring size 0.388 vs 0.104. That is independent
+   support for the third XGBoost anchor from a measurement with no benchmark score in it.
+3. DESCRIPTORS DILUTE STRUCTURAL SIGNAL. Adding the descriptor block makes BOTH fingerprints
+   slightly worse on every class A mode (r3-counts stereo 0.920 → 0.856, ring size 0.388 → 0.362).
+   Same story as the gap-narrowing result in fig_A2, arrived at independently.
+4. AUGMENTATION DOES NOT BUY CHEMICAL SENSITIVITY. Against its matched canonical control, the
+   enumeration-augmented CLM is no better on stereo (0.027 vs 0.030) and WORSE on added methyl
+   (0.140 vs 0.234), added fluorine, ring size and matched descriptors. It buys notation-invariance
+   (SI fig f a: 0.243 vs 0.376) and pays for it in chemistry. A genuine negative, and only
+   measurable because that control exists.
+5. THE BLIND SPOTS ARE COMPLEMENTARY. Isotopes (f) are the one place the CLMs win outright —
+   0.18–0.27 against exactly 0.000 for both bare fingerprints and CheMeleon, because a [13C] token
+   changes the string while Morgan atom invariants ignore it. Ring size (g) is weak for everything
+   except the r3-counts pair.
 
-A NOTE ON WHAT THIS METRIC REPLACED, because three earlier versions of this figure reported
-otherwise. A noise-calibrated variant thresholded each change against the model's response to a
-re-written SMILES, which drove every CLM cell to 0%. That test was withdrawn: in the pipeline every
-molecule is embedded from its CANONICAL SMILES, so re-writing never occurs at inference, and
-charging the CLMs for it was measuring a property they are never asked to have. Under canonical
-input every representation here is deterministic — re-embedding reproduces the vectors bit for bit,
-128/128 — so there is no significance question, only a size question, and this figure asks the size
-question.
+A COMPARABILITY CAVEAT THAT BELONGS IN THE CAPTION. The two CLIMB unsup arms are a MATCHED PAIR
+from climb_v2_h1 — both MLM, both 7,812 steps, differing only in augmentation — so point 4 is a
+clean read. `CLIMB sup` is skip_dense_8M from phase 2 at 31,250 steps, FOUR TIMES the compute.
+There is no supervised encoder at the h1 budget, so sup cannot be read against the other two as a
+like-for-like comparison, only as "the mainline supervised arm".
 
-Class B — the same molecule written two ways — is SI fig f, and it is the sharper half: re-writing
-a molecule in Kekulé form moves CLIMB sup 1.34, i.e. FURTHER than swapping in a different compound.
-Both figures read the same table through the same code (figures/SI_fig_f.py owns compute() and the
-panel drawing), so the main-text and SI versions can never disagree about a number.
+Class B — the same molecule written two ways — is SI fig f. Both figures read the same table
+through the same code (figures/SI_fig_f.py owns compute(), the panel drawing and the legend), so
+the main-text and SI versions can never disagree about a number.
 
 Run:  python3 -m figures.fig_G
 """
@@ -42,11 +57,9 @@ from __future__ import annotations
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 
 from figures.style import STYLE, FS, save, check_font
-from figures.arms import ARMS
-from figures.SI_fig_f import compute, _panel, MODES, SERIES, NCOL
+from figures.SI_fig_f import compute, _panel, report, _legend_handles, MODES, SERIES, NCOL
 
 check_font()
 INK = "#000000"
@@ -57,8 +70,8 @@ def main():
     A = [m for m in MODES if m[0] == "A"]
     assert len(A) == 10, f"fig_G expects the ten class-A modes, found {len(A)}"
 
-    fig = plt.figure(figsize=(STYLE["col2"], 3.55))
-    gs = fig.add_gridspec(2, NCOL, left=0.075, right=0.995, top=0.865, bottom=0.215,
+    fig = plt.figure(figsize=(STYLE["col2"], 3.85))
+    gs = fig.add_gridspec(2, NCOL, left=0.075, right=0.995, top=0.875, bottom=0.235,
                           wspace=0.34, hspace=0.72)
     tags = "abcdefghij"
     for i, (kl, mode, title) in enumerate(A):
@@ -72,27 +85,13 @@ def main():
         if i % NCOL == 0:
             ax.set_ylabel("response relative to a\ndifferent molecule", fontsize=FS["annot"])
 
-    from matplotlib.lines import Line2D
-    handles = [Patch(facecolor=ARMS[k]["color"], edgecolor=INK, lw=0.7, label=lab)
-               for _, k, lab in SERIES]
-    handles.append(Line2D([], [], color=INK, ls=(0, (3, 2)), lw=0.7,
-                          label="= a different molecule (matched MW)"))
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.535, 0.118), ncol=6,
-               fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.4, borderpad=0.0,
-               frameon=False)
+    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.535, 0.155),
+               ncol=3, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.4,
+               labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)
 
-    print("\nFig G — response relative to swapping in a different molecule (matched MW)\n")
-    print(f"   {'mode':<22}" + "".join(f"{lab:>14s}" for lab, _, _ in SERIES))
-    for kl, mode, _ in A:
-        row = f"   {mode:<22}"
-        for lab, _, _ in SERIES:
-            v = R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
-            row += f"{v:>14.3f}" if np.isfinite(v) else f"{'—':>14}"
-        print(row)
-    print("\n   1.000 = moves the embedding as far as a completely different compound of the")
-    print("   same molecular weight. matched_mw is that reference and is 1.000 by construction.")
+    report(R, A, "Fig G (class A, canonical input) — genuinely different molecules")
 
 
 if __name__ == "__main__":

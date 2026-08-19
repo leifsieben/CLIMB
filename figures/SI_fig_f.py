@@ -1,74 +1,48 @@
-"""SI Fig f — what can each representation actually RESOLVE?
+"""SI Fig f — is the representation invariant to how a molecule is WRITTEN?
 
-ONE script, ONE figure: figures_v2/SI_fig_f.png / .pdf
+ONE script, ONE figure: figures_v2/SI_fig_f.png / .pdf   (panels a–c)
 
-Thirteen chemical failure modes, 100 molecule PAIRS each, scored in two OPPOSITE directions:
+This is CLASS B: the two SMILES denote the SAME molecule, so a usable representation must NOT
+separate them. The ten CLASS A modes -- genuinely different molecules, where the representation
+must respond -- are fig_G in the main text. Both figures read this file's compute() and _panel(),
+so the main-text and SI versions cannot disagree about a number.
 
-  CLASS A   the two molecules are genuinely DIFFERENT   -> success = the embedding SEPARATES them
-  CLASS B   the two SMILES denote the SAME molecule     -> success = it does NOT separate them
+THE TWO CLASSES ARE MEASURED ON DIFFERENT INPUT, AND THAT IS DELIBERATE
+----------------------------------------------------------------------
+  class A   RDKit-CANONICAL SMILES.  A chemistry question. Charging a sequence model for notation
+            it never sees at inference answers the wrong question, so all strings are canonicalised.
+  class B   the strings the pipeline ACTUALLY FEEDS ("as written"). Class B *is* the notation
+            question, so canonicalising first would define it away.
 
-The axis therefore means opposite things in the two blocks, which is why they are drawn as two
-labelled blocks with the class B panels tinted rather than as one 13-panel grid. A reader who
-misses the flip reads the figure exactly backwards.
+The `input` column of the source CSV carries this per row and compute() asserts the mapping, so a
+panel cannot silently be drawn on the wrong input -- the failure that produced three retracted
+readings of this figure.
 
-TWO QUESTIONS, ONE GRID
------------------------
-"Is the difference THERE" and "how BIG is it" are different questions, and conflating them cost
-this figure two rebuilds. The metric is now the first question, with no threshold at all: RESOLVED
-means the two embedding vectors DIFFER, guarded only at float32 epsilon (cosine > 1e-6). That guard
-is arithmetic, not chemistry -- re-embedding the same molecules in a different batch order
-reproduces every representation BIT-FOR-BIT, 128/128, largest cosine 1.8e-07, so the guard sits two
-orders above measured noise (scripts/resolution_noise_floor.py). For a deterministic fingerprint it
-collapses to bit-equality.
-
-The BARS answer the second question -- median separation, log axis -- because that is where the
-interesting structure is, and only 13 of the 65 cells are not at 100% on the first. Those 13 are
-annotated with their rate, so the sparse binary answer rides along instead of costing a second
-13-panel grid.
-
-WHAT THIS COST, RECORDED BECAUSE IT WAS A REAL RETRACTION. An earlier version thresholded the
-separation at eps=0.01 and reported "CLIMB sup resolves 1% of inverted stereocentres, so the CLMs
-cannot see stereochemistry". That does not survive: under the threshold-free definition CLIMB sup
-resolves 100% of them. It DOES produce a different vector -- by 8.6e-5 against ECFP4's 9.0e-2. The
-information is present and about a thousandfold compressed, which is a weaker and more accurate
-claim than blindness, and it is the bars rather than the rate that carry it.
-
-Success is NOT bit-equality — that is meaningless for a continuous embedding, and it was the peer
-session's first cut: CheMeleon reads 0% identical on class B purely from floating-point summation
-order while its true separation is exactly zero. It is a scale-free SEPARATION RATIO instead:
-cos(A,B) over the median cos(A, 1000 random molecules), thresholded at eps=0.01, i.e. "at least 1%
-of the way to a random molecule". success_rates.csv carries eps=0.001/0.01/0.05 and the ranking
-does not depend on which is used.
+CANONICALISING FIRST DRIVES EVERY CLASS B CELL TO EXACTLY 0.000, FOR EVERY ARM. That is the
+finding, not a missing result, and it is why this figure is an SI stress test rather than a
+headline: the sensitivity shown here is a PIPELINE PROPERTY THAT IS ALREADY FIXED by embedding from
+canonical SMILES, not a defect the models must be lived with. Panel (b), Kekulé, is the extreme
+case -- and no molecule in our data is even written that way: 600/600 BACE SMILES use aromatic
+notation. It is a stress test of the encoder, not an operational failure.
 
 WHAT THE FIGURE SAYS
 --------------------
-1. THE CLMs COMPRESS STEREOCHEMISTRY ALMOST TO NOTHING. They do separate enantiomers -- 100% under
-   the threshold-free definition -- but by 8.6e-5 (CLIMB sup) and 3.7e-3 (CLIMB unsup) against
-   ECFP4+stereo's 9.0e-2: three orders of magnitude. A configuration flip is a textbook activity
-   cliff, so a representation that encodes it a thousandfold more weakly than a fingerprint is
-   unlikely to support it downstream. This is a statement about MAGNITUDE and must be quoted from
-   the bars, never as a rate.
-2. THE CLMs ARE NOT INVARIANT TO HOW A MOLECULE IS WRITTEN -- the most robust result here, stable
-   under every definition tried. Class B: 0% on re-written SMILES and 0% on Kekule forms. Same molecule, same graph, different string, different embedding -- for Kekule
-   the median separation is 4.4x the distance to a RANDOM molecule. Fingerprints and CheMeleon are
-   invariant by construction. The untrained control is equally bad (0-1%), so this is a property of
-   tokenized SMILES, not of our pretraining.
-3. THE BLIND SPOTS ARE COMPLEMENTARY, which is why all 13 panels are shown rather than a summary.
-   ECFP4 is blind to isotopes (4%) exactly where the CLMs are perfect (97-100%), because a [13C]
-   token changes the string while Morgan atom invariants ignore isotope. CheMeleon is blind to
-   isotopes AND stereochemistry (0%) but is the best of the five at ring size (89%). No
-   representation dominates; each fails somewhere specific.
+1. THE FINGERPRINTS AND CheMeleon ARE INVARIANT BY CONSTRUCTION -- exactly 0.000 on all three
+   panels. They read a graph, so the string cannot reach them.
+2. THE CLMs ARE NOT. Re-written SMILES move CLIMB sup 0.373 and Kekulé form moves it 1.339 -- i.e.
+   FURTHER than swapping in a completely different compound. Same molecule, same graph, different
+   string, different embedding.
+3. SYMMETRY-EQUIVALENT POSITIONS (c) ARE 0.000 FOR EVERYTHING, CLMs INCLUDED. This is the control
+   that keeps (2) honest: the CLMs are not merely sensitive to every character-level edit. Where
+   the canonicaliser resolves the ambiguity, they are invariant too.
 
-`matched_mw` and `matched_descriptors` are 100% everywhere and are kept precisely BECAUSE they are
-flat: "the embedding only encodes bulk properties" is the natural objection to (1) and (2), and
-these two panels are the control that refutes it.
+RETRACTED, AND KEPT HERE SO IT IS NOT RE-DERIVED: "the CLMs cannot see stereochemistry" (they can,
+weakly -- that is a magnitude statement and belongs to fig_G's bars, never a rate); "an untrained
+encoder beats a pretrained one at stereo" (its own noise floor is larger than the effect); and any
+framing of Kekulé as an operational failure (see above -- it never occurs in our data).
 
-CONTROLS ARE NOT DRAWN. `random encoder` and `ECFP4 stereo-blind` are in the CSV and belong in the
-caption: the stereo-blind row scores 0% on stereo_flip and ez_flip BY CONSTRUCTION, which is what
-validates the harness, and the untrained encoder is the comparator for claim (1).
-
-Data: figure_data/embedding_resolution/success_rates.csv (peer session, commit ad8fbc6); pairs,
-per-pair distances, the raw vectors and MCS-aligned depictions of 8 pairs per mode are beside it.
+Data: figure_data/embedding_resolution/relative_response_figure.csv (peer session, commit 2c0bf7e).
+Pairs, per-pair distances, the raw vectors and MCS-aligned depictions sit beside it.
 
 Run:  python3 -m figures.SI_fig_f
 """
@@ -81,29 +55,36 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-# The y axis is "success", not "resolved": in class B a HIGH bar means the representation correctly
-# did NOT separate two spellings of one molecule. Labelling it "resolved" would make the class B
-# block read as the opposite of what it shows -- the one mistake this figure's layout exists to
-# prevent. The direction lives in the block labels, so the axis stays neutral.
+# The y axis is "response relative to a different molecule", the SAME unit in both classes -- but a
+# LOW bar is the good outcome in class B and a HIGH bar is the good outcome in class A. The
+# direction lives in the block label and the panel titles, so the axis stays neutral.
 
 from figures.style import STYLE, FS, save, check_font
-from figures.arms import ARMS
+from figures.arms import ARMS, SHADES
 
 check_font()
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "figure_data" / "embedding_resolution" / "relative_response.csv"
+SRC = ROOT / "figure_data" / "embedding_resolution" / "relative_response_figure.csv"
 INK = "#000000"
 TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "different rule"
 
-# CSV label -> (arms.py key for the colour, legend label). The five drawn representations, in the
-# order the peer specified. Controls are deliberately absent -- see the docstring.
-SERIES = [("ECFP4+stereo",     "ecfp",             "ECFP4+stereo"),
-          ("ECFP4+desc",       "ecfp_desc",        "ECFP4+desc"),
-          ("CLIMB sup",        "sup_dense",        "CLIMB sup"),
-          ("CLIMB unsup",      "unsup",            "CLIMB unsup"),
-          ("CheMeleon",        "chemeleon_frozen", "CheMeleon")]
+# (label in the CSV's `short` column, colour, legend label). EIGHT arms, the order Leif specified,
+# grouped bare-then-descriptors so panel-to-panel the descriptor effect reads off adjacent pairs.
+#
+# Colours come from arms.py, never from a hex written here. The two CLIMB unsup entries are a
+# MATCHED PAIR that exists only in this measurement -- they are not benchmark arms and are
+# deliberately NOT registered in arms.py -- so they take two shades of the unsup family rather than
+# the mainline `unsup` colour, which would falsely imply they are the arm the benchmark plots.
+SERIES = [("ECFP",      ARMS["ecfp"]["color"],             "ECFP4+stereo"),
+          ("ECFP+d",    ARMS["ecfp_desc"]["color"],        "ECFP4+desc"),
+          ("r3fp",      ARMS["r3fp"]["color"],             "Morgan r3-counts"),
+          ("r3fp+d",    ARMS["r3fp_desc"]["color"],        "Morgan r3-counts+desc"),
+          ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB unsup, enum-augmented"),
+          ("uns-CANON", SHADES["unsup"][2],                "CLIMB unsup, canonical"),
+          ("sup",       ARMS["sup_dense"]["color"],        "CLIMB sup"),
+          ("CheMel",    ARMS["chemeleon_frozen"]["color"], "CheMeleon")]
 
-# (class, mode, two-line panel title). Order is the peer's; the class blocks are drawn separately.
+# (class, mode, two-line panel title). The class blocks are drawn as separate figures.
 MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
          ("A", "ez_flip",             "Flipped E/Z\ndouble bond"),
          ("A", "c_to_n",              "Aromatic C→N\n(benzene→pyridine)"),
@@ -119,37 +100,64 @@ MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
          ("B", "symmetry_equivalent", "Equivalent\npositions")]
 NCOL = 5
 
+# What each class is measured on. Asserted against the CSV in compute() rather than assumed: the
+# whole figure inverts if a class is drawn on the other class's input.
+INPUT_OF = {"A": "canonical", "B": "as_written"}
+
 
 def compute():
-    """{(klass, mode): relative response}, one frame. `relative_response` is this model's response
-    to the change divided by ITS OWN response to a genuinely different molecule of matched MW, so
-    1.00 means "moves the embedding as far as swapping in a different compound" and the reference
-    is measured per model rather than assumed."""
+    """{(klass, mode): relative response per arm}, one frame.
+
+    `relative_response` is this model's response to the change divided by ITS OWN response to a
+    genuinely different molecule of matched MW, so 1.00 means "moves the embedding as far as
+    swapping in a different compound" and the reference is measured PER MODEL -- which is what lets
+    a 512-d transformer and a 2048-bit fingerprint share one axis honestly. Effect size itself is
+    the RMS per-dimension change in units of that dimension's spread over 1,000 background
+    molecules. No threshold anywhere.
+    """
     d = pd.read_csv(SRC)
-    return d.pivot_table(index=["klass", "mode"], columns="embedding", values="relative_response")
+    for kl, want in INPUT_OF.items():
+        got = set(d.loc[d["klass"] == kl, "input"])
+        assert got == {want}, (
+            f"class {kl} must be measured on {want!r} input, found {sorted(got)}. Class A is a "
+            f"chemistry question (canonical); class B IS the notation question (as written). "
+            f"Drawing either on the other's input inverts the figure.")
+    missing = {s for s, _, _ in SERIES} - set(d["short"])
+    assert not missing, f"SI fig f: arms missing from {SRC.name}: {sorted(missing)}"
+    return d.pivot_table(index=["klass", "mode"], columns="short", values="relative_response")
 
 
 REF = 1.0             # the matched-MW reference: "as far as a different molecule"
+YMAX = 1.78           # must clear matched_descriptors / Morgan r3-counts = 1.617, the global max
 
 
 def _panel(ax, vals, title, klass):
     """One mode. Bars are the response RELATIVE to swapping in a different molecule of matched MW.
 
     The reference line at 1.0 is the whole point of the unit: without it a reader has no way to
-    know whether 0.68 is large. With it, panel (a) reads "an inverted stereocentre moves ECFP4 two
-    thirds as far as a completely different compound, and CLIMB sup one hundredth as far".
+    know whether 0.68 is large. With it, fig_G panel (a) reads "an inverted stereocentre moves
+    ECFP4 two thirds as far as a completely different compound, and CLIMB sup one hundredth as far".
+
+    EXACT ZEROS ARE LABELLED. Half the cells in this figure are 0.000 by construction -- a
+    fingerprint cannot see a re-written string, and Morgan invariants cannot see an isotope -- and
+    an unlabelled flat baseline is indistinguishable from a bar that was never drawn. That
+    ambiguity is the single most likely misreading here, so it is closed at the draw site.
     """
     if klass == "B":
         ax.set_facecolor(TINT)
     x = np.arange(len(SERIES))
-    ax.bar(x, vals, width=0.74, color=[ARMS[k]["color"] for _, k, _ in SERIES],
-           edgecolor=INK, linewidth=0.6, zorder=3)
+    ax.bar(x, vals, width=0.80, color=[c for _, c, _ in SERIES],
+           edgecolor=INK, linewidth=0.45, zorder=3)
     ax.axhline(REF, color=INK, ls=(0, (3, 2)), lw=0.7, zorder=4)
-    ax.set_ylim(0, 1.52)
+    for xi, v in zip(x, vals):
+        if np.isfinite(v) and v == 0.0:
+            ax.text(xi, YMAX * 0.022, "0", ha="center", va="bottom",
+                    fontsize=FS["annot"] - 2.5, color=INK, zorder=5)
+    ax.set_ylim(0, YMAX)
     ax.set_yticks([0, 0.5, 1.0, 1.5])
     ax.set_yticklabels(["0", "0.5", "1", "1.5"])
     ax.set_xticks([])
-    ax.set_xlim(-0.72, len(SERIES) - 0.28)
+    ax.set_xlim(-0.70, len(SERIES) - 0.30)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     for sp in ("top", "right"):
@@ -158,21 +166,35 @@ def _panel(ax, vals, title, klass):
     ax.set_title(title, fontsize=FS["annot"], fontweight="bold", color=INK, pad=3, loc="center")
 
 
-def main():
-    """SI fig f is class B: the same molecule written two ways. The ten class-A panels are fig_G in
-    the main text (user 2026-08-19). Both read this file's compute() and _panel(), so the two
-    figures cannot disagree about a number.
+def _legend_handles():
+    """Shared with fig_G so the two figures cannot drift in arm order, colour, or label."""
+    h = [Patch(facecolor=c, edgecolor=INK, lw=0.6, label=lab) for _, c, lab in SERIES]
+    h.append(Line2D([], [], color=INK, ls=(0, (3, 2)), lw=0.7,
+                    label="= a different molecule (matched MW)"))
+    return h
 
-    smiles_enumeration is a scored panel again. It was briefly the calibration for a noise-based
-    metric that has since been withdrawn -- the null was SMILES re-writing, a known CLM property,
-    and in the actual pipeline every molecule is embedded from its CANONICAL SMILES, so that
-    variation never occurs at inference. Charging the CLMs for it and reporting the result as
-    chemistry was the error; under canonical input every representation here is deterministic.
-    """
+
+def report(R, modes, heading):
+    """The printed table. Same resolution path as the bars, so the console cannot disagree."""
+    print(f"\n{heading}\n")
+    print(f"   {'mode':<22}" + "".join(f"{lab:>12s}" for lab, _, _ in SERIES))
+    for kl, mode, _ in modes:
+        row = f"   {mode:<22}"
+        for lab, _, _ in SERIES:
+            v = R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
+            row += (f"{v:>12.3f}" if np.isfinite(v) else f"{'—':>12}")
+        print(row)
+    print("\n   1.000 = moves the embedding as far as a completely different compound of the same")
+    print("   molecular weight. matched_mw is that reference and is 1.000 by construction.")
+
+
+def main():
     R = compute()
     B = [m for m in MODES if m[0] == "B"]
-    fig = plt.figure(figsize=(STYLE["col2"], 2.45))
-    gs = fig.add_gridspec(1, 3, left=0.135, right=0.995, top=0.775, bottom=0.315, wspace=0.34)
+    assert len(B) == 3, f"SI fig f expects the three class-B modes, found {len(B)}"
+
+    fig = plt.figure(figsize=(STYLE["col2"], 2.60))
+    gs = fig.add_gridspec(1, 3, left=0.135, right=0.995, top=0.815, bottom=0.375, wspace=0.34)
     for i, (kl, mode, title) in enumerate(B):
         ax = fig.add_subplot(gs[0, i])
         vals = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
@@ -184,28 +206,22 @@ def main():
         if i == 0:
             ax.set_ylabel("response relative to a\ndifferent molecule", fontsize=FS["annot"])
 
-    fig.text(0.030, (0.775 + 0.315) / 2, "Same molecule\nmust NOT separate", rotation=90,
+    fig.text(0.030, (0.815 + 0.375) / 2, "Same molecule\nmust NOT separate", rotation=90,
              va="center", ha="center", fontsize=FS["annot"], fontweight="bold", color=INK)
+    # The input note sits BELOW the legend, not above the panels: at this height a centred
+    # header runs straight through panel (b)'s title. It is one line because it is the single
+    # thing a reader must know to read the zeros correctly.
+    fig.text(0.565, 0.020, "Input: SMILES as the pipeline writes them. Canonicalising first "
+             "drives every cell in this figure to exactly 0.000.",
+             ha="center", va="bottom", fontsize=FS["annot"] - 1.5, style="italic", color=INK)
 
-    handles = [Patch(facecolor=ARMS[k]["color"], edgecolor=INK, lw=0.7, label=lab)
-               for _, k, lab in SERIES]
-    handles.append(Line2D([], [], color=INK, ls=(0, (3, 2)), lw=0.7,
-                          label="= a different molecule (matched MW)"))
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.555, 0.150), ncol=3,
-               fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.5, labelspacing=0.35,
-               borderpad=0.0, frameon=False)
+    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.565, 0.285),
+               ncol=3, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.5,
+               labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "SI_fig_f")
     plt.close(fig)
 
-    print("\nSI Fig f — response relative to swapping in a different molecule (matched MW)\n")
-    print(f"   {'class':<6}{'mode':<22}" + "".join(f"{lab:>14s}" for lab, _, _ in SERIES))
-    for kl, mode, _ in MODES:
-        row = f"   {kl:<6}{mode:<22}"
-        for lab, _, _ in SERIES:
-            v = R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
-            row += (f"{v:>14.3f}" if np.isfinite(v) else f"{'—':>14}")
-        print(row)
-    print("\n   1.000 = moves the embedding as far as a completely different compound.")
+    report(R, B, "SI Fig f (class B, as-written input) — same molecule, two spellings")
 
 
 if __name__ == "__main__":
