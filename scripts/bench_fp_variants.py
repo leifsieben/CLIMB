@@ -93,7 +93,7 @@ def main():
 
     e2, e3 = np.array(times["ecfp4"]).mean(), np.array(times["ecfp4_r3c"]).mean()
     print(f"\n  ECFP4 (r=2, bits)      {e2:.4f} s / {a.n}")
-    print(f"  Morgan r3-counts       {e3:.4f} s / {a.n}   ({e3/e2:.2f}x)")
+    print(f"  R3FP (r=3, counts)     {e3:.4f} s / {a.n}   ({e3/e2:.2f}x)")
     print(f"\n  wrote {OUT}")
 
 

@@ -25,8 +25,7 @@ So "transformers are too slow to screen with" is not supported by our own measur
 classical baseline that beats CLIMB on accuracy is the slower of the two to featurize, unless the
 descriptors are parallelised across cores (12 processes brings ECFP+desc to 0.76 s).
 
-THE r3-COUNTS ROW AND WHY IT COMES WITH A CONTROL. The third XGBoost anchor uses Morgan radius 3
-COUNTS, which is strictly more work than radius-2 bits, and it costs 1.15x -- 0.088 s against
+THE R3FP ROW AND WHY IT COMES WITH A CONTROL. R3FP uses Morgan radius 3 COUNTS, which is strictly more work than radius-2 bits, and it costs 1.15x -- 0.088 s against
 0.077 s per 1000 molecules, both timed interleaved in one process (scripts/bench_fp_variants.py).
 It was first measured in its own bench run and came out 7% FASTER than ECFP4, which cannot be
 true; the tell was the RDKit descriptor row, identical work timed at 4.709 s in one run and 4.119 s
@@ -57,7 +56,7 @@ OUTDIR = ROOT / "figures_v2"
 
 METHOD_LABEL = {"ecfp4": "ECFP4 (stereo)", "rdkit_desc": "RDKit descriptors",
                 "fp_desc": "ECFP4 + descriptors", "encoder": "CLIMB encoder",
-                "ecfp4_r3c": "Morgan r3-counts"}
+                "ecfp4_r3c": "R3FP"}
 # Label override where the METHOD alone is ambiguous: the paired-A/B rows are the same featurizer
 # as the published one, timed again as a control, and must not read as a second measurement of it.
 LABEL_BY_KEY = {("ecfp4", "single core (paired A/B)"): "ECFP4 (stereo), paired control"}

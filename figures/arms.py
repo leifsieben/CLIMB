@@ -5,7 +5,14 @@ Imported by BOTH the aggregation script (scripts/six_panel_aggregate.py, stdlib 
 figure script under figures/. Nothing else in the repo defines an arm label or an arm colour.
 
 Nomenclature (fixed 2026-08-16, user decision) -- use these strings verbatim in every figure:
-    ECFP / ECFP+desc                     XGBoost anchors
+    ECFP4 / ECFP4+desc                   XGBoost anchors, Morgan r=2 BINARY, chirality on
+    R3FP / R3FP+desc                     XGBoost anchors, Morgan r=3 COUNTS, chirality on
+                                         (label fixed 2026-08-19, user: "let's use this label
+                                         consistently from now on"). The RUN DIRS keep their own
+                                         names -- ecfp4_r3c / fp_desc_r3c -- and the featurizer is
+                                         still FP_VARIANT=morgan_r3_counts. Only what a reader
+                                         SEES is R3FP; renaming result dirs to match a label is how
+                                         provenance gets lost.
     supervised, <readout>                supervised multi-task-regression pretraining
     unsupervised                         MLM pretraining
     unsup->sup, <readout>                MLM then supervised (canonical short form)
@@ -130,12 +137,12 @@ ARMS = {
     # these two arms fall below fig_A1's 60-of-66 coverage floor and simply will not be drawn,
     # which is the correct behaviour rather than a partial ranking.
     "r3fp": dict(
-        label="Morgan r3c", short="Morgan r3c", family="anchor", color=SHADES["anchor"][4],
+        label="R3FP", short="R3FP", family="anchor", color=SHADES["anchor"][4],
         probe="xgb", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="ecfp4_r3c", cbs="ecfp4_r3c",
                  mol=["ecfp4_anchor_r3c", "ecfp4_anchor_s1_r3c", "ecfp4_anchor_s2_r3c"])),
     "r3fp_desc": dict(
-        label="Morgan r3c+desc", short="Morgan r3c+desc", family="anchor",
+        label="R3FP+desc", short="R3FP+desc", family="anchor",
         color=SHADES["anchor"][3], probe="xgb", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="fp_desc_r3c", cbs="fp_desc_r3c",
                  mol=["fp_desc_anchor_r3c", "fp_desc_anchor_s1_r3c", "fp_desc_anchor_s2_r3c"])),

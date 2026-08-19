@@ -51,11 +51,11 @@ per-dataset weighting and the frozen-vs-fine-tuned protocol above -- and the def
 that a descriptor-bearing classical anchor is the best model here, with CheMeleon competitive on
 MoleculeACE and Polaris when it is allowed to fine-tune.
 
-THE TOP TWO ROWS ARE A TIE AND MUST BE QUOTED AS ONE. Morgan r3c+desc reads 3.88 +/- 1.25 and
+THE TOP TWO ROWS ARE A TIE AND MUST BE QUOTED AS ONE. R3FP+desc reads 3.88 +/- 1.25 and
 ECFP4+desc 3.97 +/- 1.12: a difference of 0.09 against a difference-SE of 1.68, i.e. 0.05 SE.
-Morgan r3c+desc sorts to the top of this table and IS NOT "the new best model" -- the fingerprint
+R3FP+desc sorts to the top of this table and IS NOT "the new best model" -- the fingerprint
 generation makes no measurable difference to the headline once the descriptor block is present.
-The bare pair is where the generation shows: Morgan r3c 6.17 against ECFP4 8.32, still only 0.75
+The bare pair is where the generation shows: R3FP 6.17 against ECFP4 8.32, still only 0.75
 SE on mean rank, but same-signed on every panel (Ames +0.015, MoleculeACE -0.016 RMSE, Tox21
 +0.016, HIV +0.028). Read together with fig_A2 and fig_G that is one finding, not three: counts
 supply what the descriptor block was supplying, and adding descriptors on top of them buys almost
@@ -232,7 +232,11 @@ def build():
 
 def main():
     print(f"Fig A1 · mean rank over {NDS} datasets (1 = best of {N})\n")
-    print(f"{'model':38s} {'mean':>6s} {'±SE':>5s} | " + " ".join(f"{s[:7]:>7s}" for s in SUITES))
+    # MoleculeNet and MoleculeACE both truncate to "Molecul" at 7 chars, so the console table had
+    # two identically-labelled columns -- readable only if you already knew SUITES' order.
+    abbr = {"MoleculeNet": "MolNet", "MoleculeACE": "MolACE"}
+    print(f"{'model':38s} {'mean':>6s} {'±SE':>5s} | "
+          + " ".join(f"{abbr.get(s, s)[:7]:>7s}" for s in SUITES))
     for a in RANKS.index:
         r = RANKS.loc[a]
         per = " ".join(f"{r[s]:7.2f}" if np.isfinite(r[s]) else "      —" for s in SUITES)

@@ -77,8 +77,8 @@ TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "diff
 # the mainline `unsup` colour, which would falsely imply they are the arm the benchmark plots.
 SERIES = [("ECFP",      ARMS["ecfp"]["color"],             "ECFP4+stereo"),
           ("ECFP+d",    ARMS["ecfp_desc"]["color"],        "ECFP4+desc"),
-          ("r3fp",      ARMS["r3fp"]["color"],             "Morgan r3-counts"),
-          ("r3fp+d",    ARMS["r3fp_desc"]["color"],        "Morgan r3-counts+desc"),
+          ("r3fp",      ARMS["r3fp"]["color"],             "R3FP"),
+          ("r3fp+d",    ARMS["r3fp_desc"]["color"],        "R3FP+desc"),
           ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB unsup, enum-augmented"),
           ("uns-CANON", SHADES["unsup"][2],                "CLIMB unsup, canonical"),
           ("sup",       ARMS["sup_dense"]["color"],        "CLIMB sup"),
@@ -128,7 +128,7 @@ def compute():
 
 
 REF = 1.0             # the matched-MW reference: "as far as a different molecule"
-YMAX = 1.78           # must clear matched_descriptors / Morgan r3-counts = 1.617, the global max
+YMAX = 1.78           # must clear matched_descriptors / R3FP = 1.617, the global max
 
 
 def _panel(ax, vals, title, klass):

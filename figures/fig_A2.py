@@ -74,7 +74,7 @@ CLIMB_HATCH = "...."          # small black dots mark the CLIMB models (density 
 # ECFP+desc 0.6757); fine-tuned, it is best on 21 of 30. The two bars side by side are the honest
 # version of that, and they isolate what fine-tuning is worth on a message-passing network.
 # The four XGBoost anchors sit together at the front so the fingerprint-generation comparison
-# (ECFP4+stereo vs Morgan r3-counts, each with and without descriptors) reads as one block rather
+# (ECFP4 vs R3FP, each with and without descriptors) reads as one block rather
 # than being scattered through the CLIMB arms. r3fp/r3fp_desc are missing MoleculeACE and Ames
 # until the peer session's suite runs land; those two panels draw a gap for them rather than a
 # zero, which is the honest rendering of "not run yet".
