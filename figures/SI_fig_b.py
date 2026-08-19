@@ -58,13 +58,13 @@ YMARGIN = 0.22
 
 
 def main():
-    # ONE ROW of six at full page width, not 2x3 (user 2026-08-19). An SI figure spends the
-    # page's HEIGHT, which is the scarce axis next to running text; width is free up to the
-    # text block. Stacking six panels into two rows doubled the height to buy width the
-    # content never used. Width is set ~3.5% over col2 because savefig("tight") trims back
-    # to roughly the text block -- sizing to col2 directly lands ~3% narrow, and a figure
-    # narrower than its neighbours is upscaled by LaTeX so its fonts print larger.
-    fig, axes = plt.subplots(1, 6, figsize=(STYLE["col2"] * 1.035, 2.55))
+    # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
+    # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
+    # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
+    # The height saving comes from tighter spacing and ONE shared x-axis label instead of
+    # six, not from collapsing the grid. Width is ~3.5% over col2 because savefig("tight")
+    # trims back to about the text block.
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"] * 1.035, 3.65))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         g_all = DF[DF.panel == p]
@@ -114,11 +114,11 @@ def main():
 
     handles = [Line2D([], [], color=c, marker=m, ms=4.5, lw=1.2, label=f)
                for f, c, m in FAMILIES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.028),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052),
                ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.135, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.088, "tokenizer vocabulary", ha="center", va="bottom",
+    fig.tight_layout(rect=(0, 0.155, 1, 1), w_pad=0.35)
+    fig.text(0.5, 0.108, "tokenizer vocabulary", ha="center", va="bottom",
              fontsize=FS["annot"], color=INK)
     save(fig, "SI_fig_b")
     plt.close(fig)

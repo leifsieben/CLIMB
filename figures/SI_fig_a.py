@@ -60,21 +60,20 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 SERIES = [("unsupervised",      "unsup",     "unsupervised"),
           ("supervised, dense", "sup_dense", "supervised, dense")]
 PROBES = ["frozen", "end2end"]
-# "e2e" rather than "end-to-end": at six panels across the page each panel is ~1.1in
-# wide and the long form collides with its neighbour.
-XTICKS = ["frozen", "e2e"]
+# "end2end" spelled out (user 2026-08-19: "e2e that is not commonly understood"). It does not fit
+# horizontally under a ~1.1in panel, so the x tick labels are rotated instead of abbreviated --
+# shortening to jargon to win space is the wrong trade.
+XTICKS = ["frozen", "end2end"]
 
 
 def main():
-    # ONE ROW of six, not 2x3. An SI figure costs the page its full height, and these
-    # panels hold two x-positions each -- stacking them into two rows doubled the height
-    # to buy width the content never used. 4.33in -> ~2.3in at the same width
-    # (user 2026-08-19: "a long figure takes away space from text but its width should
-    # just fill the whole page").
-    # Width is set ~3.5% over col2 because savefig("tight") then TRIMS back to about the
-    # text block. Sizing to col2 directly lands at 6.47in, and a figure narrower than the
-    # others is upscaled by LaTeX, so its fonts print larger than the rest of the set.
-    fig, axes = plt.subplots(1, 6, figsize=(STYLE["col2"] * 1.035, 2.32))
+    # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
+    # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
+    # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
+    # The height saving comes from tighter spacing and ONE shared x-axis label instead of
+    # six, not from collapsing the grid. Width is ~3.5% over col2 because savefig("tight")
+    # trims back to about the text block.
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"] * 1.035, 3.3))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         g_all = DF[DF.panel == p]
@@ -91,7 +90,7 @@ def main():
             # Short enough to sit INSIDE a ~1.1in panel. The long form overran into both
             # neighbours' y-axis labels once the grid went to one row.
             ax.set_ylabel("")
-            ax.text(0.5, 0.5, "end-to-end\nnot run", transform=ax.transAxes,
+            ax.text(0.5, 0.5, "end2end\nnot run", transform=ax.transAxes,
                     ha="center", va="center", fontsize=FS["annot"] - 0.5, color=INK)
             ax.set_xticks([])
             ax.set_yticks([])
@@ -132,10 +131,10 @@ def main():
 
     handles = [Line2D([], [], color=ARMS[k]["color"], marker="o", ms=5.0, lw=1.4, label=lab)
                for _, k, lab in SERIES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.030), ncol=2,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.028), ncol=2,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.105, 1, 1), w_pad=0.35)
+    fig.tight_layout(rect=(0, 0.098, 1, 1), w_pad=0.35)
     save(fig, "SI_fig_a")
     plt.close(fig)
 

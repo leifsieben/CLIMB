@@ -5,6 +5,10 @@ Imported by BOTH the aggregation script (scripts/six_panel_aggregate.py, stdlib 
 figure script under figures/. Nothing else in the repo defines an arm label or an arm colour.
 
 Nomenclature (fixed 2026-08-16, user decision) -- use these strings verbatim in every figure:
+    end2end                              ALWAYS spelled out in anything a reader sees (user
+                                         2026-08-19: "e2e that is not commonly understood").
+                                         `probe="e2e"`, family keys and run-dir names keep the
+                                         short form -- those are internal identifiers, not labels.
     ECFP4 / ECFP4+desc                   XGBoost anchors, Morgan r=2 BINARY, chirality on
     R3FP / R3FP+desc                     XGBoost anchors, Morgan r=3 COUNTS, chirality on
                                          (label fixed 2026-08-19, user: "let's use this label
@@ -224,7 +228,7 @@ ARMS = {
         src=dict(mace=["random_baseline_00", "random_baseline_01", "random_baseline_02"],
                  mol=["random_baseline_00", "random_baseline_01", "random_baseline_02"], cbs="no_pretrain")),
     "e2e_no_pretrain": dict(
-        label="no pretrain, end2end", short="no pretrain, e2e", family="e2e", color=FAMILY_COLORS["e2e"],
+        label="no pretrain, end2end", short="no pretrain, end2end", family="e2e", color=FAMILY_COLORS["e2e"],
         probe="e2e", in_ablation=True,
         src=dict(mace="no_pretrain_e2e_e2e", mol=["e2e_random_00", "e2e_random_01", "e2e_random_02"], cbs="no_pretrain_e2e")),
 
@@ -247,7 +251,7 @@ ARMS = {
     # bootstrapped. hERG (polaris/chemeleon_e2e) is still in flight; that cell reads n/a until it
     # lands, at which point NO code change is needed (the same `mace` key names the polaris dir).
     "chemeleon_e2e": dict(
-        label="CheMeleon (e2e)", short="CheMeleon e2e", family="chemeleon", color=SHADES["chemeleon"][0],
+        label="CheMeleon (end2end)", short="CheMeleon end2end", family="chemeleon", color=SHADES["chemeleon"][0],
         probe="e2e", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="chemeleon_e2e", mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
                  cbs="chemeleon_e2e")),

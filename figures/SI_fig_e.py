@@ -80,13 +80,13 @@ def _fmt_n(v, _):
 
 
 def main():
-    # ONE ROW of six at full page width, not 2x3 (user 2026-08-19). An SI figure spends the
-    # page's HEIGHT, which is the scarce axis next to running text; width is free up to the
-    # text block. Stacking six panels into two rows doubled the height to buy width the
-    # content never used. Width is set ~3.5% over col2 because savefig("tight") trims back
-    # to roughly the text block -- sizing to col2 directly lands ~3% narrow, and a figure
-    # narrower than its neighbours is upscaled by LaTeX so its fonts print larger.
-    fig, axes = plt.subplots(1, 6, figsize=(STYLE["col2"] * 1.035, 2.6))
+    # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
+    # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
+    # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
+    # The height saving comes from tighter spacing and ONE shared x-axis label instead of
+    # six, not from collapsing the grid. Width is ~3.5% over col2 because savefig("tight")
+    # trims back to about the text block.
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"] * 1.035, 3.7))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         g_all = DF[DF.panel == p]
@@ -131,16 +131,8 @@ def main():
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
         n = sorted(g_all.n_train.unique())
-        # ENDPOINTS ONLY, rotated. Every fraction was labelled when this was a 2x3 grid; at six
-        # panels across the page each is ~1.05in wide and five labels like "1.9k 9.7k 38k" ran
-        # into each other into an unreadable smear. The axis is log and the intermediate points
-        # are visible as markers, so the two endpoints are what a reader actually needs to place
-        # the curve -- a tick they cannot read is worse than a tick that is not there.
-        ax.xaxis.set_major_locator(ticker.FixedLocator([n[0], n[-1]]))
-        ax.tick_params(axis="x", labelrotation=45, labelsize=FS["annot"] - 1)
-        for lb in ax.get_xticklabels():
-            lb.set_horizontalalignment("right")
-        ax.set_xlim(n[0] * 0.70, n[-1] * 1.40)
+        ax.xaxis.set_major_locator(ticker.FixedLocator(n))
+        ax.set_xlim(n[0] * 0.78, n[-1] * 1.28)
         pad = YMARGIN * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
         if d["metric"] == "roc_auc":
@@ -149,11 +141,11 @@ def main():
 
     handles = [Line2D([], [], color=ARMS[a]["color"], marker=MARKER[a], ms=4.5, lw=1.2,
                       label=ARMS[a]["label"]) for a in LINES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.028),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052),
                ncol=3, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.135, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.088, "labelled training molecules", ha="center", va="bottom",
+    fig.tight_layout(rect=(0, 0.155, 1, 1), w_pad=0.35)
+    fig.text(0.5, 0.108, "labelled training molecules", ha="center", va="bottom",
              fontsize=FS["annot"], color=INK)
     save(fig, "SI_fig_e")
     plt.close(fig)

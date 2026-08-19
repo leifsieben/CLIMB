@@ -74,11 +74,13 @@ def _big_marker(ax, g, color):
 
 
 def _panels(banded):
-    # ONE ROW of six at full page width. fig_B is a MAIN figure and was the second-tallest thing
-    # in the paper at 5.24in -- over half a text page for six panels holding four x-positions
-    # each. Same reasoning as SI a/b/d/e: height is the scarce axis next to running text, width is
-    # free up to the text block. Width is ~3.5% over col2 because savefig("tight") trims back.
-    fig, axes = plt.subplots(1, 6, figsize=(STYLE["col2"] * 1.035, 2.62))
+    # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
+    # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
+    # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
+    # The height saving comes from tighter spacing and ONE shared x-axis label instead of
+    # six, not from collapsing the grid. Width is ~3.5% over col2 because savefig("tight")
+    # trims back to about the text block.
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"] * 1.035, 3.75))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         lo, hi = np.inf, -np.inf
@@ -103,10 +105,6 @@ def _panels(banded):
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(_fmt_tokens))
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
-        # Rotated: the token labels do not fit horizontally in a ~1.05in panel.
-        ax.tick_params(axis="x", labelrotation=45, labelsize=FS["annot"] - 1)
-        for lb in ax.get_xticklabels():
-            lb.set_horizontalalignment("right")
         ax.set_xlim(6.5e7, 6.5e9)
         pad = YMARGIN * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
@@ -127,11 +125,11 @@ def _panels(banded):
                           label="larger corpus (unsup 50M/100M)"))
     for a, ls in REF_LINES:
         handles.append(Line2D([], [], color=ARMS[a]["color"], ls=ls, lw=1.2, label=ARMS[a]["label"]))
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.075),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.055),
                ncol=3, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.190, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.148, "pretraining tokens", ha="center", va="bottom",
+    fig.tight_layout(rect=(0, 0.165, 1, 1), w_pad=0.35)
+    fig.text(0.5, 0.115, "pretraining tokens", ha="center", va="bottom",
              fontsize=FS["annot"], color=INK)
     return fig
 
