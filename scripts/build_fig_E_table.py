@@ -84,9 +84,12 @@ METRIC = {"MoleculeACE": "rmse", "HIV": "nef1", "BACE": "roc_auc",
           "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 # The three panels that come from the benchmark trees rather than the MolNet suite summaries.
 # HIV replaced CBS on 2026-08-19 and moved OUT of BENCH: it lives in the MoleculeNet CV tree, so
-# it is read by the same path as BACE/Tox21/QM7 -- including the expA/expB ladder summaries, which
-# carry HIV nef1 for every rung (verified: 5 folds on bigram/unigram/wiki/shuffled and the
-# baselines). CBS had needed its own tree and its own reader.
+# it is read by the same path as BACE/Tox21/QM7 -- including the expA/expB ladder summaries.
+#
+# THAT COMMENT USED TO CLAIM expA/expB "carry HIV nef1 for every rung (verified)". They do not.
+# expA carries nef1 AND roc_auc; expB (Wikipedia) carries roc_auc only. The claimed verification
+# was never true for the wiki arm, and rigor_cell did not filter on metric, so the wiki HIV cell
+# was a ROC-AUC measured against a NEF1 floor. See rigor_cell for what that produced.
 BENCH = {"MoleculeACE", "Ames"}
 MOLNET = [t for t in TASKS if t not in BENCH]                      # HIV, BACE, Tox21, QM7
 
@@ -229,8 +232,25 @@ def main() -> None:
                          "wiki": ("wiki_real", wiki)}
 
     def rigor_cell(df, arm, task):
-        r = df[(df.arm == arm) & (df.dataset == task)]
+        """One (mean, sd, n) for this arm/task, MATCHED ON THE METRIC THE PANEL PLOTS.
+
+        This used to match on (arm, dataset) only and take .iloc[0]. For HIV that is a silent
+        metric swap: expA carries BOTH nef1 and roc_auc rows, so the right value came back only
+        because nef1 happens to sort first, while expB (the Wikipedia arm) carries roc_auc ONLY --
+        so the wiki cell returned a ROC-AUC of 0.7624 and it was compared against a NEF1 floor of
+        0.5406 and published as a +41% lift. That made English Wikipedia with zero chemistry the
+        best arm on HIV, ahead of every fingerprint and every chemistry-pretrained model. It is
+        not a result, it is two different metrics subtracted from each other.
+
+        Returning NaN when the metric is absent is the point: emit() then drops the cell and the
+        figure shows a hole, which is the honest state -- expB was never scored on NEF1 for HIV.
+        """
+        m = METRIC[task]
+        r = df[(df.arm == arm) & (df.dataset == task) & (df.metric == m)]
         if not len(r):
+            print(f"  [rigor_cell] {arm} / {task}: no {m!r} row "
+                  f"(has {sorted(df[(df.arm == arm) & (df.dataset == task)].metric.unique())}) "
+                  f"-- cell dropped")
             return np.nan, np.nan, 0
         return float(r["mean"].iloc[0]), float(r["std"].iloc[0]), int(r["n_seeds"].iloc[0])
 
