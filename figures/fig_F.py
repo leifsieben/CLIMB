@@ -127,7 +127,7 @@ def shared_ylims(d):
     return out
 
 
-def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None):
+def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=None, bw=None):
     """Draw ONE canonical panel onto an existing axes.
 
     `compact` narrows the bars and drops the y-label, for the assembled fig_E+F where six panels
@@ -170,22 +170,33 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None):
     es = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
     es = [0.0 if not np.isfinite(e) else e for e in es]
     cs = [c for _, _, c in FEATURES]
-    ax.bar(x, ys, width=0.42 if compact else 0.72, color=cs, edgecolor=INK, linewidth=0.7,
+    # bar width tracks panel width for the same reason rotation does: 0.42 was chosen for a 1.1in
+    # panel, and at the stacked layout's 1.8in it leaves the bars as thin spikes.
+    ax.bar(x, ys, width=(bw if bw is not None else (0.42 if compact else 0.72)),
+           color=cs, edgecolor=INK, linewidth=0.7,
            yerr=es, error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9, ecolor=INK, zorder=6),
            zorder=3)
     ax.axhline(ys[0], color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
     ax.set_xticks(x)
     if compact:
-        # four categories in a ~1in panel: two-line labels overlapped ("ECFPCLIMB-desc"), so they
-        # are single-line and rotated instead of shrunk to illegibility.
+        # single-line short labels. ROTATION IS A FUNCTION OF PANEL WIDTH, not of `compact`: at the
+        # old ~1.1in the four labels had to lean 40 deg to avoid overlapping, but in the stacked
+        # fig_E+F each panel is ~1.8in wide and gets ~0.45in per tick, which fits "ECFP+d"
+        # horizontally at 6pt. Horizontal labels are the readable option whenever they fit, so the
+        # caller passes xrot=0 there and the default stays 40 for anything narrower.
+        rot = 40 if xrot is None else xrot
         ax.set_xticklabels(["ECFP+d", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"] - 1,
-                           rotation=40, ha="right", rotation_mode="anchor")
+                           rotation=rot,
+                           **(dict(ha="right", rotation_mode="anchor") if rot else dict(ha="center")))
     else:
         ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"])
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
     if compact:
         ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
+        # 8 ticks of "0.725 0.750 ..." in a short panel run together and eat the panel's width in
+        # label gutter; 4 is enough to read a bar height off a gridline.
+        ax.yaxis.set_major_locator(ticker.MaxNLocator(4))
     if ylims and metric in ylims:
         ax.set_ylim(*ylims[metric])
     else:

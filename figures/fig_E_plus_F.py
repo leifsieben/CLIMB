@@ -2,12 +2,21 @@
 
 ONE script, ONE figure: figures_v2/fig_E+F.png / .pdf   (panels a-h)
 
-Layout (user request 2026-08-19): E's two panels STACKED in a narrow left column, F's six canonical
-panels in a 2x3 block on the right. Putting them on one canvas is not just page economy -- the two
-halves answer the same question from opposite directions:
+LAYOUT -- STACKED, not side by side (user 2026-08-19: "neither one is very readable right now...
+they would need to be bigger"). The previous version split the 6.69in text block LEFT/RIGHT, which
+gave E's two panels 2.4in each and F's six panels 1.15in each. F's panels in particular could not
+carry four tick labels and a y-axis at that width, so the labels were rotated 40 deg and the tick
+font dropped to 6pt. Stacking recovers the full text-block width for BOTH halves at the cost of
+page height only:
 
-  left  (a, b)   REMOVE the chemistry from pretraining and see what survives
-  right (c-h)    ADD the pretrained representation to classical features and see what it contributes
+    E:  2 panels, 2.5in and 3.6in wide   (was 2.4in each)   -- panel b's 30 bars stop colliding
+    F:  6 panels, ~1.8in wide each       (was 1.15in)       -- +57%, enough for HORIZONTAL x labels
+
+Nothing else about the two halves changed. They still belong on one canvas because they answer the
+same question from opposite directions:
+
+  top    (a, b)   REMOVE the chemistry from pretraining and see what survives
+  bottom (c-h)    ADD the pretrained representation to classical features and see what it contributes
 
   a  E supervised    real descriptor targets vs targets permuted across the batch
   b  E unsupervised  the corpus-degradation ladder (shuffled / bigram / unigram / Wikipedia)
@@ -17,8 +26,11 @@ Read together: (a-b) say the unsupervised benefit is largely NOT chemistry-speci
 with zero molecules in it is positive on 5 of 6 panels -- while the supervised benefit IS the
 molecule->label correspondence, since permuting the targets lands below the untrained floor
 everywhere. Then (c-h) say that whatever either objective learned adds nothing on top of ECFP+desc
-on any canonical panel. The bars in the right block are narrowed (0.58 vs 0.72) so six panels fit
-without the whiskers colliding.
+on any canonical panel.
+
+Because each half now spans the full width, E is drawn in its STANDALONE form (compact=False): the
+full subtitles fit, and its legends go back to one column at the standard legend size instead of
+the two-column 6pt squeeze the narrow column forced.
 
 No analysis code lives here: fig_E and fig_F expose their table/compute + draw entry points and this
 script only arranges axes, so the standalone figures and this assembly can never drift apart --
@@ -40,52 +52,41 @@ import figures.fig_F as F
 check_font()
 
 
-# the standalone subtitles ("Unsupervised: degraded corpus statistics") run past a narrow axes and
-# collide with the F block, so the assembled figure uses short forms and carries the full wording
-# in the caption.
-SHORT = {"supervised": "Supervised", "unsupervised": "Unsupervised"}
-
-
 def main():
     dE = pd.read_csv(E.TABLE)
     dF = F.compute()
 
-    fig = plt.figure(figsize=(STYLE["col2"], 4.95))
-    # left column carries two tall panels with six x-labels each, so it needs more width per panel
-    # than the right block; 1.35 : 1 : 1 : 1 keeps "MoleculeACE" legible on the E axes.
-    # 50:50 (user 2026-08-19) -- the E column equals the three F columns combined, so the two
-    # halves of the figure carry equal visual weight. F's bars narrow to 0.42 to suit.
-    # TWO grids at explicit figure coordinates (user 2026-08-19). Nested subgridspecs could not
-    # express "F's panels stop early and its legend sits in the gap underneath", because the legend
-    # is a figure artist and does not participate in the grid. So: E spans the full height; F's
-    # panels stop at F_BOT and their one-row legend is centred just below, which makes
-    # "F panels + F legend" and "E column" finish at the same depth.
-    F_BOT, TOP = 0.215, 0.930
-    # left/bottom are generous because the E panels carry a y-label AND rotated tick labels; a
-    # tight bbox that clips them pushes the SAVED width past the 6.69in text block.
-    gsE = GridSpec(2, 1, figure=fig, hspace=0.55,
-                   left=0.098, right=0.470, top=TOP, bottom=0.150)
-    gsF = GridSpec(2, 3, figure=fig, wspace=0.46, hspace=0.55,
-                   left=0.570, right=0.995, top=TOP, bottom=F_BOT)
+    # 6.69 x 6.6in. The width is the A4 text block (never hard-coded, see style.col2); the height
+    # is set by what the two halves need: ~1.75in of axes for E's row and ~1.4in per row for F's
+    # two. That lands well inside A4's 10.1in text height, so the figure and its caption share a
+    # page.
+    fig = plt.figure(figsize=(STYLE["col2"], 6.6))
+    # width_ratios [1.0, 1.45] is fig_E's own: panel b carries five series per group and panel a
+    # only two, so b needs the extra width to keep the ladder legible.
+    gsE = GridSpec(1, 2, figure=fig, width_ratios=[1.0, 1.45], wspace=0.24,
+                   left=0.082, right=0.995, top=0.962, bottom=0.700)
+    gsF = GridSpec(2, 3, figure=fig, wspace=0.30, hspace=0.40,
+                   left=0.082, right=0.995, top=0.600, bottom=0.115)
 
-    ylims = {panel: E._lim(dE[dE.panel == panel], pad_hi=hi)
-             for (panel, _, _, _), hi in zip(E.PANELS, (0.55, 0.95))}
-    for row, (panel, _tag, subtitle, series) in enumerate(E.PANELS):
-        ax = fig.add_subplot(gsE[row, 0])
-        E.draw(fig, ax, dE[dE.panel == panel], series, "ab"[row], SHORT[panel], ylims[panel],
-               compact=True)
-        ax.set_ylabel("Lift over no pretrain, frozen", fontsize=FS["annot"])
+    ylims = {panel: E._lim(dE[dE.panel == panel]) for panel, _, _, _ in E.PANELS}
+    for col, (panel, tag, subtitle, series) in enumerate(E.PANELS):
+        ax = fig.add_subplot(gsE[0, col])
+        E.draw(fig, ax, dE[dE.panel == panel], series, tag, subtitle, ylims[panel])
+        ax.set_ylabel("Lift over no pretrain, frozen", fontsize=FS["label"])
 
     ylims = F.shared_ylims(dF)          # panels on one metric share one y-range
     tags = "cdefgh"
     for k, p in enumerate(PANEL_ORDER):
         ax = fig.add_subplot(gsF[k // 3, k % 3])
-        F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig, ylims=ylims)
+        # xrot=0: at ~1.8in per panel the four short labels fit horizontally, which is the whole
+        # point of the restack.
+        F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig, ylims=ylims, xrot=0, bw=0.62)
 
-    # directly beneath the F block, one row, anchor dropped
+    # one row, centred under the F block, anchor dropped (it is the first bar in every panel, is
+    # tick-labelled "ECFP+d", and is the dotted reference line, so it needs no swatch)
     fig.legend(handles=F.legend_handles(skip_anchor=True), loc="upper center",
-               bbox_to_anchor=(0.783, F_BOT - 0.075), ncol=3, fontsize=FS["legend"],
-               handletextpad=0.5, columnspacing=1.5, borderpad=0.0, frameon=False)
+               bbox_to_anchor=(0.54, 0.062), ncol=3, fontsize=FS["legend"],
+               handletextpad=0.5, columnspacing=1.8, borderpad=0.0, frameon=False)
     save(fig, "fig_E+F")
     plt.close(fig)
     print("assembled fig_E+F from fig_E + fig_F (no recomputation beyond their own entry points)")

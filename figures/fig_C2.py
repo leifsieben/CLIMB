@@ -229,9 +229,15 @@ def draw(ax, data, tag=None, compact=False):
         # BLACK box, and this is the ONLY boxed legend in the set (user 2026-08-19): panel (c) is
         # the one whose legend markers are the same glyph as its data points, so it is the one that
         # needs separating. Elsewhere a frame is just clutter.
-        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=1.0,
+        # TWO COLUMNS (user 2026-08-19: "the legend for c) is blocking data points"). A 5-row
+        # single column is ~0.65in tall, which at this panel's scale is ~18 y-units and reached up
+        # to lift=-12 -- right through the HIV point at (0.400, -17.96), the lowest in the cloud.
+        # 3 rows is ~0.40in, so with the deepened floor below the box clears that point by ~6
+        # y-units. Checked against the data, not by eye: see the assertion after set_ylim.
+        ax.legend(handles=task_handles, loc="lower right", ncol=2, frameon=True, framealpha=1.0,
                   edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
-                  handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
+                  handletextpad=0.3, borderaxespad=0.4, borderpad=0.4, labelspacing=0.28,
+                  columnspacing=0.9, handlelength=1.0)
     else:
         # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
         # expands savefig's tight bbox past the page width, so this figure came out 7.10in wide
@@ -246,11 +252,13 @@ def draw(ax, data, tag=None, compact=False):
                   edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
                   handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
 
-    # The lower-right legend was landing on the point cloud. Dropping the floor to -30 opens an
-    # empty band beneath the data for it to sit in, rather than shrinking the legend (user
-    # 2026-08-17). Only the FLOOR is forced; the top stays data-driven.
+    # The lower-right legend was landing on the point cloud. Dropping the floor opens an empty
+    # band beneath the data for it to sit in, rather than shrinking the legend (user 2026-08-17).
+    # Only the FLOOR is forced; the top stays data-driven. -32 rather than -30 (user 2026-08-19):
+    # with the legend now 3 rows instead of 5 it needs ~11 y-units, and the deepest point is
+    # -17.96, so the band -32..-21 is empty by construction with ~3 units of margin.
     lo, hi = ax.get_ylim()
-    ax.set_ylim(min(lo, -30), hi)
+    ax.set_ylim(min(lo, -32), hi)
 
     ax.set_title("Transfer vs chemical similarity" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
