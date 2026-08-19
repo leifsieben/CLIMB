@@ -226,8 +226,11 @@ def draw(ax, data, tag=None, compact=False):
         # can share one left-to-right width -- no legend hanging outside the panel.
         # BOXED, and no title (user 2026-08-19): sitting unframed on the same axes as the scatter,
         # the legend's own markers read as data points. A light frame separates key from data.
-        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=0.95,
-                  edgecolor=STYLE["grid"], facecolor="white", fontsize=FS["legend"],
+        # BLACK box, and this is the ONLY boxed legend in the set (user 2026-08-19): panel (c) is
+        # the one whose legend markers are the same glyph as its data points, so it is the one that
+        # needs separating. Elsewhere a frame is just clutter.
+        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=1.0,
+                  edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
                   handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
     else:
         # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
@@ -236,8 +239,11 @@ def draw(ax, data, tag=None, compact=False):
         # figure. Keep every legend inside the canvas.
         # BOXED, and no title (user 2026-08-19): sitting unframed on the same axes as the scatter,
         # the legend's own markers read as data points. A light frame separates key from data.
-        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=0.95,
-                  edgecolor=STYLE["grid"], facecolor="white", fontsize=FS["legend"],
+        # BLACK box, and this is the ONLY boxed legend in the set (user 2026-08-19): panel (c) is
+        # the one whose legend markers are the same glyph as its data points, so it is the one that
+        # needs separating. Elsewhere a frame is just clutter.
+        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=1.0,
+                  edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
                   handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
 
     # The lower-right legend was landing on the point cloud. Dropping the floor to -30 opens an

@@ -96,7 +96,7 @@ def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
     \includegraphics[width=\textwidth] -- so their fonts print at different sizes even though every
     script sets the same points. This check makes that loud instead of silent."""
     # `subdir` is for COMPONENT panels that are assembled into another figure (fig_C1/C2/D ->
-    # fig_C_D). They are still rendered standalone for review, but they are not paper figures, so
+    # fig_C+D). They are still rendered standalone for review, but they are not paper figures, so
     # they are kept out of figures_v2/ proper -- that folder should hold only what goes in the
     # paper.
     out = OUTDIR / subdir if subdir else OUTDIR

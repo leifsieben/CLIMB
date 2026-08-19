@@ -14,7 +14,7 @@ direction flip between horizontal neighbours.
 
 Nothing is recomputed here. This composes `fig_A1.draw()` and `fig_A2.draw_panel()`, so the numbers,
 error bars and reference lines are by construction identical to the standalone figures — the same
-arrangement fig_C_D uses for C1/C2/D.
+arrangement fig_C+D uses for C1/C2/D.
 
 The ranking panel is drawn with `compact=True`: no per-point value labels and smaller markers,
 because at ~40% of the text block it cannot carry the annotation density it does standalone.

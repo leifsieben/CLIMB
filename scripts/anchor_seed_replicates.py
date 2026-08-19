@@ -106,6 +106,11 @@ def merge_summary(new_dir: Path, dest: Path, datasets):
 
 def main(only=None) -> int:
     fails = []
+    # ANCHOR_DS restricts the pass to named datasets, so a later addition (HIV joining the
+    # canonical six) can be topped up without re-running what already landed. merge=True keeps
+    # the earlier datasets' rows in place; eval_v2 itself opens the summary with "w".
+    ds_filter = [d for d in os.environ.get("ANCHOR_DS", "").split(",") if d]
+    run_cbs = os.environ.get("ANCHOR_CBS", "1") == "1"
     for base, cfg in ANCHORS.items():
         if only and base not in only:
             continue
@@ -116,7 +121,7 @@ def main(only=None) -> int:
         for suf, seeds in REPLICATES.items():
             name = base + suf
             seed_args = ["--head_seeds"] + [str(s) for s in seeds]
-            for ds in cfg["ds"]:
+            for ds in (ds_filter or cfg["ds"]):
                 dest_dir = P2 / name / SUBDIR[ds]
                 if cfg["merge"]:
                     tmp = Path(tempfile.mkdtemp(prefix="anchorrep-"))
@@ -134,6 +139,8 @@ def main(only=None) -> int:
                 if not ok:
                     fails.append(f"{name}/{ds}")
             # CBS lives in its own tree and uses the benchmark's OWN fold column
+            if not run_cbs:
+                continue
             ok = run(common + seed_args + ["--task_csv", CBS_CSV, "--task_name", "cbs",
                                            "--task_type", "classification", "--cv_scheme", "provided",
                                            "--output_dir", str(CBS / name / "moleculenet_cv")],

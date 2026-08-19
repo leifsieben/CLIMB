@@ -282,9 +282,8 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
                for f in SLOPE_FAMS]
     # lower right + boxed, matching panel (c): the two slope lines rise to the right, so an
     # upper-right legend sat on top of them.
-    axS.legend(handles=handles, loc="lower right", frameon=True, framealpha=0.95,
-               edgecolor=STYLE["grid"], facecolor="white", fontsize=FS["legend"],
-               handletextpad=0.4, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
+    axS.legend(handles=handles, loc="lower right", frameon=False, fontsize=FS["legend"],
+               handletextpad=0.4, borderaxespad=0.4, labelspacing=0.3)
     axS.axhline(0, color=SHADES["random"][0], lw=0.6, zorder=1)
     axS.set_xlim(-0.38, 1.38)
     axS.set_xticks([0, 1])

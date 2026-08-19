@@ -95,7 +95,7 @@ BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
 
 def compute():
-    """The concatenation table. Exposed so figures/fig_EF.py can assemble this figure with fig_E
+    """The concatenation table. Exposed so figures/fig_E_plus_F.py can assemble this figure with fig_E
     without re-implementing (and therefore drifting from) the analysis."""
     return pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
 
@@ -130,7 +130,7 @@ def shared_ylims(d):
 def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None):
     """Draw ONE canonical panel onto an existing axes.
 
-    `compact` narrows the bars and drops the y-label, for the assembled fig_EF where six panels
+    `compact` narrows the bars and drops the y-label, for the assembled fig_E+F where six panels
     share half the canvas. `tag` puts the panel letter ON THE TITLE BASELINE, immediately left of
     the title, matching fig_E's tag/title pair -- so every panel letter in the assembled figure is
     positioned the same way instead of F's floating above its centred title.
@@ -198,8 +198,12 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None):
         ax.set_ylim(y0, y1)
 
 
-def legend_handles():
-    return [Patch(facecolor=c, edgecolor=INK, lw=0.8, label=lab) for _, lab, c in FEATURES]
+def legend_handles(skip_anchor=False):
+    """`skip_anchor` drops the ECFP+desc entry so the remaining three fit on ONE row (user
+    2026-08-19). The anchor stays identifiable without it: its bar is the first in every panel,
+    tick-labelled "ECFP+d", and it is the dotted reference line."""
+    feats = [f for f in FEATURES if not (skip_anchor and f[0] == "fp+desc")]
+    return [Patch(facecolor=c, edgecolor=INK, lw=0.8, label=lab) for _, lab, c in feats]
 
 
 def main():

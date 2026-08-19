@@ -193,7 +193,7 @@ def check_estimand():
             bad += 1
             continue
         txt = p.read_text()
-        # assembled figures (fig_A, fig_C_D) draw nothing themselves — they compose components,
+        # assembled figures (fig_A, fig_C+D) draw nothing themselves — they compose components,
         # so look through the modules they import rather than calling it a mismatch
         for imported in re.findall(r"import figures\.(\w+)", txt):
             q = FIGDIR / f"{imported}.py"
@@ -225,7 +225,7 @@ def check_panelset():
 def check_geometry():
     hdr(6, "PAGE GEOMETRY")
     from figures.style import A4_TEXT, _pdf_width_in
-    wide = {"fig_A", "fig_C_D"}
+    wide = {"fig_A", "fig_C+D"}
     bad = 0
     for pdf in sorted(OUT.glob("*.pdf")):
         w = _pdf_width_in(pdf)

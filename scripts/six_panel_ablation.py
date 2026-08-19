@@ -1,4 +1,4 @@
-"""Canonical-six evals for the SFT-family ablation wave (seq_*) — the fig_C_D blocker.
+"""Canonical-six evals for the SFT-family ablation wave (seq_*) — the fig_C+D blocker.
 
 fig_C1/C2/fig_D are indexed by the SFT family x eval task, and were only ever scored on
 MoleculeNet. This adds the three canonical panels the ablation wave never had — MoleculeACE
@@ -21,7 +21,7 @@ molecules by max Tanimoto to the pretraining corpus. No extra pass, no extra cos
 Runs ON THE BOX from repo root. Idempotent per (encoder, panel); each result dir is synced to S3.
 Reuses the proven runners as subprocesses so numbers are protocol-identical to the 8M battery.
 
-Contract (the paths fig_C_D reads):
+Contract (the paths fig_C+D reads):
   MoleculeACE -> figure_data/chemeleon_suite/moleculeace/<arm>/
   Polaris     -> figure_data/chemeleon_suite/polaris/<arm>/
   CBS         -> figure_data/cbs_benchmark/<arm>/moleculenet_cv/

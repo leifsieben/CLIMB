@@ -1,6 +1,6 @@
-"""Fig C -- the assembled similarity & transfer figure: C1 + C2 + D in one canvas, panels a-f.
+"""Fig C+D -- the assembled similarity & transfer figure: C1 + C2 + D in one canvas, panels a-f.
 
-ONE script, ONE figure: figures_v2/fig_C_D.png / .pdf
+ONE script, ONE figure: figures_v2/fig_C+D.png / .pdf
 
 Layout (user request 2026-08-17: assemble C1/C2/D with one consistent a-f scheme, space
 efficiently): two rows, one per QUESTION --
@@ -17,7 +17,7 @@ efficiently): two rows, one per QUESTION --
 No analysis code lives here: fig_C1/fig_C2/fig_D expose compute() + draw() and this script only
 arranges their axes, so the standalone figures and this assembly can never drift apart.
 
-Run:  python3 -m figures.fig_C_D
+Run:  python3 -m figures.fig_C_plus_D
 
 PANEL SET — FULLY MIGRATED to the canonical six as of 2026-08-19. The last blocker was the
 full-corpus MoleculeACE similarity for fig_C1's x-axis.
@@ -76,9 +76,9 @@ def main():
     fig.text(0.002, 0.260, "Task Similarity", rotation=90, va="center", ha="center",
              fontsize=FS["panel_tag"], fontweight="bold")
 
-    save(fig, "fig_C_D", wide=True)
+    save(fig, "fig_C+D", wide=True)
     plt.close(fig)
-    print("assembled fig_C_D from fig_C1 + fig_C2 + fig_D (no recomputation beyond their compute())")
+    print("assembled fig_C+D from fig_C1 + fig_C2 + fig_D (no recomputation beyond their compute())")
 
 
 if __name__ == "__main__":

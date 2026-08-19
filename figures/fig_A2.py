@@ -68,8 +68,13 @@ CLIMB_HATCH = "...."          # small black dots mark the CLIMB models (density 
 
 # the eight models, in a fixed reading order: anchors -> CLIMB recipes -> controls -> external
 # (random encoder second-to-last, right of the e2e control -- user request 2026-08-17)
+# chemeleon_FROZEN sits next to chemeleon_e2e (user 2026-08-19). Showing only the fine-tuned arm
+# invites "CheMeleon beats the classical anchor", which is not what the data says about the
+# REPRESENTATION: frozen, CheMeleon is best on 0 of 30 MoleculeACE targets (macro RMSE 0.8256 vs
+# ECFP+desc 0.6757); fine-tuned, it is best on 21 of 30. The two bars side by side are the honest
+# version of that, and they isolate what fine-tuning is worth on a message-passing network.
 MODELS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
-          "e2e_no_pretrain", "random_encoder", "chemeleon_e2e"]
+          "e2e_no_pretrain", "random_encoder", "chemeleon_frozen", "chemeleon_e2e"]
 # 2026-08-17: was "chemeleon", a single arm labelled "end2end" but sourced from chemeleon_FROZEN --
 # which is what put the frozen arm's broken QM7 value (268.8, fold2=434, worse than a constant
 # predictor) on this end2end comparison. "chemeleon_e2e" is the native D-MPNN-from-foundation run,

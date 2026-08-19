@@ -37,8 +37,12 @@ POLARIS_NPOS, POLARIS_NNEG = 777, 680
 FD = ROOT / "figure_data"
 MOL = {"BACE": ("auc", "climb_v2_phase2"), "Tox21": ("auc", "climb_v2_phase2"),
        "QM7": ("rmse", "climb_v2_phase2"), "HIV": ("nef1", "climb_v2_phase2")}
+# chemeleon_frozen added 2026-08-19 (user): showing ONLY the fine-tuned CheMeleon invites the
+# reading that CheMeleon beats the classical anchor as a representation. It does not -- frozen, it
+# is best on 0 of 30 MoleculeACE targets (0.8256 macro RMSE vs ECFP+desc 0.6757) where fine-tuned
+# it is best on 21. Both bars belong in the panel so the gap between them is visible.
 A2_ARMS = ["ecfp", "ecfp_desc", "sup_dense", "unsup", "u2s_dense",
-           "random_encoder", "e2e_no_pretrain", "chemeleon_e2e"]
+           "random_encoder", "e2e_no_pretrain", "chemeleon_frozen", "chemeleon_e2e"]
 
 
 # QM7's phase-2 predictions are z-scored for most runs and native for a few; the native re-eval

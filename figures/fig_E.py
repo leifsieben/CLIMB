@@ -83,7 +83,7 @@ PANELS = [
 
 
 def _lim(sub, pad_lo=0.08, pad_hi=0.30):
-    """Per-panel y-range. Module scope so figures/fig_EF.py reuses the identical rule."""
+    """Per-panel y-range. Module scope so figures/fig_E_plus_F.py reuses the identical rule."""
     lo = min((sub.lift_pct - sub.lift_sd_pct.fillna(0)).min(), 0)
     hi = (sub.lift_pct + sub.lift_sd_pct.fillna(0)).max()
     sp = hi - lo
@@ -91,7 +91,7 @@ def _lim(sub, pad_lo=0.08, pad_hi=0.30):
 
 
 def draw(fig, ax, d, series, tag, subtitle, ylim, compact=False):
-    """`compact` = the assembled fig_EF, where these panels occupy a narrow left column: the
+    """`compact` = the assembled fig_E+F, where these panels occupy a narrow left column: the
     subtitle must not run past the axes into the neighbouring block, and the legend must not sit
     on the bars (panel b has five series against short bars)."""
     x = np.arange(len(TASKS))
