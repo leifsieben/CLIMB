@@ -36,12 +36,31 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "figure_data/embedding_resolution"
-FLOAT_EPS = 1e-6          # float32 rounding guard; measured noise floor is 1.8e-07
-EPS_LIST = [0.001, 0.01, 0.05]     # magnitude thresholds, reported but NOT used for success
+# THE DEFINITION: two molecules are RESOLVED if they sit farther apart than that representation
+# could put a molecule from ITSELF -- above the 95th percentile of its own noise distribution, so
+# under a 5% chance the difference is noise. The threshold is MEASURED per representation by
+# resolution_null_calibration.py (200 anchors x 10 random SMILES re-writings, which denote exactly
+# the same compound), never chosen. It comes out at 1.5e-07 for a fingerprint, which is invariant,
+# and 3.5e-01 for CLIMB sup, which is not -- and that gap IS the experiment.
+#
+# CALIBRATION CAVEAT, stated rather than hidden: `smiles_enumeration` is the same transformation
+# the null is built from, so scoring it against the null is circular by construction. It is
+# reported as the calibration itself -- the noise magnitude -- and excluded from the success bars.
+# `kekule` and `symmetry_equivalent` are different transformations and are scored normally.
+CALIBRATION_MODE = "smiles_enumeration"
+EPS_LIST = [0.001, 0.01, 0.05]     # legacy magnitude columns, retained, NOT used for success
 
 
 def main() -> int:
     rows = list(csv.DictReader((OUT / "distances.csv").open()))
+    # Floor the measured threshold at the arithmetic noise of the distance itself. For an exactly
+    # invariant fingerprint the null is degenerate at 0 and its 95th percentile lands at 1.5e-07,
+    # which is BELOW the float32 rounding of the cosine -- so ~10% of genuinely identical pairs
+    # would score as "resolved" on rounding alone, and the stereo-blind control read 10% instead
+    # of the 0% that validates the harness.
+    FLOAT_GUARD = 1e-6
+    thr = {k: max(v["p95"], FLOAT_GUARD)
+           for k, v in json.loads((OUT / "null_threshold.json").read_text()).items()}
     by = defaultdict(list)
     order_mode, order_emb = [], []
     for r in rows:
@@ -58,13 +77,16 @@ def main() -> int:
             if not rs:
                 continue
             sep = np.array([float(r["separation"]) for r in rs])
-            cosd = np.array([float(r["cosine"]) for r in rs])
-            different = cosd > FLOAT_EPS
+            t = thr.get(emb)
+            if t is None:
+                continue
+            different = sep > t
             rec = dict(klass=klass, mode=mode, embedding=emb, n=len(rs),
                        median_separation=float(np.median(sep)),
-                       median_cosine=float(np.median(cosd)),
+                       null_p95=float(t),
                        identical=int(sum(1 for r in rs if r["identical"] == "True")),
-                       success=round(100.0 * (different if klass == "A" else ~different).mean(), 1))
+                       success=(None if mode == CALIBRATION_MODE else
+                                round(100.0 * (different if klass == "A" else ~different).mean(), 1)))
             for e in EPS_LIST:
                 ok = (sep >= e) if klass == "A" else (sep <= e)
                 rec[f"magnitude_eps{e}"] = round(100.0 * ok.mean(), 1)
@@ -77,13 +99,19 @@ def main() -> int:
 
     show = [e for e in order_emb if e != "ECFP4 stereo-blind"]
     hdr = f"{'mode':26}" + "".join(f"{e[:12]:>14}" for e in show)
-    print("SUCCESS RATE %  --  A: vectors DIFFER;  B: vectors are the SAME\n")
+    print("RESOLVED = farther apart than the representation's own noise (p<0.05)")
+    print("  A: resolved is correct   B: NOT resolved is correct\n")
+    print("  measured noise threshold (95th pct of self-vs-self separation):")
+    for k, v in thr.items():
+        print(f"      {k:22} {v:.2e}")
+    print()
     print(hdr); print("-" * len(hdr))
     for (klass, mode) in order_mode:
         line = f"{('A ' if klass=='A' else 'B ')+mode:26}"
         for emb in show:
             rec = next((r for r in out if r["mode"] == mode and r["embedding"] == emb), None)
-            line += f"{rec['success']:>13.0f}%" if rec else f"{'--':>14}"
+            line += (f"{rec['success']:>13.0f}%" if rec and rec["success"] is not None
+                     else f"{'calib':>14}" if rec else f"{'--':>14}")
         print(line)
     ctrl = [r for r in out if r["embedding"] == "ECFP4 stereo-blind"
             and r["mode"] in ("stereo_flip", "ez_flip")]
