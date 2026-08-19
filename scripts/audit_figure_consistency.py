@@ -160,7 +160,14 @@ def check_replication():
     # 0.6526, sd 0.0022; frozen 0.8377/0.8212/0.8180, sd 0.0106), which a directory counter cannot
     # see. So they are exempted from the seed-count comparison and instead REQUIRED to carry >= 3
     # replicate cells -- the honest version of the same demand.
-    NO_PRETRAIN_STAGE = ["ecfp", "ecfp_desc", "chemeleon_frozen", "chemeleon_e2e"]
+    # DERIVED from arms.py, not listed here. This was a hardcoded four-name list and it went stale
+    # the moment R3FP/R3FP+desc were added: two XGBoost anchors structurally identical to the two
+    # already exempt were reported as MIXED on MoleculeACE and Ames for a day. Exactly the failure
+    # check 11 had, in a different check, found only because check 11's fix made this one's output
+    # the odd one out. A name list cannot know about an arm that did not exist when it was written.
+    from figures.arms import ARMS as _ARMS
+    NO_PRETRAIN_STAGE = [k for k, v in _ARMS.items()
+                         if v.get("pretrain_replicates", True) is False]
     thin = d[d.arm.isin(NO_PRETRAIN_STAGE) & (d.n_cells < 3)]
     for _, r in thin.iterrows():
         print(f"  THIN  {r.arm} / {r.panel}: only {int(r.n_cells)} replicate cell(s); these arms have "
