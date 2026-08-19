@@ -14,6 +14,28 @@ cannot flatter the rest.
   filled dot    mean rank over all datasets
   bar           ±1 SE, corrected for the design effect (see below)
   open markers  the four per-suite mean ranks
+  †             the whole network is FINE-TUNED on each task; every other arm is a FROZEN
+                encoder with a trained probe
+
+READ THE DAGGER BEFORE THE ORDERING. Two of the 18 arms fine-tune end-to-end and 16 do not, and on
+this benchmark set that difference outweighs any pretraining difference. CheMeleon gains +0.173
+macro RMSE on MoleculeACE by fine-tuning (0.8256 frozen -> 0.6526 e2e, 21%); CLIMB gains 0.010-0.015
+(1-2%) from the same treatment. A message-passing network fine-tunes far better than a transformer
+used as a frozen probe, so `CheMeleon (e2e)` topping the table is a statement about FINE-TUNING,
+not about pretraining quality.
+The two CheMeleon rows are the control for exactly this, and they sit 7 rank positions apart:
+frozen-vs-frozen, CheMeleon is 9.80 against CLIMB supervised-desc 6.20 and unsupervised 8.09 --
+i.e. CLIMB's REPRESENTATION is the better one, and CheMeleon overtakes it only when allowed to
+retrain its encoder. Restricted to the 16 frozen arms the ranking is ECFP+desc 2.12, ECFP 4.48,
+supervised-desc 5.21, CheMeleon-frozen 8.56.
+
+REPLICATION. Every CLIMB arm is 3 pretraining seeds x 3 eval seeds. ECFP, ECFP+desc and the two
+CheMeleon variants have ONE pretraining seed by construction -- a deterministic featurizer and a
+fixed external model have no pretraining stage to replicate -- but they are NOT unreplicated: their
+head / fine-tuning seed is replicated 3x inside the single directory (CheMeleon e2e on MoleculeACE:
+0.6503 / 0.6547 / 0.6526, sd 0.0022; frozen: 0.8377 / 0.8212 / 0.8180, sd 0.0106). A
+directory-counting seed check reports "1" for these and is wrong to; audit check 3 now requires
+>= 3 replicate CELLS from them instead.
 
 Why the SE is corrected
 -----------------------
@@ -55,6 +77,16 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # so fig_A2.short() naming the probe in the legend is now a convenience rather than a correction.
 # NOTE the headline consequence: chemeleon_e2e enters at mean rank 2.53, AHEAD of the ECFP+desc
 # anchor at 2.87. The classical anchor is no longer first overall.
+# PROBE PROTOCOL. 16 of the 18 arms are FROZEN encoders with a trained probe; two fine-tune the
+# whole network on each downstream task, and they are marked with a dagger because that difference
+# is worth more than any pretraining difference in this figure. CheMeleon gains +0.173 macro RMSE
+# on MoleculeACE from fine-tuning (0.8256 -> 0.6526, 21%) where CLIMB gains 0.010-0.015 (1-2%) --
+# a message-passing network fine-tunes far better than a frozen-probe transformer. So CheMeleon's
+# top rank is a statement about FINE-TUNING, not about pretraining quality, and the two CheMeleon
+# rows are 7 rank positions apart for exactly that reason. Read them together: frozen-vs-frozen,
+# CheMeleon is 9.80 against supervised-desc 6.20 and unsupervised 8.09.
+E2E_ARMS = {"chemeleon_e2e", "e2e_no_pretrain"}
+
 _S0, _ = wide_table(ARM_ORDER)
 ARMS_USED = [a for a in ARM_ORDER if _S0.loc[a].notna().sum() >= 60]
 N = len(ARMS_USED)
@@ -102,7 +134,8 @@ def draw(ax, compact=False):
         # via tick labels because matplotlib cannot mix weights inside one tick string.
         ax.text(-0.012, yi + 0.19, system(a), transform=ytrans, ha="right", va="center",
                 fontsize=FS["tick"], fontweight="bold", color=INK)
-        ax.text(-0.012, yi - 0.19, label(a), transform=ytrans, ha="right", va="center",
+        ax.text(-0.012, yi - 0.19, label(a) + (" †" if a in E2E_ARMS else ""),
+                transform=ytrans, ha="right", va="center",
                 fontsize=FS["tick"], color=INK)
 
     ax.set_yticks(y); ax.set_yticklabels([])

@@ -149,11 +149,25 @@ def check_replication():
         return 0
     d = pd.read_csv(f)
     d["n_seeds"] = d.extra.map(lambda x: int(m.group(1)) if (m := re.search(r"n_seeds=(\d+)", str(x))) else np.nan)
+    d["n_cells"] = d.extra.map(lambda x: int(m.group(1)) if (m := re.search(r"n_cells=(\d+)", str(x))) else np.nan)
     bad = 0
+    # NO-PRETRAINING arms: deterministic featurizers and the fixed external model. n_seeds counts
+    # PRETRAINING-seed directories, of which they have exactly one BY CONSTRUCTION -- there is no
+    # pretraining stage to replicate. That is not a data gap and must not be read as one. What they
+    # DO replicate is the head / fine-tuning seed, and that lives INSIDE the single directory: on
+    # MoleculeACE both CheMeleon variants carry 3 distinct fine-tuning runs (e2e 0.6503/0.6547/
+    # 0.6526, sd 0.0022; frozen 0.8377/0.8212/0.8180, sd 0.0106), which a directory counter cannot
+    # see. So they are exempted from the seed-count comparison and instead REQUIRED to carry >= 3
+    # replicate cells -- the honest version of the same demand.
+    NO_PRETRAIN_STAGE = ["ecfp", "ecfp_desc", "chemeleon_frozen", "chemeleon_e2e"]
+    thin = d[d.arm.isin(NO_PRETRAIN_STAGE) & (d.n_cells < 3)]
+    for _, r in thin.iterrows():
+        print(f"  THIN  {r.arm} / {r.panel}: only {int(r.n_cells)} replicate cell(s); these arms have "
+              f"no pretraining stage, so the head/fine-tuning seed is the only replicate they can have")
+        bad += 1
     print(f"  {'panel':<13}{'n_seeds seen':<18}verdict")
     for panel, g in d.groupby("panel"):
-        # anchors legitimately have 1 seed: no pretraining stage to replicate
-        clm = g[~g.arm.isin(["ecfp", "ecfp_desc", "chemeleon_frozen"])]
+        clm = g[~g.arm.isin(NO_PRETRAIN_STAGE)]
         seen = sorted({int(x) for x in clm.n_seeds.dropna()})
         ok = len(seen) <= 1
         if not ok:
@@ -162,8 +176,9 @@ def check_replication():
             bad += 1
         else:
             print(f"  {panel:<13}{str(seen):<18}ok")
-    print("  OK — every panel's CLIMB arms share a seed count" if not bad else
-          f"  {bad} panel(s) mixing replication")
+    print("  OK — every panel's CLIMB arms share a pretraining-seed count, and every "
+          "no-pretraining arm carries >=3 replicate cells" if not bad else
+          f"  {bad} item(s) mixing replication")
     return bad
 
 
