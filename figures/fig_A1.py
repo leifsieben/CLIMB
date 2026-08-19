@@ -42,15 +42,24 @@ Why the SE is corrected
 Datasets inside a suite largely agree about which model is better — MoleculeACE's 30 targets
 correlate at rho = 0.74 and behave like ~1.3 independent datasets. Treating all 66 as independent
 would understate the SE by ~3x, so it is inflated by sqrt(design effect) in allsuites.wide_ranks().
-The ordering is broadly robust (Kendall tau 0.843 against per-suite weighting) BUT THE TOP POSITION
+The ordering is broadly robust (Kendall tau 0.874 against per-suite weighting) BUT THE TOP POSITION
 IS NOT, and that must not be quoted as if it were. Weighting every dataset equally lets MoleculeACE
-(30) and Polaris (28) decide 58 of 66; weighting the four SUITES equally instead gives
-ECFP+desc 2.68 and CheMeleon (e2e) 4.78 -- the order flips. ECFP+desc in fact wins 2 of the 4
-suites outright (MoleculeNet 4.14 vs 7.41, CBS 1.00 vs 8.00) and loses the two large ones.
-So "CheMeleon (e2e) is first overall" is an artefact of TWO choices stacking -- per-dataset
-weighting and the frozen-vs-fine-tuned protocol above -- and the defensible claim is that
-ECFP+desc is the best model here, with CheMeleon competitive on MoleculeACE and Polaris when it is
-allowed to fine-tune.
+(30) and Polaris (28) decide 58 of 66 and puts CheMeleon (e2e) first at 3.11; weighting the four
+SUITES equally instead puts the two descriptor-bearing XGBoost anchors first and drops CheMeleon to
+third at 5.51. So "CheMeleon (e2e) is first overall" is an artefact of TWO choices stacking --
+per-dataset weighting and the frozen-vs-fine-tuned protocol above -- and the defensible claim is
+that a descriptor-bearing classical anchor is the best model here, with CheMeleon competitive on
+MoleculeACE and Polaris when it is allowed to fine-tune.
+
+THE TOP TWO ROWS ARE A TIE AND MUST BE QUOTED AS ONE. Morgan r3c+desc reads 3.88 +/- 1.25 and
+ECFP4+desc 3.97 +/- 1.12: a difference of 0.09 against a difference-SE of 1.68, i.e. 0.05 SE.
+Morgan r3c+desc sorts to the top of this table and IS NOT "the new best model" -- the fingerprint
+generation makes no measurable difference to the headline once the descriptor block is present.
+The bare pair is where the generation shows: Morgan r3c 6.17 against ECFP4 8.32, still only 0.75
+SE on mean rank, but same-signed on every panel (Ames +0.015, MoleculeACE -0.016 RMSE, Tox21
++0.016, HIV +0.028). Read together with fig_A2 and fig_G that is one finding, not three: counts
+supply what the descriptor block was supplying, and adding descriptors on top of them buys almost
+nothing.
 
 CONSISTENT WITH THE CHEMELEON PAPER, and worth saying so explicitly (Burns et al.,
 arXiv:2506.15792v2). They evaluate on Polaris + MoleculeACE -- 58 datasets, which is EXACTLY the
@@ -98,8 +107,9 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # showed CheMeleon E2E -- different models 65 kcal/mol apart on QM7 under one comparator name --
 # because only the frozen variant cleared the coverage floor. Both now qualify and both are drawn,
 # so fig_A2.short() naming the probe in the legend is now a convenience rather than a correction.
-# NOTE the headline consequence: chemeleon_e2e enters at mean rank 2.53, AHEAD of the ECFP+desc
-# anchor at 2.87. The classical anchor is no longer first overall.
+# NOTE the headline consequence under PER-DATASET weighting: chemeleon_e2e enters ahead of the
+# descriptor anchors (3.11 against 3.69/3.99). Under the per-suite weighting this figure actually
+# uses it sits third. See the tie note in the docstring before quoting any top position.
 # PROBE PROTOCOL. 16 of the 18 arms are FROZEN encoders with a trained probe; two fine-tune the
 # whole network on each downstream task, and they are marked with a dagger because that difference
 # is worth more than any pretraining difference in this figure. CheMeleon gains +0.173 macro RMSE
@@ -119,8 +129,9 @@ N = len(ARMS_USED)
 # MoleculeACE (30) and Polaris (28) decide 58 of 66, which is exactly the two suites CheMeleon was
 # built and tuned against (Burns et al. evaluate on those two only) -- so it inflates an arm that
 # is strong there and absent-to-weak on MoleculeNet (7) and CBS (1). Under equal suite weight the
-# order flips back: ECFP+desc 2.68 first, CheMeleon (e2e) 4.53 second. The per-suite open markers
-# already drawn on every row let a reader verify the aggregation by eye.
+# order flips back: the two descriptor anchors first (3.88 / 3.97, indistinguishable from each
+# other) and CheMeleon (e2e) third at 5.51. The per-suite open markers already drawn on every row
+# let a reader verify the aggregation by eye.
 RANKS, PER_DATASET, META = wide_ranks(ARMS_USED, per_suite_equal=True)
 NDS = int(PER_DATASET.notna().sum(axis=1).max())
 

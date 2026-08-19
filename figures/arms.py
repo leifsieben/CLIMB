@@ -47,9 +47,13 @@ SHADES = {
     # [0] ECFP4+desc, [1] ECFP4, [2] spare, [3] r3-counts+desc, [4] r3-counts. FOUR XGBoost arms
     # as of 2026-08-19 (user: "I'd like to have our r3-fp + descriptors as the third XGBoost model.
     # Let's actually include r3-fp too"), so the anchor family needs four separable ambers rather
-    # than two. The ladder runs light -> dark and the two r3-counts arms sit at the ends, so a
-    # reader can tell the fingerprint generation apart at a glance even in greyscale.
-    "anchor": ["#C8912F", "#8A5F1B", "#E0BC80", "#EBD3A6", "#4E340B"],
+    # than two. The four DRAWN rungs span roughly even lightness steps -- [4] #4E340B, [1] #8A5F1B,
+    # [0] #C8912F, [3] #E8B86A -- so the family also survives greyscale printing.
+    #
+    # [3] was #EBD3A6 for an hour and was too pale to see: r3c+desc sorts to the TOP row of fig_A1,
+    # which is drawn on a light-grey banded background, and its marker and whisker nearly vanished
+    # against it. A shade that disappears on the arm most likely to be quoted is not a shade.
+    "anchor": ["#C8912F", "#8A5F1B", "#E0BC80", "#E8B86A", "#4E340B"],
     "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6"],
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
