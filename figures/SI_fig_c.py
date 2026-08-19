@@ -13,7 +13,7 @@ SAME 1000 MoleculeNet molecules with the SAME settings production uses, 5 repeat
   CLIMB encoder        ModernBERT ~41M, tokenize + forward + mean pool (eval_v2._encoder_features)
 
 THE RESULT: the transformer is not the expensive part — RDKit descriptors are. On one CPU core the
-descriptors cost 4.37 s/1000 molecules against ECFP4's 0.078 s, a 56x gap, and they dominate the
+descriptors cost 4.80 s/1000 molecules against the Morgan block's 0.098 s, a 49x gap, and they
 ECFP+desc anchor almost entirely (4.46 s, i.e. 98% descriptors). The encoder on one A10G runs
 1000 molecules in 0.59 s — 7.5x the cost of single-core ECFP4, but 7.4x FASTER than the ECFP+desc
 anchor that outranks it in Fig A1. At 1B molecules that is 163 GPU-hours for the encoder against
@@ -43,7 +43,7 @@ SRC = ROOT / "figure_data" / "_bench" / "featurization_timing.json"
 OUTDIR = ROOT / "figures_v2"
 
 METHOD_LABEL = {"ecfp4": "Morgan counts", "rdkit_desc": "RDKit descriptors",
-                "fp_desc": "Morgan counts + descriptors", "encoder": "CLIMB encoder"}
+                "fp_desc": "Morgan + descriptors", "encoder": "CLIMB encoder"}
 # the rows worth printing in the paper; the rest stay in the JSON
 KEEP = [("ecfp4", "cpu", "single core"), ("ecfp4", "cpu", "12 processes"),
         ("rdkit_desc", "cpu", "single core"), ("rdkit_desc", "cpu", "12 processes"),
@@ -81,7 +81,7 @@ def main():
                    hours_per_1B=round(float(r["hours_1B"]), 1))
         if base is None:
             base = row["s_per_1k"]                      # Morgan counts, single core = the reference
-        row["vs_ECFP4_1core"] = round(row["s_per_1k"] / base, 2)
+        row["vs_morgan_1core"] = round(row["s_per_1k"] / base, 2)
         rows.append(row)
 
     OUTDIR.mkdir(exist_ok=True)
@@ -102,17 +102,17 @@ def main():
             prec = f" {r['precision']}" if r["precision"] else ""
             fh.write(f"{r['method']} & {r['machine']}{prec} & {r['config']} & "
                      f"{r['s_per_1k']:.3f} $\\pm$ {r['sd_s']:.3f} & {r['mol_per_s']:.0f} & "
-                     f"{r['hours_per_1B']:.1f} & {r['vs_ECFP4_1core']:.2f} \\\\\n")
+                     f"{r['hours_per_1B']:.1f} & {r['vs_morgan_1core']:.2f} \\\\\n")
         fh.write("\\hline\n\\end{tabular}\n")
 
     w_ = [len(h) for h in hdr]
     print("\nSI Fig c — featurization cost (1000 molecules, 5 repeats after warm-up):\n")
-    print(f"  {'Featurizer':<21}{'Hardware':<27}{'Config':<31}{'s/1k':>9}{'mol/s':>9}{'h/1B':>9}{'xECFP4':>9}")
+    print(f"  {'Featurizer':<29}{'Hardware':<27}{'Config':<31}{'s/1k':>9}{'mol/s':>9}{'h/1B':>9}{'xMorgan':>9}")
     for r in rows:
         prec = f" {r['precision']}" if r["precision"] else ""
-        print(f"  {r['method']:<21}{r['machine']+prec:<27}{r['config']:<31}"
+        print(f"  {r['method']:<29}{r['machine']+prec:<27}{r['config']:<31}"
               f"{r['s_per_1k']:>9.3f}{r['mol_per_s']:>9.0f}{r['hours_per_1B']:>9.1f}"
-              f"{r['vs_ECFP4_1core']:>9.2f}")
+              f"{r['vs_morgan_1core']:>9.2f}")
     print("\n  wrote figures_v2/SI_fig_c.csv + SI_fig_c.tex")
 
 
