@@ -33,12 +33,27 @@ featurization. This is a negative result and is reported as one. It is also the 
 Fig A1, where the descriptor-bearing classical anchors rank first overall: the transformer is not
 adding a missing view of the molecule.
 
-DATA VINTAGE, AND WHAT THIS PAIR OF TABLES CANNOT SHOW. Both tables were re-run 2026-08-19 on
-current code with FP_VARIANT=ecfp4_stereo. The earlier copies are kept beside them, but old-vs-new
-IS NOT A FEATURIZER COMPARISON and must not be presented as one: the CLM-only arm uses no
-fingerprint at all, yet it moves (MoleculeACE 0.840 -> 0.819, CBS NEF1 0.509 -> 0.768). Three
-commits landed on this path between the runs -- 0ab0388, c4f1c23, 3c52686 -- so the pair confounds
-featurizer with code version.
+THE NEGATIVE RESULT DOES NOT DEPEND ON THE FINGERPRINT, and that is now shown rather than hoped.
+The whole test was re-run a second time on the SAME code at FP_VARIANT=ecfp4_legacy
+(concat_*_legacy.csv), so legacy-vs-stereo differs by exactly one variable. Concatenation fails to
+help under both featurizers on every panel that discriminates, and the fp+desc -> fp+desc+CLM gap
+barely moves: Ames 0.0211 legacy against 0.0279 stereo, MoleculeACE 0.0411 against 0.0375. The
+stereo fix makes the classical anchor slightly stronger and leaves the conclusion untouched.
+
+THE ISOLATION IS PROVABLE FROM THE TABLES, WHICH IS WHY IT WAS DONE THIS WAY. `CLM` and `desc+CLM`
+carry no fingerprint, so they CANNOT respond to FP_VARIANT: all 28 such rows across the two files
+are identical to 8 decimal places, while 22 of the 28 fingerprint-bearing rows moved. Two arms that
+must not move, and did not.
+
+That check is also what caught the earlier mistake. An initial comparison against the 08-05/08-18
+tables looked like a featurizer test and was not one -- the CLM-only rows had moved (MoleculeACE
+0.840 -> 0.819, CBS NEF1 0.509 -> 0.768), which a featurizer cannot do, because three unrelated
+commits had landed on the path between the runs (0ab0388, c4f1c23, 3c52686). GENERAL RULE WORTH
+REUSING: any table containing an arm INVARIANT to the change under test carries its own isolation
+check for free, and it costs nothing to look at it before quoting a delta.
+
+One number not to over-read: CBS fp+desc NEF1 moves +0.0250, but NEF1 counts hits in the top 1% so
+that is a single hit crossing the threshold; the ROC-AUC beside it moved +0.0010.
 
 PANEL SCOPE: ALL SIX canonical panels are filled (2026-08-18). MoleculeACE, CBS and Ames come from
 analysis/rigor/concat_panels_climb.csv; BACE, Tox21 and QM7 from the original MoleculeNet run.

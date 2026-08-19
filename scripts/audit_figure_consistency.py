@@ -623,13 +623,68 @@ def check_qm7_convention():
     return bad
 
 
+def check_invariant_arms():
+    """Where two vintages of one table are kept for comparison, the arms that CANNOT have responded
+    to the change must be IDENTICAL.
+
+    This is the cheapest provenance check we have and it is the one that caught a real confound.
+    fig_F's concat tables were compared across vintages as if they differed only by FP_VARIANT.
+    They did not -- three unrelated commits had landed in between -- and the tell was sitting in the
+    output: the `CLM` and `desc+CLM` arms carry NO fingerprint, so a featurizer change cannot touch
+    them, yet they had moved (MoleculeACE 0.840 -> 0.819, CBS NEF1 0.509 -> 0.768).
+
+    So: any table containing an arm invariant to the change under test carries a free isolation
+    check, and this makes looking at it automatic rather than a thing someone remembers to do.
+    A mismatch does NOT necessarily mean a number is wrong -- it means the two files differ by more
+    than the stated variable, so any delta quoted between them is uninterpretable.
+    """
+    print(f"\n{'='*94}\n13. INVARIANT ARMS ACROSS TABLE VINTAGES (free isolation check)\n{'='*94}")
+    import csv as _csv
+    RIG = ROOT / "analysis" / "rigor"
+    # (label, file A, file B, arms that cannot differ, why)
+    PAIRS = [("concat MolNet", "concat_redundancy_legacy.csv", "concat_redundancy_stereo.csv",
+              {"CLM", "desc+CLM"}, "carry no fingerprint, so FP_VARIANT cannot reach them"),
+             ("concat panels", "concat_panels_climb_legacy.csv", "concat_panels_climb_stereo.csv",
+              {"CLM", "desc+CLM"}, "carry no fingerprint, so FP_VARIANT cannot reach them")]
+    bad = 0
+    for label, fa, fb, invariant, why in PAIRS:
+        pa, pb = RIG / fa, RIG / fb
+        if not (pa.exists() and pb.exists()):
+            print(f"  SKIP  {label:15s} one vintage absent ({fa if not pa.exists() else fb})")
+            continue
+        def rows(p):
+            return {(r["task"], r["features"], r["metric"]): r["mean"]
+                    for r in _csv.DictReader(p.open())}
+        A, B = rows(pa), rows(pb)
+        keys = [k for k in A if k in B and k[1] in invariant]
+        moved = [k for k in keys if float(A[k]) != float(B[k])]
+        changed = sum(1 for k in A if k in B and k[1] not in invariant
+                      and float(A[k]) != float(B[k]))
+        if not keys:
+            print(f"  SKIP  {label:15s} no invariant arms found in both files")
+            continue
+        if moved:
+            detail = ", ".join(f"{t}/{f}/{m} {A[(t,f,m)]}->{B[(t,f,m)]}" for t, f, m in moved[:3])
+            print(f"  FAIL  {label:15s} {len(moved)}/{len(keys)} invariant row(s) MOVED - {detail}")
+            print(f"        those arms {why}; the two files therefore differ by MORE than the "
+                  f"stated variable and any delta between them is uninterpretable")
+            bad += 1
+        else:
+            print(f"  OK    {label:15s} all {len(keys)} invariant row(s) identical; "
+                  f"{changed} variable row(s) moved - isolation holds")
+    if not bad:
+        print("  OK - every retained table pair differs by exactly the variable it claims to")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
                  check_estimand(), check_panelset(), check_geometry(),
                  check_comparator_scope(), check_bar_vs_ci(),
                  check_qm7_convention(), check_tox21_vintage(),
-                 check_replication_parity(), check_aggregate_freshness()])
+                 check_replication_parity(), check_aggregate_freshness(),
+                 check_invariant_arms()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

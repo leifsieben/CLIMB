@@ -2,7 +2,7 @@ method,machine,device,precision,config,n_molecules,s_per_1k,sd_s,mol_per_s,hours
 ECFP4 (stereo),Apple M4 Pro,cpu,,single core,1000,0.0937,0.0018,10677.7,0.026,26.0,1.0,published ECFP4,measured in this run
 ECFP4 (stereo),Apple M4 Pro,cpu,,12 processes,1000,0.0181,0.0018,55370.6,0.005,5.0,0.19,published ECFP4,measured in this run
 "ECFP4 (stereo), paired control",Apple M4 Pro,cpu,,single core (paired A/B),1000,0.0766,0.001,13048.0,0.021,21.3,1.0,paired control,measured in this run
-Morgan r3-counts,Apple M4 Pro,cpu,,single core,1000,0.0883,0.0003,11324.2,0.025,24.5,1.15,paired control,measured in this run
+R3FP,Apple M4 Pro,cpu,,single core,1000,0.0883,0.0003,11324.2,0.025,24.5,1.15,paired control,measured in this run
 RDKit descriptors,Apple M4 Pro,cpu,,single core,1000,4.7088,0.0612,212.4,1.308,1308.0,50.25,published ECFP4,measured in this run
 RDKit descriptors,Apple M4 Pro,cpu,,12 processes,1000,0.8181,0.1317,1222.3,0.227,227.3,8.73,published ECFP4,measured in this run
 ECFP4 + descriptors,Apple M4 Pro,cpu,,single core,1000,4.6529,0.0893,214.9,1.292,1292.5,49.66,published ECFP4,measured in this run
