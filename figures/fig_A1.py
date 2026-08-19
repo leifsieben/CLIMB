@@ -46,15 +46,15 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # Arms are registered in arms.py before their GPU results land. Plot only arms with essentially
 # COMPLETE coverage (>=60 of 66 datasets): a mean rank computed on a sliver of the suite is not
 # comparable to the 66/66 mainline arms (user decision 2026-08-17: A1 stays as approved -- the
-# mainline arms). Coverage as of 2026-08-18:
-#   66/66  random_encoder, chemeleon_frozen        65/66  every other mainline arm
-#   62/66  s2u_dense   -- ENTERED (was 31/66; its MolNet CV and Polaris landed 2026-08-17/18)
-#   31/66  chemeleon_e2e -- EXCLUDED. It has no CBS cell and no Polaris/Ames run, so half the
-#          suite is blank and its mean rank would be computed on a different, easier subset.
-# CONSEQUENCE, and it must stay in the caption: panel (a) of the assembled fig_A therefore shows
-# CheMeleon FROZEN while panel (b) shows CheMeleon E2E. Those are different models (QM7 264.5 vs
-# 199.5 kcal/mol), which is why fig_A2.short() names the probe in the legend rather than calling
-# both of them "CheMeleon".
+# mainline arms). Coverage as of 2026-08-18, after chemeleon_e2e's full 28-task Polaris run landed:
+#   66/66  every arm in ARM_ORDER, including chemeleon_e2e (was 31/66, then 39/66 once two loader
+#          bugs in allsuites were fixed, now complete) and s2u_dense (was 31/66).
+# The frozen-vs-e2e SPLIT IS GONE. Panel (a) previously showed CheMeleon FROZEN while panel (b)
+# showed CheMeleon E2E -- different models 65 kcal/mol apart on QM7 under one comparator name --
+# because only the frozen variant cleared the coverage floor. Both now qualify and both are drawn,
+# so fig_A2.short() naming the probe in the legend is now a convenience rather than a correction.
+# NOTE the headline consequence: chemeleon_e2e enters at mean rank 2.53, AHEAD of the ECFP+desc
+# anchor at 2.87. The classical anchor is no longer first overall.
 _S0, _ = wide_table(ARM_ORDER)
 ARMS_USED = [a for a in ARM_ORDER if _S0.loc[a].notna().sum() >= 60]
 N = len(ARMS_USED)

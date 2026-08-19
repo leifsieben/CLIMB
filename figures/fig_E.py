@@ -71,7 +71,7 @@ TASKS = ["MoleculeACE", "CBS", "BACE", "Ames", "Tox21", "QM7"]
 # sits outside that ladder in near-black.
 PANELS = [
     ("supervised", "a", "Supervised: permuted targets",
-     [("real",             "supervised, dense",                    SHADES["sup"][0]),
+     [("real",             "supervised, desc",                    SHADES["sup"][0]),
       ("targets_permuted", "corrupted targets",                    SHADES["sup"][2])]),
     ("unsupervised", "b", "Unsupervised: degraded corpus statistics",
      [("real",     "unsupervised",       SHADES["unsup"][0]),

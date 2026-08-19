@@ -45,7 +45,7 @@ OUT = FD / "SI_fig_a" / "SI_fig_a_e2e_need.csv"
 # key, mainline arm key, FROZEN run dir, e2e run dir, label-eff frozen arm, wave-3 e2e arm, label
 ENCODERS = [("unsup", "unsup", "unsup_8M", "unsup_8M_e2e", "unsup", "unsup_only", "unsupervised"),
             ("sup_dense", "sup_dense", "skip_dense_8M", "skip_dense_8M_e2e", "sup",
-             "sup_only:dense", "supervised, dense")]
+             "sup_only:dense", "supervised, desc")]
 AMES = ("tdcommons/ames", "roc_auc")
 HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0}
 MOL_METRIC = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}

@@ -91,7 +91,7 @@ def seeds(base: str) -> list[str]:
 
 # (arm key, display label, the three pretraining-run dirs)
 SUP_ARMS = [("real",             "supervised, dense",                    seeds("skip_dense_8M")),
-            ("targets_permuted", "supervised, dense, corrupted targets",  seeds("corrupt_mtr_8M"))]
+            ("targets_permuted", "supervised, desc, corrupted targets",  seeds("corrupt_mtr_8M"))]
 LADDER = [("real",     "unsupervised",                       seeds("unsup_8M")),
           ("shuffled", "shuffled tokens",                    seeds("corrupt_mlm_8M")),
           ("bigram",   "bigram-resampled corpus",            seeds("bigram_8M")),
@@ -152,6 +152,33 @@ def molnet_run_value(run: str, task: str) -> float:
     return np.nan
 
 
+# QM7 is stored in two conventions, z-scored (~0.85) and native kcal/mol (~200). Until 2026-08-18
+# they were distinguishable by DIRECTORY (moleculenet_cv/ vs moleculenet_cv_qm7native/), which is
+# what every subdir guard in this repo keys on. That stopped being true when corrupt_mtr_8M_s1/_s2
+# landed with NATIVE values written straight into moleculenet_cv/ while seed 0 holds z-scored
+# values in the same path: same directory, different units, so no name-based check can see it.
+# Pooling the three gave (0.96 + 212.8 + 216.8)/3 = 143.5 -- a number in neither convention.
+# Classify by CONTENT and keep only the values that match the floor's convention.
+QM7_ZSCORED_MAX = 10.0          # z-scored RMSE is ~0.85; native is ~200. Nothing lands between.
+
+
+def _qm7_is_native(v: float) -> bool:
+    return np.isfinite(v) and v > QM7_ZSCORED_MAX
+
+
+def qm7_consistent(vals: list[float], floor_val: float, label: str) -> list[float]:
+    """Keep the arm values whose UNIT matches the floor's; report anything dropped."""
+    want_native = _qm7_is_native(floor_val)
+    keep = [v for v in vals if np.isfinite(v) and _qm7_is_native(v) == want_native]
+    drop = [v for v in vals if np.isfinite(v) and _qm7_is_native(v) != want_native]
+    if drop:
+        conv = "native" if want_native else "z-scored"
+        print(f"  QM7 UNIT SKIP  {label}: floor is {conv}; dropped {len(drop)} seed(s) in the other "
+              f"convention ({', '.join(f'{v:.4g}' for v in drop)}). Same directory, different "
+              f"units -- a name-based subdir check cannot see this.")
+    return keep
+
+
 def agg(vals: list[float]) -> tuple[float, float, int]:
     v = [x for x in vals if np.isfinite(x)]
     if not v:
@@ -184,7 +211,14 @@ def main() -> None:
     floor_bench = {t: agg([bench_run_value(r, t) for r in FLOOR_RUNS])[0] for t in BENCH}
     floor_bench_n = {t: agg([bench_run_value(r, t) for r in FLOOR_RUNS])[2] for t in BENCH}
     # MolNet panels: per-wave floors
-    floor_sup = {t: agg([molnet_run_value(r, t) for r in FLOOR_RUNS])[0] for t in MOLNET}
+    def _floor_sup(t):
+        vals = [molnet_run_value(r, t) for r in FLOOR_RUNS]
+        if t == "QM7":
+            ref = next((v for v in vals if np.isfinite(v)), float("nan"))
+            vals = qm7_consistent(vals, ref, "floor/no_pretrain (frozen)")
+        return agg(vals)[0]
+
+    floor_sup = {t: _floor_sup(t) for t in MOLNET}
     floor_lad = {t: rigor_cell(lad, LADDER_MOLNET_FLOOR, t)[0] for t in MOLNET}
 
     rows = []
@@ -210,7 +244,10 @@ def main() -> None:
             # BACE / Tox21 / QM7: supervised reads phase-2 dirs, the ladder reads the expA/expB summaries
             for t in MOLNET:
                 if panel == "supervised":
-                    mean, sd, n = agg([molnet_run_value(r, t) for r in runs])
+                    vals = [molnet_run_value(r, t) for r in runs]
+                    if t == "QM7":
+                        vals = qm7_consistent(vals, floor_sup[t], f"{panel}/{label}")
+                    mean, sd, n = agg(vals)
                     emit(panel, key, label, mean, sd, n, t, floor_sup[t],
                          "random_baseline_0{0,1,2} [climb_v2_phase2]")
                 else:

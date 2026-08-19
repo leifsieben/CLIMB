@@ -89,11 +89,11 @@ ARMS = {
 
     # ---- supervised pretraining (red) -------------------------------------------------------
     "sup_dense": dict(
-        label="supervised, dense", short="sup, dense", family="sup", color=SHADES["sup"][0],
+        label="supervised, desc", short="sup, desc", family="sup", color=SHADES["sup"][0],
         probe="frozen", in_ablation=True,
         src=dict(mace="skip_dense_8M", mol=["skip_dense_8M", "skip_dense_8M_s1", "skip_dense_8M_s2"], cbs="sup_only:dense")),
     "sup_dense_sparse": dict(
-        label="supervised, dense+sparse", short="sup, dense+sparse", family="sup", color=SHADES["sup"][1],
+        label="supervised, desc+sparse", short="sup, desc+sparse", family="sup", color=SHADES["sup"][1],
         probe="frozen", in_ablation=True,
         src=dict(mace="skip_dense_plus_sparse_8M", mol=["skip_dense_plus_sparse_8M", "skip_dense_plus_sparse_8M_s1", "skip_dense_plus_sparse_8M_s2"],
                  cbs="sup_only:dense_plus_sparse")),
@@ -118,11 +118,11 @@ ARMS = {
 
     # ---- unsupervised -> supervised (green) -------------------------------------------------
     "u2s_dense": dict(
-        label="unsup→sup, dense", short="unsup→sup, dense", family="u2s", color=SHADES["u2s"][0],
+        label="unsup→sup, desc", short="unsup→sup, desc", family="u2s", color=SHADES["u2s"][0],
         probe="frozen", in_ablation=True,
         src=dict(mace="u2s_dense_from8M", mol=["u2s_dense_from8M", "u2s_dense_from8M_s1", "u2s_dense_from8M_s2"], cbs="unsup2sup:dense")),
     "u2s_dense_sparse": dict(
-        label="unsup→sup, dense+sparse", short="unsup→sup, dense+sparse", family="u2s",
+        label="unsup→sup, desc+sparse", short="unsup→sup, desc+sparse", family="u2s",
         color=SHADES["u2s"][1], probe="frozen", in_ablation=True,
         src=dict(mace="u2s_dense_plus_sparse_from8M", mol=["u2s_dense_plus_sparse_from8M", "u2s_dense_plus_sparse_from8M_s1", "u2s_dense_plus_sparse_from8M_s2"],
                  cbs="unsup2sup:dense_plus_sparse")),
@@ -148,7 +148,7 @@ ARMS = {
     # decision 2026-08-16) -- deliberately away from both the blue (unsupervised) and green
     # (unsup->supervised) families so the two mirror recipes never read as the same thing.
     "s2u_dense": dict(
-        label="sup→unsup, dense", short="sup→unsup, dense", family="s2u", color="#5B4E8C",
+        label="sup→unsup, desc", short="sup→unsup, desc", family="s2u", color="#5B4E8C",
         probe="frozen", in_ablation=True,
         src=dict(mace=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
                  mol=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
@@ -292,7 +292,7 @@ def label(arm_key: str) -> str:
 
 
 def two_line_label(arm_key: str) -> str:
-    """'XGBoost\nECFP+desc' / 'CLIMB\nsupervised, dense' / 'CheMeleon\nend2end'."""
+    """'XGBoost\nECFP+desc' / 'CLIMB\nsupervised, desc' / 'CheMeleon\nend2end'."""
     return f"{system(arm_key)}\n{label(arm_key)}"
 
 

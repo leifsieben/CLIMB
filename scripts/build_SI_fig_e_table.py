@@ -55,9 +55,10 @@ SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
 OUT = ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
-PANEL_TASK = {"MoleculeACE": None, "CBS": "HIV", "BACE": "BACE",
+PANEL_TASK = {"MoleculeACE": "MoleculeACE", "CBS": "HIV", "BACE": "BACE",
               "Ames": None, "Tox21": "Tox21", "QM7": "QM7"}
-PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1"}
+PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1",
+           "MoleculeACE": "macro_rmse"}
 # panel -> the task actually drawn there, when it is not the panel's own task. The figure prints
 # this so a reader can never mistake the HIV curve for a CBS curve; the caption explains why.
 SUBSTITUTED = {"CBS": "HIV"}
@@ -65,11 +66,68 @@ SUBSTITUTED = {"CBS": "HIV"}
 ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup")]
 
 
+# ---------------------------------------------------------------------------------------------
+# MoleculeACE's sweep is NOT in the label-efficiency CSV -- it was run later, per-target, and lands
+# as figure_data/chemeleon_suite/moleculeace/le_mace_<arm>_f<frac>/results.csv. Same protocol as the
+# MolNet panels (train indices subsampled per task, test untouched, 3 eval seeds), so a point here
+# means what a point there means.
+MACE_DIR = ROOT / "figure_data" / "chemeleon_suite" / "moleculeace"
+MACE_DATA = ROOT / "chemeleon_suite" / "data" / "moleculeace"
+MACE_ARMS = {"unsup": "unsup", "sup_dense": "sup", "e2e": "e2e"}   # dir token -> source-arm name
+
+
+def mace_train_total() -> int:
+    """Exact labelled TRAINING molecules across the 30 targets, from the benchmark's own splits.
+
+    The x-axis is 'labelled training molecules', so it must be the real count, not fraction x an
+    assumed split ratio. Summing `split == "train"` over the 30 target CSVs gives 38,912.
+    """
+    import csv as _csv
+    tot = 0
+    for f in sorted(MACE_DATA.glob("*.csv")):
+        with open(f) as fh:
+            tot += sum(1 for r in _csv.DictReader(fh) if r.get("split") == "train")
+    return tot
+
+
+def mace_rows(panel: str):
+    """[(arm_key, pct, n_train, macro_rmse, sd, n_cells)] -- macro-mean RMSE over the 30 targets,
+    matching the MoleculeACE panel's metric everywhere else in the paper."""
+    total = mace_train_total()
+    out = []
+    for dir_tok, src_arm in MACE_ARMS.items():
+        arm_key = dict(unsup="unsup", sup_dense="sup_dense", e2e="e2e_no_pretrain")[dir_tok]
+        for d in sorted(MACE_DIR.glob(f"le_mace_{dir_tok}_f*")):
+            frac = float(d.name.rsplit("_f", 1)[1])
+            f = d / "results.csv"
+            if not f.exists():
+                continue
+            t = pd.read_csv(f)
+            t = t[(t.metric == "rmse") & (t.subset == "overall")]
+            if t.empty:
+                continue
+            # macro-mean over targets FIRST, then across eval seeds -- the same order as
+            # scripts/six_panel_aggregate.mace_seed_macros, so this is the same estimand
+            per_seed = t.groupby("seed").value.mean()
+            out.append((arm_key, int(round(frac * 100)), int(round(frac * total)),
+                        float(per_seed.mean()),
+                        float(per_seed.std(ddof=1)) if len(per_seed) > 1 else float("nan"),
+                        int(len(per_seed))))
+    return out
+
+
 def main() -> None:
     d = pd.read_csv(SRC)
     rows = []
     for panel, task in PANEL_TASK.items():
         if task is None:
+            continue
+        if panel == "MoleculeACE":
+            for arm_key, pct, n_train, v, sd, n in mace_rows(panel):
+                rows.append(dict(panel=panel, task="MoleculeACE", metric="macro_rmse",
+                                 higher_better=0, arm=arm_key, substituted_for="",
+                                 pct=pct, n_train=n_train, value=round(v, 6),
+                                 sd=round(sd, 6) if sd == sd else "", n_cells=n))
             continue
         m = PRIMARY[task]
         for src_arm, arm_key in ARMS:

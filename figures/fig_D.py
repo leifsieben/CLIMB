@@ -15,17 +15,17 @@ random-encoder floors agree -- checked at runtime, printed, never assumed.
   (a) Which SFT label type helps? Mean lift per arm (horizontal bars; right = helps, left =
       hurts), with the 2M MLM base itself and the ECFP (XGBoost) anchor for context.
   (b) Transfer matrix: SFT label family (rows) x eval task (columns), cell = lift% over the
-      floor. Sparse families (PCBA, L1000 bioassay screens; PCQM quantum) vs the dense descriptor
+      floor. Sparse families (PCBA, L1000 bioassay screens; PCQM quantum) vs the desc(riptor)
       family (MTR: predicting ~200 RDKit descriptors from SMILES) and their union.
   (c) The task-similarity mapping, rethought (user request 2026-08-17): not only "sparse helps
-      sparse" but also "does DENSE descriptor pretraining map onto descriptor-LIKE tasks?".
-      Only the two canonical representatives are drawn -- dense (MTR) and sparse all; the full
+      sparse" but also "does DESCRIPTOR pretraining map onto descriptor-LIKE tasks?".
+      Only the two canonical representatives are drawn -- desc (MTR) and sparse all; the full
       6-family version was unreadable (user decision 2026-08-17). The other families stay in
       (a) and (b). Eval tasks are grouped a priori: property regression = ESOL, QM7 (labels are
       descriptor-predictable physchem/quantum quantities -- the regime where the ECFP+desc anchor
       is strongest) vs bioassay classification = BACE, BBBP, HIV, Tox21 (context-dependent
       screens). One line per family connects its mean lift in the two groups; small markers
-      are the per-task values so the group means hide nothing. A clear mapping = the dense line
+      are the per-task values so the group means hide nothing. A clear mapping = the desc line
       falls left-to-right (helps descriptor-like tasks relatively more), the sparse line rises.
 
 All three panels share the family colours, so bars, matrix rows and slope lines line up.
@@ -93,10 +93,10 @@ PHASE2 = ROOT / "figure_data" / "climb_v2_phase2"
 # SFT families (rows of the matrix / bars), display order
 FAMILIES = ["seq_mtr", "seq_dense_plus_sparse", "seq_pcba", "seq_l1000", "seq_pcqm",
             "seq_sparse_all"]
-FAM_LABEL = {"seq_mtr": "dense", "seq_dense_plus_sparse": "dense+sparse",
+FAM_LABEL = {"seq_mtr": "desc", "seq_dense_plus_sparse": "desc+sparse",
              "seq_pcba": "PCBA", "seq_l1000": "L1000", "seq_pcqm": "PCQM",
              "seq_sparse_all": "sparse all"}
-FAM_SHORT = {"seq_mtr": "dense (MTR)", "seq_dense_plus_sparse": "dense+sparse",
+FAM_SHORT = {"seq_mtr": "desc (MTR)", "seq_dense_plus_sparse": "desc+sparse",
              "seq_pcba": "PCBA", "seq_l1000": "L1000", "seq_pcqm": "PCQM",
              "seq_sparse_all": "sparse all"}
 # all arms here are unsup->sup from the shared 2M MLM base -> the u2s shade ladder, dark = dense

@@ -37,8 +37,15 @@ warnings.filterwarnings("ignore")
 FD = ROOT / "figure_data"
 OUT = FD / "_repr"
 TOKENIZER = ROOT / "paper_artifacts" / "derived" / "tokenizer"
-# arm key -> the phase-2 run dir holding its frozen encoder
-ARMS = {"unsup": "unsup_8M", "sup_dense": "skip_dense_8M"}
+# arm key -> the phase-2 run dirs holding its frozen encoder, ONE PER PRETRAINING SEED.
+# Every conclusion here is about an objective, not a checkpoint, so each arm must be replicated
+# across the same 3 pretraining seeds the rest of the paper uses.
+ARMS = {"unsup": ["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"],
+        "sup_desc": ["skip_dense_8M", "skip_dense_8M_s1", "skip_dense_8M_s2"]}
+# ECFP4 is not an encoder -- it is the classical baseline the paper anchors on (fig_A1 #2 overall).
+# Included so "how descriptor-like is this representation?" has a reference point that is, by
+# construction, pure structure and no learned property knowledge.
+ECFP_BITS, ECFP_RADIUS = 2048, 2
 PRED_RUN = "random_baseline_00"          # any run: we only need its raw_smiles / y_true columns
 
 
@@ -73,6 +80,20 @@ def embed(smiles, run_dir: Path, batch=128):
             print(f"    {min(i + batch, len(smiles))}/{len(smiles)}", end="\r", flush=True)
     print()
     return np.vstack(out).astype(np.float32)
+
+
+def ecfp(smiles):
+    """ECFP4 bit matrix [N, 2048] -- the classical structural baseline."""
+    from rdkit import Chem, RDLogger
+    from rdkit.Chem import rdFingerprintGenerator
+    RDLogger.DisableLog("rdApp.*")
+    gen = rdFingerprintGenerator.GetMorganGenerator(radius=ECFP_RADIUS, fpSize=ECFP_BITS)
+    out = np.zeros((len(smiles), ECFP_BITS), dtype=np.float32)
+    for i, smi in enumerate(smiles):
+        mol = Chem.MolFromSmiles(smi)
+        if mol is not None:
+            out[i] = np.asarray(gen.GetFingerprintAsNumPy(mol), dtype=np.float32)
+    return out
 
 
 def descriptors_2d(smiles):
@@ -123,9 +144,16 @@ def main():
     print(f"{a.dataset}: {len(smiles)} unique molecules")
 
     Z = {}
-    for arm, run in ARMS.items():
-        print(f"  embedding {arm} ({run})")
-        Z[arm] = embed(smiles, FD / "climb_v2_phase2" / run)
+    for arm, runs in ARMS.items():
+        for k, run in enumerate(runs):
+            d = FD / "climb_v2_phase2" / run
+            if not (d / "encoder" / "model.safetensors").exists():
+                print(f"  SKIP {arm} seed{k}: no encoder at {run}")
+                continue
+            print(f"  embedding {arm} seed{k} ({run})")
+            Z[f"{arm}_s{k}"] = embed(smiles, d)
+    print("  ECFP4 (classical structural baseline, no encoder)")
+    Z["ecfp_s0"] = ecfp(smiles)
 
     print("  RDKit 2D descriptors (the 217 trained targets)")
     D, dnames = descriptors_2d(smiles)
