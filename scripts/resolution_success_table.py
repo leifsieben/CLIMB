@@ -1,5 +1,21 @@
 """Turn pairwise distances into a SUCCESS RATE per (embedding, failure mode).
 
+RESOLVED IS BINARY: the two embedding vectors are DIFFERENT, or they are not.
+
+That is the whole definition. No chosen threshold, because there is nothing to choose -- the only
+guard is float32 epsilon (cosine > 1e-6), and it is there for arithmetic, not for chemistry.
+scripts/resolution_noise_floor.py measures the need for it: re-embedding the same molecules in a
+different batch order reproduces every representation BIT-FOR-BIT (128/128), and the largest
+cosine seen across that probe is 1.8e-07, i.e. float32 rounding in the cosine itself. So 1e-6 sits
+two orders above measured noise and far below any real difference.
+
+An earlier version scored success against a normalised-distance threshold of 0.01. It was
+answering a different and worse question -- "is the difference BIG" rather than "is the difference
+THERE" -- and it made four of thirteen modes knife-edge: CLIMB unsup scored 94% on stereo_flip at
+eps=0.001 and 4% at eps=0.01, so the headline number was a property of the threshold. The magnitude
+question is still worth asking, so median_separation is still reported beside the binary answer;
+it is just no longer what decides success.
+
 Success needs a threshold, because for a continuous embedding "not bit-identical" is satisfied by
 floating-point noise -- CheMeleon reads as 0% identical on Class B purely from summation order,
 while its actual separation is exactly zero. So success is defined on the SCALE-FREE separation
@@ -20,8 +36,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "figure_data/embedding_resolution"
-EPS_LIST = [0.001, 0.01, 0.05]
-EPS_MAIN = 0.01
+FLOAT_EPS = 1e-6          # float32 rounding guard; measured noise floor is 1.8e-07
+EPS_LIST = [0.001, 0.01, 0.05]     # magnitude thresholds, reported but NOT used for success
 
 
 def main() -> int:
@@ -42,13 +58,16 @@ def main() -> int:
             if not rs:
                 continue
             sep = np.array([float(r["separation"]) for r in rs])
+            cosd = np.array([float(r["cosine"]) for r in rs])
+            different = cosd > FLOAT_EPS
             rec = dict(klass=klass, mode=mode, embedding=emb, n=len(rs),
                        median_separation=float(np.median(sep)),
-                       identical=int(sum(1 for r in rs if r["identical"] == "True")))
+                       median_cosine=float(np.median(cosd)),
+                       identical=int(sum(1 for r in rs if r["identical"] == "True")),
+                       success=round(100.0 * (different if klass == "A" else ~different).mean(), 1))
             for e in EPS_LIST:
                 ok = (sep >= e) if klass == "A" else (sep <= e)
-                rec[f"success_eps{e}"] = round(100.0 * ok.mean(), 1)
-            rec["success"] = rec[f"success_eps{EPS_MAIN}"]
+                rec[f"magnitude_eps{e}"] = round(100.0 * ok.mean(), 1)
             out.append(rec)
 
     fields = list(out[0].keys())
@@ -58,7 +77,7 @@ def main() -> int:
 
     show = [e for e in order_emb if e != "ECFP4 stereo-blind"]
     hdr = f"{'mode':26}" + "".join(f"{e[:12]:>14}" for e in show)
-    print(f"SUCCESS RATE %  (eps={EPS_MAIN}; A: resolved, B: correctly NOT resolved)\n")
+    print("SUCCESS RATE %  --  A: vectors DIFFER;  B: vectors are the SAME\n")
     print(hdr); print("-" * len(hdr))
     for (klass, mode) in order_mode:
         line = f"{('A ' if klass=='A' else 'B ')+mode:26}"

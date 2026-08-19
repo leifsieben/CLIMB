@@ -1,0 +1,37 @@
+{
+ "ECFP4+stereo": {
+  "max_cosine": 1.7881393432617188e-07,
+  "median": 0.0,
+  "bit_identical": "128/128"
+ },
+ "ECFP4+desc": {
+  "max_cosine": 1.1920928955078125e-07,
+  "median": 0.0,
+  "bit_identical": "0/128"
+ },
+ "CLIMB sup": {
+  "max_cosine": 1.7881393432617188e-07,
+  "median": 0.0,
+  "bit_identical": "128/128"
+ },
+ "CLIMB unsup": {
+  "max_cosine": 1.7881393432617188e-07,
+  "median": 0.0,
+  "bit_identical": "128/128"
+ },
+ "CheMeleon": {
+  "max_cosine": 1.7881393432617188e-07,
+  "median": 0.0,
+  "bit_identical": "128/128"
+ },
+ "random encoder": {
+  "max_cosine": 1.7881393432617188e-07,
+  "median": 0.0,
+  "bit_identical": "128/128"
+ },
+ "ECFP4 stereo-blind": {
+  "max_cosine": 1.7881393432617188e-07,
+  "median": 0.0,
+  "bit_identical": "128/128"
+ }
+}
