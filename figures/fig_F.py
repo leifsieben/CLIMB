@@ -100,14 +100,29 @@ def compute():
     return pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
 
 
-def draw_panel(ax, d, p, compact=False):
-    """Draw ONE canonical panel onto an existing axes. `compact` narrows the bars and drops the
-    y-label, for the assembled fig_EF where six panels share the right-hand half of the canvas."""
+def draw_panel(ax, d, p, compact=False, tag=None, fig=None):
+    """Draw ONE canonical panel onto an existing axes.
+
+    `compact` narrows the bars and drops the y-label, for the assembled fig_EF where six panels
+    share half the canvas. `tag` puts the panel letter ON THE TITLE BASELINE, immediately left of
+    the title, matching fig_E's tag/title pair -- so every panel letter in the assembled figure is
+    positioned the same way instead of F's floating above its centred title.
+    """
     meta = PANELS[p]
     task = PANEL_TASK[p]
     arrow = "↑" if meta["higher_better"] else "↓"
-    ax.set_title(f"{meta['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
-                 color=INK, pad=3)
+    if tag is None:
+        ax.set_title(f"{meta['label']} {arrow}", fontsize=FS["title"], fontweight="bold",
+                     color=INK, pad=3)
+    else:
+        from matplotlib.transforms import ScaledTranslation
+        ax.text(0.0, 1.04, tag, transform=ax.transAxes, fontsize=FS["panel_tag"],
+                fontweight="bold", va="bottom", ha="left", color=INK)
+        # short label in the assembled figure: "Ames Mutagenicity" runs into the next panel's tag
+        short = {"Ames": "Ames"}.get(p, meta["label"])
+        ax.text(0.0, 1.04, f"{short} {arrow}", fontsize=FS["title"], fontweight="bold",
+                va="bottom", ha="left", color=INK,
+                transform=ax.transAxes + ScaledTranslation(11 / 72, 0, fig.dpi_scale_trans))
     if not compact:
         ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"], color=INK)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
@@ -126,13 +141,18 @@ def draw_panel(ax, d, p, compact=False):
     es = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
     es = [0.0 if not np.isfinite(e) else e for e in es]
     cs = [c for _, _, c in FEATURES]
-    ax.bar(x, ys, width=0.58 if compact else 0.72, color=cs, edgecolor=INK, linewidth=0.7,
+    ax.bar(x, ys, width=0.42 if compact else 0.72, color=cs, edgecolor=INK, linewidth=0.7,
            yerr=es, error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9, ecolor=INK, zorder=6),
            zorder=3)
     ax.axhline(ys[0], color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
     ax.set_xticks(x)
-    ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"],
-                       fontsize=FS["annot"] - (1 if compact else 0))
+    if compact:
+        # four categories in a ~1in panel: two-line labels overlapped ("ECFPCLIMB-desc"), so they
+        # are single-line and rotated instead of shrunk to illegibility.
+        ax.set_xticklabels(["ECFP+d", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"] - 1,
+                           rotation=40, ha="right", rotation_mode="anchor")
+    else:
+        ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"])
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
     if compact:

@@ -53,9 +53,11 @@ def main():
     fig = plt.figure(figsize=(STYLE["col2"], 5.3))
     # left column carries two tall panels with six x-labels each, so it needs more width per panel
     # than the right block; 1.35 : 1 : 1 : 1 keeps "MoleculeACE" legible on the E axes.
-    gs = GridSpec(2, 4, figure=fig, width_ratios=[1.5, 1.0, 1.0, 1.0],
-                  wspace=0.46, hspace=0.58,
-                  left=0.085, right=0.995, top=0.930, bottom=0.125)
+    # 50:50 (user 2026-08-19) -- the E column equals the three F columns combined, so the two
+    # halves of the figure carry equal visual weight. F's bars narrow to 0.42 to suit.
+    gs = GridSpec(2, 4, figure=fig, width_ratios=[3.0, 1.0, 1.0, 1.0],
+                  wspace=0.50, hspace=0.58,
+                  left=0.075, right=0.995, top=0.930, bottom=0.125)
 
     # extra top padding buys room for the in-axes legends, which have 2 and 5 entries
     ylims = {panel: E._lim(dE[dE.panel == panel], pad_hi=hi)
@@ -69,9 +71,7 @@ def main():
     tags = "cdefgh"
     for k, p in enumerate(PANEL_ORDER):
         ax = fig.add_subplot(gs[k // 3, 1 + k % 3])
-        F.draw_panel(ax, dF, p, compact=True)
-        ax.text(-0.02, 1.14, tags[k], transform=ax.transAxes, fontsize=FS["panel_tag"],
-                fontweight="bold", va="bottom", ha="right", color=STYLE["ink"])
+        F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig)
 
     fig.legend(handles=F.legend_handles(), loc="lower center", bbox_to_anchor=(0.5, 0.002),
                ncol=4, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.1,
