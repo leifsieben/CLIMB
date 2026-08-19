@@ -59,39 +59,76 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from figures.style import STYLE, FS, save, check_font
-from figures.SI_fig_f import compute, _panel, report, _legend_handles, MODES, SERIES, NCOL
+from figures.SI_fig_f import compute, _panel, report, _legend_handles, MODES, SERIES
 
 check_font()
 INK = "#000000"
+
+NCOL_A = 5          # the ten class-A modes, 2 rows x 5
+NCOL = NCOL_A + 1   # plus a sixth column carrying the two class-B controls
+
+# The two class-B panels shown here as CONTROLS (user 2026-08-19). They answer the opposite
+# question -- same molecule written two ways, so a HIGH bar is a failure, not a response -- which
+# is why they sit in their own column with the tinted background _panel() already gives class B,
+# under their own header, rather than being mixed into the class-A grid. The full class-B block
+# with the third mode (symmetry-equivalent positions) remains SI fig f.
+CONTROLS = ["smiles_enumeration", "kekule"]
 
 
 def main():
     R = compute()
     A = [m for m in MODES if m[0] == "A"]
     assert len(A) == 10, f"fig_G expects the ten class-A modes, found {len(A)}"
+    B = [m for m in MODES if m[0] == "B" and m[1] in CONTROLS]
+    B.sort(key=lambda m: CONTROLS.index(m[1]))
+    assert len(B) == 2, f"fig_G expects the two class-B controls, found {[m[1] for m in B]}"
 
     fig = plt.figure(figsize=(STYLE["col2"], 3.85))
-    gs = fig.add_gridspec(2, NCOL, left=0.075, right=0.995, top=0.875, bottom=0.235,
-                          wspace=0.34, hspace=0.72)
+    gs = fig.add_gridspec(2, NCOL, left=0.068, right=0.952, top=0.875, bottom=0.235,
+                          wspace=0.38, hspace=0.72)
     tags = "abcdefghij"
     for i, (kl, mode, title) in enumerate(A):
-        ax = fig.add_subplot(gs[i // NCOL, i % NCOL])
+        ax = fig.add_subplot(gs[i // NCOL_A, i % NCOL_A])
         rates = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
                  for lab, _, _ in SERIES]
         assert np.isfinite(rates).any(), f"fig_G: no data for {mode}"
         _panel(ax, rates, title, kl)
         ax.text(0.0, 1.30, tags[i], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
-        if i % NCOL == 0:
+        if i % NCOL_A == 0:
             ax.set_ylabel("response relative to a\ndifferent molecule", fontsize=FS["annot"])
 
-    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.535, 0.155),
+    # the control column
+    for j, (kl, mode, title) in enumerate(B):
+        ax = fig.add_subplot(gs[j, NCOL_A])
+        vals = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
+                for lab, _, _ in SERIES]
+        assert np.isfinite(vals).any(), f"fig_G: no data for control {mode}"
+        _panel(ax, vals, title, kl)
+        ax.text(0.0, 1.30, "kl"[j], transform=ax.transAxes, fontsize=FS["panel_tag"],
+                fontweight="bold", va="bottom", ha="left", color=INK)
+
+    # The control column must state the INVERSION -- in (k) and (l) a high bar is a FAILURE.
+    # Without it a reader carries the class-A reading across and gets both panels exactly
+    # backwards, the single most likely misreading of this figure.
+    #
+    # It is a ROTATED SIDE LABEL rather than a header because a header sits exactly where panel
+    # (k)'s two-line title already is, and because SI fig f labels its class-B block the same way
+    # on the left -- so the two figures teach the reader one idiom instead of two.
+    top = gs[0, NCOL_A].get_position(fig)
+    bot = gs[1, NCOL_A].get_position(fig)
+    fig.text(top.x1 + 0.030, (top.y1 + bot.y0) / 2,
+             "CONTROL: same molecule, two spellings\nLOW is correct",
+             rotation=270, ha="center", va="center", fontsize=FS["annot"] - 1,
+             fontweight="bold", color=INK, linespacing=1.3)
+
+    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.500, 0.155),
                ncol=3, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.4,
                labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)
 
-    report(R, A, "Fig G (class A, canonical input) — genuinely different molecules")
+    report(R, A + B, "Fig G — class A (canonical) plus the two class-B controls (as written)")
 
 
 if __name__ == "__main__":

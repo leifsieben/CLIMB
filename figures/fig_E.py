@@ -160,7 +160,10 @@ def main():
     axes[1].set_ylabel("Lift over no pretrain, frozen")
 
     fig.subplots_adjust(top=0.905, bottom=0.155, left=0.078, right=0.995)
-    save(fig, "fig_E")
+    # COMPONENT of fig_E+F, so it belongs in panels/ with fig_C1/C2/D and fig_A1/A2 --
+    # figures_v2/ proper should hold only what goes in the paper. It is still rendered
+    # standalone for review.
+    save(fig, "fig_E", subdir="panels")
     plt.close(fig)
 
     for panel, _, subtitle, series in PANELS:

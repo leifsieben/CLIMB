@@ -121,9 +121,17 @@ def main():
                             big_corpus=int(rung in BIG_CORPUS))
 
             # --- MoleculeACE ---------------------------------------------------------
-            pt = mace_per_target(rung)
+            # ONE pretraining dir per rung, passed as an explicit [rung] so mace_seed_dirs does
+            # NOT expand to _s1/_s2. The ladder is deliberately single-seed -- replicating every
+            # rung is too expensive (user, 2026-08-19) -- but only the 8M rung HAS _s1/_s2 on
+            # disk, so the default expansion silently made that one point a mean over 3
+            # pretraining runs while its neighbours were means over 1. On a scaling curve that is
+            # not extra rigour, it is one point estimated differently from the rest: better
+            # averaged and with a spuriously different sd, at exactly the rung the mainline
+            # figures also report. Consistency ACROSS RUNGS is what a ladder needs.
+            pt = mace_per_target([rung])
             if pt and pt.get("overall"):
-                macros = mace_seed_macros(rung)
+                macros = mace_seed_macros([rung])
                 rows.append(dict(**base_row, panel="MoleculeACE", metric="macro_rmse",
                                  value=round(st.mean(pt["overall"].values()), 4),
                                  sd_total=round(st.stdev(macros) if len(macros) > 1 else 0.0, 4),
@@ -137,7 +145,7 @@ def main():
                 rows.append(dict(**base_row, panel="CBS", metric="nef1",
                                  value=round(value, 4), sd_total=round(sd_total, 4), n_cells=n_cells))
             # --- hERG ----------------------------------------------------------------
-            cells = polaris_cells(rung, *POLARIS_PANELS["Ames"])
+            cells = polaris_cells([rung], *POLARIS_PANELS["Ames"])   # single dir, see above
             if cells:
                 vals = [v for _, v in cells]
                 rows.append(dict(**base_row, panel="Ames", metric="roc_auc",

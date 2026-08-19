@@ -309,7 +309,10 @@ def main():
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
                borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))
-    save(fig, "fig_F")
+    # COMPONENT of fig_E+F, so it belongs in panels/ with fig_C1/C2/D and fig_A1/A2 --
+    # figures_v2/ proper should hold only what goes in the paper. It is still rendered
+    # standalone for review.
+    save(fig, "fig_F", subdir="panels")
     plt.close(fig)
 
     print("\nFig F — does concatenating CLIMB onto the classical features help?")
