@@ -356,6 +356,13 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     # MoleculeACE line begins; and unframed on a line plot the legend's own markers read as data.
     ax1.legend(loc="lower right", fontsize=FS["legend"], frameon=False,
                handletextpad=0.4, labelspacing=0.25, borderaxespad=0.4)
+    # "ECFP4" here is NOT the anchor's fingerprint and must not be "fixed" to match it.
+    # The MODEL featurizer became Morgan r=3 counts with chirality on 2026-08-19; this
+    # SIMILARITY axis deliberately stays stereo-blind binary r=2 (scripts/
+    # compute_tanimoto_novelty.py), because a stereo-blind match is the LOOSER definition
+    # of "the model already read this molecule" and therefore over-counts memorization --
+    # the conservative direction for a null result. Two questions, two answers (user
+    # 2026-08-19: "the tanimoto I'm ok with. but otherwise let's definitely use the stereo").
     ax1.set_xlabel("max Tanimoto to corpus (bin mean)" if compact else
                    "max ECFP4 Tanimoto to corpus (bin mean)")
     ax1.set_ylabel(LIFT_YLABEL)

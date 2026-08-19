@@ -7,9 +7,9 @@ not asserted. `scripts/bench_featurization.py` times the three featurizers we ac
 SAME 1000 MoleculeNet molecules with the SAME settings production uses, 5 repeats after a warm-up
 (RDKit lazy imports, torch kernel autotune / MPS shader compile).
 
-  ECFP4                Morgan r=2, 2048 bits            (featurize_v2.ecfp4_features)
+  Morgan counts        r=3, counts, chirality, 2048-d    (featurize_v2.ecfp4_features)
   RDKit descriptors    217 descriptors                  (descriptors_v2.rdkit_descriptors)
-  ECFP4 + descriptors  the ECFP+desc anchor's features
+  Morgan + descriptors the Morgan+desc anchor's features
   CLIMB encoder        ModernBERT ~41M, tokenize + forward + mean pool (eval_v2._encoder_features)
 
 THE RESULT: the transformer is not the expensive part — RDKit descriptors are. On one CPU core the
@@ -42,8 +42,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "figure_data" / "_bench" / "featurization_timing.json"
 OUTDIR = ROOT / "figures_v2"
 
-METHOD_LABEL = {"ecfp4": "ECFP4", "rdkit_desc": "RDKit descriptors",
-                "fp_desc": "ECFP4 + descriptors", "encoder": "CLIMB encoder"}
+METHOD_LABEL = {"ecfp4": "Morgan counts", "rdkit_desc": "RDKit descriptors",
+                "fp_desc": "Morgan counts + descriptors", "encoder": "CLIMB encoder"}
 # the rows worth printing in the paper; the rest stay in the JSON
 KEEP = [("ecfp4", "cpu", "single core"), ("ecfp4", "cpu", "12 processes"),
         ("rdkit_desc", "cpu", "single core"), ("rdkit_desc", "cpu", "12 processes"),
@@ -80,13 +80,13 @@ def main():
                    hours_per_1M=round(float(r["hours_1M"]), 3),
                    hours_per_1B=round(float(r["hours_1B"]), 1))
         if base is None:
-            base = row["s_per_1k"]                      # ECFP4, single core = the reference cost
+            base = row["s_per_1k"]                      # Morgan counts, single core = the reference
         row["vs_ECFP4_1core"] = round(row["s_per_1k"] / base, 2)
         rows.append(row)
 
     OUTDIR.mkdir(exist_ok=True)
     cols = ["method", "machine", "device", "precision", "config", "n_molecules", "s_per_1k",
-            "sd_s", "mol_per_s", "hours_per_1M", "hours_per_1B", "vs_ECFP4_1core"]
+            "sd_s", "mol_per_s", "hours_per_1M", "hours_per_1B", "vs_morgan_1core"]
     with open(OUTDIR / "SI_fig_c.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()

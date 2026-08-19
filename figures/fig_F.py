@@ -87,10 +87,10 @@ ALL_TASKS = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "ESOL": "rmse", "QM7": 
              "HIV": "roc_auc"}
 # classical anchor keeps the anchor amber; anything containing CLIMB moves into the unsup blues,
 # darkening as more classical information is added back
-FEATURES = [("fp+desc", "ECFP4 + descriptors (classical anchor)", SHADES["anchor"][0]),
+FEATURES = [("fp+desc", "Morgan counts + descriptors (classical anchor)", SHADES["anchor"][0]),
             ("CLM", "CLIMB alone", SHADES["unsup"][2]),
             ("desc+CLM", "CLIMB + descriptors", SHADES["unsup"][1]),
-            ("fp+desc+CLM", "CLIMB + descriptors + ECFP4", SHADES["unsup"][0])]
+            ("fp+desc+CLM", "CLIMB + descriptors + Morgan", SHADES["unsup"][0])]
 BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
 
@@ -181,15 +181,15 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
     if compact:
         # single-line short labels. ROTATION IS A FUNCTION OF PANEL WIDTH, not of `compact`: at the
         # old ~1.1in the four labels had to lean 40 deg to avoid overlapping, but in the stacked
-        # fig_E+F each panel is ~1.8in wide and gets ~0.45in per tick, which fits "ECFP+d"
+        # fig_E+F each panel is ~1.8in wide and gets ~0.45in per tick, which fits "Morgan+d"
         # horizontally at 6pt. Horizontal labels are the readable option whenever they fit, so the
         # caller passes xrot=0 there and the default stays 40 for anything narrower.
         rot = 40 if xrot is None else xrot
-        ax.set_xticklabels(["ECFP+d", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"] - 1,
+        ax.set_xticklabels(["Morgan+d", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"] - 1,
                            rotation=rot,
                            **(dict(ha="right", rotation_mode="anchor") if rot else dict(ha="center")))
     else:
-        ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"])
+        ax.set_xticklabels(["Morgan\n+desc", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"])
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
     if compact:
@@ -214,13 +214,13 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
 # the whole key becomes a tall narrow block (user 2026-08-19).
 WRAPPED = {"CLIMB alone": "CLIMB\nalone",
            "CLIMB + descriptors": "CLIMB\n+ descriptors",
-           "CLIMB + descriptors + ECFP4": "CLIMB\n+ descriptors\n+ ECFP4"}
+           "CLIMB + descriptors + Morgan": "CLIMB\n+ descriptors\n+ Morgan"}
 
 
 def legend_handles(skip_anchor=False, wrap=False):
-    """`skip_anchor` drops the ECFP+desc entry so the remaining three fit on ONE row (user
+    """`skip_anchor` drops the Morgan+desc entry so the remaining three fit on ONE row (user
     2026-08-19). The anchor stays identifiable without it: its bar is the first in every panel,
-    tick-labelled "ECFP+d", and it is the dotted reference line.
+    tick-labelled "Morgan+d", and it is the dotted reference line.
 
     `wrap` breaks the two long labels across lines for a single-column (vertical) legend."""
     feats = [f for f in FEATURES if not (skip_anchor and f[0] == "fp+desc")]

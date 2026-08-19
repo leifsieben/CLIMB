@@ -213,6 +213,13 @@ def draw(ax, data, tag=None, compact=False):
     ax.plot(xs, a + b * xs, color=SHADES["random"][0], lw=STYLE["lw_thin"], ls=(0, (4, 2)),
             zorder=2)
     ax.axhline(0, color=SHADES["e2e"][0], lw=STYLE["lw_thin"], zorder=1)
+    # "ECFP4" here is NOT the anchor's fingerprint and must not be "fixed" to match it.
+    # The MODEL featurizer became Morgan r=3 counts with chirality on 2026-08-19; this
+    # SIMILARITY axis deliberately stays stereo-blind binary r=2 (scripts/
+    # compute_tanimoto_novelty.py), because a stereo-blind match is the LOOSER definition
+    # of "the model already read this molecule" and therefore over-counts memorization --
+    # the conservative direction for a null result. Two questions, two answers (user
+    # 2026-08-19: "the tanimoto I'm ok with. but otherwise let's definitely use the stereo").
     ax.set_xlabel("mean max Tanimoto: task \u2194 SFT family" if compact else
                   "mean max ECFP4 Tanimoto: eval task \u2194 SFT family   (right = more similar)")
     ax.set_ylabel(LIFT_YLABEL)
