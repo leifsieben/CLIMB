@@ -252,18 +252,19 @@ def check_geometry():
 
 def check_comparator_scope():
     hdr(7, "COMPARATOR SCOPE (CheMeleon in the headline figure only)")
-    # SI_fig_f is admitted, and the reason matters because widening this rule casually is how it
-    # stops working. The rule exists because CheMeleon is a BENCHMARK comparator whose bars carry a
+    # fig_G is admitted, and the reason matters because widening this rule casually is how it stops
+    # working. The rule exists because CheMeleon is a BENCHMARK comparator whose bars carry a
     # protocol confound -- frozen probe vs end-to-end fine-tune -- so putting it beside CLIMB
-    # anywhere except the headline invites an unguarded comparison. SI fig f trains NOTHING: it
+    # anywhere except the headline invites an unguarded comparison. fig_G trains NOTHING: it
     # measures what a fixed representation can resolve, pair by pair. There is no probe, no fitting
     # and therefore no protocol to confound, and CheMeleon's presence is the point rather than a
     # leak -- the finding is that the blind spots are COMPLEMENTARY (CheMeleon is blind to isotopes
-    # and stereochemistry where the CLMs are perfect, and best of the five at ring size). Removing
-    # it would delete the result. fig_G is the main-text half of the same probe (class A; SI fig f
-    # keeps class B and the calibration) and imports SI_fig_f's own drawing code, so the exemption
-    # covers both halves of one experiment rather than two separate concessions.
-    allowed = {"fig_A", "fig_A1", "fig_A2", "SI_fig_f", "fig_G"}
+    # and stereochemistry where the CLMs are not, and comparatively good at ring size). Removing it
+    # would delete the result.
+    #
+    # SI_fig_f was the other half of this experiment and was dropped 2026-08-19; its two informative
+    # class-B modes are fig_G panels (k) and (l), so the exemption is now one figure, not two.
+    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:

@@ -23,10 +23,15 @@ Error bars are +-1 SD of that panel's replicate unit, and each panel's frozen an
 come from the SAME wave, split and seed grid, so the within-panel comparison is like-for-like.
 
 PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/Ames use the mainline wave;
-CBS its 5 benchmark-provided folds; BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction).
-Compare frozen vs end2end WITHIN a panel; never compare a value in one panel against a value in
-another. All 6 panels are populated as of 2026-08-18 — the CBS end-to-end runs of the two
-pretrained encoders were the last gap and have now landed.
+BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction). Compare frozen vs end2end WITHIN a
+panel; never compare a value in one panel against a value in another.
+
+HIV IS EMPTY AND IT IS A REAL HOLE, not a resolver bug. `unsup_8M_e2e` and `skip_dense_8M_e2e` are
+suite-track-only runs with no MolNet summary, so this cell needs an end-to-end fine-tune of both
+pretrained encoders on HIV — 41k molecules, GPU work. The panel says so on its face rather than
+being quietly dropped. The docstring claimed "all 6 panels are populated" until 2026-08-19; that
+sentence was written when CBS held the slot HIV now has, and it survived the canonical-six
+migration as a false statement about a different panel set.
 
 Data: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv, built by scripts/build_SI_fig_a_table.py.
 
@@ -55,11 +60,21 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 SERIES = [("unsupervised",      "unsup",     "unsupervised"),
           ("supervised, dense", "sup_dense", "supervised, dense")]
 PROBES = ["frozen", "end2end"]
-XTICKS = ["frozen", "end-to-end"]
+# "e2e" rather than "end-to-end": at six panels across the page each panel is ~1.1in
+# wide and the long form collides with its neighbour.
+XTICKS = ["frozen", "e2e"]
 
 
 def main():
-    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 4.3))
+    # ONE ROW of six, not 2x3. An SI figure costs the page its full height, and these
+    # panels hold two x-positions each -- stacking them into two rows doubled the height
+    # to buy width the content never used. 4.33in -> ~2.3in at the same width
+    # (user 2026-08-19: "a long figure takes away space from text but its width should
+    # just fill the whole page").
+    # Width is set ~3.5% over col2 because savefig("tight") then TRIMS back to about the
+    # text block. Sizing to col2 directly lands at 6.47in, and a figure narrower than the
+    # others is upscaled by LaTeX, so its fonts print larger than the rest of the set.
+    fig, axes = plt.subplots(1, 6, figsize=(STYLE["col2"] * 1.035, 2.32))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
         g_all = DF[DF.panel == p]
@@ -73,9 +88,11 @@ def main():
             ax.spines[sp].set_visible(False)
 
         if g_all.empty:
-            ax.text(0.5, 0.5, "no end2end run of a\npretrained encoder",
-                    transform=ax.transAxes, ha="center", va="center",
-                    fontsize=FS["annot"], color=INK)
+            # Short enough to sit INSIDE a ~1.1in panel. The long form overran into both
+            # neighbours' y-axis labels once the grid went to one row.
+            ax.set_ylabel("")
+            ax.text(0.5, 0.5, "end-to-end\nnot run", transform=ax.transAxes,
+                    ha="center", va="center", fontsize=FS["annot"] - 0.5, color=INK)
             ax.set_xticks([])
             ax.set_yticks([])
             # DECLARED empty, so style.check_no_empty_panels passes it and fails on any panel that
@@ -115,10 +132,10 @@ def main():
 
     handles = [Line2D([], [], color=ARMS[k]["color"], marker="o", ms=5.0, lw=1.4, label=lab)
                for _, k, lab in SERIES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=2,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.030), ncol=2,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.055, 1, 1))
+    fig.tight_layout(rect=(0, 0.105, 1, 1), w_pad=0.35)
     save(fig, "SI_fig_a")
     plt.close(fig)
 
