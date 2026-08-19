@@ -37,7 +37,10 @@ ENC = "figure_data/climb_v2_phase2/unsup_8M/encoder"
 TOK = "figure_data/_tokenizer"
 SEEDS = [0]
 OUT = Path("analysis/rigor"); OUT.mkdir(parents=True, exist_ok=True)
-OUTFILE = OUT / f"concat_panels_{EMB}.csv"
+# CONCAT_PANEL_OUT lets a re-run under a different featurizer land BESIDE the existing table
+# instead of over it. fig_F is a negative result, so being able to show the old and new side by
+# side is the whole point -- and this script writes with to_csv, which is a silent overwrite.
+OUTFILE = OUT / os.environ.get("CONCAT_PANEL_OUT", f"concat_panels_{EMB}.csv")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("device:", device, "| emb:", EMB, "| panels:", PANELS, flush=True)
