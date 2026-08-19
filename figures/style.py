@@ -86,6 +86,54 @@ def _pdf_width_in(path):
     return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
 
 
+def mark_empty(ax, why="no data for this panel"):
+    """Declare an axes DELIBERATELY empty, so check_no_empty_panels() does not fail on it.
+
+    Use only where the emptiness is the message -- fig_F draws "concatenation test not run" into
+    the axes on purpose. Anywhere else, an empty panel is a bug.
+    """
+    ax._climb_intentionally_empty = why
+
+
+def _panel_has_data(ax):
+    """Does this axes draw anything a reader could read a VALUE off?
+
+    Reference lines are excluded on purpose. fig_B's HIV panel rendered with an ECFP+desc dashed
+    line and a random-encoder dotted line and NOTHING ELSE for weeks, and looked like a real panel;
+    counting artists naively would have called it populated. axhline/axvline build a BLENDED
+    transform (data in one axis, axes-fraction in the other), which is exactly the signature of a
+    line that spans the panel rather than describing points in it.
+    """
+    from matplotlib.transforms import BlendedGenericTransform
+    for ln in ax.lines:
+        if isinstance(ln.get_transform(), BlendedGenericTransform):
+            continue                       # axhline / axvline: a reference, not data
+        if len(ln.get_xdata()):
+            return True
+    return bool(ax.patches or ax.collections or ax.images or ax.containers)
+
+
+def check_no_empty_panels(fig, name):
+    """RAISE if any axes was handed to the renderer and drew no data.
+
+    The three empty-HIV-panel bugs of 2026-08-19 were all one shape: a hardcoded panel list that
+    did not get HIV when it took CBS's canonical slot. SI b and SI d at least PRINTED "not run".
+    fig_B printed nothing and rendered a panel indistinguishable from a real one. This is the
+    "assert on the value, not the name" rule applied to OUTPUT: a figure that silently draws
+    nothing is worse than one that fails.
+    """
+    empty = [ax for ax in fig.axes
+             if not getattr(ax, "_climb_intentionally_empty", None)
+             and not _panel_has_data(ax)
+             and ax.get_label() != "<colorbar>"]
+    if empty:
+        where = ", ".join(ax.get_title() or f"axes at {ax.get_position().bounds}" for ax in empty)
+        raise AssertionError(
+            f"{name}: {len(empty)} panel(s) drew no data -- {where}. If that is intended, call "
+            f"figures.style.mark_empty(ax, why) at the draw site; otherwise the reader is "
+            f"resolving the wrong key (see the 2026-08-19 HIV panel bugs).")
+
+
 def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
     """Save to figures_v2/<name>.<ext>. Returns the PNG path.
 
@@ -99,6 +147,7 @@ def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
     # fig_C+D). They are still rendered standalone for review, but they are not paper figures, so
     # they are kept out of figures_v2/ proper -- that folder should hold only what goes in the
     # paper.
+    check_no_empty_panels(fig, name)
     out = OUTDIR / subdir if subdir else OUTDIR
     out.mkdir(parents=True, exist_ok=True)
     for ext in formats:

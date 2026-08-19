@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, mark_empty
 from figures.arms import ARMS, PANELS, PANEL_ORDER
 from figures.sixpanel import ROOT
 
@@ -78,6 +78,12 @@ def main():
                     fontsize=FS["annot"], color=INK)
             ax.set_xticks([])
             ax.set_yticks([])
+            # DECLARED empty, so style.check_no_empty_panels passes it and fails on any panel that
+            # is empty by accident instead. As of 2026-08-19 this fires for HIV only, and that is a
+            # real hole, not a resolver bug: unsup_8M_e2e and skip_dense_8M_e2e are suite-track-only
+            # runs with no MolNet summary at all, so the cell needs an end-to-end fine-tune on HIV
+            # (peer session, needs a GPU box). The placeholder text says so on the figure.
+            mark_empty(ax, f"{p}: no end2end run of a pretrained encoder on this panel")
             continue
 
         vals, errs = [], []
