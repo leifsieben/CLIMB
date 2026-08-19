@@ -42,8 +42,15 @@ Why the SE is corrected
 Datasets inside a suite largely agree about which model is better — MoleculeACE's 30 targets
 correlate at rho = 0.74 and behave like ~1.3 independent datasets. Treating all 66 as independent
 would understate the SE by ~3x, so it is inflated by sqrt(design effect) in allsuites.wide_ranks().
-The ordering itself is robust: Kendall tau 0.78-1.00 against per-suite weighting and against every
-leave-one-suite-out variant (scripts/weighting_sensitivity.py).
+The ordering is broadly robust (Kendall tau 0.843 against per-suite weighting) BUT THE TOP POSITION
+IS NOT, and that must not be quoted as if it were. Weighting every dataset equally lets MoleculeACE
+(30) and Polaris (28) decide 58 of 66; weighting the four SUITES equally instead gives
+ECFP+desc 2.68 and CheMeleon (e2e) 4.78 -- the order flips. ECFP+desc in fact wins 2 of the 4
+suites outright (MoleculeNet 4.14 vs 7.41, CBS 1.00 vs 8.00) and loses the two large ones.
+So "CheMeleon (e2e) is first overall" is an artefact of TWO choices stacking -- per-dataset
+weighting and the frozen-vs-fine-tuned protocol above -- and the defensible claim is that
+ECFP+desc is the best model here, with CheMeleon competitive on MoleculeACE and Polaris when it is
+allowed to fine-tune.
 
 Caption text is NOT drawn into the figure — it goes in the LaTeX \\caption{}. Use the paragraphs
 above as its source.
