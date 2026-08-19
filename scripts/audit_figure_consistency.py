@@ -245,7 +245,16 @@ def check_geometry():
 
 def check_comparator_scope():
     hdr(7, "COMPARATOR SCOPE (CheMeleon in the headline figure only)")
-    allowed = {"fig_A", "fig_A1", "fig_A2"}
+    # SI_fig_f is admitted, and the reason matters because widening this rule casually is how it
+    # stops working. The rule exists because CheMeleon is a BENCHMARK comparator whose bars carry a
+    # protocol confound -- frozen probe vs end-to-end fine-tune -- so putting it beside CLIMB
+    # anywhere except the headline invites an unguarded comparison. SI fig f trains NOTHING: it
+    # measures what a fixed representation can resolve, pair by pair. There is no probe, no fitting
+    # and therefore no protocol to confound, and CheMeleon's presence is the point rather than a
+    # leak -- the finding is that the blind spots are COMPLEMENTARY (CheMeleon is blind to isotopes
+    # and stereochemistry where the CLMs are perfect, and best of the five at ring size). Removing
+    # it would delete the result.
+    allowed = {"fig_A", "fig_A1", "fig_A2", "SI_fig_f"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:
