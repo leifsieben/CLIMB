@@ -30,7 +30,7 @@ import os
 CANON = os.environ.get("RESOLUTION_INPUT") == "canonical"
 SUFFIX = "_canonical" if CANON else ""
 NAMES = {"ECFP4+stereo": "ECFP4_stereo", "ECFP4+desc": "ECFP4_desc",
-         "Morgan r3-counts": "Morgan_r3-counts", "CLIMB sup": "CLIMB_sup",
+         "Morgan r3-counts": "Morgan_r3-counts", "Morgan r3-cnt+desc": "Morgan_r3-cnt_desc", "CLIMB sup": "CLIMB_sup",
          "CLIMB unsup": "CLIMB_unsup", "CheMeleon": "CheMeleon",
          "CLIMB unsup (enum-aug)": "CLIMB_unsup_(enum-aug)",
          "CLIMB unsup (canon-ctrl)": "CLIMB_unsup_(canon-ctrl)",

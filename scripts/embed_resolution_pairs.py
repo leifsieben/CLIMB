@@ -49,6 +49,7 @@ EMBEDDINGS = [
     ("ECFP4+stereo",     "fp",      dict(variant="ecfp4_stereo", desc=False)),
     ("ECFP4+desc",       "fp",      dict(variant="ecfp4_stereo", desc=True)),
     ("Morgan r3-counts", "fp",      dict(variant="morgan_r3_counts", desc=False)),
+    ("Morgan r3-cnt+desc", "fp",    dict(variant="morgan_r3_counts", desc=True)),
     ("CLIMB sup",        "encoder", "figure_data/climb_v2_phase2/skip_dense_8M/encoder"),
     ("CLIMB unsup",      "encoder", "figure_data/climb_v2_phase2/unsup_8M/encoder"),
     ("CheMeleon",        "npz",     "figure_data/embedding_resolution/chemeleon_pairs.npz"),  # swapped below when canonical
@@ -134,10 +135,13 @@ def main() -> int:
     rng = random.Random(SEED)
     pairs = load_pairs()
     bg = background_smiles(rng, BACKGROUND_N)
+    paired = {r["smiles_a"] for r in pairs} | {r["smiles_b"] for r in pairs}
     if _CANON:
+        # the canonical molecule list is fixed on disk so it matches the CheMeleon npz row-for-row
         uniq = MOLS.read_text().split("\n")
-        bg = [s for s in uniq if s not in ({r["smiles_a"] for r in pairs} | {r["smiles_b"] for r in pairs})][:BACKGROUND_N]
-    uniq = sorted(set(uniq) | set(bg)) if not _CANON else uniq
+        bg = [s for s in uniq if s not in paired][:BACKGROUND_N]
+    else:
+        uniq = sorted(paired | set(bg))
     idx = {s: i for i, s in enumerate(uniq)}
     print(f"{len(pairs)} pairs, {len(uniq)} unique molecules "
           f"(incl. {len(bg)} background)\n")
