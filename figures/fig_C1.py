@@ -314,10 +314,12 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
                      lw=STYLE["lw"], capsize=STYLE["cap_size"],
                      label=f"{t} (n/bin\u2248{int(np.median(nn))})")
     ax1.axhline(0, color=SHADES["random"][0], lw=0.6)
-    # top-left: the only quadrant of this panel with no data in it (user 2026-08-17); "best"
-    # kept drifting between renders, which is worse than a fixed corner in an assembled figure.
-    ax1.legend(loc="upper left", fontsize=FS["legend"], frameon=False,
-               handletextpad=0.4, labelspacing=0.25, borderaxespad=0.3)
+    # LOWER RIGHT and BOXED, matching panels (c) and (f) (user 2026-08-19). Both curves rise to
+    # the right and flatten near zero, so the old upper-left corner was in fact where the
+    # MoleculeACE line begins; and unframed on a line plot the legend's own markers read as data.
+    ax1.legend(loc="lower right", fontsize=FS["legend"], frameon=True, framealpha=0.95,
+               edgecolor=STYLE["grid"], facecolor="white",
+               handletextpad=0.4, labelspacing=0.25, borderaxespad=0.4, borderpad=0.45)
     ax1.set_xlabel("max Tanimoto to corpus (bin mean)" if compact else
                    "max ECFP4 Tanimoto to corpus (bin mean)")
     ax1.set_ylabel("lift (%)" if compact else f"lift over {FLOOR_LABEL} (%)")
