@@ -81,11 +81,19 @@ ARMS = {
     "ecfp": dict(
         label="ECFP", short="ECFP", family="anchor", color=SHADES["anchor"][1], probe="xgb",
         in_ablation=True,
-        src=dict(mace="ecfp4", mol=["ecfp4_anchor"], cbs="ecfp4")),
+        # THREE MODEL SEEDS as of 2026-08-19 (peer session, commit 3c52686). The anchors used to
+        # be a single run, so sd_seeds was literally 0.0 on the arms that beat the CLMs. Each
+        # replicate is a full 3-head-seed ENSEMBLE on a disjoint head-seed triple ({3,4,5} and
+        # {6,7,8}), i.e. the SAME estimator the mainline plots -- exposing the existing _cell rows
+        # instead would have swapped in the pre-ensemble estimator and moved every anchor bar.
+        # MoleculeACE and Polaris are still one run each: those tracks were not replicated.
+        src=dict(mace="ecfp4", cbs="ecfp4",
+                 mol=["ecfp4_anchor", "ecfp4_anchor_s1", "ecfp4_anchor_s2"])),
     "ecfp_desc": dict(
         label="ECFP+desc", short="ECFP+desc", family="anchor", color=SHADES["anchor"][0], probe="xgb",
         in_ablation=True,
-        src=dict(mace="fp_desc", mol=["fp_desc_anchor"], cbs="fp_desc")),
+        src=dict(mace="fp_desc", cbs="fp_desc",
+                 mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
 
     # ---- supervised pretraining (red) -------------------------------------------------------
     "sup_dense": dict(

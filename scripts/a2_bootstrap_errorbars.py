@@ -106,10 +106,39 @@ def load_oof(root, run, dataset, subdir="moleculenet_cv"):
     return d if len(d) else None
 
 
+# Datasets whose predictions may sit in EITHER subdir, resolved per dir instead of per arm, with
+# a VALUE guard that makes the mixing impossible rather than merely unlikely. The one-subdir-per-arm
+# rule exists to stop z-scored QM7 pooling with native QM7; it does not apply where a row count
+# identifies the vintage outright. Tox21's reference dump is exactly 77,864 masked rows (93,876
+# cells - 16,012 with w==0), and both moleculenet_cv/ and moleculenet_cv_tox21fixed/ hold that same
+# dump for the runs that have it -- rescore_tox21.py derived the fixed SUMMARY from the plain
+# subdir's predictions, while the anchor replicates were dumped straight into the fixed one.
+# Requiring a single subdir for the whole arm therefore threw away real seeds: ecfp4_anchor_s1/_s2
+# carry Tox21 only under tox21fixed/ while the base carries it only under moleculenet_cv/, so the
+# anchor -- the arm that wins the figure -- got a 1-seed interval against a 3-seed bar.
+PER_DIR_SUBDIRS = {"Tox21": (("moleculenet_cv_tox21fixed", "moleculenet_cv"), 77_864)}
+
+
 def load_oof_all(root, runs, dataset):
     """OOF from EVERY pretraining-seed dir, tagged by dir. The bar pools all seeds, so the CI must
     too -- using one dir made the interval describe a different estimator than the bar."""
     out = []
+    per_dir = PER_DIR_SUBDIRS.get(dataset) if root != "cbs_benchmark" else None
+    if per_dir:
+        cands, want_rows = per_dir
+        for run in runs:
+            for cand in (run, f"{run}_s0"):
+                got = None
+                for sub in cands:
+                    d = load_oof(root, cand, dataset, sub)
+                    # the guard, not the path, decides: a dump of any other length is a different
+                    # vintage and is refused rather than pooled
+                    if d is not None and len(d) == want_rows:
+                        got = d
+                        break
+                if got is not None:
+                    got = got.copy(); got["_dir"] = cand; out.append(got); break
+        return pd.concat(out, ignore_index=True) if out else None
     subdir, runs = _oof_subdir(root, list(runs), dataset)
     for run in runs:
         for cand in (run, f"{run}_s0"):

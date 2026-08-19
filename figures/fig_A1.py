@@ -114,12 +114,29 @@ _S0, _ = wide_table(ARM_ORDER)
 ARMS_USED = [a for a in ARM_ORDER if _S0.loc[a].notna().sum() >= 60]
 N = len(ARMS_USED)
 
-RANKS, PER_DATASET, META = wide_ranks(ARMS_USED, per_suite_equal=False)
+# PER-SUITE EQUAL WEIGHTING (user decision 2026-08-19). Each arm's headline number is the mean of
+# its FOUR SUITE mean-ranks, not the mean over all 66 datasets. Per-dataset weighting lets
+# MoleculeACE (30) and Polaris (28) decide 58 of 66, which is exactly the two suites CheMeleon was
+# built and tuned against (Burns et al. evaluate on those two only) -- so it inflates an arm that
+# is strong there and absent-to-weak on MoleculeNet (7) and CBS (1). Under equal suite weight the
+# order flips back: ECFP+desc 2.68 first, CheMeleon (e2e) 4.53 second. The per-suite open markers
+# already drawn on every row let a reader verify the aggregation by eye.
+RANKS, PER_DATASET, META = wide_ranks(ARMS_USED, per_suite_equal=True)
 NDS = int(PER_DATASET.notna().sum(axis=1).max())
 
 
-def suite_handles():
-    """The four suite markers -- shared by build() and the assembled figures/fig_A.py."""
+def suite_handles(with_dagger=False):
+    """The four suite markers -- shared by build() and the assembled figures/fig_A.py.
+
+    The dagger key is NOT here: a 5th entry with no marker and a sentence-length label wrecks the
+    4-column suite row, so draw() writes it as a line of text under the axes instead. The symbol
+    was carrying the single most
+    important caveat in this figure -- that two arms fine-tune the whole network while sixteen use
+    a frozen encoder -- with nothing on the canvas to decode it (user 2026-08-19: "Chemeleon e2e
+    also has a cross which I don't understand"). An unexplained mark next to the arm that places
+    second is worse than no mark.
+    """
+    del with_dagger          # kept for call-site compatibility; the note is drawn by draw()
     return [Line2D([], [], ls="none", marker=SUITE_MARKER[s], mfc="none", mec=INK, mew=0.9,
                    ms=4.5, label=s) for s in SUITES]
 
@@ -150,7 +167,15 @@ def draw(ax, compact=False):
             ax.errorbar(r.mean_rank, yi, xerr=r.se_rank, fmt="none", ecolor=c, elinewidth=1.1,
                         capsize=STYLE["cap_size"], capthick=1.1, zorder=3)
         ax.plot(r.mean_rank, yi, marker="o", ms=(5.6 if compact else 7.5), color=c, mec="white", mew=0.8, zorder=4)
-        if not compact:
+        # The number goes on EVERY row in both modes (user 2026-08-19). It was dropped in compact
+        # to save width, but the assembled fig_A is where most readers meet this panel, and a rank
+        # plot whose ranks must be estimated off a tick axis is not a ranking. In compact the label
+        # sits to the RIGHT of the dot rather than above it, clear of the SE bar and of the row
+        # above, which is what the vertical room was actually being spent on.
+        if compact:
+            ax.text(r.mean_rank + r.se_rank + 0.45, yi, f"{r.mean_rank:.1f}", ha="left",
+                    va="center", fontsize=FS["annot"] - 1, color=INK, zorder=5)
+        else:
             ax.text(r.mean_rank, yi + 0.30, f"{r.mean_rank:.1f}", ha="center", va="bottom",
                     fontsize=FS["annot"], color=INK)
         # two-line row label: system in bold, recipe below in regular. Drawn by hand rather than
@@ -164,16 +189,24 @@ def draw(ax, compact=False):
     ax.set_yticks(y); ax.set_yticklabels([])
     ax.set_ylim(-0.62, N - 0.42)
     ax.set_xlim(0.4, N + 0.6); ax.set_xticks(range(1, N + 1, 3) if compact else range(1, N + 1))
-    ax.set_xlabel(f"mean rank ({NDS} datasets)" if compact else
-                  f"mean rank across all {NDS} benchmark datasets  (1 = best of {N})")
+    ax.set_xlabel(f"mean rank, suites equally weighted" if compact else
+                  f"mean of the 4 suite mean-ranks  ({NDS} datasets, 1 = best of {N})")
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"]); ax.set_axisbelow(True)
     for sp in ("top", "right", "left"):
         ax.spines[sp].set_visible(False)
     ax.tick_params(axis="y", length=0)
 
+    # Decode the dagger ON THE CANVAS. It carries the single most important caveat in this figure
+    # -- two arms fine-tune the whole network, sixteen use a frozen encoder -- and until now
+    # nothing on the page said so (user 2026-08-19: "Chemeleon e2e also has a cross which I don't
+    # understand"). An unexplained mark next to the arm that places second is worse than no mark.
+    ax.text(0.5, -0.105 if compact else -0.115,
+            "†  fine-tuned end-to-end; every other arm is a frozen encoder with a trained probe",
+            transform=ax.transAxes, ha="center", va="top", fontsize=FS["annot"] - 1, color=INK)
+
     if not compact:
-        ax.legend(handles=suite_handles(), loc="upper center", bbox_to_anchor=(0.5, -0.090),
-                  ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
+        ax.legend(handles=suite_handles(), loc="upper center",
+                  bbox_to_anchor=(0.5, -0.150), ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
                   columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
 
 

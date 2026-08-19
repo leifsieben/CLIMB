@@ -86,7 +86,7 @@ def build(height=5.5, left_frac=0.375):
     r_x0, r_x1 = min(p.x0 for p in rp), max(p.x1 for p in rp)
     r_bot = min(p.y0 for p in rp)
 
-    fig.legend(handles=A1.suite_handles(), loc="upper center",
+    fig.legend(handles=A1.suite_handles(with_dagger=True), loc="upper center",
                bbox_to_anchor=((lp.x0 + lp.x1) / 2, lp.y0 - 0.085),
                ncol=4, frameon=False, fontsize=FS["legend"], handletextpad=0.4,
                labelspacing=0.3, columnspacing=1.2, borderpad=0.0, labelcolor=INK)
