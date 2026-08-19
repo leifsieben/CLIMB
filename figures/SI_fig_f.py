@@ -113,42 +113,63 @@ MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
          ("A", "regioisomer",         "ortho vs meta\nsubstitution"),
          ("A", "matched_mw",          "Different molecules,\nsame MW"),
          ("A", "matched_descriptors", "Different molecules,\nsame descriptors"),
-         ("B", "smiles_enumeration",  "Re-written\nSMILES"),
          ("B", "kekule",              "Kekulé\nform"),
          ("B", "symmetry_equivalent", "Equivalent\npositions")]
 NCOL = 5
 
 
 def compute():
-    """(median separation, binary success %). Both threshold-free; see the module docstring."""
+    """(median separation, resolved %, per-representation noise floor).
+
+    `null_p95` is one number per representation -- the 95th percentile of its OWN distance
+    distribution over 200 anchors x 10 random re-writings of the identical compound -- so it is
+    taken from any row of that embedding rather than pivoted per mode.
+    """
     d = pd.read_csv(SRC)
     return (d.pivot_table(index=["klass", "mode"], columns="embedding", values="median_separation"),
-            d.pivot_table(index=["klass", "mode"], columns="embedding", values="success"))
+            d.pivot_table(index=["klass", "mode"], columns="embedding", values="success"),
+            d.drop_duplicates("embedding").set_index("embedding")["null_p95"])
 
 
-FLOOR = 3e-6          # log-axis bottom; exact zeros are drawn AT it with an open marker
+NULL_FLOOR = 1e-6     # the measured null for an exactly invariant fingerprint is degenerate at 0
 
 
-def _panel(ax, vals, rates, title, klass):
-    """One mode. Bars are median separation on a LOG axis; the three eps cuts are reference lines.
-
-    An EXACT zero is not a small number -- for a fingerprint on class B it means invariant by
-    construction -- so it cannot share the log axis with 1e-5. Those are drawn as an open marker
-    sitting on the floor, which reads as "off the bottom of this scale" rather than as a short bar.
-    """
+def _panel(ax, vals, title, klass):
+    """One mode. Bars are the RESOLVED RATE: the share of pairs separated by more than that
+    representation's own 95th-percentile noise."""
     if klass == "B":
         ax.set_facecolor(TINT)
     x = np.arange(len(SERIES))
-    v = np.asarray(vals, dtype=float)
-    drawn = np.where(v > 0, v, FLOOR)
-    ax.bar(x[v > 0], drawn[v > 0], width=0.74,
-           color=[ARMS[k]["color"] for (_, k, _), keep in zip(SERIES, v > 0) if keep],
-           edgecolor=INK, linewidth=0.6, zorder=3, bottom=FLOOR)
-    for xi, (_, k, _) in zip(x[v == 0], [S for S, z in zip(SERIES, v == 0) if z]):
-        ax.plot(xi, FLOOR * 2.2, marker="o", ms=3.4, mfc="white", mec=ARMS[k]["color"],
-                mew=1.1, ls="none", zorder=4, clip_on=False)
+    ax.bar(x, vals, width=0.74, color=[ARMS[k]["color"] for _, k, _ in SERIES],
+           edgecolor=INK, linewidth=0.6, zorder=3)
+    ax.set_ylim(0, 108)
+    ax.set_yticks([0, 50, 100])
+    ax.set_xticks([])
+    ax.set_xlim(-0.72, len(SERIES) - 0.28)
+    ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
+    ax.set_axisbelow(True)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
+    ax.set_title(title, fontsize=FS["annot"], fontweight="bold", color=INK, pad=3, loc="center")
+
+
+def _calibration(ax, nulls):
+    """The panel that makes the rest of the figure readable: each representation's OWN noise floor.
+
+    This slot used to hold `smiles_enumeration`, and it is the same transformation the null is
+    built from -- 200 anchors x 10 random re-writings of the identical compound -- so scoring it
+    would be circular. Showing the calibration here instead turns the one unscorable mode into the
+    explanation of the scoring: a fingerprint must clear essentially nothing before a chemical
+    difference counts, while a SMILES model must clear a third to four fifths of the distance to a
+    RANDOM molecule. Those four numbers are the experiment, not a nuisance parameter.
+    """
+    x = np.arange(len(SERIES))
+    ax.bar(x, [max(v, NULL_FLOOR) for v in nulls], width=0.74,
+           color=[ARMS[k]["color"] for _, k, _ in SERIES], edgecolor=INK, linewidth=0.6,
+           zorder=3, bottom=NULL_FLOOR)
     ax.set_yscale("log")
-    ax.set_ylim(FLOOR, 20)
+    ax.set_ylim(NULL_FLOOR, 3)
     ax.set_yticks([1e-5, 1e-3, 1e-1])
     ax.set_yticklabels(["$10^{-5}$", "$10^{-3}$", "$10^{-1}$"])
     ax.set_xticks([])
@@ -158,65 +179,57 @@ def _panel(ax, vals, rates, title, klass):
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
     ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
-    # The BINARY rate rides along only where it is not 100%: 13 of 65 cells. Printing it on all 65
-    # would bury the 13 that say something, and giving it its own 13-panel grid would double the
-    # figure to carry a mostly-constant column.
-    for xi, r, hv in zip(x, rates, drawn):
-        if np.isfinite(r) and r < 99.5:
-            ax.text(xi, hv * 1.9 if hv > FLOOR * 3 else FLOOR * 9, f"{r:.0f}%", ha="center",
-                    va="bottom", fontsize=FS["annot"] - 2, color=INK, zorder=6)
-    ax.set_title(title, fontsize=FS["annot"], fontweight="bold", color=INK, pad=3, loc="center")
+    ax.set_ylabel("noise floor", fontsize=FS["annot"])
+    ax.set_title("CALIBRATION: each model's\nown noise floor",
+                 fontsize=FS["annot"], fontweight="bold", color=INK, pad=3)
 
 
 def main():
-    P, R = compute()
+    P, R, NULL = compute()
     fig = plt.figure(figsize=(STYLE["col2"], 5.15))
-    # Two BLOCKS, not one grid: the y axis means opposite things in each, so they are separated by
-    # a real gap and labelled on the left. Class A is 10 panels (2 rows of 5); class B is 3.
-    gsA = fig.add_gridspec(2, NCOL, left=0.085, right=0.995, top=0.915, bottom=0.435,
-                           wspace=0.34, hspace=0.62)
-    gsB = fig.add_gridspec(1, NCOL, left=0.085, right=0.995, top=0.315, bottom=0.145,
-                           wspace=0.34)
+    # Two BLOCKS, not one grid: the score means opposite things in each, so they are separated by a
+    # real gap and labelled on the left. Class A is 10 panels (2 rows of 5); the bottom row holds
+    # class B's two scorable modes plus the CALIBRATION panel that explains the threshold.
+    gsA = fig.add_gridspec(2, NCOL, left=0.140, right=0.995, top=0.915, bottom=0.435,
+                           wspace=0.40, hspace=0.62)
+    gsB = fig.add_gridspec(1, NCOL, left=0.140, right=0.995, top=0.315, bottom=0.145,
+                           wspace=0.40)
     A = [m for m in MODES if m[0] == "A"]
     B = [m for m in MODES if m[0] == "B"]
     missing = []
     for i, (kl, mode, title) in enumerate(A):
         ax = fig.add_subplot(gsA[i // NCOL, i % NCOL])
-        vals = [P.loc[(kl, mode), lab] if (kl, mode) in P.index else np.nan for lab, _, _ in SERIES]
         rates = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan for lab, _, _ in SERIES]
-        if not np.isfinite(vals).any():
+        if not np.isfinite(rates).any():
             missing.append(mode)
-        _panel(ax, vals, rates, title, kl)
+        _panel(ax, rates, title, kl)
         if i % NCOL == 0:
-            ax.set_ylabel("median separation", fontsize=FS["annot"])
+            ax.set_ylabel("resolved (%)", fontsize=FS["annot"])
     for i, (kl, mode, title) in enumerate(B):
         ax = fig.add_subplot(gsB[0, i])
-        vals = [P.loc[(kl, mode), lab] if (kl, mode) in P.index else np.nan for lab, _, _ in SERIES]
         rates = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan for lab, _, _ in SERIES]
-        if not np.isfinite(vals).any():
+        if not np.isfinite(rates).any():
             missing.append(mode)
-        _panel(ax, vals, rates, title, kl)
+        _panel(ax, rates, title, kl)
         if i == 0:
-            ax.set_ylabel("median separation", fontsize=FS["annot"])
+            ax.set_ylabel("resolved (%)", fontsize=FS["annot"])
+    # the calibration goes in the LAST column of the bottom row, visually apart from the scored
+    # panels because it is not one of them
+    _calibration(fig.add_subplot(gsB[0, NCOL - 1]), [NULL.get(lab, np.nan) for lab, _, _ in SERIES])
     assert not missing, f"SI fig f: no data for {missing}"
 
     # the two block labels carry the DIRECTION, which is the thing a reader must not miss
-    fig.text(0.012, (0.915 + 0.435) / 2, "Different molecules\nmust SEPARATE", rotation=90,
+    fig.text(0.048, (0.915 + 0.435) / 2, "Different molecules\nmust SEPARATE", rotation=90,
              va="center", ha="center", fontsize=FS["annot"], fontweight="bold", color=INK)
-    fig.text(0.012, (0.315 + 0.145) / 2, "Same molecule\nmust NOT separate", rotation=90,
+    fig.text(0.048, (0.315 + 0.145) / 2, "Same molecule\nmust NOT separate", rotation=90,
              va="center", ha="center", fontsize=FS["annot"], fontweight="bold", color=INK)
 
-    from matplotlib.lines import Line2D
     handles = [Patch(facecolor=ARMS[k]["color"], edgecolor=INK, lw=0.7, label=lab)
                for _, k, lab in SERIES]
     # the two glyphs a reader cannot guess: an EXACT zero is not a small bar, and the dashed lines
     # are where a success-rate threshold would cut -- which is how this figure shows that four
     # modes are knife-edge without needing a footnote to say so
-    handles += [Line2D([], [], marker="o", ms=3.6, mfc="white", mec=INK, mew=1.1, ls="none",
-                       label="exactly 0 (invariant)"),
-                Line2D([], [], ls="none", label="")]     # spacer; keeps the 3x2 legend balanced
-    handles = [h for h in handles if h.get_label()]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.54, 0.090), ncol=6,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.54, 0.085), ncol=5,
                fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.5, labelspacing=0.35,
                borderpad=0.0, frameon=False)
     save(fig, "SI_fig_f")
