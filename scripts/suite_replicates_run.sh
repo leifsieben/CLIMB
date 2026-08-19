@@ -39,6 +39,19 @@ if [ ! -x "$CHEM_PY" ]; then
   bash scripts/molnet_box_bootstrap.sh ~/venvs/chemeleon >> "$LOG" 2>&1
 fi
 
+# The suite task CSVs are DATA, and scripts/deploy_to_ec2.sh ships code only -- so on a fresh box
+# chemeleon_suite_run.py dies with FileNotFoundError on the first MoleculeACE task. Staged here
+# rather than assumed present, and asserted, because a missing dataset should stop the job at the
+# top instead of failing 30 tasks in a row further down.
+aws s3 sync s3://climb-s3-bucket/datasets/moleculeace/ chemeleon_suite/data/moleculeace/ --only-show-errors
+aws s3 sync s3://climb-s3-bucket/datasets/polaris/    chemeleon_suite/data/polaris/    --only-show-errors
+nmace=$(ls chemeleon_suite/data/moleculeace/*.csv 2>/dev/null | wc -l)
+npol=$(ls chemeleon_suite/data/polaris/*.csv 2>/dev/null | wc -l)
+say "staged suite data: $nmace moleculeace, $npol polaris"
+if [ "$nmace" -lt 30 ] || [ "$npol" -lt 28 ]; then
+  say "FATAL suite data incomplete (want >=30 / >=28) -- staying UP"; exit 1
+fi
+
 rep () {   # $1 py  $2 base model  $3 suffix  $4 seed triple  $5.. featurizer args
   local PY=$1 base=$2 sfx=$3 seeds=$4; shift 4
   for track in moleculeace polaris; do

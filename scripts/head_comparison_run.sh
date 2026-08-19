@@ -49,6 +49,19 @@ if [ ! -x ~/venvs/chemeleon/bin/python ]; then
   bash scripts/molnet_box_bootstrap.sh ~/venvs/chemeleon >> "$LOG" 2>&1
 fi
 
+# The suite task CSVs are DATA, and scripts/deploy_to_ec2.sh ships code only -- so on a fresh box
+# chemeleon_suite_run.py dies with FileNotFoundError on the first MoleculeACE task. Staged here
+# rather than assumed present, and asserted, because a missing dataset should stop the job at the
+# top instead of failing 30 tasks in a row further down.
+aws s3 sync s3://climb-s3-bucket/datasets/moleculeace/ chemeleon_suite/data/moleculeace/ --only-show-errors
+aws s3 sync s3://climb-s3-bucket/datasets/polaris/    chemeleon_suite/data/polaris/    --only-show-errors
+nmace=$(ls chemeleon_suite/data/moleculeace/*.csv 2>/dev/null | wc -l)
+npol=$(ls chemeleon_suite/data/polaris/*.csv 2>/dev/null | wc -l)
+say "staged suite data: $nmace moleculeace, $npol polaris"
+if [ "$nmace" -lt 30 ] || [ "$npol" -lt 28 ]; then
+  say "FATAL suite data incomplete (want >=30 / >=28) -- staying UP"; exit 1
+fi
+
 stage_encoder () {   # $1 = run name under climb_v2_phase2 -> echoes the local encoder path
   local d=figure_data/_stage_head/$1/encoder
   [ -f $d/model.safetensors ] || { mkdir -p $d

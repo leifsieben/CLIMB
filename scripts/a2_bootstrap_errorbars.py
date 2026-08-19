@@ -247,7 +247,11 @@ def mace_ci(base, seed=0):
     keys = list(m); rng = np.random.default_rng(seed)
     boots = sorted(float(np.mean([m[keys[i]] for i in rng.integers(0, len(keys), len(keys))]))
                    for _ in range(N_BOOT))
-    return st.mean(m.values()), boots[int(.025*N_BOOT)], boots[int(.975*N_BOOT)], len(keys)
+    # len(dirs), not len(_expand(base)): the caller records this as n_dirs and audit check 8
+    # compares it to the BAR's n_seeds. Reporting the requested expansion instead of what was
+    # found on disk made the check fire on ecfp/MoleculeACE with "bar 1, CI 3" -- the exact
+    # inverse of the real situation, and a reporting bug masquerading as a data defect.
+    return st.mean(m.values()), boots[int(.025*N_BOOT)], boots[int(.975*N_BOOT)], len(keys), len(dirs)
 
 
 def herg_se(base):
@@ -265,10 +269,13 @@ def herg_se(base):
     if not vals:
         return None
     A = st.mean(vals)
+    # `vals` is one row per (dir, eval seed); n_dirs must count DIRS or the check compares a
+    # 9-fit count against the bar's 3-dir count and reports a mismatch that does not exist.
+    n_dirs = len(dirs)
     n1, n0 = POLARIS_NPOS, POLARIS_NNEG
     Q1, Q2 = A / (2 - A), 2 * A * A / (1 + A)
     se = math.sqrt((A*(1-A) + (n1-1)*(Q1-A*A) + (n0-1)*(Q2-A*A)) / (n1*n0))
-    return A, A - 1.96*se, A + 1.96*se, se, len(vals)
+    return A, A - 1.96*se, A + 1.96*se, se, len(vals), n_dirs
 
 
 def main(only=None):
@@ -306,19 +313,18 @@ def main(only=None):
         if src.get("mace"):
             r = mace_ci(src["mace"])
             if r:
-                v, lo, hi, K = r
+                v, lo, hi, K, nd = r
                 rows.append(dict(arm=arm, panel="MoleculeACE", metric="macro_rmse", value=round(v,4),
                                  ci_lo=round(lo,4), ci_hi=round(hi,4), se=round((hi-lo)/3.92,4),
-                                 method="target_cluster_bootstrap", n_units=K,
-                                 n_dirs=len(_expand(src["mace"]))))
+                                 method="target_cluster_bootstrap", n_units=K, n_dirs=nd))
                 print(f"  {arm:16s} {'MoleculeACE':12s} {v:.4f} [{lo:.4f},{hi:.4f}] ({K} targets)", flush=True)
         # hERG
         r = herg_se(src.get("mace") or "")
         if r:
-            v, lo, hi, se, n = r
+            v, lo, hi, se, n, nd = r
             rows.append(dict(arm=arm, panel=POLARIS_PANEL, metric="roc_auc", value=round(v,4),
                              ci_lo=round(lo,4), ci_hi=round(hi,4), se=round(se,4),
-                             method="analytic_hanley_mcneil_DERIVED", n_units=1457, n_dirs=n))
+                             method="analytic_hanley_mcneil_DERIVED", n_units=1457, n_dirs=nd))
             print(f"  {arm:16s} {POLARIS_PANEL:12s} {v:.4f} [{lo:.4f},{hi:.4f}] SE={se:.4f} (derived)", flush=True)
     out = FD / "six_panel" / "a2_errorbars.csv"
     if only and out.exists():
