@@ -14,13 +14,23 @@ sys.path.insert(0, str(ROOT))
 import eval_v2  # noqa: E402
 
 OUT = ROOT / "figure_data" / "_task_smiles.json"
+# The canonical-panel default. Overridable on the command line because the SI head comparison
+# needs the full MolNet CV list (ESOL QM7 BBBP BACE Tox21 HIV) and a second hardcoded list is
+# exactly the drift this file exists to prevent:
+#   python3 scripts/export_task_smiles.py ESOL QM7 BBBP BACE Tox21 HIV  [--out path.json]
 DATASETS = ["BACE", "Tox21", "HIV"]
 CBS_CSV = "data/cbs.csv"
 
 
-def main() -> int:
+def main(argv=()) -> int:
+    argv = list(argv)
+    out = OUT
+    if "--out" in argv:
+        i = argv.index("--out")
+        out = Path(argv[i + 1]); del argv[i:i + 2]
+    datasets = argv or DATASETS
     payload = {}
-    for ds in DATASETS:
+    for ds in datasets:
         smiles, _ = eval_v2._load_moleculenet_full(ds)
         payload[ds] = [str(s) for s in smiles]
         print(f"{ds:8} {len(smiles)} molecules", flush=True)
@@ -31,10 +41,10 @@ def main() -> int:
 
     uniq = sorted({s for v in payload.values() for s in v})
     payload["_all_unique"] = uniq
-    OUT.write_text(json.dumps(payload))
-    print(f"wrote {OUT}: {len(uniq)} unique SMILES across {len(DATASETS)+1} tasks")
+    out.write_text(json.dumps(payload))
+    print(f"wrote {out}: {len(uniq)} unique SMILES across {len(datasets)+1} tasks")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

@@ -58,12 +58,17 @@ stage_encoder () {   # $1 = run name under climb_v2_phase2 -> echoes the local e
 
 # ---- one (model, head) cell across all four suites ---------------------------------------------
 # $1 py  $2 out-tag  $3 head  $4 mace/polaris model name  $5.. featurizer + encoder args
+# EVAL_ONLY carries flags eval_v2 accepts and chemeleon_suite_run.py does not (--features_npz);
+# passing them to both would abort the suite tracks with "unrecognized arguments". Reset per call
+# by the caller.
+EVAL_ONLY=""
 cell () {
   local PY=$1 tag=$2 head=$3 suitemodel=$4; shift 4
   local out="figure_data/climb_v2_phase2/${tag}__${head}/moleculenet_cv"
   if [ -s "$out/moleculenet_summary.csv" ]; then say "SKIP molnet ${tag}__${head}"; else
     $PY eval_v2.py --output_dir "$out" --datasets $TASKS --head $head --head_seeds 0 1 2 \
-        --pool mean --standardize zscore --cv_folds 5 --cv_scheme scaffold "$@" >> "$LOG" 2>&1
+        --pool mean --standardize zscore --cv_folds 5 --cv_scheme scaffold \
+        $EVAL_ONLY "$@" >> "$LOG" 2>&1
     say "molnet ${tag}__${head} rc=$?"
   fi
 
@@ -71,7 +76,8 @@ cell () {
   if [ -s "$cout/moleculenet_summary.csv" ]; then say "SKIP cbs ${tag}__${head}"; else
     $PY eval_v2.py --output_dir "$cout" --head $head --head_seeds 0 1 2 \
         --pool mean --standardize zscore --cv_folds 5 --cv_scheme provided \
-        --task_csv data/cbs.csv --task_name cbs --task_type classification "$@" >> "$LOG" 2>&1
+        --task_csv data/cbs.csv --task_name cbs --task_type classification \
+        $EVAL_ONLY "$@" >> "$LOG" 2>&1
     say "cbs ${tag}__${head} rc=$?"
   fi
 
@@ -94,8 +100,30 @@ for m in skip_dense_8M unsup_8M; do
   cell "$CLIMB_PY" "$m" xgb "$m" --featurizer encoder --encoder "$E" --tokenizer figure_data/_tokenizer
 done
 
-# 3. CheMeleon frozen gets XGBoost (chemprop venv; the featurizer needs no local encoder)
-cell ~/venvs/chemeleon/bin/python chemeleon_frozen xgb chemeleon_frozen --featurizer chemeleon
+# 3. CheMeleon frozen gets XGBoost.
+#
+# SPLIT FEATURIZATION, not --featurizer chemeleon in the 3.12 venv. CheMeleon needs
+# chemprop>=2.2 -> Python>=3.11, and deepchem 2.8.0 -- the version that DEFINES our Tox21 parse --
+# has no 3.12 wheel, so the two cannot share an interpreter. A 3.12 box parses 7,831 Tox21
+# molecules where the reference environment parses 7,823, and the resulting ~0.008 ROC-AUC drift
+# would land on the XGB half of ONE arm while its MLP half (already on disk, 77,864 reference
+# rows) stayed clean -- i.e. it would appear as a head effect. So the box only turns strings into
+# vectors and every parsing, fold and scoring decision stays in the reference venv.
+# figure_data/_chemeleon_features.npz already covers BACE/Tox21/HIV/cbs (peer session); this
+# extends it to the full MolNet CV list so one table serves every eval_v2 call here.
+NPZ=figure_data/_chemeleon_head.npz
+if [ ! -f "$NPZ" ]; then
+  $CLIMB_PY scripts/export_task_smiles.py $TASKS --out figure_data/_task_smiles_head.json >> "$LOG" 2>&1
+  say "exported SMILES rc=$?"
+  ~/venvs/chemeleon/bin/python scripts/embed_chemeleon_box.py       figure_data/_task_smiles_head.json "$NPZ" >> "$LOG" 2>&1
+  say "embedded CheMeleon vectors rc=$?"
+fi
+# the suite tracks keep --featurizer chemeleon: MoleculeACE and Polaris use their own loaders,
+# not deepchem's, so the Tox21 parse difference does not reach them, and their MLP half was
+# produced the same way.
+EVAL_ONLY="--features_npz $NPZ"
+cell "$CLIMB_PY" chemeleon_frozen xgb chemeleon_frozen --featurizer chemeleon
+EVAL_ONLY=""
 
 # ---- ship everything back ----------------------------------------------------------------------
 for base in climb_v2_phase2 cbs_benchmark; do
