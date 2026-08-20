@@ -982,6 +982,53 @@ def check_positional_metric_reads():
     return bad
 
 
+
+def check_source_coverage():
+    """Every derived table a figure's family produces must be READ by that figure.
+
+    A table sitting in analysis/rigor that no figure claims is not a harmless spare file. It is the
+    signature of the failure this project keeps having: a figure holds a hardcoded list of input
+    paths, a new arm's table lands beside the others, and the figure keeps drawing that arm as
+    "not run" while the data exists. Nothing errors, because "file absent" is also the legitimate
+    state of a run still in flight -- the two are indistinguishable from inside the figure.
+
+    fig_F is the live case and the reason this check exists. Its list held climb and chemeleon
+    only; the supervised arm's tables were already being written under a third stem. The list is
+    now derived from ROLE_ORDER, and this check verifies the derivation actually covers what is on
+    disk rather than trusting that it does.
+
+    Vintage tables (legacy/stereo/PREFIX_BACKUP) are provenance, not inputs, and are exempt --
+    check 13 is what reads those.
+    """
+    print(f"\n{'='*94}\n16. DERIVED TABLES ARE ACTUALLY READ BY THEIR FIGURE\n{'='*94}")
+    import importlib
+    RIG = ROOT / "analysis" / "rigor"
+    bad = 0
+    try:
+        figF = importlib.import_module("figures.fig_F")
+    except Exception as e:                                     # noqa: BLE001
+        print(f"  FAIL  cannot import figures.fig_F to read its SOURCES: {e}")
+        return 1
+    claimed = {Path(f).name for f in figF.SOURCES}
+    on_disk = {f.name for f in RIG.glob("concat_*_v2.csv")}
+    orphan = sorted(on_disk - claimed)
+    if orphan:
+        bad += len(orphan)
+        for f in orphan:
+            print(f"  FAIL  {f} is in analysis/rigor but not in fig_F.SOURCES "
+                  f"- produced and not read; add its role to ROLE_ORDER/ROLE_SRC_STEM")
+    else:
+        print(f"  OK    all {len(on_disk)} concat_*_v2 table(s) on disk are read by fig_F")
+    # The other direction is NOT a failure: a claimed file that is absent is a run in flight, and
+    # the figure already says so by name at render time. Report it as pending, not as a defect.
+    pending = sorted(claimed - on_disk)
+    for f in pending:
+        print(f"  PEND  {f} claimed by fig_F, not yet on disk (run in flight; draws as 'not run')")
+    print("  OK - every produced concat table has a reader" if not bad
+          else f"  {bad} produced table(s) nothing reads")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
@@ -990,7 +1037,7 @@ def main():
                  check_qm7_convention(), check_tox21_vintage(),
                  check_replication_parity(), check_aggregate_freshness(),
                  check_invariant_arms(), check_regression_units(),
-                 check_positional_metric_reads()])
+                 check_positional_metric_reads(), check_source_coverage()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 
