@@ -35,6 +35,24 @@ The size of the effect is the point: CheMeleon moves 16.2 kcal/mol on QM7, 0.063
 reports BETWEEN representations. It is the same arm every time, and always in the direction of
 preferring the tree ensemble.
 
+STATE IT ONCE AS A PROPERTY OF THE REPRESENTATION, NOT SIX TIMES AS A SURPRISE. Counting the
+head swap MLP -> XGBoost panel by panel, the direction is not mixed, it is opposite by arm:
+
+  CheMeleon frozen   XGBoost is better on 5 of 6 panels
+                     MoleculeACE -0.138 macro RMSE, QM7 -16.2 kcal/mol, HIV +0.063 NEF1,
+                     Ames +0.042, BACE +0.006; only Tox21 goes the other way (-0.010)
+  CLIMB unsup.       XGBoost is WORSE on 5 of 6 (MoleculeACE +0.052 RMSE, QM7 +4.4, Ames -0.035,
+                     HIV -0.016, Tox21 -0.012; BACE flat at +0.0003)
+  CLIMB sup., desc   XGBoost is worse on 4 of 6
+
+And it is not confined to this figure: in fig_A1 the same swap moves CheMeleon frozen from 14th of
+25 to 3rd, while both CLIMB arms LOSE 2-4 positions. Five independent measurements, one direction.
+
+The honest reading is that CheMeleon's 512-d representation suits a tree ensemble and CLIMB's does
+not, which is a statement about the geometry of the two embeddings rather than about either
+model's quality. It also means no single-head ranking of these representations is protocol-free:
+whichever head is chosen, one family is being read through the probe that suits it least.
+
 COMPARE DOWN A COLUMN, NEVER ACROSS THE DIAGONAL. CheMeleon-under-XGBoost (0.688 on MoleculeACE)
 beats ECFP4+desc-under-the-MLP (0.738), which invites "CheMeleon is the best representation on
 MoleculeACE". WITHIN the XGBoost column ECFP4+desc leads at 0.676; the cross-head pairing flatters
