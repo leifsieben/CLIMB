@@ -1,0 +1,7 @@
+arm,task,task_type,metric,split,fraction,pct,n_train,mean,std,n_cells
+chemeleon,BACE,classification,nef1,test,1.0,100,1210,0.5,0.0,3
+chemeleon,BACE,classification,roc_auc,test,1.0,100,1210,0.8288647342995169,0.014074971666657375,3
+chemeleon,BACE,classification,roc_auc,train,1.0,100,1210,0.97063071872599,0.006295242238578943,3
+chemeleon,Tox21,classification,nef1,test,1.0,100,6258,0.5645502645502646,0.016874802674832108,3
+chemeleon,Tox21,classification,roc_auc,test,1.0,100,6258,0.7516353180435043,0.00281327060432883,3
+chemeleon,Tox21,classification,roc_auc,train,1.0,100,6258,0.9262909302896772,0.018531182967766673,3

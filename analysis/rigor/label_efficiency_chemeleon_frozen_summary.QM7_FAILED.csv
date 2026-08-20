@@ -1,0 +1,3 @@
+arm,task,task_type,metric,split,fraction,pct,n_train,mean,std,n_cells
+chemeleon,QM7,regression,rmse,test,1.0,100,5470,1818.9088948567708,45.19167337039975,3
+chemeleon,QM7,regression,rmse,train,1.0,100,5470,206.94012959798178,13.690614678849267,3

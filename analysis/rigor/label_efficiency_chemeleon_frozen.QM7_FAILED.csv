@@ -1,0 +1,7 @@
+arm,task,task_type,fraction,pct,n_train,subsample_seed,head_seed,metric,split,value
+chemeleon,QM7,regression,1.0,100,5470,0,0,rmse,test,1828.58837890625
+chemeleon,QM7,regression,1.0,100,5470,0,0,rmse,train,218.09347534179688
+chemeleon,QM7,regression,1.0,100,5470,0,1,rmse,test,1769.6617431640625
+chemeleon,QM7,regression,1.0,100,5470,0,1,rmse,train,191.6611328125
+chemeleon,QM7,regression,1.0,100,5470,0,2,rmse,test,1858.4765625
+chemeleon,QM7,regression,1.0,100,5470,0,2,rmse,train,211.06578063964844

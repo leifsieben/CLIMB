@@ -33,9 +33,21 @@ how many labels you have: the frozen probe's advantage lives in the small-data r
 Error bars are +-1 SD of that panel's replicate unit, and each panel's frozen and end2end numbers
 come from the SAME wave, split and seed grid, so the within-panel comparison is like-for-like.
 
-PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/Ames use the mainline wave;
-BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction). Compare frozen vs end2end WITHIN a
-panel; never compare a value in one panel against a value in another.
+PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/Ames/HIV use the mainline
+wave; BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction). Compare frozen vs end2end
+WITHIN a panel; never compare a value in one panel against a value in another. WITHIN a panel every
+point shares that panel's protocol, including the external comparator and the classical anchor, and
+that is enforced rather than assumed: the builder resolves CheMeleon per panel and figures'
+_anchor_values resolves the anchor per panel. The offset it protects against is large — the same
+CheMeleon representation reads 0.8712 on BACE in the mainline wave and 0.8289 under
+label-efficiency, and the same ECFP4+desc anchor reads 0.8712 against 0.7836.
+
+CHEMELEON IS FROZEN-ONLY ON BACE AND TOX21, AND ABSENT ON QM7. Its end-to-end half is a chemprop
+D-MPNN fine-tune that the label-efficiency driver cannot host, so those two panels show its frozen
+marker with no line rather than a slope whose rise would mostly be the wave offset above. QM7's
+label-efficiency CheMeleon cell returned test RMSE 1818.9 against train 206.9 — worse than
+predicting the training mean, against a target SD of 228.7, where every other arm in that wave
+lands at 200-213 — so it is quarantined as a broken cell, not plotted as a representation result.
 
 HIV IS NOW POPULATED. Both encoders' end-to-end HIV runs (5-fold CV, 3 pretraining seeds each)
 landed 2026-08-19 and this figure reads them from climb_v2_phase2. Its error bars are the
@@ -74,10 +86,14 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 # line disappeared from every panel without any check firing.
 SERIES = [(ARMS["unsup"]["label"],     "unsup",     ARMS["unsup"]["label"]),
           (ARMS["sup_dense"]["label"], "sup_dense", ARMS["sup_dense"]["label"]),
-          # The external comparator, added 2026-08-20. Both of its ends come from the MAINLINE
-          # wave because CheMeleon is not in the label-efficiency wave at all, so on the three
-          # label-efficiency panels its LEVEL is not comparable to the CLIMB lines beside it even
-          # though its own slope is valid. Those panels draw it DASHED -- see _ls_for below.
+          # The external comparator, added 2026-08-20, PROTOCOL-MATCHED PER PANEL like the anchor
+          # below -- see the CheMeleon block in scripts/build_SI_fig_a_table.py. On MoleculeACE,
+          # Ames and HIV it is the mainline wave and both probes exist, so the slope is drawn. On
+          # BACE and Tox21 it is the label-efficiency wave at 100% and only the FROZEN probe
+          # exists, so those panels carry a lone marker: CheMeleon end-to-end is a chemprop
+          # D-MPNN fine-tune, which that driver cannot host, and pairing the matched frozen point
+          # with the mainline end2end point would draw a slope made mostly of the wave offset.
+          # QM7 carries no CheMeleon point -- its label-efficiency cell is quarantined as broken.
           ("CheMeleon", "chemeleon_frozen", "CheMeleon")]
 PROBES = ["frozen", "end2end"]
 
@@ -240,10 +256,10 @@ def main():
             mark_empty(ax, f"{p}: no end2end run of a pretrained encoder on this panel")
             continue
 
-        # EVERY SERIES IS SOLID (user 2026-08-20: "don't draw it dashed please"). The
-        # cross-protocol caveat is real and is stated in the docstring and the caption, but it is
-        # not encoded in the line style; the request for the missing label-efficiency CheMeleon
-        # runs has gone to the compute session so the mismatch can be removed rather than marked.
+        # EVERY SERIES IS SOLID (user 2026-08-20: "don't draw it dashed please"). This is no
+        # longer a caveat being suppressed: the missing label-efficiency CheMeleon runs landed the
+        # same day, so the mismatch was REMOVED at the source rather than marked in the line
+        # style. Every point now drawn shares its panel's protocol.
         def _ls_for(enc_label):
             del enc_label
             return "-"

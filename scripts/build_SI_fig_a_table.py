@@ -169,26 +169,74 @@ def main() -> None:
                 add(panel, label, "end2end", e.mean(), e.std(ddof=1) if len(e) > 1 else np.nan,
                     len(e), "label-efficiency 100%")
 
-    # ---- CheMeleon, frozen vs end2end, on every canonical panel (user 2026-08-20) --------------
+    # ---- CheMeleon, frozen vs end2end, PROTOCOL-MATCHED PER PANEL (user 2026-08-20) ------------
     #
-    # The external comparator answers the same question this figure asks, and we already have both
-    # halves: chemeleon_frozen is the frozen probe, chemeleon_e2e the native D-MPNN fine-tune.
+    # The external comparator answers the same question this figure asks, so it is drawn beside
+    # the CLIMB encoders. Which SOURCE it comes from depends on the panel, for exactly the reason
+    # the anchor is resolved per panel in figures/SI_fig_a.py: the two waves differ by more than
+    # the arms do.
     #
-    # PROTOCOL: both halves come from the MAINLINE wave, because CheMeleon is not in the
-    # label-efficiency wave at all (that wave has e2e, random, sup, unsup, unsup2sup and nothing
-    # else). On MoleculeACE, Ames and HIV that matches the CLIMB lines beside it. On BACE, Tox21
-    # and QM7 it does NOT -- those CLIMB lines are label-efficiency at 100%. The CheMeleon SLOPE is
-    # still internally valid there (both of its ends are mainline), but its LEVEL is not comparable
-    # to the CLIMB levels in the same panel, so the figure draws it dashed on exactly those panels
-    # and the protocol column carries the reason.
+    #   MoleculeACE, Ames, HIV   mainline wave -> mainline_8M.csv. Matches the CLIMB rows beside
+    #                            it, and both probes exist, so the full frozen->end2end slope is
+    #                            drawn.
+    #   BACE, Tox21, QM7         the CLIMB rows here are label-efficiency at 100%, and CheMeleon
+    #                            was NOT in that wave until 2026-08-20. It is now, for the FROZEN
+    #                            probe: scripts/label_eff_fractions.py grew a PRECOMPUTED branch
+    #                            that reads the CheMeleon vectors from an npz through the same
+    #                            zscore and the same MLP head the CLIMB lines use, so the arm
+    #                            differs from them in representation only.
+    #
+    # THE MAINLINE VALUE WAS NOT USABLE ON THOSE THREE PANELS, and this is now measured rather
+    # than argued. Same arm, same panel, the two waves read:
+    #
+    #     BACE    mainline 0.8712   label-efficiency 0.8289    -0.042
+    #     Tox21   mainline 0.8293   label-efficiency 0.7516    -0.078
+    #
+    # and the offset is not a CheMeleon property -- unsup moves -0.033/-0.061 and sup_dense
+    # -0.033/-0.074 between the same two waves. It is the split construction (scaffold 5-fold CV
+    # vs a single scaffold hold-out), which is harder, for every arm. Drawing the mainline level
+    # against label-efficiency neighbours therefore placed CheMeleon 4 to 8 points too high on
+    # panels where the whole point is where it sits relative to them.
+    #
+    # NO END2END ON THOSE PANELS, AND THAT IS DELIBERATE. CheMeleon end-to-end is a chemprop
+    # D-MPNN fine-tune, which the label-efficiency driver cannot host (it has an encoder branch, a
+    # classical branch and now a precomputed branch -- a D-MPNN fits none). Pairing the matched
+    # frozen point with the MAINLINE end2end point would draw a slope whose rise is mostly the
+    # protocol offset above, manufacturing a frozen->end2end gain out of a wave difference. So
+    # those panels carry the frozen marker alone and the caption states why.
+    #
+    # QM7 CARRIES NO CHEMELEON POINT AT ALL. Its label-efficiency cell returned test RMSE 1818.9
+    # against train 206.9 -- against a target SD of 228.7, worse than predicting the training mean,
+    # while every other arm in that wave lands at 200-213. It is a broken cell, not a
+    # representation result, and it is quarantined in
+    # analysis/rigor/label_efficiency_chemeleon_frozen_summary.QM7_FAILED.csv rather than plotted.
+    # The mainline QM7 value is not a substitute for it: unsup moves 197.9 -> 212.7 between the
+    # same two waves, so the same offset applies here too.
     #
     # SD: sd_seeds where the arm has pretraining replicates, sd_total otherwise. CheMeleon has ONE
     # pretraining by construction on the two suite tracks (n_seeds=1), so there sd_total -- its
-    # head/eval-seed spread -- is the only replicate spread it can have.
+    # head/eval-seed spread -- is the only replicate spread it can have. On the label-efficiency
+    # panels the SD is the head-seed spread over the 3 cells, the same estimand as the CLIMB rows.
     CHEMELEON = [("chemeleon_frozen", "frozen"), ("chemeleon_e2e", "end2end")]
     che_label = ARMS["chemeleon_frozen"]["label"].split(",")[0]          # "CheMeleon"
+    CHE_LE = ROOT / "analysis" / "rigor" / "label_efficiency_chemeleon_frozen_summary.csv"
+    che_le = pd.read_csv(CHE_LE) if CHE_LE.exists() else pd.DataFrame()
     for arm_key, probe in CHEMELEON:
         for panel in HIGHER:
+            if panel in MOL_METRIC:
+                # label-efficiency panel: matched source only, frozen only
+                if probe != "frozen" or not len(che_le):
+                    continue
+                # metric matched EXPLICITLY -- the summary carries nef1 alongside roc_auc for the
+                # classification panels, and a positional read would take whichever sorted first.
+                f = che_le[(che_le.task == panel) & (che_le.metric == MOL_METRIC[panel])
+                           & (che_le.split == "test") & (che_le.pct == 100)]
+                if not len(f):
+                    continue
+                assert len(f) == 1, f"CheMeleon {panel}: {len(f)} label-efficiency rows, expected 1"
+                add(panel, che_label, "frozen", float(f["mean"].iloc[0]),
+                    float(f["std"].iloc[0]), int(f.n_cells.iloc[0]), "label-efficiency 100%")
+                continue
             r = main_tbl[(main_tbl.arm == arm_key) & (main_tbl.panel == panel)]
             if not len(r):
                 continue

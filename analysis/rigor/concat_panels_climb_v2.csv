@@ -20,3 +20,10 @@ CBS,desc+CLM,nef1,0.905,0.0927
 CBS,desc+CLM,roc_auc,0.9931,0.0099
 CBS,fp+desc+CLM,nef1,0.905,0.0927
 CBS,fp+desc+CLM,roc_auc,0.9954,0.006
+Ames,CLM,roc_auc,0.7821,
+Ames,desc,roc_auc,0.8601,
+Ames,desc+CLM,roc_auc,0.8371,
+Ames,fp,roc_auc,0.8388,
+Ames,fp+CLM,roc_auc,0.8122,
+Ames,fp+desc,roc_auc,0.8631,
+Ames,fp+desc+CLM,roc_auc,0.8422,
