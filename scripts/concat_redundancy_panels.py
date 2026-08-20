@@ -33,9 +33,9 @@ from heads_v2 import make_head, compute_metric, compute_nef
 EMB = os.environ.get("CONCAT_EMB", "climb")
 # "CheMel", not "CheMeleon": fig_F's lattice keys on these strings directly, so the tag IS
 # the figure's cell name -- a mapping layer here is one more list to go stale.
-TAG = {"climb": "CLM", "chemeleon": "CheMel"}[EMB]
+TAG = os.environ.get("CONCAT_TAG") or {"climb": "CLM", "chemeleon": "CheMel"}[EMB]
 PANELS = os.environ.get("CONCAT_PANELS", "MoleculeACE CBS Ames").split()
-ENC = "figure_data/climb_v2_phase2/unsup_8M/encoder"
+ENC = os.environ.get("CONCAT_ENC", "figure_data/climb_v2_phase2/unsup_8M/encoder")
 TOK = "figure_data/_tokenizer"
 SEEDS = [0]
 OUT = Path("analysis/rigor"); OUT.mkdir(parents=True, exist_ok=True)

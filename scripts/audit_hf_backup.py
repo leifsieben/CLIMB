@@ -40,6 +40,35 @@ def local_encoders() -> dict:
     return out
 
 
+def s3_encoders() -> dict:
+    """Encoders present on S3, by wave.
+
+    THE AUDIT USED TO COMPARE local_encoders() AGAINST HF, AND THAT HAS A HOLE: an encoder that
+    lives on S3 but was never pulled down is in NEITHER side of that comparison, so it reads as
+    "complete" while sitting in exactly one place. corrupt_mtr_8M_s1 and _s2 sat like that until
+    2026-08-20 -- safe on S3 the whole time, never lost, but one copy short of the three-copy rule
+    and invisible to the check that exists to enforce it.
+
+    S3 is the authority for what SHOULD exist, because it is the store nothing is deleted from, so
+    the comparison has to be S3 -> HF rather than local -> HF. One recursive listing, not a call
+    per run.
+    """
+    out = defaultdict(set)
+    r = subprocess.run(["aws", "s3", "ls", f"{S3B}/", "--recursive"],
+                       capture_output=True, text=True)
+    for line in r.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        bits = parts[3].split("/")
+        if bits and bits[0] == "experiments":
+            bits = bits[1:]
+        if (len(bits) >= 4 and bits[0] in WAVES and bits[2] == "encoder"
+                and bits[3] in ("model.safetensors", "pytorch_model.bin")):
+            out[bits[0]].add(bits[1])
+    return out
+
+
 def s3_runs() -> dict:
     out = defaultdict(set)
     r = subprocess.run(["aws", "s3", "ls", f"{S3B}/", "--recursive"],
@@ -102,7 +131,10 @@ def main() -> int:
     n = 0
     n += report("RESULTS on S3 but NOT on HF", hf_res, s3)
     n += report("RESULTS local but NOT on S3", s3, loc)
-    n += report("ENCODERS local but NOT on HF", hf_enc, enc_loc)
+    # S3 -> HF is the load-bearing check; local -> HF is kept because a local copy is the one you
+    # can actually work from, but it can never be the completeness test.
+    n += report("ENCODERS on S3 but NOT on HF  (three-copy rule)", hf_enc, s3_encoders())
+    n += report("ENCODERS on S3 but NOT local  (informational)", enc_loc, s3_encoders())
     print(f"\nTOTAL gaps: {n}")
     return 0
 

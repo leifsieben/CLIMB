@@ -393,7 +393,14 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
             return None, None
         v = float(g.loc[k, "mean"])
         e = float(g.loc[k, "std"])
-        return v, (0.0 if not np.isfinite(e) else e)
+        # NaN STAYS NaN. This coerced a missing spread to 0.0, and matplotlib duly drew a
+        # zero-length error bar with caps -- a small tick at the top of the bar that reads as
+        # "measured to within nothing at all" rather than "not measured". Leif caught it on the
+        # Ames panel (2026-08-20: "barely visible, that's a bit sus"), where every cell had an
+        # empty std because the panel has one scored value per feature block and no seed axis.
+        # Ames now carries a real analytic SE (see scripts/merge_concat_ames_panels.py); this
+        # guard is what stops the next panel with no spread from claiming perfect precision.
+        return v, (float("nan") if not np.isfinite(e) else e)
 
     # x positions: two groups of three with a gap between, so the eye reads "base, +CLIMB,
     # +CheMeleon" twice rather than six unrelated bars.
@@ -448,9 +455,12 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
     bw = bw if bw is not None else (0.62 if compact else 0.74)
     for xi_, v, e, c, ok in zip(x, ys, es, cs, present):
         if ok:
+            # yerr=None, not yerr=[nan]: a cell with no interval gets NO whisker at all, which
+            # is visibly different from a short one.
             ax.bar([xi_], [v], width=bw, color=c, edgecolor=INK, linewidth=0.7,
-                   yerr=[e], error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9,
-                                           ecolor=INK, zorder=6), zorder=3)
+                   yerr=([e] if np.isfinite(e) else None),
+                   error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9,
+                                 ecolor=INK, zorder=6), zorder=3)
         else:
             # NOT RUN, drawn as an empty slot rather than omitted. A missing bar and a bar at the
             # axis floor look identical, and here the two mean opposite things -- "no measurement"

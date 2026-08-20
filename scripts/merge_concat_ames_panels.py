@@ -23,14 +23,32 @@ WHAT IT GUARDS AGAINST, each of which has actually happened in this project:
     its keys from (CLM / CLMsup / CheMel). If the scorer's tag drifts, the panel would go blank
     with no error. The expected block set is asserted per embedding.
 
-The `features` column carries SEVEN FEATURE BLOCKS, not replicates. There is one scored value per
-block and no seed axis, so `std` is deliberately empty -- an Ames error bar would have to come from
-a bootstrap over the test set, which is not what the other panels' bars mean.
+THE ERROR BAR ON THIS PANEL IS AN ANALYTIC SE, AND IT HAS TO BE.
+
+The `features` column carries SEVEN FEATURE BLOCKS, not replicates: one scored value per block, no
+seed axis, nothing to take an SD over. `std` was therefore left empty -- and fig_F coerced the
+resulting NaN to 0.0 and drew a ZERO-LENGTH error bar with caps, which reads on the page as "this
+number is known to within nothing at all". A fabricated precision claim is worse than a missing
+bar, and Leif spotted it on sight (2026-08-20: "barely visible, that's a bit sus").
+
+Nor can it be resampled: Polaris withholds the Ames test labels, so there is no y_true to bootstrap
+against -- our own copy of tdcommons__ames.csv has y all-NaN on the test split.
+
+What is available is the Hanley-McNeil analytic SE of an AUC, which needs only the AUC and the two
+class counts. It is the same estimator scripts/a2_bootstrap_errorbars.py already uses for this
+panel, flagged DERIVED there for the same reason, so fig_F and fig_A2 now say the same thing about
+the same panel instead of one drawing a zero.
+
+THE CLASS COUNTS ARE AN ESTIMATE AND THE CAPTION MUST SAY SO. n_pos=777, n_neg=680 is 1457 test
+molecules split at the TRAIN active rate of 53.32%, because the true test balance is withheld. The
+SE is weakly sensitive to it -- see the printout, which reports the SE under the assumed split and
+under a deliberately wrong one -- but "weakly sensitive" is a thing to show, not to assert.
 
 Usage:  python scripts/merge_concat_ames_panels.py [climb|climb_sup|chemeleon ...]
 """
 from __future__ import annotations
 import csv
+import math
 import sys
 from pathlib import Path
 
@@ -39,6 +57,23 @@ TASK = "tdcommons/ames"
 PANEL = "Ames"
 METRIC = "roc_auc"
 FIELDS = ["task", "features", "metric", "mean", "std"]
+# Ames test-set class counts. NOT measured -- Polaris withholds the test labels -- but 1457 test
+# molecules at the train active rate of 53.32%. Same constants as scripts/a2_bootstrap_errorbars.py,
+# and if that file's numbers are ever corrected from Polaris metadata these must move with them.
+N_POS, N_NEG = 777, 680
+
+
+def hanley_mcneil_se(auc: float, n1: int = N_POS, n0: int = N_NEG) -> float:
+    """Standard error of an AUC from the AUC and the class counts (Hanley & McNeil 1982).
+
+    Q1 is the probability that two randomly chosen positives both rank above a random negative;
+    Q2 the mirror image. Together with the binomial term they give the variance of the Mann-Whitney
+    statistic, which IS the AUC. No labels required beyond the two counts -- which is the whole
+    reason this panel can carry an interval at all."""
+    q1 = auc / (2 - auc)
+    q2 = 2 * auc * auc / (1 + auc)
+    var = (auc * (1 - auc) + (n1 - 1) * (q1 - auc * auc) + (n0 - 1) * (q2 - auc * auc)) / (n1 * n0)
+    return math.sqrt(var)
 
 # suffix -> the blocks that embedding's pass must produce. Mirrors ROLE_SUFFIX in figures/fig_F.py.
 BLOCKS = {"climb": "CLM", "climb_sup": "CLMsup", "chemeleon": "CheMel"}
@@ -70,7 +105,8 @@ def merge(emb: str, sc: dict[str, float]) -> None:
         print(f"  {emb:10} {tbl.name} absent -- nothing to merge into"); return
     kept = [r for r in csv.DictReader(tbl.open()) if r["task"] != PANEL]
     rows = kept + [{"task": PANEL, "features": f, "metric": METRIC,
-                    "mean": f"{v:.4f}", "std": ""} for f, v in sorted(sc.items())]
+                    "mean": f"{v:.4f}", "std": f"{hanley_mcneil_se(v):.4f}"}
+                   for f, v in sorted(sc.items())]
     with tbl.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS); w.writeheader(); w.writerows(rows)
     print(f"  {emb:10} {len(sc)} Ames rows -> {tbl.name} ({len(kept)} other rows kept)")
@@ -89,6 +125,14 @@ def main(embs: list[str]) -> int:
             lo, hi = min(vals.values()), max(vals.values())
             rel = 100 * (hi - lo) / abs(lo) if lo else float("nan")
             print(f"  {blk:8} across {len(vals)} passes: {lo:.4f}..{hi:.4f}  ({rel:.3f}%)")
+
+    # HOW MUCH DOES THE ASSUMED CLASS SPLIT MATTER? Shown, not asserted. The second figure uses a
+    # deliberately wrong balance (60/40 the other way) to bound the error in the assumption.
+    if live:
+        a = max(max(s.values()) for s in live.values())
+        alt = hanley_mcneil_se(a, n1=583, n0=874)
+        print(f"  SE at AUC={a:.4f}: {hanley_mcneil_se(a):.4f} assumed 777/680, "
+              f"{alt:.4f} under a wrong 583/874 -- the bar moves {abs(alt-hanley_mcneil_se(a)):.4f}")
 
     for e, s in live.items():
         merge(e, s)

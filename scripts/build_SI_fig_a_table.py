@@ -185,7 +185,9 @@ def main() -> None:
             f"not be comparable with each other, which is the one comparison this figure needs")
     print(f"wrote {OUT.relative_to(ROOT)}  {len(rows)} rows "
           f"({len(PAIRS)} encoders x {len(PANEL_ORDER)} panels x 2 probes, no holes)")
-    print(f"every interval: {d.method.iloc[0]}; every point: {PROTOCOL} wave")
+    print(f"every point: {PROTOCOL} wave. interval method, one per panel:")
+    for _p in PANEL_ORDER:
+        print(f"    {_p:<12} {d[d.panel == _p].method.iloc[0]}")
 
     print("\ndoes end-to-end fine-tuning beat the frozen probe at full data?")
     print("  (delta signed so + = end2end better; * = the two intervals do not overlap)")

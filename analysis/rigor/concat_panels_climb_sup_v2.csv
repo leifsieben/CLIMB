@@ -20,10 +20,10 @@ CBS,desc+CLMsup,nef1,0.905,0.0927
 CBS,desc+CLMsup,roc_auc,0.9931,0.0096
 CBS,fp+desc+CLMsup,nef1,0.88,0.1122
 CBS,fp+desc+CLMsup,roc_auc,0.9941,0.008
-Ames,CLMsup,roc_auc,0.8078,
-Ames,desc,roc_auc,0.8601,
-Ames,desc+CLMsup,roc_auc,0.8376,
-Ames,fp,roc_auc,0.8388,
-Ames,fp+CLMsup,roc_auc,0.8199,
-Ames,fp+desc,roc_auc,0.8631,
-Ames,fp+desc+CLMsup,roc_auc,0.8428,
+Ames,CLMsup,roc_auc,0.8078,0.0112
+Ames,desc,roc_auc,0.8601,0.0097
+Ames,desc+CLMsup,roc_auc,0.8376,0.0104
+Ames,fp,roc_auc,0.8388,0.0103
+Ames,fp+CLMsup,roc_auc,0.8199,0.0109
+Ames,fp+desc,roc_auc,0.8631,0.0096
+Ames,fp+desc+CLMsup,roc_auc,0.8428,0.0102

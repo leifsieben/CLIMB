@@ -58,8 +58,36 @@ _ALL_ARMS = {"random": "random_baseline_00", "unsup": "unsup_8M",
              # (Tox21 0.7356 here vs 0.7961 mainline). A line and its points from different
              # protocols measure the wave as much as the model, so the anchor is scored HERE too.
              # It carries its own featurizer and head; see CLASSICAL below.
-             "fp_desc": "__classical__"}
+             "fp_desc": "__classical__",
+             # PRECOMPUTED arm: CheMeleon frozen. Same motivation as the fp_desc anchor above --
+             # SI fig a draws CheMeleon beside the CLIMB lines on BACE/Tox21/QM7 while CheMeleon's
+             # only runs are MAINLINE, and the two waves disagree by up to 8.8 points on the SAME
+             # features through the SAME model. CheMeleon cannot go through the encoder branch:
+             # it is a chemprop D-MPNN, not a ModernBertModel, so its vectors are precomputed in a
+             # py3.12 process and read here. Only the FROZEN half is available this way; the e2e
+             # half needs a chemprop training subprocess per cell and is not runnable in this
+             # driver at all.
+             "chemeleon": "__precomputed__"}
 CLASSICAL = {"fp_desc": ("fp_desc", "xgb")}      # arm -> (featurizer, head)
+PRECOMPUTED = {"chemeleon": ("figure_data/_chemeleon_allmols.npz", "mlp")}   # arm -> (npz, head)
+
+_PRE_TABLE = {}
+def _precomputed_features(npz_path, smiles):
+    """Look vectors up in a precomputed {smiles: vector} table.
+
+    REFUSES to mean-fill a missing molecule, for the same reason the concat runner does: a filled
+    row produces a complete, plausible, fabricated number that no range check downstream can catch.
+    """
+    if npz_path not in _PRE_TABLE:
+        z = np.load(npz_path, allow_pickle=True)
+        X, S = z["X"], z["smiles"]            # hoisted: np.load on .npz is lazy
+        _PRE_TABLE[npz_path] = {str(v): X[i] for i, v in enumerate(S)}
+        print(f"  [precomputed] {len(_PRE_TABLE[npz_path])} vectors from {npz_path}", flush=True)
+    tab = _PRE_TABLE[npz_path]
+    miss = [x for x in smiles if str(x) not in tab]
+    if miss:
+        raise KeyError(f"{len(miss)} SMILES absent from {npz_path}, e.g. {miss[:2]}")
+    return np.asarray([tab[str(x)] for x in smiles], dtype=np.float32)
 # env overrides (LE_ARMS / LE_TASKS / LE_SEEDS / LE_LONG / LE_SUMM) let the "clean 3-task" re-run
 # reuse this proven scorer without editing constants; defaults preserve the original behaviour.
 _arm_sel = os.environ.get("LE_ARMS", "").split()
@@ -92,7 +120,14 @@ def subsample_idx(n_full: int, frac: float, seed: int) -> np.ndarray:
 rows = []
 for arm, run in ARMS.items():
     classical = arm in CLASSICAL
-    if classical:
+    precomputed = arm in PRECOMPUTED
+    if precomputed:
+        npz_path, head_name = PRECOMPUTED[arm]
+        if not Path(npz_path).exists():
+            print(f"[{arm}] MISSING {npz_path} -- skipping", flush=True); continue
+        print(f"\n===== arm={arm} (precomputed {npz_path} + {head_name}) =====", flush=True)
+        encoder = None
+    elif classical:
         feat_name, head_name = CLASSICAL[arm]
         print(f"\n===== arm={arm} (classical {feat_name} + {head_name}) =====", flush=True)
         encoder = None
@@ -116,7 +151,11 @@ for arm, run in ARMS.items():
         n_out = tr_y.shape[1] if tr_y.ndim > 1 else 1
         t0 = time.time()
         # featurize ONCE (the expensive encoder pass); reuse across fractions/seeds
-        if classical:
+        if precomputed:
+            tr_x_full = _precomputed_features(npz_path, tr_s)
+            va_x = _precomputed_features(npz_path, va_s)
+            te_x = _precomputed_features(npz_path, te_s)
+        elif classical:
             from featurize_v2 import ecfp4_features
             from descriptors_v2 import rdkit_descriptors
 
@@ -151,7 +190,12 @@ for arm, run in ARMS.items():
                     tex_s = apply_standardizer(te_x, sp)
                 ysc = _fit_target_scaler(try_, tt)
                 for hs in HEAD_SEEDS:
-                    hd = make_head(head_name if classical else HEAD, tt, n_out, hs).fit(
+                    # precomputed CheMeleon vectors are continuous, so they take the SAME zscore
+                    # path as encoder features above (only the classical arm skips it) and the same
+                    # MLP head the CLIMB lines use -- which is the point: the arm must differ from
+                    # them in representation only, not in probe.
+                    hd = make_head(head_name if (classical or precomputed) else HEAD,
+                                   tt, n_out, hs).fit(
                         trx_s, _scale_targets(try_, ysc), vax_s, _scale_targets(va_y, ysc))
                     te_pred = _unscale_preds(np.asarray(hd.predict(tex_s), dtype=np.float64), ysc)
                     tr_pred = _unscale_preds(np.asarray(hd.predict(trx_s), dtype=np.float64), ysc)

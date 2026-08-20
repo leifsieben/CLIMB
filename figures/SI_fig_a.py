@@ -38,14 +38,27 @@ line changes head between its ends (XGBoost probe → fine-tuned D-MPNN) while t
 not. Reporting its MLP probe instead would match heads at the cost of drawing a configuration the
 paper never otherwise mentions, and would understate the arm by 0.185 macro RMSE on MoleculeACE.
 
-WHAT THE FIGURE SAYS. End-to-end is the better default for the CLIMB encoders but not universally,
-and the exceptions concentrate in the supervised arm — where freezing is as good or better, the
-frozen features were already good. CheMeleon is the opposite extreme and the most instructive line
-here: frozen it is roughly fingerprint-level, fine-tuned it is the strongest arm in the paper. Its
-own control explains why — the same D-MPNN trained from scratch is worse than every classical arm —
-so what its pretraining supplies is an initialisation for an architecture that cannot be trained at
-this data scale, which is a different thing from a better representation. (That control is not in
-the paper; it is recorded here because it is what licenses the wording above.)
+WHAT THE FIGURE SAYS, AND IT IS WEAKER THAN THE PREVIOUS VERSION CLAIMED. End-to-end is ahead in 12
+of the 18 cells, but NOT ONE of the eighteen frozen/end2end interval pairs is disjoint. The old
+figure reported 8 of 12 cells "clearing the combined SD"; that bar was a spread over seed
+replicates, which measures how reproducible a number is and not how well the test set pins it down.
+A cluster bootstrap over test scaffolds includes the sampling variation the seed SD omits, and it
+is several times wider. Read this figure as "end-to-end is usually ahead, and the data cannot
+resolve any single one of these differences", not as a set of wins.
+
+CAVEAT ON THAT, IN THE OPPOSITE DIRECTION: overlapping marginal intervals are a CONSERVATIVE test.
+Frozen and end2end are scored on the SAME molecules, so a paired bootstrap — resample the scaffolds
+once, take the difference within the resample — would cancel the shared test-set draw and give a
+much tighter interval on the delta. That is the correct test for this figure's question and it is
+not what is drawn here. The non-overlap statement above is therefore a floor on what can be
+claimed, not a verdict.
+
+CHEMELEON IS THE LINE THAT CHANGED MOST, because it is now the XGBoost probe. With the MLP probe
+its frozen end sat far below its fine-tuned end on every panel, which made it look like the clearest
+case for fine-tuning in the paper. At the head that actually suits it, frozen is AHEAD on four of
+six panels — HIV by 0.081 NEF1, Ames by 0.025 ROC-AUC, QM7 by 4.2 RMSE, BACE by 0.004 — and behind
+only on MoleculeACE and Tox21. The apparent case for fine-tuning that arm was largely a case
+against its MLP probe.
 
 Compare frozen vs end2end WITHIN a panel, and across encoders within a panel — both are like-for-
 like now. Panels still carry different metrics, so never compare a value in one panel against a

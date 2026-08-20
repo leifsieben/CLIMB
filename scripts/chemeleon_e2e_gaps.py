@@ -33,6 +33,13 @@ ONLY = os.environ.get("CHEM_ONLY", "")
 # hardcoded one -- so a second run at a different CHEM_SEEDS would have silently replaced the
 # published one rather than sitting beside it.
 RUN = os.environ.get("CHEM_RUN", "chemeleon_e2e")
+# CHEM_FOUNDATION: "" trains a vanilla chemprop D-MPNN FROM SCRATCH instead of initialising from
+# the CheMeleon foundation. This is the control that separates "the D-MPNN architecture is good on
+# these tasks" from "the CheMeleon pretraining is doing the work" -- without it, chemeleon_e2e
+# leading MoleculeACE is uninterpretable, because no arm in the suite shares its architecture.
+# cbs_chemprop_e2e.py has carried both arms on CBS since the start; the suite tracks never did.
+# Matches MOLNET_FOUNDATION in scripts/molnet_chemprop_e2e.py.
+FOUNDATION = os.environ.get("CHEM_FOUNDATION", "CHEMELEON")
 MACE_DIR = ROOT / "chemeleon_suite" / "data" / "moleculeace"
 POL_DIR = ROOT / "chemeleon_suite" / "data" / "polaris"
 S3 = "s3://climb-s3-bucket/experiments/chemeleon_suite"
@@ -61,8 +68,9 @@ def train_predict(task_type, tr_smi, tr_y, te_smi, seed, td):
     cmd = [CHEMPROP, "train", "--data-path", str(trp), "--task-type", task_type,
            "--smiles-columns", "smiles", "--target-columns", "y", "--output-dir", str(outp),
            "--epochs", str(EPOCHS), "--patience", "15", "--split-sizes", "0.9", "0.1", "0.0",
-           "--pytorch-seed", str(seed), "--data-seed", str(seed), "--num-workers", "0",
-           "--from-foundation", "CHEMELEON"]
+           "--pytorch-seed", str(seed), "--data-seed", str(seed), "--num-workers", "0"]
+    if FOUNDATION:
+        cmd += ["--from-foundation", FOUNDATION]
     if task_type == "classification":
         cmd += ["--class-balance"]
     r = sh(cmd, capture_output=True, text=True)
@@ -121,7 +129,8 @@ def do_moleculeace():
             w.writeheader(); w.writerows(pred_rows)
     if len({r["task"] for r in res_rows}) >= len(tasks):
         (out / "verified.json").write_text(json.dumps(
-            {"track": "moleculeace", "model": RUN, "featurizer": "chemprop_from_foundation",
+            {"track": "moleculeace", "model": RUN,
+             "featurizer": f"chemprop_from_foundation:{FOUNDATION}" if FOUNDATION else "chemprop_from_scratch",
              "head": "e2e", "seeds": SEEDS, "n_tasks": len(tasks)}))
         log("moleculeace VERIFIED")
     sh(["aws", "s3", "cp", "--recursive", str(out), f"{S3}/moleculeace/{RUN}", "--only-show-errors"])

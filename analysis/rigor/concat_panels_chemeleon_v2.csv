@@ -20,10 +20,10 @@ CBS,desc+CheMel,nef1,0.86,0.1158
 CBS,desc+CheMel,roc_auc,0.9965,0.0042
 CBS,fp+desc+CheMel,nef1,0.91,0.1114
 CBS,fp+desc+CheMel,roc_auc,0.9963,0.0039
-Ames,CheMel,roc_auc,0.8640,
-Ames,desc,roc_auc,0.8601,
-Ames,desc+CheMel,roc_auc,0.8724,
-Ames,fp,roc_auc,0.8388,
-Ames,fp+CheMel,roc_auc,0.8696,
-Ames,fp+desc,roc_auc,0.8631,
-Ames,fp+desc+CheMel,roc_auc,0.8760,
+Ames,CheMel,roc_auc,0.8640,0.0095
+Ames,desc,roc_auc,0.8601,0.0097
+Ames,desc+CheMel,roc_auc,0.8724,0.0092
+Ames,fp,roc_auc,0.8388,0.0103
+Ames,fp+CheMel,roc_auc,0.8696,0.0093
+Ames,fp+desc,roc_auc,0.8631,0.0096
+Ames,fp+desc+CheMel,roc_auc,0.8760,0.0091

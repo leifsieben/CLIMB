@@ -1,0 +1,8 @@
+task,features,metric,mean,std
+ESOL,fp,rmse,1.5092,0.3102
+ESOL,desc,rmse,0.7339,0.0325
+ESOL,fp+desc,rmse,0.7281,0.0408
+ESOL,CLM,rmse,1.3235,0.1223
+ESOL,fp+CLM,rmse,1.2729,0.1329
+ESOL,desc+CLM,rmse,0.7512,0.0505
+ESOL,fp+desc+CLM,rmse,0.7564,0.0506
