@@ -1,6 +1,6 @@
 """Is the all-datasets ranking (Fig A1-wide) dominated by MoleculeACE?
 
-Fig A1-wide averages a model's rank over 66 datasets, of which 30 are MoleculeACE targets and 28
+Fig A1-wide averages a model's rank over 65 datasets, of which 30 are MoleculeACE targets and 28
 are Polaris tasks. That is only a problem if (a) those datasets vote as a bloc, and (b) the final
 ordering actually depends on the weighting. This script measures both, plus the price paid for the
 per-dataset scheme: correlated datasets inflate the effective sample size and shrink the SE.

@@ -5,7 +5,7 @@ ONE script, ONE figure: figures_v2/figA1.png / .pdf
 What it shows
 -------------
 Each model is ranked within every individual dataset (1 = best of N), and those ranks are averaged
-over all 66 datasets: MoleculeNet (7) · MoleculeACE (30 ChEMBL targets) · Polaris (28 ADMET/kinase
+over all 65 datasets: MoleculeNet (6) · MoleculeACE (30 ChEMBL targets) · Polaris (28 ADMET/kinase
 tasks, each on its own primary metric) · CBS (1). Ranking per dataset is what makes the pooling
 legal — the metrics are heterogeneous (RMSE, ROC-AUC, NEF1%, Pearson r) and cannot be averaged.
 A dataset scored on only k of the N models is rescaled from [1..k] to [1..N] so a missing model
@@ -53,7 +53,7 @@ correlate at rho = 0.74 and behave like ~1.3 independent datasets. Treating all 
 would understate the SE by ~3x, so it is inflated by sqrt(design effect) in allsuites.wide_ranks().
 The ordering is broadly robust (Kendall tau 0.874 against per-suite weighting) BUT THE TOP POSITION
 IS NOT, and that must not be quoted as if it were. Weighting every dataset equally lets MoleculeACE
-(30) and Polaris (28) decide 58 of 66 and puts CheMeleon (e2e) first at 3.11; weighting the four
+(30) and Polaris (28) decide 58 of 65 and puts CheMeleon (e2e) first at 3.11; weighting the four
 SUITES equally instead puts the two descriptor-bearing XGBoost anchors first and drops CheMeleon to
 third at 5.51. So "CheMeleon (e2e) is first overall" is an artefact of TWO choices stacking --
 per-dataset weighting and the frozen-vs-fine-tuned protocol above -- and the defensible claim is
@@ -118,11 +118,12 @@ INK = "#000000"
 BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the marker colours
 
 # Arms are registered in arms.py before their GPU results land. Plot only arms with essentially
-# COMPLETE coverage (>=60 of 66 datasets): a mean rank computed on a sliver of the suite is not
-# comparable to the 66/66 mainline arms (user decision 2026-08-17: A1 stays as approved -- the
+# COMPLETE coverage (>=60 of 65 datasets): a mean rank computed on a sliver of the suite is not
+# comparable to the 65/65 mainline arms (user decision 2026-08-17: A1 stays as approved -- the
 # mainline arms). Coverage as of 2026-08-18, after chemeleon_e2e's full 28-task Polaris run landed:
-#   66/66  every arm in ARM_ORDER, including chemeleon_e2e (was 31/66, then 39/66 once two loader
-#          bugs in allsuites were fixed, now complete) and s2u_dense (was 31/66).
+#   65/65  21 of 22 arms, including chemeleon_e2e (was 31, then 39 once two loader
+#          bugs in allsuites were fixed, now complete). s2u_dense is the one exception at 63/65,
+#          missing BBBP and ESOL.
 # The frozen-vs-e2e SPLIT IS GONE. Panel (a) previously showed CheMeleon FROZEN while panel (b)
 # showed CheMeleon E2E -- different models 65 kcal/mol apart on QM7 under one comparator name --
 # because only the frozen variant cleared the coverage floor. Both now qualify and both are drawn,
@@ -144,7 +145,7 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # both about to be wrong by two. Same shape as every other hardcoded-name failure in this repo.
 E2E_ARMS = {a for a, m in ARMS.items() if m.get("probe") == "e2e"}
 
-# TWO GATES, and they are different questions. Coverage (>=60 of 66 datasets) asks whether an arm
+# TWO GATES, and they are different questions. Coverage (>=60 of 65 datasets) asks whether an arm
 # has been measured widely enough to rank. `in_ranking` asks whether it SHOULD be ranked at all --
 # used to keep one row per representation rather than one per (representation, probe), so the
 # figure compares representations instead of comparing probes. Declared in arms.py, never listed
@@ -155,8 +156,8 @@ ARMS_USED = [a for a in RANKABLE if _S0.loc[a].notna().sum() >= 60]
 N = len(ARMS_USED)
 
 # PER-SUITE EQUAL WEIGHTING (user decision 2026-08-19). Each arm's headline number is the mean of
-# its FOUR SUITE mean-ranks, not the mean over all 66 datasets. Per-dataset weighting lets
-# MoleculeACE (30) and Polaris (28) decide 58 of 66, which is exactly the two suites CheMeleon was
+# its FOUR SUITE mean-ranks, not the mean over all 65 datasets. Per-dataset weighting lets
+# MoleculeACE (30) and Polaris (28) decide 58 of 65, which is exactly the two suites CheMeleon was
 # built and tuned against (Burns et al. evaluate on those two only) -- so it inflates an arm that
 # is strong there and absent-to-weak on MoleculeNet (7) and CBS (1). Under equal suite weight the
 # order flips back: the two descriptor anchors first (3.88 / 3.97, indistinguishable from each

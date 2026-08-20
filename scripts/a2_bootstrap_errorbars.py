@@ -76,10 +76,9 @@ VINTAGE_SUBDIRS = {"Tox21": "moleculenet_cv_tox21fixed"}
 
 
 def _has_rows(root, run, dataset, sub):
-    """True iff <root>/<run>/<sub>/test_predictions.csv actually holds rows for `dataset`."""
+    """True iff <root>/<run>/<sub>/ actually holds per-molecule rows for `dataset`."""
     for cand in (run, f"{run}_s0"):
-        f = FD / root / cand / sub / "test_predictions.csv"
-        if f.exists():
+        if any((FD / root / cand / sub / n).exists() for n in DUMP_NAMES):
             return load_oof(root, cand, dataset, sub) is not None
     return False
 
@@ -108,13 +107,44 @@ def _oof_subdir(root, runs, dataset):
     return cands[-1], list(runs)
 
 
+# THE PER-MOLECULE DUMP HAS TWO FILENAMES, and reading only the first cost six intervals.
+#
+# The CLIMB end-to-end arms' MolNet runs were finished in two passes: the original run dumped HIV
+# to test_predictions.csv, and a later gap-fill pass dumped BACE/BBBP/ESOL/Lipophilicity/QM7/Tox21
+# to test_predictions_gapfill.csv beside it. Both are real predictions from the same wave; only the
+# filename differs. Reading one name meant unsup_e2e and sup_dense_e2e reported MISSING_OOF on
+# exactly the three panels the gap-fill pass produced, while their SUMMARY numbers were present
+# and correct -- a hole that looks like "never run" and is actually "written under another name".
+#
+# The two are searched in order and NEVER pooled: a dataset lives in exactly one of them, and
+# concatenating would double every molecule that appeared in both.
+DUMP_NAMES = ("test_predictions.csv", "test_predictions_gapfill.csv")
+
+
 def load_oof(root, run, dataset, subdir="moleculenet_cv"):
-    p = FD / root / run / subdir / "test_predictions.csv"
-    if not p.exists():
-        return None
-    d = pd.read_csv(p)
-    d = d[d.dataset == ("cbs" if root == "cbs_benchmark" else dataset)]
-    return d if len(d) else None
+    want = "cbs" if root == "cbs_benchmark" else dataset
+    for name in DUMP_NAMES:
+        p = FD / root / run / subdir / name
+        if not p.exists():
+            continue
+        d = pd.read_csv(p, low_memory=False)
+        d = d[d.dataset == want]
+        if not len(d):
+            continue
+        # The gap-fill dumps are concatenations of per-dataset files and carry REPEATED HEADER
+        # ROWS, which the `dataset == want` filter already drops -- but it leaves the numeric
+        # columns typed as object, and a silently-object y_true turns every downstream comparison
+        # into string comparison. Coerce, then insist nothing was lost to the coercion.
+        for c in ("y_true", "y_pred", "mol_index", "output_index"):
+            if c in d.columns:
+                before = d[c].notna().sum()
+                d[c] = pd.to_numeric(d[c], errors="coerce")
+                assert d[c].notna().sum() == before, (
+                    f"{root}/{run}/{subdir}/{name}: {before - int(d[c].notna().sum())} "
+                    f"non-numeric value(s) in {c} for {want} -- the dump is malformed, not just "
+                    f"concatenated")
+        return d
+    return None
 
 
 # Datasets whose predictions may sit in EITHER subdir, resolved per dir instead of per arm, with

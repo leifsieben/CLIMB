@@ -2,7 +2,8 @@
 
 The 6-panel figures show per-dataset detail, which caps them at six columns. A rank average does
 not need to show detail, so it can pool EVERY benchmark: 7 MoleculeNet datasets + 30 MoleculeACE
-targets + 28 Polaris tasks + CBS = 66 datasets. More datasets, less sensitivity to any one
+targets + 28 Polaris tasks + CBS = 65 datasets (MolNet 6; Lipophilicity is excluded -- see
+MOLNET below). More datasets, less sensitivity to any one
 benchmark's quirks (see notes/bbbp-anchor-verification-2026-08-16.md for why that matters).
 
 Sources, all under figure_data/:
@@ -60,9 +61,23 @@ def molnet_dir(prefix, subdir="moleculenet_cv"):
             return d
     return None
 
+# LIPOPHILICITY IS NOT IN THE RANKING UNIVERSE (Leif 2026-08-20), and the reason is coverage, not
+# the task. Only 5 of the 22 ranked arms were ever run on it -- the three end-to-end arms, the
+# random-encoder floor, and CheMeleon's XGBoost probe. Every other arm, including both classical
+# anchors and every frozen CLIMB arm, has no cell there.
+#
+# wide_ranks() rescales each dataset's ranks to the full field, so a 5-way contest is stretched
+# onto the 22-way scale and the ARITHMETIC is sound. What is not sound is the comparison: five arms
+# were being scored on a dataset the other seventeen never ran, and it moved their MolNet mean rank
+# by up to a full position -- chemeleon_e2e 7.27 -> 8.32 when it is removed, unsup_e2e 9.89 -> 8.74,
+# sup_dense_e2e 7.25 -> 6.54. An arm gaining a rank position for being best-of-five on a dataset
+# most of the field skipped is an artefact of who happened to run it.
+#
+# So the universe is 65 datasets: MolNet 6 + MoleculeACE 30 + Polaris 28 + CBS 1. Dropping it is
+# free -- it costs seventeen arms nothing they had -- and filling it was the alternative, rejected
+# because the suite is already six MolNet tasks deep and Lipophilicity is not a canonical panel.
 MOLNET = {"BACE": ("roc_auc", True), "BBBP": ("roc_auc", True), "HIV": ("roc_auc", True),
-          "Tox21": ("roc_auc", True), "ESOL": ("rmse", False), "QM7": ("rmse", False),
-          "Lipophilicity": ("rmse", False)}
+          "Tox21": ("roc_auc", True), "ESOL": ("rmse", False), "QM7": ("rmse", False)}
 
 # Polaris metrics where larger is better; everything else (errors) is smaller-is-better.
 HIGHER = {"pearsonr", "spearmanr", "r2", "roc_auc", "pr_auc", "accuracy", "explained_var",
@@ -233,7 +248,7 @@ def _seed_dirs(base):
 
 def wide_table(arms=None):
     """Returns (scores, meta):
-    scores  DataFrame, rows = arms, columns = all 66 datasets (NaN where not run)
+    scores  DataFrame, rows = arms, columns = all 65 datasets (NaN where not run)
     meta    DataFrame indexed by dataset with columns suite, metric, higher_better
     """
     arms = arms or ARM_ORDER
@@ -307,7 +322,7 @@ def effective_n(R, M, max_pairs=4000):
 def wide_ranks(arms=None, per_suite_equal=False):
     """Per-dataset rank (1 = best), and the mean rank per arm.
 
-    per_suite_equal=False -> every DATASET counts once (MoleculeACE + Polaris dominate, 58 of 66)
+    per_suite_equal=False -> every DATASET counts once (MoleculeACE + Polaris dominate, 58 of 65)
     per_suite_equal=True  -> mean rank within each suite first, then average the four suites
     """
     S, M = wide_table(arms)

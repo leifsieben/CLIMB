@@ -3,61 +3,59 @@
 ONE script, ONE figure: figures_v2/SI_fig_a.png / .pdf
 
 The same pretrained encoder used two ways at FULL downstream data: frozen (encoder fixed, probe
-trained on the labels) versus end-to-end (whole network fine-tuned). Two encoders, `unsupervised`
-and `supervised, dense`, on each canonical panel.
+trained on the labels) versus end-to-end (whole network fine-tuned). Three encoders — `unsupervised`,
+`supervised, desc`, and the external comparator `CheMeleon` — on each of the six canonical panels.
+Thirty-six points, no holes.
 
-THE ANSWER IS MOSTLY YES, but it is not universal. All six panels are populated as of 2026-08-20.
-End-to-end wins 10 of the 12 encoder x panel cells and clears the combined SD in 8. The largest
-gains are QM7 unsupervised (-12.0 RMSE), HIV supervised (+0.050 NEF1) and Tox21 supervised
-(+0.039). Both exceptions involve the SUPERVISED encoder -- BACE (-0.013) and QM7 (-3.3 RMSE) --
-where freezing is as good or better. Read together: end-to-end training mostly buys back what a
-weak pretraining objective failed to learn, and buys least where the frozen features were already
-good.
+ONE WAVE, ONE ESTIMATOR (rebuilt 2026-08-20). Both properties were missing and both mattered:
 
-HIV WAS EMPTY UNTIL 2026-08-20 AND THE HOLE WAS IN THIS BUILDER, NOT IN THE DATA. Its end-to-end
-runs are 5-fold CV in climb_v2_phase2 (the mainline wave), and build_SI_fig_a_table.py had only a
-label-efficiency branch for MolNet panels plus a mainline branch listing MoleculeACE and Ames by
-name. HIV belonged to neither list, so the panel printed "end2end not run" while the runs existed.
-That is worth recording because the figure said something false about the experiment, in a way
-that reads as a candid admission rather than a bug.
+  WAVE. The figure was built from two waves — mainline on MoleculeACE/Ames/HIV, label-efficiency at
+  its 100% fraction on BACE/Tox21/QM7. That was a historical accident: when it was chosen the
+  end-to-end CLIMB arms had no MolNet runs. They have them now, so every point comes from the
+  mainline wave. The offsets this removes are large — the same ECFP4+desc anchor reads 0.8712 on
+  BACE in one wave and 0.7836 in the other — and it fills three real holes, since CheMeleon was
+  frozen-only on BACE and Tox21 and absent from QM7.
 
-CBS is computed by the builder and NOT drawn -- it is not in the canonical panel set. Its rows are
-left in the table on purpose (its +0.125 NEF1 is the largest single gain anywhere here, and CBS may
-return as an SI panel). Counts above are over the DRAWN cells; this paragraph once said "9 of 12"
-by counting CBS as a panel the reader could see.
+  ESTIMATOR. Error bars were "±1 SD of that panel's replicate unit", and the replicate unit was not
+  the same thing for every arm — pretraining-seed spread where an arm has three pretrainings,
+  head-seed spread for CheMeleon, which has one pretraining by construction. Different estimands on
+  one axis look like a precision difference and are not. Every interval is now a 95% resampling
+  interval from the same file fig_A2 draws from, and every arm WITHIN a panel shares one method:
+  scaffold cluster bootstrap on the MolNet panels, target cluster bootstrap on MoleculeACE (whose
+  value is a macro-mean over 30 separate tasks, so targets are the resampling unit), and an
+  analytic interval on Ames, whose test labels Polaris withholds. The method is panel-shaped
+  because the data is; what matters is that it is identical for every arm you are asked to compare,
+  which is within a panel. Points come from the same file as their intervals, so the two can never
+  describe different estimators.
 
-So end-to-end fine-tuning is the better default, but the frozen probe is not far behind on several
-panels, and it is the cheaper option by far (SI Fig c). SI Fig e shows how this trade depends on
-how many labels you have: the frozen probe's advantage lives in the small-data regime.
+  Intervals are ASYMMETRIC because the bootstrap distribution is, and they are drawn that way.
 
-Error bars are +-1 SD of that panel's replicate unit, and each panel's frozen and end2end numbers
-come from the SAME wave, split and seed grid, so the within-panel comparison is like-for-like.
+WHICH CHEMELEON. The frozen half is the XGBOOST probe. The paper reports exactly two CheMeleon
+models — frozen+XGBoost and end-to-end-from-foundation (Leif 2026-08-20) — and this is the same
+convention fig_A1 uses: each representation at the head that suits it, a preference SI fig f
+measures as a property in its own right. The honest consequence, stated in the caption: CheMeleon's
+line changes head between its ends (XGBoost probe → fine-tuned D-MPNN) while the CLIMB lines do
+not. Reporting its MLP probe instead would match heads at the cost of drawing a configuration the
+paper never otherwise mentions, and would understate the arm by 0.185 macro RMSE on MoleculeACE.
 
-PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/Ames/HIV use the mainline
-wave; BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction). Compare frozen vs end2end
-WITHIN a panel; never compare a value in one panel against a value in another. WITHIN a panel every
-point shares that panel's protocol, including the external comparator and the classical anchor, and
-that is enforced rather than assumed: the builder resolves CheMeleon per panel and figures'
-_anchor_values resolves the anchor per panel. The offset it protects against is large — the same
-CheMeleon representation reads 0.8712 on BACE in the mainline wave and 0.8289 under
-label-efficiency, and the same ECFP4+desc anchor reads 0.8712 against 0.7836.
+WHAT THE FIGURE SAYS. End-to-end is the better default for the CLIMB encoders but not universally,
+and the exceptions concentrate in the supervised arm — where freezing is as good or better, the
+frozen features were already good. CheMeleon is the opposite extreme and the most instructive line
+here: frozen it is roughly fingerprint-level, fine-tuned it is the strongest arm in the paper. Its
+own control explains why — the same D-MPNN trained from scratch is worse than every classical arm —
+so what its pretraining supplies is an initialisation for an architecture that cannot be trained at
+this data scale, which is a different thing from a better representation. (That control is not in
+the paper; it is recorded here because it is what licenses the wording above.)
 
-CHEMELEON IS FROZEN-ONLY ON BACE AND TOX21, AND ABSENT ON QM7. Its end-to-end half is a chemprop
-D-MPNN fine-tune that the label-efficiency driver cannot host, so those two panels show its frozen
-marker with no line rather than a slope whose rise would mostly be the wave offset above. QM7's
-label-efficiency CheMeleon cell returned test RMSE 1818.9 against train 206.9 — worse than
-predicting the training mean, against a target SD of 228.7, where every other arm in that wave
-lands at 200-213 — so it is quarantined as a broken cell, not plotted as a representation result.
+Compare frozen vs end2end WITHIN a panel, and across encoders within a panel — both are like-for-
+like now. Panels still carry different metrics, so never compare a value in one panel against a
+value in another.
 
-HIV IS NOW POPULATED. Both encoders' end-to-end HIV runs (5-fold CV, 3 pretraining seeds each)
-landed 2026-08-19 and this figure reads them from climb_v2_phase2. Its error bars are the
-pretraining-seed spread on BOTH ends of the slope: mainline_8M.csv also offers sd_total for HIV,
-but that is over 15 cells (3 seeds x 5 folds) and reads 0.104 against the end2end side's 0.012,
-so pairing them would put a fold-spread bar opposite a seed-spread bar on one slope.
+Data: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv, built by scripts/build_SI_fig_a_table.py from
+figure_data/six_panel/a2_errorbars.csv.
 
-Data: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv, built by scripts/build_SI_fig_a_table.py.
-
-Run:  python3 scripts/build_SI_fig_a_table.py && python3 -m figures.SI_fig_a
+Run:  python3 scripts/a2_bootstrap_errorbars.py       # if the intervals are stale
+      python3 scripts/build_SI_fig_a_table.py && python3 -m figures.SI_fig_a
 """
 from __future__ import annotations
 import numpy as np
@@ -66,8 +64,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, mark_empty
-from figures.arms import ARMS, PANELS, PANEL_ORDER
+from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
+from figures.arms import ARMS, PANELS, PANEL_ORDER, E2E_PAIRS, series_label
 from figures.sixpanel import ROOT
 
 check_font()
@@ -84,17 +82,12 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 # two were separate literals until 2026-08-20, when arms.py's rename of sup_dense to "supervised,
 # desc" left this file asking for "supervised, dense". The join matched nothing and the supervised
 # line disappeared from every panel without any check firing.
-SERIES = [(ARMS["unsup"]["label"],     "unsup",     ARMS["unsup"]["label"]),
-          (ARMS["sup_dense"]["label"], "sup_dense", ARMS["sup_dense"]["label"]),
-          # The external comparator, added 2026-08-20, PROTOCOL-MATCHED PER PANEL like the anchor
-          # below -- see the CheMeleon block in scripts/build_SI_fig_a_table.py. On MoleculeACE,
-          # Ames and HIV it is the mainline wave and both probes exist, so the slope is drawn. On
-          # BACE and Tox21 it is the label-efficiency wave at 100% and only the FROZEN probe
-          # exists, so those panels carry a lone marker: CheMeleon end-to-end is a chemprop
-          # D-MPNN fine-tune, which that driver cannot host, and pairing the matched frozen point
-          # with the mainline end2end point would draw a slope made mostly of the wave offset.
-          # QM7 carries no CheMeleon point -- its label-efficiency cell is quarantined as broken.
-          ("CheMeleon", "chemeleon_frozen", "CheMeleon")]
+# (series label, arm key used for COLOUR, legend label). All three derived from arms.py's
+# E2E_PAIRS -- the same registry scripts/build_SI_fig_a_table.py writes the table from -- so the
+# join key on both sides is one object. They were separate literals once and drifted: arms.py
+# renamed sup_dense to "supervised, desc" while this file asked for "supervised, dense", the join
+# matched nothing, and that encoder's line vanished from all six panels with nothing failing.
+SERIES = [(series_label(fr), fr, series_label(fr)) for fr, _ in E2E_PAIRS]
 PROBES = ["frozen", "end2end"]
 
 # FAIL LOUDLY ON A DEAD JOIN KEY. A series whose key is absent from the table draws nothing and
@@ -105,89 +98,44 @@ _missing = [k for k, _, _ in SERIES if k not in set(DF.encoder)] if len(DF) else
 assert not _missing, (f"SI fig a: series key(s) {_missing} are not in the table's encoder column "
                       f"{sorted(set(DF.encoder))} -- rebuild with scripts/build_SI_fig_a_table.py")
 
-# The classical anchor as a reference line, ON EVERY PANEL, and PROTOCOL-MATCHED PER PANEL.
+# The classical anchor as a reference line, ON EVERY PANEL. One wave, so one source.
 #
-# This figure is built from two waves and the anchor is now measured in both, so each panel's line
-# comes from the same wave as its points:
-#   MoleculeACE, Ames      mainline wave           -> six_panel/mainline_8M.csv
-#   BACE, Tox21, QM7, HIV  label-efficiency 100%   -> analysis/rigor/label_efficiency_fp_desc_anchor_summary.csv
+# This used to resolve per panel, because the figure was built from two waves and a mismatched
+# anchor is worse than no anchor: the SAME ECFP4+desc features through the SAME XGBoost read 0.8712
+# on BACE in the mainline wave and 0.7836 under label-efficiency -- 8.8 points, larger than the
+# entire spread between arms on that panel -- so a mainline line on a label-efficiency panel drew
+# the anchor roughly a protocol above where it belonged, and every model-to-anchor gap read off
+# those panels was measuring the wave. The figure is single-wave now, so the resolver is gone
+# rather than left as a branch that can never fire.
 #
-# It is worth recording why this mattered, because the mismatched version was drawn first and
-# looked entirely plausible. The two waves disagree by far more than the models do: the SAME
-# ECFP4+desc features through the SAME XGBoost read 0.8712 on BACE in the mainline wave and 0.7836
-# under label-efficiency -- 8.8 points, larger than the entire spread between arms on that panel.
-# A mainline line on a label-efficiency panel therefore drew the anchor roughly a protocol above
-# where it belongs, and every CLIMB-to-anchor gap read off those four panels was measuring the
-# wave.
+# The two waves differ ONLY in split construction: mainline is scaffold 5-fold CV,
+# label-efficiency a single scaffold hold-out, with identical training-set sizes (1,210 on BACE).
+# The hold-out is markedly harder, and harder FOR THE FINGERPRINT SPECIFICALLY -- the anchor lands
+# below its own worst CV fold there while the frozen encoders land inside their fold range. That
+# is a real, protocol-dependent result and it belongs with SI fig e, which is a label-efficiency
+# figure; it is not something this figure can show while drawing one wave.
 #
-# THE LABEL-EFFICIENCY ANCHOR IS CORRECT, AND THE 8.8-POINT GAP TO MAINLINE IS THE SPLIT.
-# Verified by re-running it through eval_v2's own single-hold-out path, which reproduces BACE
-# 0.7836 to four decimals from the same features and the same head. There is no defect in the
-# label-efficiency classical path.
-#
-# What the two waves differ in is the SPLIT CONSTRUCTION, and only that: mainline is scaffold
-# 5-fold CV, label-efficiency is a single scaffold hold-out. Training-set size is identical (1,210).
-# The single hold-out is markedly harder, and it is harder FOR THE FINGERPRINT SPECIFICALLY:
-#
-#   anchor  per CV fold 0.8419-0.8891   single hold-out 0.7836   BELOW its worst fold
-#   unsup   per CV fold 0.8186-0.8810   single hold-out 0.8251   INSIDE its fold range
-#
-# So on that split the frozen encoders do beat the classical anchor on BACE (0.8251 vs 0.7836),
-# while under 5-fold CV the anchor wins 4 folds of 5 -- losing fold0 by 0.002. Both are true of
-# their own protocol. The mechanism is plausible rather than established: a held-out scaffold
-# group punishes substructure-matching features more than a learned embedding, so an extrapolative
-# split costs the fingerprint more.
-#
-# QUOTE IT WITH THE PROTOCOL ATTACHED, AND NOTE n=1. The hold-out result rests on ONE split of
-# ~303 test molecules; at fraction=1.0 label_eff_fractions uses a single subsample seed, so there
-# is no split-to-split spread behind it. It is enough to say the verdict is protocol-dependent; it
-# is NOT enough to say the encoders beat the anchor on BACE full stop.
-#
-# An earlier note here called this anchor a 5.2-fold-SD outlier and retracted the encoder result on
-# that basis. That reasoning was wrong: it compared a single-hold-out value against the spread of
-# 5-fold CV cells, which are different estimands, so the SD it was measured against did not apply.
-#
-# METRIC IS MATCHED EXPLICITLY, not positionally: the anchor summary carries BOTH roc_auc and nef1
-# for BACE/Tox21/HIV, so a positional read would silently take whichever sorted first. HIV's line
-# is its nef1 (0.6190), which is quantised -- zero spread across three seeds -- and BACE's nef1 is
-# pinned at 1.0 and is not plotted anywhere. That is small-active-count quantisation rather than a
-# bug, and it is only safe here because a reference LINE needs a level and not an interval.
+# METRIC IS MATCHED EXPLICITLY, not positionally: mainline_8M carries one row per (arm, panel), but
+# reading `value` without checking `metric` is the failure mode that has cost this project a panel
+# more than once, and audit check 15 exists because of it.
 ANCHOR_ARM = "ecfp_desc"
-LABELEFF_ANCHOR = ROOT / "analysis" / "rigor" / "label_efficiency_fp_desc_anchor_summary.csv"
 
 
 def _anchor_values(protocols):
-    """{panel: (value, source)} for the classical anchor, matched to each panel's own wave."""
+    """{panel: (value, source)} for the classical anchor, from the same wave as every point."""
     import csv as _csv
+    del protocols                                   # single wave: nothing left to match on
     out = {}
     main = ROOT / "figure_data" / "six_panel" / "mainline_8M.csv"
     if main.exists():
         for r in _csv.DictReader(main.open()):
-            if r["arm"] == ANCHOR_ARM and r["value"] not in ("", "nan"):
+            if (r["arm"] == ANCHOR_ARM and r["panel"] in PANELS
+                    and r["metric"] == PANELS[r["panel"]]["metric"]
+                    and r["value"] not in ("", "nan")):
                 out[r["panel"]] = (float(r["value"]), "mainline")
-    if LABELEFF_ANCHOR.exists():
-        for r in _csv.DictReader(LABELEFF_ANCHOR.open()):
-            p = r["task"]
-            if r["split"] != "test" or p not in PANELS:
-                continue
-            # match the metric the PANEL plots; both roc_auc and nef1 are present for some tasks
-            if r["metric"] != PANELS[p]["metric"]:
-                continue
-            # ONLY panels whose points are known to be label-efficiency. A panel with no points
-            # has no protocol to match and MUST NOT be guessed: HIV was briefly pinned to the
-            # label-efficiency anchor on the assumption its end2end run belonged to that wave, and
-            # it does not. scripts/hiv_e2e_molnet_run.sh calls evaluate_finetuned(cv_folds=5),
-            # i.e. scaffold 5-fold -- the MAINLINE protocol -- while label_eff_fractions.py says in
-            # its own docstring that it subsamples "a single-hold-out train split". HIV's matched
-            # anchor is therefore mainline 0.7373, not 0.6190.
-            #
-            # The trap that made the wrong guess look right: LE HIV n_train is 32,896 and scaffold
-            # 5-fold train is 4/5 x 41,127 = 32,902. The training sizes agree to 0.02%, so "same
-            # n_train" reads as confirmation that the protocols match. Same size, different split
-            # construction. Match on how the split was BUILT, never on how big it is.
-            if str(protocols.get(p, "")).startswith("label-efficiency"):
-                out[p] = (float(r["mean"]), "label-efficiency")
     return out
+
+
 # "end2end" spelled out (user 2026-08-19: "e2e that is not commonly understood"). It does not fit
 # horizontally under a ~1.1in panel, so the x tick labels are rotated instead of abbreviated --
 # shortening to jargon to win space is the wrong trade.
@@ -195,24 +143,21 @@ XTICKS = ["frozen", "end2end"]
 
 
 def main():
-    # PROTO IS THE PANEL'S OWN PROTOCOL, AND IT MUST COME FROM THE CLIMB ROWS ONLY.
+    # ONE PROTOCOL FOR THE WHOLE FIGURE, ASSERTED RATHER THAN RESOLVED PER PANEL.
     #
-    # This was `{r.panel: str(r.protocol) for r in DF.itertuples()}` -- last row per panel wins --
-    # which was fine while every row in a panel shared a protocol. Adding the CheMeleon series
-    # broke it silently in the worst possible way: CheMeleon's rows are all mainline and are
-    # appended last, so every panel's protocol flipped to "mainline" and the anchor resolver below
-    # started drawing the MAINLINE anchor on the three label-efficiency panels. That is precisely
-    # the defect this file's own docstring spends twenty lines on (BACE reads 0.8712 mainline
-    # against 0.7836 label-efficiency -- 8.8 points, larger than the spread between arms).
+    # This used to be a per-panel resolver, because the table was built from two waves. It is not
+    # any more -- every point comes from the mainline wave -- so the only thing left to do is
+    # CHECK that, and fail if a future edit reintroduces a second wave without anyone noticing.
     #
-    # The external comparator is excluded by FAMILY from arms.py, not by name.
-    _external = {lab for lab, key, _ in SERIES if ARMS[key]["family"] == "chemeleon"}
-    _own = DF[~DF.encoder.isin(_external)] if len(DF) else DF
-    PROTO = {}
-    for panel, g in (_own.groupby("panel") if len(_own) else []):
-        seen = sorted(set(g.protocol.astype(str)))
-        assert len(seen) == 1, f"SI fig a: panel {panel} mixes protocols {seen} in its CLIMB rows"
-        PROTO[panel] = seen[0]
+    # The resolver it replaces was not academic. It was written as
+    # `{r.panel: str(r.protocol) for r in DF.itertuples()}` -- last row per panel wins -- which
+    # was fine until the CheMeleon rows were appended last and flipped every panel's protocol to
+    # "mainline", which in turn drew the MAINLINE anchor on three label-efficiency panels. The
+    # anchor gap there is 8.8 points on BACE, larger than the spread between arms.
+    _waves = sorted(set(DF.protocol.astype(str))) if len(DF) else []
+    assert len(_waves) <= 1, (f"SI fig a: the table mixes protocols {_waves}. Every point in this "
+                             f"figure must come from one wave -- see the builder's docstring.")
+    PROTO = {p: (_waves[0] if _waves else "") for p in PANEL_ORDER}
     ANCHOR = _anchor_values(PROTO)
     # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
     # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
@@ -234,8 +179,8 @@ def main():
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
 
-        # Anchor first, so it is drawn even on panels with no encoder data (HIV) -- there the line
-        # is the only content and it is what makes the empty panel worth printing.
+        # Anchor first, so it is drawn even on a panel with no encoder data -- there the line is
+        # the only content and it is what would make an empty panel worth printing at all.
         av = ANCHOR.get(p, (None, None))[0]
         if av is not None:
             ax.axhline(av, color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3, zorder=2)
@@ -248,40 +193,47 @@ def main():
                     ha="center", va="center", fontsize=FS["annot"] - 0.5, color=INK)
             ax.set_xticks([])
             ax.set_yticks([])
-            # DECLARED empty, so style.check_no_empty_panels passes it and fails on any panel that
-            # is empty by accident instead. As of 2026-08-19 this fires for HIV only, and that is a
-            # real hole, not a resolver bug: unsup_8M_e2e and skip_dense_8M_e2e are suite-track-only
-            # runs with no MolNet summary at all, so the cell needs an end-to-end fine-tune on HIV
-            # (peer session, needs a GPU box). The placeholder text says so on the figure.
+            # DECLARED empty, so style.check_no_empty_panels passes it and fails on any panel
+            # that is empty by accident instead. As of 2026-08-20 this fires for NO panel: the
+            # builder refuses to write a table with a hole in it, so an empty panel here means the
+            # figure and its table disagree about the panel set, which is worth crashing on rather
+            # than drawing. Kept as a guard, not as a state the figure expects to be in.
             mark_empty(ax, f"{p}: no end2end run of a pretrained encoder on this panel")
             continue
 
-        # EVERY SERIES IS SOLID (user 2026-08-20: "don't draw it dashed please"). This is no
-        # longer a caveat being suppressed: the missing label-efficiency CheMeleon runs landed the
-        # same day, so the mismatch was REMOVED at the source rather than marked in the line
-        # style. Every point now drawn shares its panel's protocol.
+        # EVERY SERIES IS SOLID (user 2026-08-20: "don't draw it dashed please"), and there is
+        # nothing left for a dash to mark: the figure is single-wave, so no line here is drawn on
+        # a protocol other than its panel's. The hook stays because a line style is the wrong
+        # place to encode a caveat and the next person should have to delete this to add one.
         def _ls_for(enc_label):
             del enc_label
             return "-"
 
-        vals, errs = [], []
+        # INTERVALS ARE ASYMMETRIC AND DRAWN THAT WAY. Every bar here is the scaffold cluster
+        # bootstrap's 2.5/97.5 percentiles, and that distribution is skewed on the small panels.
+        # Collapsing it to a symmetric +-1 value would hide the skew exactly where it is largest,
+        # so yerr carries the two sides separately: [value - lo, hi - value].
+        vals, lohi = [], []
         for enc_label, arm_key, _ in SERIES:
-            ys, es = [], []
+            ys, dn, up = [], [], []
             for probe in PROBES:
                 r = g_all[(g_all.encoder == enc_label) & (g_all.probe == probe)]
-                ys.append(float(r.value.iloc[0]) if len(r) else np.nan)
-                e = float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0
-                es.append(0.0 if not np.isfinite(e) else e)
+                if not len(r):
+                    ys.append(np.nan); dn.append(0.0); up.append(0.0); continue
+                v, lo_, hi_ = (float(r.value.iloc[0]), float(r.lo.iloc[0]), float(r.hi.iloc[0]))
+                ys.append(v)
+                dn.append(max(0.0, v - lo_))
+                up.append(max(0.0, hi_ - v))
+                lohi += [lo_, hi_]
             colour = ARMS[arm_key]["color"]
             _ls = _ls_for(enc_label)
             if _ls != "-":
                 _ls_kinds.append((p, enc_label))
-            ax.errorbar([0, 1], ys, yerr=es, color=colour, lw=STYLE["lw"], marker="o",
+            ax.errorbar([0, 1], ys, yerr=[dn, up], color=colour, lw=STYLE["lw"], marker="o",
                         ls=_ls,
                         ms=4.4, mec="white", mew=0.8, elinewidth=1.0, capsize=3.0,
                         capthick=1.1, ecolor=colour, zorder=3)
             vals += [v for v in ys if np.isfinite(v)]
-            errs += es
 
         ax.set_xticks([0, 1])
         ax.set_xticklabels(XTICKS, fontsize=FS["annot"])
@@ -289,8 +241,8 @@ def main():
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
         if av is not None:
-            vals.append(av)
-        lo, hi = min(vals) - max(errs), max(vals) + max(errs)
+            lohi.append(av)
+        lo, hi = min(lohi or vals), max(lohi or vals)
         pad = 0.22 * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
         if d["metric"] == "roc_auc":
@@ -304,7 +256,7 @@ def main():
     # WIDTH FIRST: spend the page's width on the legend before its height (user 2026-08-19).
     # A legend row costs every figure below it on the page; a legend column costs nothing
     # until it runs past the text block, and these entries do not.
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=3,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
     # Legend sits one text-height under the tick labels; see the SI b/d/e note.
@@ -324,14 +276,14 @@ def main():
             ee = g[(g.encoder == label) & (g.probe == "end2end")]
             if not len(fr) or not len(ee):
                 continue
-            delta = sign * (float(ee.value.iloc[0]) - float(fr.value.iloc[0]))
-            sd = np.hypot(pd.to_numeric(fr.sd, errors="coerce").iloc[0],
-                          pd.to_numeric(ee.sd, errors="coerce").iloc[0])
-            flag = "*" if np.isfinite(sd) and abs(delta) > sd else " "
-            # the SERIES' own protocol, not the panel's -- they differ for the external
-            # comparator on the label-efficiency panels, which is the whole reason it is dashed
-            print(f"   {p:<12}{label:<20}{delta:>+10.4f}{flag}   ({fr.protocol.iloc[0]})")
-    print("   * = |delta| exceeds the combined SD")
+            fr, ee = fr.iloc[0], ee.iloc[0]
+            delta = sign * (float(ee.value) - float(fr.value))
+            # DISJOINT INTERVALS, not |delta| > combined SD. The bars are bootstrap percentiles
+            # now, and adding two percentile half-widths in quadrature is not a defined quantity.
+            # Non-overlap is the statement the intervals actually support.
+            flag = "*" if (fr.hi < ee.lo or ee.hi < fr.lo) else " "
+            print(f"   {p:<12}{label:<20}{delta:>+10.4f}{flag}   ({fr.protocol})")
+    print("   * = the frozen and end2end intervals are disjoint")
 
 
 if __name__ == "__main__":

@@ -250,7 +250,7 @@ ARMS = {
     # fig_A2 selects from its own explicit MODELS list, so declaring them here cannot reach it.
     #
     # Coverage, verified 2026-08-20: MolNet 7 datasets x 3 pretraining seeds (42/42 cells),
-    # MoleculeACE 30 tasks x 3 seeds, Polaris 28 tasks x 3 seeds, CBS 1 = 66 of 66 datasets, so
+    # MoleculeACE 30 tasks x 3 seeds, Polaris 28 tasks x 3 seeds, CBS 1 = 65 of 65 datasets, so
     # both clear fig_A1's >=60 admission threshold on real data rather than on a resolver quirk.
     #
     # THE SEED AXIS IS NOT UNIFORM ACROSS SUITES AND THE CAPTION MUST SAY SO. MolNet and CBS carry
@@ -296,9 +296,9 @@ ARMS = {
     # (much better) and moves the CLIMB arms the OTHER WAY, 0.778 -> 0.830 and 0.774 -> 0.813
     # (worse). Admitting only the comparator's better head while leaving CLIMB on its worse one
     # would manufacture a gap out of the probe. They cost nothing extra: identical coverage,
-    # 64/66 datasets each.
+    # 63/65 datasets each.
     #
-    # 64/66: MoleculeACE 30 + Polaris 28 + MolNet 6 of 7 (no Lipophilicity) + CBS 0. Clears the
+    # 63/65: MoleculeACE 30 + Polaris 28 + MolNet 5 of 6 + CBS 0. Clears the
     # >=60 admission floor.
     #
     # pretrain_replicates=False is a statement about THIS EXPERIMENT, not about the model. The
