@@ -131,10 +131,11 @@ def main():
 
     handles = [Line2D([], [], color=ARMS[k]["color"], marker="o", ms=5.0, lw=1.4, label=lab)
                for _, k, lab in SERIES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.028), ncol=2,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=2,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.098, 1, 1), w_pad=0.35)
+    # Legend sits one text-height under the tick labels; see the SI b/d/e note.
+    fig.tight_layout(rect=(0, 0.088, 1, 1), w_pad=0.35)
     save(fig, "SI_fig_a")
     plt.close(fig)
 

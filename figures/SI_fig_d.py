@@ -122,11 +122,16 @@ def main():
 
     handles = [Line2D([], [], color=c, marker=m, ms=4.5, lw=1.2, label=lab)
                for lab, c, m in MODES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.064),
                ncol=2, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.155, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.108, "pretraining corpus fraction", ha="center", va="bottom",
+    # Axes -> shared x-label -> legend, each about one text-height apart (user 2026-08-19:
+    # "too much white space"). The legend is anchored just BELOW the x-label rather than
+    # near the canvas floor: with loc="upper center" a low anchor hangs the legend body off
+    # the canvas, and savefig("tight") then GROWS the image downward to contain it -- which
+    # adds exactly the white band it looks like it should remove.
+    fig.tight_layout(rect=(0, 0.128, 1, 1), w_pad=0.35)
+    fig.text(0.5, 0.082, "pretraining corpus fraction", ha="center", va="bottom",
              fontsize=FS["annot"], color=INK)
     save(fig, "SI_fig_d")
     plt.close(fig)
