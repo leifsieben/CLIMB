@@ -150,10 +150,11 @@ ROOT = Path(__file__).resolve().parent.parent
 # arm64 rerun, and no cell in this figure should be quoted against a number from another figure.
 # What it does NOT cost is any within-panel comparison, because a panel's cells all come from one
 # table and therefore one machine.
-SRC        = ROOT / "analysis" / "rigor" / "concat_redundancy_climb_v2.csv"
-SRC_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_climb_v2.csv"
-SRC_CHE        = ROOT / "analysis" / "rigor" / "concat_redundancy_chemeleon_v2.csv"
-SRC_CHE_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_chemeleon_v2.csv"
+# The source FILES are derived from ROLE_ORDER below, not listed here -- see SOURCES. A hardcoded
+# list cannot know about a table written after it, which is the failure this figure has already had
+# once: the four-file list held climb and chemeleon only, so the supervised arm's tables could have
+# landed in analysis/rigor and the third bar would have kept drawing "not run" with nothing failing.
+RIGOR = ROOT / "analysis" / "rigor"
 OUTDIR = ROOT / "figures_v2"
 # the per-task record is DATA, not a deliverable -- figures_v2/ holds only what goes in the paper
 DATADIR = ROOT / "figure_data" / "fig_F"
@@ -223,6 +224,22 @@ CONCAT_ARMS = [(r, f"{BASE}+{ROLE_SUFFIX[r]}") for r in (EMB_CLM_U, EMB_CLM_S)]
 # short column-safe keys for the CSV
 CONCAT_TAG = {EMB_CLM_U: "unsup", EMB_CLM_S: "sup"}
 
+# EVERY EMBEDDING'S TABLES, DERIVED FROM ROLE_ORDER RATHER THAN LISTED.
+#
+# Each embedding contributes two tables to analysis/rigor: the MolNet lattice
+# (concat_redundancy_<stem>_v2.csv) and the canonical-panel top-up (concat_panels_<stem>_v2.csv).
+# Declaring the STEM per role and building the paths from ROLE_ORDER means adding a role to the
+# figure adds its sources in the same edit. The alternative -- a literal list of four paths -- is
+# the pattern that has cost this project a panel more than once: a name list written before an
+# object exists cannot include it, and the failure is silent because "file absent" is also the
+# legitimate state of a run still in flight.
+ROLE_SRC_STEM = {EMB_CLM_U: "climb", EMB_CLM_S: "climb_sup", EMB_CHE: "chemeleon"}
+_undeclared = [r for r in ROLE_ORDER if ROLE_SUFFIX[r] and r not in ROLE_SRC_STEM]
+assert not _undeclared, f"fig_F: {_undeclared} have a feature suffix but no source-table stem"
+SOURCES = [RIGOR / f"concat_{kind}_{ROLE_SRC_STEM[r]}_v2.csv"
+           for r in ROLE_ORDER if ROLE_SUFFIX[r]
+           for kind in ("redundancy", "panels")]
+
 # ---------------------------------------------------------------------------------------------
 # THE AXIS: percent of the classical anchor, so all six panels share one unit
 # ---------------------------------------------------------------------------------------------
@@ -270,7 +287,7 @@ def compute():
     # figure that refuses to draw until every cell exists cannot show progress. Cells with no
     # source render as the declared "not run" slot, which is the honest state.
     parts = []
-    for f in (SRC, SRC_PANELS, SRC_CHE, SRC_CHE_PANELS):
+    for f in SOURCES:
         if f.exists():
             parts.append(pd.read_csv(f))
         else:
