@@ -454,8 +454,16 @@ def main():
             line += (f"{v:>16.4f}" if isinstance(v, (int, float)) else f"{'—':>16}")
         line += f"{r['delta_vs_fp_desc']:>+10.4f}{r['beats_sd']:>7}"
         print(line)
+    # SPLIT BY WHETHER THE TASK IS DRAWN. The bare "1/9" counts tasks the figure does not plot --
+    # BBBP, ESOL and CBS are in the table but not in the canonical panel set -- and the single
+    # "yes" is BBBP, a non-canonical task. Quoted unqualified it reads as though concatenation
+    # helped somewhere the reader can see, when on the drawn panels it helps nowhere.
     helped = sum(r["beats_sd"] == "yes" for r in rows)
-    print(f"\n  concatenation beat its own SD on {helped}/{len(rows)} tasks")
+    canon = [r for r in rows if r["in_canonical_panels"]]
+    helped_canon = sum(r["beats_sd"] == "yes" for r in canon)
+    where = ", ".join(r["task"] for r in rows if r["beats_sd"] == "yes") or "nowhere"
+    print(f"\n  concatenation beat its own SD on {helped}/{len(rows)} tasks ({where}), and on "
+          f"{helped_canon}/{len(canon)} of the DRAWN canonical panels")
     print("  wrote figures_v2/fig_F.png/pdf + figure_data/fig_F/fig_F.csv")
 
 

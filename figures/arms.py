@@ -65,7 +65,11 @@ SHADES = {
     # which is drawn on a light-grey banded background, and its marker and whisker nearly vanished
     # against it. A shade that disappears on the arm most likely to be quoted is not a shade.
     "anchor": ["#C8912F", "#8A5F1B", "#E0BC80", "#E8B86A", "#4E340B"],
-    "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6"],
+    # Six, not five. The sixth is APPENDED rather than inserted so no existing
+    # SHADES["sup"][i] reference moves; it is darker than [0] and sits out of the ladder's
+    # dark->light order on purpose, because it belongs to the end2end arm rather than to the
+    # frozen ladder the first five encode.
+    "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6", "#6E2437"],
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
     "chemeleon": ["#7E6BA8", "#A093C0", "#C4BCD8"],
@@ -217,6 +221,46 @@ ARMS = {
         src=dict(mace=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
                  mol=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
                  cbs="sup2unsup:dense")),
+
+    # ---- CLIMB end-to-end (same encoders as `unsup` / `sup_dense`, fine-tuned) ----------------
+    #
+    # ADMITTED TO fig_A1 ONLY (user 2026-08-19: "add these two models to A1 (but not A2 please)").
+    # fig_A2 selects from its own explicit MODELS list, so declaring them here cannot reach it.
+    #
+    # Coverage, verified 2026-08-20: MolNet 7 datasets x 3 pretraining seeds (42/42 cells),
+    # MoleculeACE 30 tasks x 3 seeds, Polaris 28 tasks x 3 seeds, CBS 1 = 66 of 66 datasets, so
+    # both clear fig_A1's >=60 admission threshold on real data rather than on a resolver quirk.
+    #
+    # THE SEED AXIS IS NOT UNIFORM ACROSS SUITES AND THE CAPTION MUST SAY SO. MolNet and CBS carry
+    # three PRETRAINING seeds (CBS closed 2026-08-20); MoleculeACE and Polaris carry one pretrained
+    # encoder with three fine-tune seeds. Every other CLIMB arm replicates on the pretraining axis everywhere. The
+    # gap was left open deliberately rather than closed with ~700 fine-tunes, because the
+    # measurement says it is small: on the two datasets where both axes exist, end-to-end
+    # pretraining-seed SD is 0.44-0.97x the frozen arm's (scripts/pretrain_seed_variance.py), i.e.
+    # fine-tuning DAMPS the initialisation it started from. Estimated MoleculeACE SD ~0.014.
+    # That is an estimate from two datasets on a different suite, and it is stated as one.
+    "unsup_e2e": dict(
+        label="unsupervised, end2end", short="unsup, end2end", family="unsup",
+        color=SHADES["unsup"][1], probe="e2e", in_ablation=False,
+        # DECLARED, so audit checks 3 and 11 report it as a known asymmetry instead of a
+        # failure, and so the reason travels with the arm rather than living in the
+        # checkers. MolNet and CBS carry 3 pretraining seeds; MoleculeACE and Polaris
+        # carry 1 pretrained encoder x 3 fine-tune seeds.
+        suite_seed_axis="finetune",
+        src=dict(mace="unsup_8M_e2e",
+                 mol=["unsup_8M_e2e", "unsup_8M_e2e_s1", "unsup_8M_e2e_s2"],
+                 cbs="unsup_8M_e2e")),
+    "sup_dense_e2e": dict(
+        label="supervised desc, end2end", short="sup desc, end2end", family="sup",
+        color=SHADES["sup"][5], probe="e2e", in_ablation=False,
+        # DECLARED, so audit checks 3 and 11 report it as a known asymmetry instead of a
+        # failure, and so the reason travels with the arm rather than living in the
+        # checkers. MolNet and CBS carry 3 pretraining seeds; MoleculeACE and Polaris
+        # carry 1 pretrained encoder x 3 fine-tune seeds.
+        suite_seed_axis="finetune",
+        src=dict(mace="skip_dense_8M_e2e",
+                 mol=["skip_dense_8M_e2e", "skip_dense_8M_e2e_s1", "skip_dense_8M_e2e_s2"],
+                 cbs="skip_dense_8M_e2e")),
 
     # ---- controls ---------------------------------------------------------------------------
     "random_encoder": dict(

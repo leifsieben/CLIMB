@@ -180,8 +180,18 @@ def check_replication():
         ok = len(seen) <= 1
         if not ok:
             odd = clm[clm.n_seeds == min(seen)].arm.tolist()
-            print(f"  {panel:<13}{str(seen):<18}MIXED — {', '.join(odd[:5])} at {min(seen)}")
-            bad += 1
+            # Same declared exemption check 11 uses, read from the SAME field in arms.py, so the
+            # two checks cannot disagree about which arms are a known split-axis case. An arm that
+            # replicates on the fine-tune axis on the suite tracks and the pretraining axis on
+            # MolNet is reported, not counted -- see the note on _split_axis in check 11.
+            known = [a for a in odd
+                     if _ARMS.get(a, {}).get("suite_seed_axis") == "finetune"]
+            if known and len(known) == len(odd):
+                print(f"  {panel:<13}{str(seen):<18}KNOWN — {', '.join(known)} at {min(seen)} "
+                      f"(fine-tune axis here, pretraining axis on MolNet; declared in arms.py)")
+            else:
+                print(f"  {panel:<13}{str(seen):<18}MIXED — {', '.join(odd[:5])} at {min(seen)}")
+                bad += 1
         else:
             print(f"  {panel:<13}{str(seen):<18}ok")
     print("  OK — every panel's CLIMB arms share a pretraining-seed count, and every "
@@ -512,6 +522,20 @@ def check_replication_parity():
     def _exempt(a):
         return ARMS.get(a, {}).get("pretrain_replicates", True) is False
 
+    # A THIRD state, between "fully replicated" and "has no pretraining stage": an arm that
+    # replicates on the PRETRAINING axis on some panels and on the FINE-TUNE axis on others. The
+    # two CLIMB end-to-end arms are that -- 3 pretraining seeds on MolNet, 1 encoder x 3 fine-tune
+    # seeds on MoleculeACE, Ames and CBS.
+    #
+    # Reported as KNOWN rather than FAIL, and NOT counted, because it is a decision with a
+    # measurement behind it (scripts/pretrain_seed_variance.py: end-to-end pretraining-seed spread
+    # is 0.44-0.97x the frozen arm's on the two datasets carrying both axes) rather than an
+    # oversight. It still prints on every run, because the day someone quotes a suite cell of these
+    # arms as a 3-pretraining-seed number is the day this line needs to be in front of them.
+    # Declared in arms.py so a future arm with the same shape inherits the treatment.
+    def _split_axis(a):
+        return ARMS.get(a, {}).get("suite_seed_axis") == "finetune"
+
     bad = 0
     for panel in sorted(per_panel):
         counts = per_panel[panel]
@@ -521,6 +545,12 @@ def check_replication_parity():
                 continue
             top = max(group.values())
             short = sorted(a for a, n in group.items() if n < top)
+            known = [a for a in short if _split_axis(a)]
+            short = [a for a in short if a not in known]
+            if known:
+                print(f"  KNOWN {panel:12s} {label}{', '.join(f'{a}={group[a]}' for a in known)} "
+                      f"- replicates on the fine-tune axis here, pretraining axis on MolNet "
+                      f"(declared in arms.py; not an oversight)")
             if short:
                 detail = ", ".join(f"{a}={group[a]}" for a in short)
                 print(f"  FAIL  {panel:12s} {label}most arms rest on {top} dirs; {len(short)} rest "
@@ -550,47 +580,80 @@ def check_aggregate_freshness():
     suite_summary.json / results.csv under the arms it reads. Cheap, and it fails loudly on the
     exact thing that is otherwise invisible.
     """
-    print(f"\n{'='*94}\n12. AGGREGATE FRESHNESS (derived tables newer than their inputs)\n{'='*94}")
-    import os
+    print(f"\n{'='*94}\n12. AGGREGATE FRESHNESS (derived tables newer than their OWN inputs)\n{'='*94}")
+    import csv as _csv, datetime as _d
     sys.path.insert(0, str(ROOT / "scripts"))
     from figures.arms import ARMS
     fd = ROOT / "figure_data"
-    newest, newest_src = 0.0, None
-    for arm, meta in ARMS.items():
-        src = meta.get("src", {})
-        names = []
+
+    def _arm_dirs(arm):
+        src = ARMS.get(arm, {}).get("src", {})
+        out = []
         for key in ("mol", "mace"):
             v = src.get(key)
-            names += (list(v) if isinstance(v, (list, tuple)) else [v]) if v else []
-        for n in names:
-            for root in ("climb_v2_phase2", "cbs_benchmark", "chemeleon_suite/moleculeace",
-                         "chemeleon_suite/polaris"):
-                for pat in ("moleculenet_summary.csv", "suite_summary.json", "results.csv",
-                            "polaris_scores.csv"):
-                    for f in (fd / root / n).glob(f"**/{pat}"):
-                        t = f.stat().st_mtime
-                        if t > newest:
-                            newest, newest_src = t, f
+            out += (list(v) if isinstance(v, (list, tuple)) else [v]) if v else []
+        return out
+
+    def _newest_for(arms, literal_dirs=False):
+        """Newest run artefact among JUST these arms (or these literal run-dir stems)."""
+        best, src = 0.0, None
+        for a in arms:
+            for n in ([a] if literal_dirs else _arm_dirs(a)):
+                for root in ("climb_v2_phase2", "cbs_benchmark", "chemeleon_suite/moleculeace",
+                             "chemeleon_suite/polaris"):
+                    for pat in ("moleculenet_summary.csv", "suite_summary.json", "results.csv",
+                                "polaris_scores.csv"):
+                        for f in (fd / root / n).glob(f"**/{pat}"):
+                            t = f.stat().st_mtime
+                            if t > best:
+                                best, src = t, f
+        return best, src
+
+    # PER-TABLE INPUTS, read from the table's OWN arm column -- not a global "newest anything".
+    # The global form fired on 2026-08-20 when two new end-to-end arms landed: scaling_ladders.csv
+    # and a2_errorbars.csv were reported stale against runs that neither table contains or has any
+    # reason to contain. A freshness check that cries wolf on unrelated data gets re-run, seen to
+    # be noise, and then ignored on the day it is right.
     bad = 0
     for tbl in ("six_panel/mainline_8M.csv", "six_panel/scaling_ladders.csv",
                 "six_panel/a2_errorbars.csv"):
         f = fd / tbl
         if not f.exists():
             continue
+        rows = list(_csv.DictReader(f.open()))
+        if not rows:
+            print(f"  SKIP  {tbl} is empty")
+            continue
+        # PREFER `rung`, which names the RUN DIRECTORY, over `arm`, which names a family. The
+        # scaling ladder has both, and its inputs are the rungs: resolving it through arms.py
+        # instead was what made it compare against every arm in the project and report itself
+        # stale against two end-to-end runs it does not contain.
+        if "rung" in rows[0]:
+            keys = sorted({r["rung"] for r in rows if r["rung"]})
+            newest, nsrc = _newest_for(keys, literal_dirs=True)
+            arms, unknown = keys, []
+        elif "arm" in rows[0]:
+            arms = sorted({r["arm"] for r in rows if r["arm"] in ARMS})
+            unknown = sorted({r["arm"] for r in rows if r["arm"] not in ARMS})
+            newest, nsrc = _newest_for(arms)
+        else:
+            print(f"  SKIP  {tbl} names neither a rung nor a known arm - inputs undeterminable, "
+                  f"so freshness is NOT checked here rather than guessed at")
+            continue
         age = f.stat().st_mtime
-        if newest_src is not None and age < newest - 60:      # 60s slack for a run in flight
-            import datetime as _d
-            print(f"  FAIL  {tbl} is OLDER than its inputs "
+        if nsrc is not None and age < newest - 60:      # 60s slack for a run in flight
+            print(f"  FAIL  {tbl} is OLDER than an arm it CONTAINS "
                   f"({_d.datetime.fromtimestamp(age):%m-%d %H:%M} vs "
                   f"{_d.datetime.fromtimestamp(newest):%m-%d %H:%M}, "
-                  f"{newest_src.relative_to(fd)}) - re-run the aggregator")
+                  f"{nsrc.relative_to(fd)}) - re-run the aggregator")
             bad += 1
         else:
-            print(f"  OK    {tbl}")
+            extra = f" ({len(arms)} arm(s) checked" + (f", {len(unknown)} non-arm key(s) skipped)"
+                                                       if unknown else ")")
+            print(f"  OK    {tbl}{extra}")
     if not bad:
-        print("  OK - every derived table is newer than the runs it summarises")
+        print("  OK - every derived table is newer than the runs IT summarises")
     return bad
-
 
 
 def check_qm7_convention():

@@ -40,8 +40,19 @@ TAG = {"climb": "CLM", "chemeleon": "CheMel"}[EMB]
 OUTFILE = os.environ.get("CONCAT_OUT", f"concat_redundancy{'' if EMB=='climb' else '_chemeleon'}.csv")
 ENC = "figure_data/climb_v2_phase2/unsup_8M/encoder"
 TOK = "figure_data/_tokenizer"
+# CONCAT_TASKS limits the run to a subset, for reproducing a single cell cheaply. Added because
+# "is this table the same protocol as that one, or a changed recipe?" is unanswerable from
+# provenance once two boxes with their own script copies are involved -- but it IS answerable by
+# re-running one dataset in the SAME environment and checking the value is bit-identical. That
+# separates a recipe change from environment-level float nondeterminism, which is the actual
+# question when two tables disagree by less than their own fold spread.
+_TASK_SEL = os.environ.get("CONCAT_TASKS", "").split()
 TASKS = [("ESOL", "regression"), ("QM7", "regression"), ("BBBP", "classification"),
          ("BACE", "classification"), ("Tox21", "classification"), ("HIV", "classification")]
+if _TASK_SEL:
+    TASKS = [t for t in TASKS if t[0] in _TASK_SEL]
+    if not TASKS:
+        raise SystemExit(f"CONCAT_TASKS={_TASK_SEL} matched no dataset")
 SEEDS = [0]           # XGBoost seed(s) per fold; fold spread is the error bar
 K, ML = 5, 256
 OUT = Path("analysis/rigor"); OUT.mkdir(parents=True, exist_ok=True)
