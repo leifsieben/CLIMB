@@ -44,10 +44,16 @@ def main():
     d2 = fig_C2.compute()
     d3 = fig_D.compute()
 
-    # DELIBERATELY WIDER THAN THE A4 TEXT BLOCK, like fig_A. Six panels across two rows were
-    # cramped at 6.69in (user 2026-08-17); set this landscape / full-bleed instead. save(wide=True)
-    # records the exemption rather than warning about it.
-    fig = plt.figure(figsize=(8.9, 5.0))
+    # RE-LAID AT THE A4 TEXT BLOCK (user 2026-08-19). It was 8.9in -- 33% over -- which LaTeX
+    # scales to 0.75x at \includegraphics[width=\textwidth], so its fonts printed a quarter
+    # smaller than every other figure in the set while every script set the same points.
+    #
+    # This costs almost nothing in printed panel size, which is the part that looks like a
+    # trade-off and is not: a 2.4in panel inside an 8.9in figure already arrives on the page at
+    # 2.4 x 6.69/8.9 = 1.80in. Laying it out at 6.69 natively gives ~1.75in panels at 1:1. The
+    # earlier "cramped at 6.69" finding (2026-08-17) was at the OLD height; the fix is to buy the
+    # room back vertically rather than horizontally, since fonts now render at their authored size.
+    fig = plt.figure(figsize=(STYLE["col2"] * 0.962, 5.45))
     row1, row2 = fig.subfigures(2, 1, height_ratios=[1.0, 1.04], hspace=0.05)
 
     # both rows share ONE left-to-right width and the same column ratios, so the upper and lower
@@ -76,7 +82,7 @@ def main():
     fig.text(0.002, 0.260, "Task Similarity", rotation=90, va="center", ha="center",
              fontsize=FS["panel_tag"], fontweight="bold")
 
-    save(fig, "fig_C+D", wide=True)
+    save(fig, "fig_C+D")
     plt.close(fig)
     print("assembled fig_C+D from fig_C1 + fig_C2 + fig_D (no recomputation beyond their compute())")
 

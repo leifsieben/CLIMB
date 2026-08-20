@@ -333,7 +333,11 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     # NOT "Lift by similarity group" (user 2026-08-19: "is that result real? identical SMILES have
     # no change?"). It is real, and the old title made it read as an apportionment of a benefit
     # that does not exist -- the overall lift is -0.29% / -2.68%. The title now states the finding.
-    ax0.set_title("No lift, at any corpus similarity" if compact else
+    # The compact title shortens again at the A4 re-lay (2026-08-19): at 6.69in the panels are
+    # ~1.75in and "No lift, at any corpus similarity" ran under panel (b)'s tag. "similarity" is
+    # already carried by (b)'s own title and the x-axis below it, so dropping "corpus" here costs
+    # the reader nothing.
+    ax0.set_title("No lift at any similarity" if compact else
                   "No lift over fine-tuned no-pretraining, at any corpus similarity",
                   loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)

@@ -233,14 +233,23 @@ def check_panelset():
 def check_geometry():
     hdr(6, "PAGE GEOMETRY")
     from figures.style import A4_TEXT, _pdf_width_in
-    wide = {"fig_A", "fig_C+D"}
+    # Only fig_A is a deliberate landscape plate. fig_C+D was on this list and was re-laid at the
+    # text block on 2026-08-19 -- it stayed "exempt" afterwards, so the check would have gone on
+    # ignoring it forever, including if a later edit pushed it back over. An exemption list that
+    # outlives its reason is the same failure as checks 3 and 11, so it is verified rather than
+    # trusted: a figure claiming the exemption must actually BE wide, or it is flagged.
+    wide = {"fig_A"}
     bad = 0
     for pdf in sorted(OUT.glob("*.pdf")):
         w = _pdf_width_in(pdf)
         if w is None:
             continue
-        if pdf.stem in wide:
+        if pdf.stem in wide and abs(w - A4_TEXT) / A4_TEXT > 0.05:
             print(f"  {pdf.stem:<12}{w:6.2f}in   landscape by design (exempt)")
+        elif pdf.stem in wide:
+            print(f"  FAIL  {pdf.stem:<12}{w:6.2f}in is at the text block but still claims the "
+                  f"landscape exemption -- drop it from `wide`")
+            bad += 1
         elif abs(w - A4_TEXT) / A4_TEXT > 0.05:
             print(f"  FAIL  {pdf.stem:<12}{w:6.2f}in vs {A4_TEXT:.2f}in text block "
                   f"({(w/A4_TEXT-1)*100:+.0f}%)")
@@ -264,7 +273,13 @@ def check_comparator_scope():
     #
     # SI_fig_f was the other half of this experiment and was dropped 2026-08-19; its two informative
     # class-B modes are fig_G panels (k) and (l), so the exemption is now one figure, not two.
-    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G"}
+    # SI_fig_g is admitted for a DIFFERENT reason than fig_G, and the distinction is the rule
+    # itself. The confound this check guards is frozen-probe vs end-to-end fine-tune: CheMeleon's
+    # benchmark bars mix the two, so placing them beside CLIMB invites an unguarded comparison.
+    # SI_fig_g uses chemeleon_FROZEN only, against CLIMB's frozen arms, with the same probe on the
+    # same splits -- like for like, and the whole question there is whether the HEAD changes the
+    # ranking, which cannot be asked without a representation from outside our own family.
+    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_g"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:
