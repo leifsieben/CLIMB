@@ -291,10 +291,20 @@ ARMS = {
     "unsup_xgb": dict(
         label="unsupervised, XGBoost probe", short="unsup, XGBoost", family="unsup",
         color=SHADES["unsup"][2], probe="xgb", pretrain_replicates=False, in_ablation=False,
+        # NOT IN THE RANKING (user 2026-08-20). fig_A1 shows each representation at the head
+        # that suits it -- CLIMB with its MLP probe, CheMeleon with XGBoost -- so the weaker
+        # half of each pair is declared out. The arms stay defined because SI fig f is built
+        # from the pair and needs both ends of every slope.
+        in_ranking=False,
         src=dict(mace="unsup_8M__xgb", mol=["unsup_8M__xgb"])),
     "sup_dense_xgb": dict(
         label="supervised desc, XGBoost probe", short="sup desc, XGBoost", family="sup",
         color=SHADES["sup"][6], probe="xgb", pretrain_replicates=False, in_ablation=False,
+        # NOT IN THE RANKING (user 2026-08-20). fig_A1 shows each representation at the head
+        # that suits it -- CLIMB with its MLP probe, CheMeleon with XGBoost -- so the weaker
+        # half of each pair is declared out. The arms stay defined because SI fig f is built
+        # from the pair and needs both ends of every slope.
+        in_ranking=False,
         src=dict(mace="skip_dense_8M__xgb", mol=["skip_dense_8M__xgb"])),
 
     # ---- controls ---------------------------------------------------------------------------
@@ -341,6 +351,12 @@ ARMS = {
                  cbs="chemeleon_e2e")),
     "chemeleon_frozen": dict(
         label="CheMeleon, frozen", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
+        # OUT OF fig_A1 (user 2026-08-20): the same representation ranks 3rd under XGBoost and
+        # 14th under this MLP probe, and showing both makes the ranking a statement about probes
+        # rather than about representations. The XGBoost row is the one kept. This arm is still
+        # drawn in fig_A2, SI fig a, SI fig f and fig_G, where the frozen MLP number is the
+        # quantity those figures are actually about.
+        in_ranking=False,
         probe="frozen", pretrain_replicates=False, in_ablation=False,
         # QM7 REPLICATION (2026-08-18). chemeleon_frozen's original single run put a 427.7 fold in
         # the mean and shipped 268.8. Four probe runs settled it: the elevation is REAL (every run

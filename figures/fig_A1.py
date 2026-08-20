@@ -17,17 +17,26 @@ cannot flatter the rest.
   †             the whole network is FINE-TUNED on each task; every other arm is a FROZEN
                 encoder with a trained probe
 
-READ THE DAGGER BEFORE THE ORDERING. Two of the 18 arms fine-tune end-to-end and 16 do not, and on
-this benchmark set that difference outweighs any pretraining difference. CheMeleon gains +0.173
-macro RMSE on MoleculeACE by fine-tuning (0.8256 frozen -> 0.6526 e2e, 21%); CLIMB gains 0.010-0.015
-(1-2%) from the same treatment. A message-passing network fine-tunes far better than a transformer
-used as a frozen probe, so `CheMeleon (e2e)` topping the table is a statement about FINE-TUNING,
-not about pretraining quality.
-The two CheMeleon rows are the control for exactly this, and they sit 7 rank positions apart:
-frozen-vs-frozen, CheMeleon is 9.80 against CLIMB supervised-desc 6.20 and unsupervised 8.09 --
-i.e. CLIMB's REPRESENTATION is the better one, and CheMeleon overtakes it only when allowed to
-retrain its encoder. Restricted to the 16 frozen arms the ranking is ECFP+desc 2.12, ECFP 4.48,
-supervised-desc 5.21, CheMeleon-frozen 8.56.
+ONE ROW PER REPRESENTATION, EACH AT THE HEAD THAT SUITS IT (user 2026-08-20). CLIMB is shown with
+its MLP probe and CheMeleon with XGBoost, because that is each one's best configuration; the
+weaker half of each pair is declared out via `in_ranking` in arms.py rather than deleted, since
+SI fig f is built from both ends of every slope. Four of the 22 arms fine-tune end-to-end and are
+marked with a cross at the right edge.
+
+THE CONSEQUENCE, STATED PLAINLY BECAUSE IT DOES NOT FLATTER US. Under a COMMON MLP probe CLIMB's
+representation ranked ahead of CheMeleon's (CLIMB supervised-desc 6.20 against CheMeleon-frozen
+9.80 on the pre-2026-08-20 arm set). Give each its own best head and the order reverses:
+CheMeleon-frozen under XGBoost is 5.38 while CLIMB supervised-desc under its MLP is 8.77. Both
+statements are true of their own protocol, and neither is protocol-free -- SI fig f is the
+evidence, and it shows the head swap helps CheMeleon on 5 of 6 panels and hurts CLIMB on 5 of 6.
+So "CLIMB's representation is better" is a claim about a shared probe, not about the
+representations, and it should not be made without naming the probe.
+
+FINE-TUNING IS STILL THE LARGEST SINGLE EFFECT HERE. CheMeleon gains +0.173 macro RMSE on
+MoleculeACE by fine-tuning (0.8256 frozen -> 0.6526 e2e, 21%); CLIMB gains 0.010-0.015 (1-2%) from
+the same treatment. A message-passing network fine-tunes far better than a transformer used as a
+frozen probe, so a CheMeleon end-to-end row near the top is a statement about FINE-TUNING rather
+than about pretraining quality.
 
 REPLICATION. Every CLIMB arm is 3 pretraining seeds x 3 eval seeds. ECFP, ECFP+desc and the two
 CheMeleon variants have ONE pretraining seed by construction -- a deterministic featurizer and a
@@ -121,7 +130,7 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # NOTE the headline consequence under PER-DATASET weighting: chemeleon_e2e enters ahead of the
 # descriptor anchors (3.11 against 3.69/3.99). Under the per-suite weighting this figure actually
 # uses it sits third. See the tie note in the docstring before quoting any top position.
-# PROBE PROTOCOL. 16 of the 18 arms are FROZEN encoders with a trained probe; two fine-tune the
+# PROBE PROTOCOL. Most arms are FROZEN encoders with a trained probe; four fine-tune the
 # whole network on each downstream task, and they are marked with a dagger because that difference
 # is worth more than any pretraining difference in this figure. CheMeleon gains +0.173 macro RMSE
 # on MoleculeACE from fine-tuning (0.8256 -> 0.6526, 21%) where CLIMB gains 0.010-0.015 (1-2%) --
@@ -135,8 +144,14 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # both about to be wrong by two. Same shape as every other hardcoded-name failure in this repo.
 E2E_ARMS = {a for a, m in ARMS.items() if m.get("probe") == "e2e"}
 
-_S0, _ = wide_table(ARM_ORDER)
-ARMS_USED = [a for a in ARM_ORDER if _S0.loc[a].notna().sum() >= 60]
+# TWO GATES, and they are different questions. Coverage (>=60 of 66 datasets) asks whether an arm
+# has been measured widely enough to rank. `in_ranking` asks whether it SHOULD be ranked at all --
+# used to keep one row per representation rather than one per (representation, probe), so the
+# figure compares representations instead of comparing probes. Declared in arms.py, never listed
+# here, so a new arm inherits the right treatment.
+RANKABLE = [a for a in ARM_ORDER if ARMS[a].get("in_ranking", True)]
+_S0, _ = wide_table(RANKABLE)
+ARMS_USED = [a for a in RANKABLE if _S0.loc[a].notna().sum() >= 60]
 N = len(ARMS_USED)
 
 # PER-SUITE EQUAL WEIGHTING (user decision 2026-08-19). Each arm's headline number is the mean of
