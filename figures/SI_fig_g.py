@@ -52,10 +52,19 @@ HEADS = ["xgb", "mlp"]
 XTICKS = ["XGBoost", "MLP"]
 
 # (arm key in arms.py, run tag used by head_comparison_run.sh, which head the MAINLINE half is)
+#
+# CheMeleon MUST BE THE FROZEN VARIANT HERE (user 2026-08-19), never chemeleon_e2e. The question
+# is whether the PROBE HEAD changes the ranking of frozen representations, so every line has to be
+# a frozen embedding scored through a head. chemeleon_e2e fine-tunes its whole network on each
+# task, which is not a probe at all -- putting it on this axis would compare a fine-tune against
+# three probes and answer nothing. It is also why audit check 7 lets this figure name CheMeleon:
+# frozen-vs-frozen carries none of the protocol confound the rule exists to prevent.
 SERIES = [("ecfp_desc",        "fp_desc_anchor",   "xgb"),
           ("unsup",            "unsup_8M",         "mlp"),
           ("sup_dense",        "skip_dense_8M",    "mlp"),
           ("chemeleon_frozen", "chemeleon_frozen", "mlp")]
+assert all(a != "chemeleon_e2e" for a, _, _ in SERIES), \
+    "SI fig g compares PROBE HEADS on frozen embeddings; chemeleon_e2e is a fine-tune, not a probe"
 
 # metric per canonical panel, and which way is better
 METRIC = {"MoleculeACE": "rmse", "HIV": "nef1", "BACE": "roc_auc",
