@@ -240,15 +240,13 @@ def main():
             mark_empty(ax, f"{p}: no end2end run of a pretrained encoder on this panel")
             continue
 
-        # A CROSS-PROTOCOL SERIES IS DASHED, and the rule is computed rather than listed: a series
-        # whose own rows are all "mainline" while the panel's CLIMB points are label-efficiency is
-        # measured on a different split, so its level cannot be read against theirs. Solid means
-        # "same protocol as this panel"; dashed means "read the direction, not the height".
+        # EVERY SERIES IS SOLID (user 2026-08-20: "don't draw it dashed please"). The
+        # cross-protocol caveat is real and is stated in the docstring and the caption, but it is
+        # not encoded in the line style; the request for the missing label-efficiency CheMeleon
+        # runs has gone to the compute session so the mismatch can be removed rather than marked.
         def _ls_for(enc_label):
-            """Solid when the series shares this panel's protocol, dashed when it does not."""
-            own = set(g_all[g_all.encoder == enc_label].protocol.astype(str))
-            panel_proto = str(PROTO.get(p, ""))
-            return "-" if (not own or own == {panel_proto}) else (0, (4, 2))
+            del enc_label
+            return "-"
 
         vals, errs = [], []
         for enc_label, arm_key, _ in SERIES:
@@ -287,12 +285,6 @@ def main():
                for _, k, lab in SERIES]
     handles.append(Line2D([], [], color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3,
                           label="XGBoost, ECFP4+desc"))
-    # The dashed style has to be decodable or it is just an inconsistency. Only added when some
-    # panel actually draws it, so the key never describes something absent from the canvas.
-    if any(_ls_kinds):
-        handles.append(Line2D([], [], color=INK, ls=(0, (4, 2)), lw=1.3,
-                              label="dashed = mainline wave on a label-efficiency panel;\n"
-                                    "read its slope, not its height"))
     # WIDTH FIRST: spend the page's width on the legend before its height (user 2026-08-19).
     # A legend row costs every figure below it on the page; a legend column costs nothing
     # until it runs past the text block, and these entries do not.

@@ -405,7 +405,9 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     # numbers and is now false twice over: the floor is the frozen random encoder rather than the
     # fine-tuned one, and the MoleculeACE label-units bug that produced the null is fixed. There
     # IS lift; what the panel shows is that it does not depend on corpus similarity.
-    ax0.set_title("Lift, but flat across similarity" if compact else
+    # The compact title has to fit a ~2.2in panel; "Lift, but flat across similarity" ran into
+    # panel (b)'s tag in the assembled figure ("similarityb").
+    ax0.set_title("Flat across similarity" if compact else
                   "The lift does not depend on corpus similarity, including on identical molecules",
                   loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)

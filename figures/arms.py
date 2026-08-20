@@ -69,7 +69,7 @@ SHADES = {
     # SHADES["sup"][i] reference moves; it is darker than [0] and sits out of the ladder's
     # dark->light order on purpose, because it belongs to the end2end arm rather than to the
     # frozen ladder the first five encode.
-    "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6", "#6E2437"],
+    "sup":    ["#A3455E", "#B96A7E", "#CB8C9C", "#DBAEB9", "#E9CFD6", "#6E2437", "#8A3A50"],
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
     "chemeleon": ["#7E6BA8", "#A093C0", "#C4BCD8"],
@@ -261,6 +261,41 @@ ARMS = {
         src=dict(mace="skip_dense_8M_e2e",
                  mol=["skip_dense_8M_e2e", "skip_dense_8M_e2e_s1", "skip_dense_8M_e2e_s2"],
                  cbs="skip_dense_8M_e2e")),
+
+    # ---- XGBoost probe on a FROZEN embedding (the head-comparison arms) -----------------------
+    #
+    # Same three frozen representations that already appear above, read by gradient boosting
+    # instead of an MLP. SI fig f is the two-point version of this and its finding is why these
+    # belong in the ranking: the head CHANGES THE ORDER, so a ranking drawn with one head is a
+    # statement about that head, not about the representations.
+    #
+    # ALL THREE, NOT JUST CheMeleon (user asked for CheMeleon; the other two come with it because
+    # otherwise the figure is rigged). On MoleculeACE the head swap moves CheMeleon 0.826 -> 0.688
+    # (much better) and moves the CLIMB arms the OTHER WAY, 0.778 -> 0.830 and 0.774 -> 0.813
+    # (worse). Admitting only the comparator's better head while leaving CLIMB on its worse one
+    # would manufacture a gap out of the probe. They cost nothing extra: identical coverage,
+    # 64/66 datasets each.
+    #
+    # 64/66: MoleculeACE 30 + Polaris 28 + MolNet 6 of 7 (no Lipophilicity) + CBS 0. Clears the
+    # >=60 admission floor.
+    #
+    # pretrain_replicates=False is a statement about THIS EXPERIMENT, not about the model. The
+    # head comparison was run on ONE encoder per representation with three head seeds inside it,
+    # so the pretraining-seed axis is not available here even though unsup and sup_dense have one
+    # elsewhere. That is the same SHAPE as the anchors and CheMeleon -- one run dir, three head
+    # seeds -- which is the group audit checks 3 and 11 compare them against.
+    "chemeleon_frozen_xgb": dict(
+        label="frozen, XGBoost probe", short="frozen, XGBoost", family="chemeleon",
+        color=SHADES["chemeleon"][2], probe="xgb", pretrain_replicates=False, in_ablation=False,
+        src=dict(mace="chemeleon_frozen__xgb", mol=["chemeleon_frozen__xgb"])),
+    "unsup_xgb": dict(
+        label="unsupervised, XGBoost probe", short="unsup, XGBoost", family="unsup",
+        color=SHADES["unsup"][2], probe="xgb", pretrain_replicates=False, in_ablation=False,
+        src=dict(mace="unsup_8M__xgb", mol=["unsup_8M__xgb"])),
+    "sup_dense_xgb": dict(
+        label="supervised desc, XGBoost probe", short="sup desc, XGBoost", family="sup",
+        color=SHADES["sup"][6], probe="xgb", pretrain_replicates=False, in_ablation=False,
+        src=dict(mace="skip_dense_8M__xgb", mol=["skip_dense_8M__xgb"])),
 
     # ---- controls ---------------------------------------------------------------------------
     "random_encoder": dict(

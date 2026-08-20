@@ -306,9 +306,12 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     handles = [Line2D([], [], color=FAM_COL[f], marker=FAM_MARKER[f], ls="-", ms=5,
                       lw=STYLE["lw"], mec="white", mew=0.6, label=FAM_SHORT[f])
                for f in SLOPE_FAMS]
-    # lower right + boxed, matching panel (c): the two slope lines rise to the right, so an
-    # upper-right legend sat on top of them.
-    axS.legend(handles=handles, loc="lower right", frameon=False, fontsize=FS["legend"],
+    # LOWER LEFT (user 2026-08-20: "on C+D please move the legend of subfigure f to bottom left
+    # right now it's in the way"). Lower right was chosen when the sparse line ran along the top;
+    # after the floor change both lines sit lower on the right-hand side and the box landed on the
+    # bioassay markers. The left edge is the emptiest corner now: the property group has two
+    # points against the bioassay group's ten.
+    axS.legend(handles=handles, loc="lower left", frameon=False, fontsize=FS["legend"],
                handletextpad=0.4, borderaxespad=0.4, labelspacing=0.3)
     axS.axhline(0, color=SHADES["random"][0], lw=0.6, zorder=1)
     axS.set_xlim(-0.38, 1.38)
