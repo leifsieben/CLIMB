@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, row_ncol
 from figures.arms import ARMS, PANELS, PANEL_ORDER
 from figures.sixpanel import ROOT
 
@@ -126,7 +126,7 @@ def _panels(banded):
     for a, ls in REF_LINES:
         handles.append(Line2D([], [], color=ARMS[a]["color"], ls=ls, lw=1.2, label=ARMS[a]["label"]))
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.050),
-               ncol=6, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
+               ncol=row_ncol(handles), fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     # Axes -> shared x-label -> legend, each about one text-height apart (user 2026-08-19:
     # "too much white space"). The legend is anchored just BELOW the x-label rather than

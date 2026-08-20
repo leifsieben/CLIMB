@@ -109,7 +109,7 @@ import matplotlib.ticker as ticker
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, mark_empty
+from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
 from figures.arms import PANELS, PANEL_ORDER, SHADES
 
 check_font()
@@ -551,7 +551,7 @@ def main():
         draw_panel(ax, d, p)
 
     handles = legend_handles()
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=4,
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
                borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.045, 1, 1))

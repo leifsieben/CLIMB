@@ -57,7 +57,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, row_ncol
 from figures.arms import ARMS, PANELS, PANEL_ORDER, system, label
 from figures.sixpanel import load_mainline, ROOT
 
@@ -79,7 +79,15 @@ CLIMB_HATCH = "...."          # small black dots mark the CLIMB models (density 
 # until the peer session's suite runs land; those two panels draw a gap for them rather than a
 # zero, which is the honest rendering of "not run yet".
 MODELS = ["ecfp", "ecfp_desc", "r3fp", "r3fp_desc", "sup_dense", "unsup", "u2s_dense",
-          "e2e_no_pretrain", "random_encoder", "chemeleon_frozen", "chemeleon_e2e"]
+          "e2e_no_pretrain", "random_encoder", "chemeleon_frozen_xgb", "chemeleon_e2e"]
+# 2026-08-20: the frozen CheMeleon bar is the XGBOOST probe, not the MLP probe. Leif fixed the
+# paper's CheMeleon vocabulary that day -- the only two CheMeleon models the paper mentions are
+# frozen+XGBoost and end-to-end-from-foundation; the MLP-probe arm was run for our own
+# understanding and is not reported anywhere. Drawing the MLP probe here would have put a
+# configuration on the page that no other figure names, and would have understated the frozen arm
+# by 0.14 macro RMSE on MoleculeACE (0.8251 vs 0.6875), which is the difference between "frozen
+# CheMeleon is far worse than a fingerprint" and "frozen CheMeleon is about a fingerprint" -- two
+# quite different sentences about the same model.
 # 2026-08-17: was "chemeleon", a single arm labelled "end2end" but sourced from chemeleon_FROZEN --
 # which is what put the frozen arm's broken QM7 value (268.8, fold2=434, worse than a constant
 # predictor) on this end2end comparison. "chemeleon_e2e" is the native D-MPNN-from-foundation run,
@@ -294,7 +302,8 @@ def build():
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         draw_panel(ax, p)
     fig.tight_layout(rect=(0, 0.085, 1, 1))
-    fig.legend(handles=legend_handles(), loc="upper center", bbox_to_anchor=(0.5, 0.075), ncol=5,
+    _h = legend_handles()
+    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.5, 0.075), ncol=row_ncol(_h),
                frameon=False, fontsize=FS["legend"], handlelength=1.5, handletextpad=0.5,
                labelspacing=0.35, columnspacing=1.1, borderpad=0.0, labelcolor=INK)
     return fig

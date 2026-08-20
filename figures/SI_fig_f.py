@@ -101,8 +101,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, mark_empty
-from figures.arms import ARMS, PANELS, PANEL_ORDER
+from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
+from figures.arms import ARMS, series_label, PANELS, PANEL_ORDER
 
 check_font()
 ROOT = Path(__file__).resolve().parent.parent
@@ -264,9 +264,14 @@ def main():
         pad = 0.22 * max(hi - lo, 1e-9)
         ax.set_ylim(lo - pad, hi + pad)
 
+    # EACH LINE IS A REPRESENTATION, so the legend names the representation and NOT its probe --
+    # the probe is the x-axis. series_label() is what strips it: ARMS[...]["label"] for the
+    # CheMeleon arm is "frozen, MLP probe", which as a legend entry both omits the model's name and
+    # contradicts the axis by pinning it to one head. arms.py's labels are written for fig_A1,
+    # where system() supplies "CheMeleon" on the line above; here nothing does.
     handles = [Line2D([], [], color=ARMS[a]["color"], marker="o", ms=5.0, lw=1.4,
-                      label=ARMS[a]["label"]) for a, _, _ in SERIES]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052), ncol=4,
+                      label=series_label(a)) for a, _, _ in SERIES]
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.105, 1, 1), w_pad=0.35)
@@ -282,9 +287,9 @@ def main():
             a0, a1 = R[p][arm]
             if a0 is None or a1 is None:
                 miss = lo if a0 is None else hi
-                print(f"   {p:<13}{ARMS[arm]['label'][:20]:<22}{'—':>10}{'—':>10}   {miss} not run")
+                print(f"   {p:<13}{series_label(arm)[:20]:<22}{'—':>10}{'—':>10}   {miss} not run")
                 continue
-            print(f"   {p:<13}{ARMS[arm]['label'][:20]:<22}{a0:>10.4f}{a1:>10.4f}   {a1 - a0:>+8.4f}")
+            print(f"   {p:<13}{series_label(arm)[:20]:<22}{a0:>10.4f}{a1:>10.4f}   {a1 - a0:>+8.4f}")
     if n_missing:
         print(f"\n   {n_missing} of {len(PANEL_ORDER)} panels have NO head-comparison run yet "
               f"(scripts/head_comparison_run.sh).")

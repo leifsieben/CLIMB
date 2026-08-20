@@ -42,7 +42,18 @@ MOL = {"BACE": ("auc", "climb_v2_phase2"), "Tox21": ("auc", "climb_v2_phase2"),
 # is best on 0 of 30 MoleculeACE targets (0.8256 macro RMSE vs ECFP+desc 0.6757) where fine-tuned
 # it is best on 21. Both bars belong in the panel so the gap between them is visible.
 A2_ARMS = ["ecfp", "ecfp_desc", "r3fp", "r3fp_desc", "sup_dense", "unsup", "u2s_dense",
-           "random_encoder", "e2e_no_pretrain", "chemeleon_frozen", "chemeleon_e2e"]
+           "random_encoder", "e2e_no_pretrain", "chemeleon_frozen", "chemeleon_e2e",
+           # 2026-08-20: three arms added for SI fig a, which now takes EVERY error bar from this
+           # file so that all six points in a panel carry ONE estimator computed one way, rather
+           # than each arm's own replicate spread (pretraining-seed SD for the CLIMB arms,
+           # head-seed SD for CheMeleon, which has one pretraining by construction). Those are
+           # different estimands and putting them on the same axis invites a comparison neither
+           # supports. The cluster bootstrap resamples test scaffolds and is defined identically
+           # for every arm, whatever its replicate structure.
+           #
+           # This list is a SUPERSET of what fig_A2 draws -- that figure filters to its own MODELS
+           # -- so adding arms here fills SI fig a without touching the A2 panel.
+           "unsup_e2e", "sup_dense_e2e", "chemeleon_frozen_xgb"]
 
 
 # QM7's phase-2 predictions are z-scored for most runs and native for a few; the native re-eval

@@ -108,6 +108,28 @@ SHADES = {
 #                         (CLIMB arms: <base>, <base>_s1, <base>_s2; controls: _00/_01/_02).
 #                         All of them are pooled -- 3 pretraining seeds x 3 head seeds x 5 folds.
 #                   cbs : arm column of experiment_cbs/cbs_nef1_summary.csv
+# LABEL PUNCTUATION -- one rule, because these strings sit next to each other on a page and an
+# inconsistent comma reads as a distinction that is not there (Leif 2026-08-20).
+#
+#   The comma separates the ENCODER from its qualifier:  "unsupervised, end2end"
+#                                                        "no pretrain, random"
+#   When the encoder's own name already carries a comma, the probe appends with a SPACE rather
+#   than a third comma:                                  "supervised, desc"  ->
+#                                                        "supervised, desc end2end"
+#                                                        "supervised, desc XGBoost probe"
+#
+# Never parentheses (user 2026-08-19). The two sup_dense probe arms read "supervised desc,
+# end2end" until 2026-08-20 -- comma after the feature set instead of after the objective -- which
+# put two different spellings of one encoder in the same fig_A1 column.
+#
+# THE CHEMELEON LABELS OMIT "CheMeleon" AND THE CHEMELEON SHORTS INCLUDE IT. That is not an
+# oversight in either direction, it is the two renderers wanting different things:
+#   fig_A1 draws system() on one line and label() on the next, so a label carrying "CheMeleon"
+#          printed "CheMeleon / CheMeleon, end2end" -- the model named twice on one tick.
+#   fig_A2 draws `short` ALONE, and "end2end" alone is indistinguishable from the
+#          "no pretrain, end2end" control sitting a few rows away.
+# So label="end2end" and short="CheMeleon, end2end", and both are correct where they are used.
+# scripts/audit_figure_consistency.py check 17 enforces all of this.
 ARMS = {
     # ---- XGBoost anchors (orange) -----------------------------------------------------------
     "ecfp": dict(
@@ -251,7 +273,7 @@ ARMS = {
                  mol=["unsup_8M_e2e", "unsup_8M_e2e_s1", "unsup_8M_e2e_s2"],
                  cbs="unsup_8M_e2e")),
     "sup_dense_e2e": dict(
-        label="supervised desc, end2end", short="sup desc, end2end", family="sup",
+        label="supervised, desc end2end", short="sup, desc end2end", family="sup",
         color=SHADES["sup"][5], probe="e2e", in_ablation=False,
         # DECLARED, so audit checks 3 and 11 report it as a known asymmetry instead of a
         # failure, and so the reason travels with the arm rather than living in the
@@ -285,7 +307,7 @@ ARMS = {
     # elsewhere. That is the same SHAPE as the anchors and CheMeleon -- one run dir, three head
     # seeds -- which is the group audit checks 3 and 11 compare them against.
     "chemeleon_frozen_xgb": dict(
-        label="frozen, XGBoost probe", short="frozen, XGBoost", family="chemeleon",
+        label="frozen, XGBoost probe", short="CheMeleon, frozen XGBoost", family="chemeleon",
         color=SHADES["chemeleon"][2], probe="xgb", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="chemeleon_frozen__xgb", mol=["chemeleon_frozen__xgb"])),
     "unsup_xgb": dict(
@@ -298,7 +320,7 @@ ARMS = {
         in_ranking=False,
         src=dict(mace="unsup_8M__xgb", mol=["unsup_8M__xgb"])),
     "sup_dense_xgb": dict(
-        label="supervised desc, XGBoost probe", short="sup desc, XGBoost", family="sup",
+        label="supervised, desc XGBoost probe", short="sup, desc XGBoost", family="sup",
         color=SHADES["sup"][6], probe="xgb", pretrain_replicates=False, in_ablation=False,
         # NOT IN THE RANKING (user 2026-08-20). fig_A1 shows each representation at the head
         # that suits it -- CLIMB with its MLP probe, CheMeleon with XGBoost -- so the weaker
@@ -345,12 +367,12 @@ ARMS = {
     # bootstrapped. hERG (polaris/chemeleon_e2e) is still in flight; that cell reads n/a until it
     # lands, at which point NO code change is needed (the same `mace` key names the polaris dir).
     "chemeleon_e2e": dict(
-        label="CheMeleon, end2end", short="CheMeleon end2end", family="chemeleon", color=SHADES["chemeleon"][0],
+        label="end2end", short="CheMeleon, end2end", family="chemeleon", color=SHADES["chemeleon"][0],
         probe="e2e", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="chemeleon_e2e", mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
                  cbs="chemeleon_e2e")),
     "chemeleon_frozen": dict(
-        label="CheMeleon, frozen", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
+        label="frozen, MLP probe", short="CheMeleon, frozen", family="chemeleon", color=SHADES["chemeleon"][1],
         # OUT OF fig_A1 (user 2026-08-20): the same representation ranks 3rd under XGBoost and
         # 14th under this MLP probe, and showing both makes the ranking a statement about probes
         # rather than about representations. The XGBoost row is the one kept. This arm is still
@@ -477,6 +499,37 @@ def two_line_label(arm_key: str) -> str:
 
 def color(arm_key: str) -> str:
     return ARMS[arm_key]["color"] if arm_key in ARMS else "#999999"
+
+
+# THE FROZEN -> END2END PAIRS SI FIG A DRAWS, and the configuration the paper reports for each
+# encoder. Declared here rather than in the figure or its builder because BOTH read it, and when
+# they held separate literals they drifted: arms.py renamed sup_dense to "supervised, desc" while
+# figures/SI_fig_a.py still asked for "supervised, dense", the join matched nothing, and that
+# encoder's line disappeared from all six panels without any check firing.
+#
+# CheMeleon's frozen half is the XGBOOST probe (Leif 2026-08-20: the only two CheMeleon models the
+# paper mentions are frozen+XGBoost and end-to-end-from-foundation; the MLP-probe frozen arm was
+# run for our own understanding and is not reported). That matches fig_A1's convention of showing
+# each representation at the head that suits it -- SI fig f measures that preference as a property
+# in its own right -- so the two figures agree on what "CheMeleon, frozen" names.
+E2E_PAIRS = [("unsup", "unsup_e2e"),
+             ("sup_dense", "sup_dense_e2e"),
+             ("chemeleon_frozen_xgb", "chemeleon_e2e")]
+
+
+def series_label(frozen_arm: str) -> str:
+    """The ENCODER's name for a line that joins its two probes. Taken from the FROZEN arm only.
+
+    Deriving it from either arm was the obvious design and it does not work: the end2end labels do
+    not share one comma convention with their frozen counterparts ("supervised, desc" pairs with
+    "supervised, desc end2end"), so stripping the probe off each arm independently yields two
+    different strings for one line. The frozen arm alone is unambiguous. CheMeleon's frozen arms
+    are labelled by their probe ("frozen, XGBoost probe"), so they take the family name instead --
+    which is also what SI fig f wants, where each line IS a representation and the probe is the
+    x-axis."""
+    if ARMS[frozen_arm]["family"] == "chemeleon":
+        return SYSTEM["chemeleon"]
+    return ARMS[frozen_arm]["label"]
 
 
 def ablation_arms():

@@ -65,7 +65,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, row_ncol
 from figures.arms import ARMS, SHADES
 
 check_font()
@@ -256,8 +256,12 @@ def main():
     # over-wide plate is downscaled by LaTeX, shrinking its fonts relative to every other figure.
     # 4 columns x 3 rows is narrower than 5 x 2 and costs one line of height, which this figure
     # has to spare. Verified by measuring the rendered PNG, not by eye.
-    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.500, 0.185),
-               ncol=4, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
+    _h = _legend_handles()
+    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.500, 0.185),
+               # 9 handles, and one row overran badly: 6.73in -> 10.84in, far past the 6.69in
+               # text block, so the plate would be scaled DOWN in LaTeX and every font with it.
+               # Measured, not guessed. rows=3 restores the previous 3x3 block.
+               ncol=row_ncol(_h, rows=3), fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
                labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)

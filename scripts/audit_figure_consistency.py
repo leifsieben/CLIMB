@@ -1029,6 +1029,57 @@ def check_source_coverage():
     return bad
 
 
+
+def check_label_conventions():
+    """The arm labels are rendered by two different mechanisms that want opposite things.
+
+    fig_A1 draws system() on one line and label() on the next, so a label that repeats the system
+    name prints it twice on one tick ("CheMeleon / CheMeleon, end2end"). fig_A2 draws `short`
+    ALONE for the CheMeleon arms, so a short that OMITS the system name leaves the reader with
+    "frozen, XGBoost" and no model ("end2end" alone is worse -- there is a "no pretrain, end2end"
+    control a few rows away). Both defects existed on 2026-08-20 and neither raised anything.
+
+    Also enforced: no parentheses anywhere (user 2026-08-19, "use commas not parentheses"), and
+    the comma convention -- the comma separates the encoder from its qualifier, and when an
+    encoder's own name already carries one the probe appends with a space rather than a third
+    comma ("supervised, desc end2end", not "supervised desc, end2end").
+    """
+    print(f"\n{'='*94}\n17. ARM LABEL CONVENTIONS (two renderers, opposite requirements)\n{'='*94}")
+    import importlib
+    A = importlib.import_module("figures.arms")
+    bad = 0
+    for k, v in A.ARMS.items():
+        lab, short, sysname = v["label"], v.get("short", ""), A.system(k)
+        if sysname and lab.lower().startswith(sysname.lower()):
+            print(f"  FAIL  {k}: label {lab!r} repeats the system name {sysname!r} - fig_A1 draws "
+                  f"system() above label(), so this tick names the model twice")
+            bad += 1
+        if sysname == "CheMeleon" and "CheMeleon" not in short:
+            print(f"  FAIL  {k}: short {short!r} omits 'CheMeleon' - fig_A2 renders `short` alone")
+            bad += 1
+        for field, txt in (("label", lab), ("short", short)):
+            if "(" in txt or ")" in txt:
+                print(f"  FAIL  {k}: {field} {txt!r} uses parentheses - the convention is commas")
+                bad += 1
+    # the comma rule, checked where it is checkable: a probe suffix must not be preceded by a
+    # comma when the encoder's own name already contains one.
+    PROBE_WORDS = ("end2end", "XGBoost probe", "MLP probe")
+    for k, v in A.ARMS.items():
+        lab = v["label"]
+        for w in PROBE_WORDS:
+            if lab.endswith(w):
+                stem = lab[: -len(w)].rstrip()
+                if stem.count(",") >= 1 and stem.endswith(","):
+                    head = stem[:-1]
+                    if "," in head:
+                        print(f"  FAIL  {k}: label {lab!r} has a comma before {w!r} although the "
+                              f"encoder name {head!r} already carries one - append with a space")
+                        bad += 1
+    print("  OK - every label reads correctly in both renderers" if not bad
+          else f"  {bad} label convention problem(s)")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
@@ -1037,7 +1088,8 @@ def main():
                  check_qm7_convention(), check_tox21_vintage(),
                  check_replication_parity(), check_aggregate_freshness(),
                  check_invariant_arms(), check_regression_units(),
-                 check_positional_metric_reads(), check_source_coverage()])
+                 check_positional_metric_reads(), check_source_coverage(),
+                 check_label_conventions()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 

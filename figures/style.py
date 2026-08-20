@@ -86,6 +86,32 @@ def _pdf_width_in(path):
     return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
 
 
+def row_ncol(handles, rows=1):
+    """Column count that lays `handles` out in ONE ROW. The paper's default (user 2026-08-20:
+    "always have this as the default").
+
+    Use it as `ncol=row_ncol(handles)` instead of a literal. A literal cannot know that a legend
+    grew a key -- fig_A1 carried ncol=len(SUITES)=4 while its legend had five entries, so adding
+    the end-to-end marker silently wrapped the legend onto a second row. Deriving the count from
+    the handles themselves means adding a key keeps the row.
+
+    Why one row is the default and not merely a preference: savefig(bbox_inches="tight") grows the
+    canvas to fit whatever hangs off the axes, so a legend that wraps to two rows pushes the plate
+    taller and the panels get scaled DOWN in LaTeX to fit the text block. A one-row legend is the
+    cheapest vertical space in the figure. It costs width, which a full-text-block figure has.
+
+    `rows` is the escape hatch for a legend whose one-row form would genuinely overrun the text
+    block -- pass 2 and it balances across two rows rather than wrapping unevenly. Reach for it
+    only after measuring the rendered width, never pre-emptively.
+    """
+    n = len(list(handles))
+    if n <= 0:
+        return 1
+    if rows <= 1:
+        return n
+    return -(-n // int(rows))                      # ceil, so `rows` rows is the tallest it gets
+
+
 def mark_empty(ax, why="no data for this panel"):
     """Declare an axes DELIBERATELY empty, so check_no_empty_panels() does not fail on it.
 
