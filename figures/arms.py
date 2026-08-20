@@ -330,6 +330,17 @@ ARMS = {
         # half of each pair is declared out. The arms stay defined because SI fig f is built
         # from the pair and needs both ends of every slope.
         in_ranking=False,
+        # No suite-track replicates, BY DECISION (2026-08-20), declared so the parity audit
+        # reports it rather than counting it as an open gap. Two reasons, both checked
+        # rather than assumed: (1) no figure draws an interval for this arm -- it is
+        # unranked (in_ranking=False) and the one figure showing its cells, SI fig f,
+        # plots point values with no errorbar() anywhere; (2) the suite BASE was built
+        # in a venv that no longer exists on any box (chemeleon_suite_run.py has no
+        # --features_npz path, so it cannot use the pinned reference env the MolNet and
+        # CBS cells use). Replicates from a different library SET would make the spread
+        # partly an environment measurement -- a larger perturbation than the 0.95%
+        # cross-architecture difference we already thought worth documenting.
+        no_replicates_on=("MoleculeACE", "Ames"),
         src=dict(mace="unsup_8M__xgb", mol=["unsup_8M__xgb"])),
     "sup_dense_xgb": dict(
         label="supervised, desc XGBoost probe", short="sup, desc XGBoost", family="sup",
@@ -339,6 +350,17 @@ ARMS = {
         # half of each pair is declared out. The arms stay defined because SI fig f is built
         # from the pair and needs both ends of every slope.
         in_ranking=False,
+        # No suite-track replicates, BY DECISION (2026-08-20), declared so the parity audit
+        # reports it rather than counting it as an open gap. Two reasons, both checked
+        # rather than assumed: (1) no figure draws an interval for this arm -- it is
+        # unranked (in_ranking=False) and the one figure showing its cells, SI fig f,
+        # plots point values with no errorbar() anywhere; (2) the suite BASE was built
+        # in a venv that no longer exists on any box (chemeleon_suite_run.py has no
+        # --features_npz path, so it cannot use the pinned reference env the MolNet and
+        # CBS cells use). Replicates from a different library SET would make the spread
+        # partly an environment measurement -- a larger perturbation than the 0.95%
+        # cross-architecture difference we already thought worth documenting.
+        no_replicates_on=("MoleculeACE", "Ames"),
         src=dict(mace="skip_dense_8M__xgb", mol=["skip_dense_8M__xgb"])),
 
     # ---- controls ---------------------------------------------------------------------------

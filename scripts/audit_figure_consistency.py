@@ -545,6 +545,15 @@ def check_replication_parity():
     def _split_axis(a):
         return ARMS.get(a, {}).get("suite_seed_axis") == "finetune"
 
+    # A SECOND declared exemption, panel-scoped: an arm may have no replicates on a given panel by
+    # DECISION rather than by omission. The two __xgb probe arms are the case -- unranked, no
+    # figure draws an interval for them, and their suite bases were built in a venv that no longer
+    # exists, so a replicate from a different library set would make the spread partly an
+    # environment measurement. Declared per panel in arms.py, because the same arms DO get MolNet
+    # and CBS replicates; only the two suite tracks are exempt.
+    def _declined(a, panel):
+        return panel in (ARMS.get(a, {}).get("no_replicates_on") or ())
+
     bad = 0
     for panel in sorted(per_panel):
         counts = per_panel[panel]
@@ -555,11 +564,16 @@ def check_replication_parity():
             top = max(group.values())
             short = sorted(a for a, n in group.items() if n < top)
             known = [a for a in short if _split_axis(a)]
-            short = [a for a in short if a not in known]
+            declined = [a for a in short if a not in known and _declined(a, panel)]
+            short = [a for a in short if a not in known and a not in declined]
             if known:
                 print(f"  KNOWN {panel:12s} {label}{', '.join(f'{a}={group[a]}' for a in known)} "
                       f"- replicates on the fine-tune axis here, pretraining axis on MolNet "
                       f"(declared in arms.py; not an oversight)")
+            if declined:
+                print(f"  KNOWN {panel:12s} {label}{', '.join(f'{a}={group[a]}' for a in declined)} "
+                      f"- suite replicates DECLINED for this arm: unranked, no figure draws an "
+                      f"interval for it, and its base venv is unreproducible (arms.py)")
             if short:
                 detail = ", ".join(f"{a}={group[a]}" for a in short)
                 print(f"  FAIL  {panel:12s} {label}most arms rest on {top} dirs; {len(short)} rest "

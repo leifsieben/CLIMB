@@ -1,0 +1,124 @@
+% CLIMB — figure captions. Generated 2026-08-20.
+% Six canonical panels throughout: MoleculeACE (30 ChEMBL targets, macro RMSE), HIV (NEF1\%),
+% BACE, Ames and Tox21 (ROC-AUC), QM7 (RMSE). Arrows in panel titles give the good direction.
+
+% ---------------------------------------------------------------- Fig A
+\caption{\textbf{Overall standing across 65 datasets.}
+\textbf{(a)} Each model is ranked within every dataset and the ranks are averaged per suite;
+the plotted value is the mean of the four suite means, so MoleculeNet (6), MoleculeACE (30),
+Polaris (28) and CBS (1) each count once rather than letting the two large suites decide the
+order. Filled dot: mean rank ($\pm$SE across suites); open markers: the four suite means;
+$\times$: the model is fine-tuned end-to-end rather than probed frozen. Arms are admitted at
+$\ge$60 of 65 datasets. Each representation is shown at the probe head that suits it
+(Supp.~Fig.~f).
+\textbf{(b)} Absolute performance on the six canonical panels. Error bars are 95\% cluster
+bootstrap intervals over test scaffolds (targets on MoleculeACE); Ames is analytic
+(Hanley--McNeil), since its test labels are withheld. Dotted line: untrained (random-init,
+frozen) encoder.
+Classical fingerprint baselines lead overall, with the CheMeleon foundation model next and the
+CLIMB encoders behind both.}
+
+% ---------------------------------------------------------------- Fig B
+\caption{\textbf{Pretraining scaling.}
+Downstream performance against pretraining tokens actually processed (log scale), one line per
+pretraining recipe, seed-0 rungs. Reference lines: the two XGBoost fingerprint baselines
+(dash-dot, dashed) and the untrained encoder (dotted). The top two unsupervised rungs (open
+markers) use a larger RDKit-canonical corpus than the rungs below them.
+Scaling the pretraining corpus by two orders of magnitude does not carry any recipe past the
+fingerprint baselines on these tasks.}
+
+% ---------------------------------------------------------------- Fig C+D
+\caption{\textbf{Does similarity to the pretraining data explain the benefit?}
+Lift is measured against an untrained, frozen encoder probed identically, so $0$ means the
+pretraining bought nothing.
+\textbf{(a--c)} Unsupervised pretraining: per-molecule lift against maximum ECFP4 Tanimoto
+similarity to the pretraining corpus. Gains are flat in similarity --- molecules chemically
+close to the corpus benefit no more than distant ones.
+\textbf{(d--f)} Supervised pretraining: each point is one (SFT label family $\times$ evaluation
+task) pair; $x$ is mean max Tanimoto similarity between the family's molecules and the task's
+(a lower bound: families are sampled). Transfer is likewise unexplained by chemical overlap,
+which points to the label type rather than the molecules as what carries it.}
+
+% ---------------------------------------------------------------- Fig E
+\caption{\textbf{Corrupted pretraining objectives.}
+Objective family, data volume, compute, schedule, architecture and probe are held fixed; only
+the chemical content of the pretraining signal is destroyed. Bars are lift over an untrained,
+frozen encoder.
+\textbf{(a)} Supervised descriptor regression with targets permuted across the batch: the
+molecule$\rightarrow$descriptor mapping is destroyed, the target distribution is not.
+\textbf{(b)} The unsupervised objective with its chemical content removed.
+The real objectives help on every panel and the corrupted controls fall below the untrained
+floor, so the gains do come from chemistry rather than from optimisation alone --- but they
+start from, and return to, a low baseline.}
+
+% ---------------------------------------------------------------- Fig F
+\caption{\textbf{Are the learned embeddings redundant given classical features?}
+The same XGBoost, the same scaffold 5-fold CV and the same task, given three classical feature
+bases (descriptors, ECFP4, both) with and without a 512-d frozen embedding concatenated on.
+Raw features are concatenated without standardisation (XGBoost is scale-invariant). Error bars
+are $\pm1$ SD over the panel's replicate unit --- targets on MoleculeACE, folds elsewhere ---
+and analytic (Hanley--McNeil) on Ames, whose test labels are withheld.
+Adding either CLIMB embedding to descriptors+ECFP4 fails to beat its own spread on any of the
+six panels and costs 0.036 macro RMSE on MoleculeACE and 0.021 ROC-AUC on Ames; adding
+CheMeleon on the identical bases gains 0.013 on Ames. The CLIMB representations are therefore
+informationally redundant given fingerprints and descriptors, which is a stronger statement
+than scoring lower.}
+
+% ---------------------------------------------------------------- Fig G
+\caption{\textbf{Does the representation respond when the chemistry changes?}
+Ten chemical edits, 100 molecule pairs each, in which the two molecules are genuinely different
+and a usable representation must respond. Response is the embedding shift the edit produces
+divided by \emph{that model's own} shift when a completely different compound of matched
+molecular weight is substituted, so $1.00$ means ``moves the representation as far as changing
+the molecule''. Panel (i) is that reference and is $1.000$ by construction. The per-model
+denominator lets a 512-d transformer and a 2048-bit fingerprint share one axis. All models
+receive RDKit-canonical SMILES.
+Notation-only edits (SMILES enumeration, Kekulisation) should score $0$; stereochemical and
+scaffold edits should not.}
+
+% ---------------------------------------------------------------- SI Fig a
+\caption{\textbf{Is end-to-end fine-tuning necessary?}
+The same pretrained encoder used two ways at full downstream data: frozen with a trained probe,
+versus the whole network fine-tuned. All points come from one wave, so frozen and end-to-end are
+like-for-like within and across encoders in a panel. Intervals are 95\% resampling intervals,
+one method per panel: cluster bootstrap over test scaffolds, over targets on MoleculeACE, and
+analytic on Ames. Dotted line: XGBoost on ECFP4+descriptors.
+End-to-end is ahead in 12 of 18 cells, but no frozen/end-to-end interval pair is disjoint --- at
+this test-set size the data does not resolve any single one of these differences. CheMeleon is
+shown at its XGBoost probe, where freezing is ahead on four of six panels.}
+
+% ---------------------------------------------------------------- SI Fig b
+\caption{\textbf{Tokenizer family and vocabulary size.}
+Two tokenizer families (byte-level BPE, Unigram-LM), each at four distinct vocabulary sizes
+spanning the reachable range; one MLM encoder per tokenizer at matched forward passes, same
+corpus, same frozen probe. $x$ is the vocabulary actually reached (log scale).
+Neither the family nor the size moves downstream performance beyond replicate noise.}
+
+% ---------------------------------------------------------------- SI Fig c
+\caption{\textbf{Featurization cost.}
+Wall-clock to featurize 1000 molecules, 5 repeats after warm-up, with the settings used in
+production. The transformer encoder is orders of magnitude more expensive than the classical
+featurizers it does not outperform, which is the relevant comparison at virtual-screening
+scale.}
+
+% ---------------------------------------------------------------- SI Fig d
+\caption{\textbf{Canonical versus enumerated SMILES in pretraining.}
+Randomised SMILES are standard practice, intended to teach the model that the string is
+arbitrary and the graph is not. Canonical and enumerated pretraining are matched at five corpus
+fractions $\times$ 3 pretraining seeds, so augmentation is tested at every rung --- including
+the scarce-data rungs where it should help most.
+It does not help at any rung.}
+
+% ---------------------------------------------------------------- SI Fig e
+\caption{\textbf{Label efficiency.}
+Absolute performance against the number of labelled training molecules (log scale), with an
+identical hold-out split, label fractions and seed grid across models. This is where a frozen
+pretrained encoder is most likely to pay: the small-data regime.}
+
+% ---------------------------------------------------------------- SI Fig f
+\caption{\textbf{The probe head is not neutral.}
+The same frozen representations scored through an MLP head and through XGBoost, everything else
+fixed. The preference is representation-dependent and consistent across panels: the CLIMB
+encoders do better with the MLP head, while fingerprints, descriptors and CheMeleon do better
+with XGBoost. Comparing representations across different heads therefore confounds the two, and
+each representation is reported at its own best head in Fig.~1a.}
