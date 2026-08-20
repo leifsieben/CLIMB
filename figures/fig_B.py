@@ -126,7 +126,7 @@ def _panels(banded):
     for a, ls in REF_LINES:
         handles.append(Line2D([], [], color=ARMS[a]["color"], ls=ls, lw=1.2, label=ARMS[a]["label"]))
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.07),
-               ncol=3, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
+               ncol=6, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     # Axes -> shared x-label -> legend, each about one text-height apart (user 2026-08-19:
     # "too much white space"). The legend is anchored just BELOW the x-label rather than

@@ -169,7 +169,10 @@ def main():
                for _, k, lab in SERIES]
     handles.append(Line2D([], [], color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3,
                           label="XGBoost, ECFP4+desc"))
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=2,
+    # WIDTH FIRST: spend the page's width on the legend before its height (user 2026-08-19).
+    # A legend row costs every figure below it on the page; a legend column costs nothing
+    # until it runs past the text block, and these entries do not.
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=3,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
     # Legend sits one text-height under the tick labels; see the SI b/d/e note.
