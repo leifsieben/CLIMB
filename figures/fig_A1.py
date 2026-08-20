@@ -281,7 +281,7 @@ def draw(ax, compact=False):
         # one item. ncol is the handle count, so adding a key keeps the row rather than breaking it.
         _h = suite_handles()
         ax.legend(handles=_h, loc="upper center",
-                  bbox_to_anchor=(0.5, -0.095), ncol=len(_h), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
+                  bbox_to_anchor=(0.5, -0.058), ncol=len(_h), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
                   columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
 
 
