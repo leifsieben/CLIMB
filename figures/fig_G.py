@@ -89,10 +89,10 @@ SERIES = [("ECFP",      ARMS["ecfp"]["color"],             "ECFP4"),
           ("ECFP+d",    ARMS["ecfp_desc"]["color"],        "ECFP4+desc"),
           ("r3fp",      ARMS["r3fp"]["color"],             "R3FP"),
           ("r3fp+d",    ARMS["r3fp_desc"]["color"],        "R3FP+desc"),
-          ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB unsuperv., augmented"),
-          ("uns-CANON", SHADES["unsup"][2],                "CLIMB unsuperv., canonical"),
-          ("sup",       ARMS["sup_dense"]["color"],        "CLIMB supervised"),
-          ("CheMel",    ARMS["chemeleon_frozen"]["color"], "CheMeleon")]
+          ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB frozen, unsuperv. augmented"),
+          ("uns-CANON", SHADES["unsup"][2],                "CLIMB frozen, unsuperv. canonical"),
+          ("sup",       ARMS["sup_dense"]["color"],        "CLIMB frozen, supervised"),
+          ("CheMel",    ARMS["chemeleon_frozen"]["color"], "CheMeleon frozen")]
 
 # (class, mode, two-line panel title). The class blocks are drawn as separate figures.
 MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
@@ -249,11 +249,15 @@ def main():
     # across gets both panels backwards. Keep that sentence in the caption if this figure is
     # ever re-cut.
 
-    # 2 rows x 5 columns for the 9 entries (8 arms + the reference line), user request. Checked
-    # against the canvas below rather than assumed -- a legend wider than the figure is what
-    # pushes savefig's tight bbox out and silently rescales the whole plate in LaTeX.
-    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.500, 0.175),
-               ncol=5, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
+    # 4 columns, not 5. The legend -- not the axes -- sets this plate's width: savefig("tight")
+    # grows the canvas to whatever hangs off it, so shrinking figsize does nothing here (tried:
+    # 0.985 x col2 rendered to exactly the same 2040px). Spelling "frozen" into four labels
+    # (user 2026-08-20) took the 5-column form to 6.80in against a 6.69in text block, and an
+    # over-wide plate is downscaled by LaTeX, shrinking its fonts relative to every other figure.
+    # 4 columns x 3 rows is narrower than 5 x 2 and costs one line of height, which this figure
+    # has to spare. Verified by measuring the rendered PNG, not by eye.
+    fig.legend(handles=_legend_handles(), loc="upper center", bbox_to_anchor=(0.500, 0.185),
+               ncol=4, fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
                labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)
