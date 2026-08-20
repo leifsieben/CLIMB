@@ -19,6 +19,22 @@ true and together they are the point: pretraining beats an untrained encoder hel
 not beat the same untrained encoder allowed to learn. Beating a frozen random encoder is close to
 automatic, which is exactly why it is not the comparator here.
 
+PRE-REGISTERED CHANGE OF FLOOR (2026-08-19, before the data exists). The floor above is
+protocol-MIXED: a FROZEN pretrained arm against a FINE-TUNED random-init arm, so it answers
+"pretrain-and-freeze vs train-from-scratch" rather than "does pretraining help". The matched
+version is unsup_8M_e2e vs e2e_random, both fine-tuned. `unsup_8M_e2e` exists on MoleculeACE and
+QM7 is queued (peer session), so the swap becomes possible without any new figure logic.
+
+Committing to the reporting rule NOW, before the number is seen: whatever the matched comparison
+gives is what gets reported, in place of the mixed one. The three outcomes and what each means:
+  * matched lift <= mixed lift   -> report the smaller number; the current headline was partly
+                                    the frozen-vs-fine-tuned axis, not pretraining
+  * matched lift ~ mixed lift    -> the mixed floor was harmless; say so and keep the claim
+  * matched lift  > mixed lift   -> report it, and note the mixed floor had UNDERstated pretraining
+Since the figure's result is already "no benefit to explain", a smaller matched lift strengthens
+the null rather than weakening the paper. The frozen-vs-frozen number (+6.4%, fig E) stays where
+it is and keeps its own floor; it is not an alternative headline to pick between.
+
 ONE script, ONE figure: figures_v2/figC1.png / .pdf
 
 What it shows
