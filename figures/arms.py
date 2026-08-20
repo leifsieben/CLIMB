@@ -300,12 +300,12 @@ ARMS = {
     # bootstrapped. hERG (polaris/chemeleon_e2e) is still in flight; that cell reads n/a until it
     # lands, at which point NO code change is needed (the same `mace` key names the polaris dir).
     "chemeleon_e2e": dict(
-        label="CheMeleon (end2end)", short="CheMeleon end2end", family="chemeleon", color=SHADES["chemeleon"][0],
+        label="CheMeleon, end2end", short="CheMeleon end2end", family="chemeleon", color=SHADES["chemeleon"][0],
         probe="e2e", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="chemeleon_e2e", mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
                  cbs="chemeleon_e2e")),
     "chemeleon_frozen": dict(
-        label="CheMeleon (frozen)", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
+        label="CheMeleon, frozen", short="CheMeleon frozen", family="chemeleon", color=SHADES["chemeleon"][1],
         probe="frozen", pretrain_replicates=False, in_ablation=False,
         # QM7 REPLICATION (2026-08-18). chemeleon_frozen's original single run put a 427.7 fold in
         # the mean and shipped 268.8. Four probe runs settled it: the elevation is REAL (every run
@@ -438,5 +438,10 @@ def ablation_arms():
 # ARMS["e2e_no_pretrain"], so the axis label is one string, defined once. The compact (assembled)
 # variants used to shorten it to "lift (%)" or drop it entirely, which left a reader of fig_C+D
 # unable to tell whether the four panels shared a baseline -- they do (user 2026-08-19).
-LIFT_FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]
+# The floor figs C1/C2/D lift against, changed 2026-08-20 from the fine-tuned random init to the
+# FROZEN one so the floor's protocol matches the frozen arms being measured. This constant is what
+# every one of those figures' axis labels is built from, so it must track the floor those figures
+# actually use -- it said "no pretrain, end2end" for a while after the floor moved, which put a
+# wrong comparator name on five panels of fig C+D.
+LIFT_FLOOR_LABEL = ARMS["random_encoder"]["label"]
 LIFT_YLABEL = f"lift over {LIFT_FLOOR_LABEL} (%)"

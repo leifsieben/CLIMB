@@ -129,7 +129,11 @@ BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the
 # top rank is a statement about FINE-TUNING, not about pretraining quality, and the two CheMeleon
 # rows are 7 rank positions apart for exactly that reason. Read them together: frozen-vs-frozen,
 # CheMeleon is 9.80 against supervised-desc 6.20 and unsupervised 8.09.
-E2E_ARMS = {"chemeleon_e2e", "e2e_no_pretrain"}
+# DERIVED from arms.py's `probe`, not listed. The literal set said {chemeleon_e2e,
+# e2e_no_pretrain} and could not know about unsup_e2e and sup_dense_e2e, which were declared
+# 2026-08-20 -- so the docstring's "two arms fine-tune" and the caption written from this set were
+# both about to be wrong by two. Same shape as every other hardcoded-name failure in this repo.
+E2E_ARMS = {a for a, m in ARMS.items() if m.get("probe") == "e2e"}
 
 _S0, _ = wide_table(ARM_ORDER)
 ARMS_USED = [a for a in ARM_ORDER if _S0.loc[a].notna().sum() >= 60]
@@ -159,8 +163,14 @@ def suite_handles(with_dagger=False):
     second is worse than no mark.
     """
     del with_dagger          # kept for call-site compatibility; the note is drawn by draw()
-    return [Line2D([], [], ls="none", marker=SUITE_MARKER[s], mfc="none", mec=INK, mew=0.9,
-                   ms=4.5, label=s) for s in SUITES]
+    h = [Line2D([], [], ls="none", marker=SUITE_MARKER[s], mfc="none", mec=INK, mew=0.9,
+                ms=4.5, label=s) for s in SUITES]
+    # The cross's key. It is what makes the mark readable rather than mysterious, which is the
+    # whole reason the earlier unkeyed version was removed. Filled ink, not per-arm colour: the
+    # key names the PROTOCOL, and colouring it after any one arm would suggest otherwise.
+    h.append(Line2D([], [], ls="none", marker="X", color=INK, ms=5.0,
+                    label="fine-tuned end-to-end"))
+    return h
 
 
 def draw(ax, compact=False):
@@ -230,10 +240,20 @@ def draw(ax, compact=False):
         ax.spines[sp].set_visible(False)
     ax.tick_params(axis="y", length=0)
 
-    # NO DAGGER AND NO FOOTNOTE (user 2026-08-19). The frozen-vs-fine-tuned split is still the most
-    # important caveat in this figure -- see the module docstring, which carries the numbers -- but
-    # it belongs in the LaTeX caption, not as a mark on the plot. E2E_ARMS is kept because the
-    # docstring and the caption are written from it.
+    # A CROSS AT THE RIGHT EDGE MARKS THE END-TO-END ARMS (user 2026-08-20).
+    #
+    # This mark existed before as a dagger beside the arm name and was removed on 2026-08-19 --
+    # "Chemeleon e2e also has a cross which I don't understand". The problem was never the mark,
+    # it was that nothing on the canvas decoded it. Two things are different now: it sits in its
+    # own column at the right edge rather than colliding with the label, and it has a legend key.
+    # An unexplained symbol next to the arm that places second is worse than no symbol; an
+    # explained one carries the most important caveat in the figure, which is that these arms
+    # fine-tune the whole network while every other arm is a frozen probe.
+    for yi, a in zip(y, order):
+        if a in E2E_ARMS:
+            ax.plot(0.985, yi, transform=ytrans, marker="X", ms=(4.6 if compact else 5.8),
+                    color=ARMS[a]["color"], mec="white", mew=0.7, ls="none", zorder=5,
+                    clip_on=False)
 
     if not compact:
         ax.legend(handles=suite_handles(), loc="upper center",

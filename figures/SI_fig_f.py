@@ -13,7 +13,7 @@ because gradient boosting suits 2048 sparse bits and an MLP suits a 512-d dense 
 statement about heads, not about pretraining.
 
 So each representation is scored through BOTH heads on the same splits, seeds and folds, and drawn
-as a SLOPE: left is XGBoost, right is MLP, one line per representation. The question is whether the
+as a SLOPE: left is the MLP, right is XGBoost (user 2026-08-20), one line per representation. The question is whether the
 lines CROSS. Parallel means the head is a level shift and the ranking of representations is
 head-independent -- which is what the rest of the paper assumes.
 
@@ -91,8 +91,11 @@ ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
 INK = "#000000"
 
-HEADS = ["xgb", "mlp"]
-XTICKS = ["XGBoost", "MLP"]
+# MLP LEFT, XGBoost RIGHT (user 2026-08-20). The pair order is defined ONCE here and everything
+# downstream -- the slope's x positions, the tick labels, the printed table -- reads it, so the
+# two can never disagree about which end is which.
+HEADS = ["mlp", "xgb"]
+XTICKS = ["MLP", "XGBoost"]
 
 # (arm key in arms.py, run tag used by head_comparison_run.sh, which head the MAINLINE half is)
 #
@@ -187,7 +190,7 @@ def _head_cell(arm, head, panel):
 
 
 def compute():
-    """{panel: {arm: [xgb_value, mlp_value]}}, with None for anything not run."""
+    """{panel: {arm: [value_per_head in HEADS order]}}, with None for anything not run."""
     main = _mainline()
     out = {}
     for p in PANEL_ORDER:
@@ -197,7 +200,7 @@ def compute():
             pair[main_head] = main.get((arm, p))
             other = "mlp" if main_head == "xgb" else "xgb"
             pair[other] = _head_cell(arm, other, p)
-            cells[arm] = [pair["xgb"], pair["mlp"]]
+            cells[arm] = [pair[h] for h in HEADS]
         out[p] = cells
     return out
 
@@ -252,16 +255,18 @@ def main():
     save(fig, "SI_fig_f")
     plt.close(fig)
 
-    print("\nSI Fig f — same embedding, two probe heads (XGBoost -> MLP):\n")
-    print(f"   {'panel':<13}{'representation':<22}{'XGBoost':>10}{'MLP':>10}   delta")
+    # The table follows HEADS, so it always reads left-to-right in the same order as the slope.
+    lo, hi = (XTICKS[0], XTICKS[1])
+    print(f"\nSI Fig f — same embedding, two probe heads ({lo} -> {hi}):\n")
+    print(f"   {'panel':<13}{'representation':<22}{lo:>10}{hi:>10}   delta")
     for p in PANEL_ORDER:
         for arm, _, _ in SERIES:
-            x, m = R[p][arm]
-            if x is None or m is None:
-                miss = "XGBoost" if x is None else "MLP"
+            a0, a1 = R[p][arm]
+            if a0 is None or a1 is None:
+                miss = lo if a0 is None else hi
                 print(f"   {p:<13}{ARMS[arm]['label'][:20]:<22}{'—':>10}{'—':>10}   {miss} not run")
                 continue
-            print(f"   {p:<13}{ARMS[arm]['label'][:20]:<22}{x:>10.4f}{m:>10.4f}   {m - x:>+8.4f}")
+            print(f"   {p:<13}{ARMS[arm]['label'][:20]:<22}{a0:>10.4f}{a1:>10.4f}   {a1 - a0:>+8.4f}")
     if n_missing:
         print(f"\n   {n_missing} of {len(PANEL_ORDER)} panels have NO head-comparison run yet "
               f"(scripts/head_comparison_run.sh).")

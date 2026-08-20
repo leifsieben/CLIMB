@@ -73,7 +73,12 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 # desc" left this file asking for "supervised, dense". The join matched nothing and the supervised
 # line disappeared from every panel without any check firing.
 SERIES = [(ARMS["unsup"]["label"],     "unsup",     ARMS["unsup"]["label"]),
-          (ARMS["sup_dense"]["label"], "sup_dense", ARMS["sup_dense"]["label"])]
+          (ARMS["sup_dense"]["label"], "sup_dense", ARMS["sup_dense"]["label"]),
+          # The external comparator, added 2026-08-20. Both of its ends come from the MAINLINE
+          # wave because CheMeleon is not in the label-efficiency wave at all, so on the three
+          # label-efficiency panels its LEVEL is not comparable to the CLIMB lines beside it even
+          # though its own slope is valid. Those panels draw it DASHED -- see _ls_for below.
+          ("CheMeleon", "chemeleon_frozen", "CheMeleon")]
 PROBES = ["frozen", "end2end"]
 
 # FAIL LOUDLY ON A DEAD JOIN KEY. A series whose key is absent from the table draws nothing and
@@ -174,7 +179,24 @@ XTICKS = ["frozen", "end2end"]
 
 
 def main():
-    PROTO = {r.panel: str(r.protocol) for r in DF.itertuples()} if len(DF) else {}
+    # PROTO IS THE PANEL'S OWN PROTOCOL, AND IT MUST COME FROM THE CLIMB ROWS ONLY.
+    #
+    # This was `{r.panel: str(r.protocol) for r in DF.itertuples()}` -- last row per panel wins --
+    # which was fine while every row in a panel shared a protocol. Adding the CheMeleon series
+    # broke it silently in the worst possible way: CheMeleon's rows are all mainline and are
+    # appended last, so every panel's protocol flipped to "mainline" and the anchor resolver below
+    # started drawing the MAINLINE anchor on the three label-efficiency panels. That is precisely
+    # the defect this file's own docstring spends twenty lines on (BACE reads 0.8712 mainline
+    # against 0.7836 label-efficiency -- 8.8 points, larger than the spread between arms).
+    #
+    # The external comparator is excluded by FAMILY from arms.py, not by name.
+    _external = {lab for lab, key, _ in SERIES if ARMS[key]["family"] == "chemeleon"}
+    _own = DF[~DF.encoder.isin(_external)] if len(DF) else DF
+    PROTO = {}
+    for panel, g in (_own.groupby("panel") if len(_own) else []):
+        seen = sorted(set(g.protocol.astype(str)))
+        assert len(seen) == 1, f"SI fig a: panel {panel} mixes protocols {seen} in its CLIMB rows"
+        PROTO[panel] = seen[0]
     ANCHOR = _anchor_values(PROTO)
     # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
     # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
@@ -182,6 +204,7 @@ def main():
     # The height saving comes from tighter spacing and ONE shared x-axis label instead of
     # six, not from collapsing the grid. Width is ~3.5% over col2 because savefig("tight")
     # trims back to about the text block.
+    _ls_kinds = []
     fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"] * 1.035, 3.3))
     for ax, p in zip(axes.ravel(), PANEL_ORDER):
         d = PANELS[p]
@@ -217,6 +240,16 @@ def main():
             mark_empty(ax, f"{p}: no end2end run of a pretrained encoder on this panel")
             continue
 
+        # A CROSS-PROTOCOL SERIES IS DASHED, and the rule is computed rather than listed: a series
+        # whose own rows are all "mainline" while the panel's CLIMB points are label-efficiency is
+        # measured on a different split, so its level cannot be read against theirs. Solid means
+        # "same protocol as this panel"; dashed means "read the direction, not the height".
+        def _ls_for(enc_label):
+            """Solid when the series shares this panel's protocol, dashed when it does not."""
+            own = set(g_all[g_all.encoder == enc_label].protocol.astype(str))
+            panel_proto = str(PROTO.get(p, ""))
+            return "-" if (not own or own == {panel_proto}) else (0, (4, 2))
+
         vals, errs = [], []
         for enc_label, arm_key, _ in SERIES:
             ys, es = [], []
@@ -226,8 +259,12 @@ def main():
                 e = float(pd.to_numeric(r.sd, errors="coerce").iloc[0]) if len(r) else 0.0
                 es.append(0.0 if not np.isfinite(e) else e)
             colour = ARMS[arm_key]["color"]
+            _ls = _ls_for(enc_label)
+            if _ls != "-":
+                _ls_kinds.append((p, enc_label))
             ax.errorbar([0, 1], ys, yerr=es, color=colour, lw=STYLE["lw"], marker="o",
-                        ms=5.4, mec="white", mew=0.8, elinewidth=1.0, capsize=2.2,
+                        ls=_ls,
+                        ms=4.4, mec="white", mew=0.8, elinewidth=1.0, capsize=3.0,
                         capthick=1.1, ecolor=colour, zorder=3)
             vals += [v for v in ys if np.isfinite(v)]
             errs += es
@@ -250,6 +287,12 @@ def main():
                for _, k, lab in SERIES]
     handles.append(Line2D([], [], color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3,
                           label="XGBoost, ECFP4+desc"))
+    # The dashed style has to be decodable or it is just an inconsistency. Only added when some
+    # panel actually draws it, so the key never describes something absent from the canvas.
+    if any(_ls_kinds):
+        handles.append(Line2D([], [], color=INK, ls=(0, (4, 2)), lw=1.3,
+                              label="dashed = mainline wave on a label-efficiency panel;\n"
+                                    "read its slope, not its height"))
     # WIDTH FIRST: spend the page's width on the legend before its height (user 2026-08-19).
     # A legend row costs every figure below it on the page; a legend column costs nothing
     # until it runs past the text block, and these entries do not.
@@ -277,7 +320,9 @@ def main():
             sd = np.hypot(pd.to_numeric(fr.sd, errors="coerce").iloc[0],
                           pd.to_numeric(ee.sd, errors="coerce").iloc[0])
             flag = "*" if np.isfinite(sd) and abs(delta) > sd else " "
-            print(f"   {p:<12}{label:<20}{delta:>+10.4f}{flag}   ({g.protocol.iloc[0]})")
+            # the SERIES' own protocol, not the panel's -- they differ for the external
+            # comparator on the label-efficiency panels, which is the whole reason it is dashed
+            print(f"   {p:<12}{label:<20}{delta:>+10.4f}{flag}   ({fr.protocol.iloc[0]})")
     print("   * = |delta| exceeds the combined SD")
 
 

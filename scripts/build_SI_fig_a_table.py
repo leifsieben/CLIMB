@@ -169,6 +169,37 @@ def main() -> None:
                 add(panel, label, "end2end", e.mean(), e.std(ddof=1) if len(e) > 1 else np.nan,
                     len(e), "label-efficiency 100%")
 
+    # ---- CheMeleon, frozen vs end2end, on every canonical panel (user 2026-08-20) --------------
+    #
+    # The external comparator answers the same question this figure asks, and we already have both
+    # halves: chemeleon_frozen is the frozen probe, chemeleon_e2e the native D-MPNN fine-tune.
+    #
+    # PROTOCOL: both halves come from the MAINLINE wave, because CheMeleon is not in the
+    # label-efficiency wave at all (that wave has e2e, random, sup, unsup, unsup2sup and nothing
+    # else). On MoleculeACE, Ames and HIV that matches the CLIMB lines beside it. On BACE, Tox21
+    # and QM7 it does NOT -- those CLIMB lines are label-efficiency at 100%. The CheMeleon SLOPE is
+    # still internally valid there (both of its ends are mainline), but its LEVEL is not comparable
+    # to the CLIMB levels in the same panel, so the figure draws it dashed on exactly those panels
+    # and the protocol column carries the reason.
+    #
+    # SD: sd_seeds where the arm has pretraining replicates, sd_total otherwise. CheMeleon has ONE
+    # pretraining by construction on the two suite tracks (n_seeds=1), so there sd_total -- its
+    # head/eval-seed spread -- is the only replicate spread it can have.
+    CHEMELEON = [("chemeleon_frozen", "frozen"), ("chemeleon_e2e", "end2end")]
+    che_label = ARMS["chemeleon_frozen"]["label"].split(",")[0]          # "CheMeleon"
+    for arm_key, probe in CHEMELEON:
+        for panel in HIGHER:
+            r = main_tbl[(main_tbl.arm == arm_key) & (main_tbl.panel == panel)]
+            if not len(r):
+                continue
+            extra = r.extra.iloc[0]
+            sd = _sd(extra, "sd_seeds")
+            if not np.isfinite(sd):
+                sd = _sd(extra, "sd_total")
+            n = _sd(extra, "n_seeds")
+            add(panel, che_label, probe, float(r.value.iloc[0]), sd,
+                int(n) if np.isfinite(n) else 3, "mainline")
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
     cols = ["panel", "higher_better", "encoder", "probe", "value", "sd", "n", "protocol"]
     with open(OUT, "w", newline="") as fh:

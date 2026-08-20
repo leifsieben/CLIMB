@@ -285,7 +285,7 @@ def legend_handles():
     h = [Patch(facecolor=ARMS[a]["color"], edgecolor=INK, lw=0.8,
                hatch=CLIMB_HATCH if system(a) == "CLIMB" else "", label=short(a))
          for a in MODELS]
-    h.append(Line2D([], [], color=INK, ls=":", lw=1.2, label=ARMS["random_encoder"]["label"] + " (reference)"))
+    h.append(Line2D([], [], color=INK, ls=":", lw=1.2, label=ARMS["random_encoder"]["label"] + ", reference"))
     return h
 
 

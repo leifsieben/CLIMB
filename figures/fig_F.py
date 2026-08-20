@@ -94,7 +94,7 @@ import matplotlib.ticker as ticker
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, mark_empty
 from figures.arms import PANELS, PANEL_ORDER, SHADES
 
 check_font()
@@ -121,8 +121,24 @@ ROOT = Path(__file__).resolve().parent.parent
 # current featurizer", full stop. A clean single-variable isolation needs the same code at
 # FP_VARIANT=ecfp4_legacy, where the CLM rows matching to the digit IS the check that the
 # isolation worked.
-SRC = ROOT / "analysis" / "rigor" / "concat_redundancy_stereo.csv"
-SRC_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_climb_stereo.csv"
+# FOUR SOURCES, TWO EMBEDDINGS x TWO TRACKS, and every one that exists is read.
+#
+# The v2 tables carry all SEVEN feature blocks (fp, desc, fp+desc alone, each + the embedding, and
+# the triple) where the stereo pair carried four, which is what turns this figure from four
+# populated cells into the full lattice.
+#
+# THEY COME FROM A DIFFERENT MACHINE THAN THE STEREO TABLES DID, and that is an accepted, recorded
+# limitation rather than an oversight: XGBoost's floating-point reduction order differs between
+# Apple silicon and x86, so the same code and the same library versions give ~1% different metrics
+# (notes/concat-reproducibility.md, confirmed on both architectures). The user accepted the mix
+# 2026-08-20. What it costs is stated plainly: values here may differ in the last percent from an
+# arm64 rerun, and no cell in this figure should be quoted against a number from another figure.
+# What it does NOT cost is any within-panel comparison, because a panel's cells all come from one
+# table and therefore one machine.
+SRC        = ROOT / "analysis" / "rigor" / "concat_redundancy_climb_v2.csv"
+SRC_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_climb_v2.csv"
+SRC_CHE        = ROOT / "analysis" / "rigor" / "concat_redundancy_chemeleon_v2.csv"
+SRC_CHE_PANELS = ROOT / "analysis" / "rigor" / "concat_panels_chemeleon_v2.csv"
 OUTDIR = ROOT / "figures_v2"
 # the per-task record is DATA, not a deliverable -- figures_v2/ holds only what goes in the paper
 DATADIR = ROOT / "figure_data" / "fig_F"
@@ -213,7 +229,34 @@ def as_pct_of_anchor(values, errs, metric):
 def compute():
     """The concatenation table. Exposed so figures/fig_E_plus_F.py can assemble this figure with fig_E
     without re-implementing (and therefore drifting from) the analysis."""
-    return pd.concat([pd.read_csv(SRC), pd.read_csv(SRC_PANELS)], ignore_index=True)
+    # Missing sources are SKIPPED, not fatal: the CheMeleon panels half is still running, and a
+    # figure that refuses to draw until every cell exists cannot show progress. Cells with no
+    # source render as the declared "not run" slot, which is the honest state.
+    parts = []
+    for f in (SRC, SRC_PANELS, SRC_CHE, SRC_CHE_PANELS):
+        if f.exists():
+            parts.append(pd.read_csv(f))
+        else:
+            print(f"  fig_F: {f.name} absent - its cells will draw as 'not run'")
+    if not parts:
+        raise FileNotFoundError("fig_F: no concat source table found")
+    d = pd.concat(parts, ignore_index=True)
+
+    # THE EMBEDDING-FREE BLOCKS ARE IN BOTH EMBEDDINGS' TABLES, so fp, desc and fp+desc arrive
+    # twice per task. They are the SAME experiment run twice -- no embedding is involved, so
+    # neither the CLIMB nor the CheMeleon pass can influence them -- which makes the duplicate a
+    # free reproducibility check rather than a nuisance. Report the disagreement, then keep the
+    # first occurrence so every downstream .loc gets a scalar.
+    key = ["task", "features", "metric"]
+    dup = d[d.duplicated(key, keep=False)]
+    if len(dup):
+        w = dup.groupby(key)["mean"].agg(["min", "max", "count"])
+        w["rel"] = 100 * (w["max"] - w["min"]) / w["min"].abs().replace(0, float("nan"))
+        worst = w.sort_values("rel", ascending=False).head(3)
+        print(f"  fig_F: {len(w)} embedding-free cell(s) present in both tables; "
+              f"max disagreement {w['rel'].max():.2f}% "
+              f"({', '.join(f'{i[0]}/{i[1]} {r.rel:.2f}%' for i, r in worst.iterrows())})")
+    return d.drop_duplicates(key, keep="first").reset_index(drop=True)
 
 
 # Panels that share a METRIC share a y-RANGE, so a bar of a given height means the same thing in
@@ -282,6 +325,11 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
                 ha="center", va="center", fontsize=FS["annot"], color=INK)
         ax.set_xticks([]); ax.set_yticks([])
+        # DECLARED empty, so style.check_no_empty_panels passes this one and still fails on any
+        # panel that is empty because a key was resolved wrongly. Ames is the live case: its
+        # concat run emits PREDICTIONS rather than scores, because Polaris withholds test labels,
+        # so the panel waits on an off-box scoring step rather than on a GPU run.
+        mark_empty(ax, f"{p}: concatenation test not run on this panel")
         return
     metric = PRIMARY[task]
     g = d[(d.task == task) & (d.metric == metric)].set_index("features")
@@ -321,6 +369,11 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
                 ha="center", va="center", fontsize=FS["annot"], color=INK)
         ax.set_xticks([]); ax.set_yticks([])
+        # DECLARED empty, so style.check_no_empty_panels passes this one and still fails on any
+        # panel that is empty because a key was resolved wrongly. Ames is the live case: its
+        # concat run emits PREDICTIONS rather than scores, because Polaris withholds test labels,
+        # so the panel waits on an off-box scoring step rather than on a GPU run.
+        mark_empty(ax, f"{p}: concatenation test not run on this panel")
         return
 
     # y range first: the placeholders need a height to sit in, and the range must not depend on

@@ -53,7 +53,7 @@ def main():
     # 2.4 x 6.69/8.9 = 1.80in. Laying it out at 6.69 natively gives ~1.75in panels at 1:1. The
     # earlier "cramped at 6.69" finding (2026-08-17) was at the OLD height; the fix is to buy the
     # room back vertically rather than horizontally, since fonts now render at their authored size.
-    fig = plt.figure(figsize=(STYLE["col2"] * 0.962, 5.45))
+    fig = plt.figure(figsize=(STYLE["col2"] * 0.962, 4.55))
     row1, row2 = fig.subfigures(2, 1, height_ratios=[1.0, 1.04], hspace=0.05)
 
     # both rows share ONE left-to-right width and the same column ratios, so the upper and lower

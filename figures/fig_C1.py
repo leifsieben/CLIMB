@@ -401,8 +401,12 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     # ~1.75in and "No lift, at any corpus similarity" ran under panel (b)'s tag. "similarity" is
     # already carried by (b)'s own title and the x-axis below it, so dropping "corpus" here costs
     # the reader nothing.
-    ax0.set_title("No lift at any similarity" if compact else
-                  "No lift over fine-tuned no-pretraining, at any corpus similarity",
+    # TITLE REWRITTEN 2026-08-20. It read "No lift at any similarity", which was true of the old
+    # numbers and is now false twice over: the floor is the frozen random encoder rather than the
+    # fine-tuned one, and the MoleculeACE label-units bug that produced the null is fixed. There
+    # IS lift; what the panel shows is that it does not depend on corpus similarity.
+    ax0.set_title("Lift, but flat across similarity" if compact else
+                  "The lift does not depend on corpus similarity, including on identical molecules",
                   loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)
     if tags and tags[0]:

@@ -299,7 +299,16 @@ def check_comparator_scope():
     # figure can no longer separate those. The protocol confound this check guards does not arise:
     # every cell in the lattice is the same XGBoost head on concatenated frozen features, so the
     # frozen-vs-fine-tuned mix that makes CheMeleon's benchmark bars unsafe is not present.
-    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_f", "fig_F"}
+    #
+    # SI_fig_a admitted 2026-08-20, BY USER DECISION, on a fourth ground. That figure asks "does
+    # end-to-end fine-tuning beat the frozen probe?" and CheMeleon is the one external
+    # representation where BOTH halves exist, so it answers the same question from outside our
+    # family. The protocol confound this rule guards is not merely absent -- it is the figure's
+    # x-axis: frozen and end2end are the two positions of every slope, so a reader cannot conflate
+    # them here. What DOES differ is the wave (CheMeleon is mainline on all six panels; three of
+    # them draw CLIMB at label-efficiency), and that is handled inside the figure by dashing the
+    # cross-protocol series and keying the dash, not by excluding the arm.
+    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_f", "fig_F", "SI_fig_a"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:
