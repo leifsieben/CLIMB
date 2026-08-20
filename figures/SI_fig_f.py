@@ -13,10 +13,29 @@ because gradient boosting suits 2048 sparse bits and an MLP suits a 512-d dense 
 statement about heads, not about pretraining.
 
 So each representation is scored through BOTH heads on the same splits, seeds and folds, and drawn
-as a SLOPE: left is XGBoost, right is MLP, one line per representation. The question the figure
-answers is whether the lines CROSS. Parallel lines mean the head is a level shift and the ranking
-of representations is head-independent -- which is what the rest of the paper assumes. Crossing
-lines mean the ranking depends on the head and every frozen comparison needs re-reading.
+as a SLOPE: left is XGBoost, right is MLP, one line per representation. The question is whether the
+lines CROSS. Parallel means the head is a level shift and the ranking of representations is
+head-independent -- which is what the rest of the paper assumes.
+
+THE LINES CROSS ON EVERY PANEL THAT HAS RUN (4 of 4: HIV, BACE, Tox21, QM7). The ranking of the
+four representations is NOT the same under the two heads anywhere:
+
+  BACE   XGBoost puts CheMeleon first, the MLP puts ECFP4+desc first
+  Tox21  XGBoost puts ECFP4+desc first, the MLP puts CheMeleon first
+  QM7    XGBoost puts ECFP4+desc first by 8 kcal/mol; under the MLP it is third and
+         CheMeleon falls from second to LAST (195.3 -> 211.5, +16.2)
+  HIV    the top two hold but the CLIMB arms swap, and CheMeleon loses 0.063 NEF1
+
+The size of the effect is the point: CheMeleon moves 16.2 kcal/mol on QM7 and 0.063 NEF1 on HIV
+between heads, which is larger than most differences this paper reports BETWEEN representations.
+
+WHAT THAT DOES AND DOES NOT LICENCE. It does not overturn fig_A1: that figure scores every arm
+through the head each is normally used with, which is the honest engineering comparison, and the
+classical anchors lead it under both heads here. What it does mean is that a frozen-probe number
+is a property of the PAIR (representation, head) and must not be quoted as a property of the
+representation alone -- so any single-head statement of the form "embedding X beats embedding Y"
+needs this figure beside it. The two arms whose ordering is most head-sensitive are exactly the two
+external/classical ones, not the CLIMB pair.
 
 WHICH HALF OF EACH PAIR IS NEW. Three of the four representations are normally scored with an MLP
 probe and the classical anchor with XGBoost, so this figure needs the OTHER half of each pair:
