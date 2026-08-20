@@ -61,22 +61,22 @@ SERIES = [("unsupervised",      "unsup",     "unsupervised"),
           ("supervised, dense", "sup_dense", "supervised, dense")]
 PROBES = ["frozen", "end2end"]
 
-# The classical anchor as a reference line (user 2026-08-19: "add as a golden dotted line XGBoost
-# on fp+desc so we can contextualize"). It is drawn ONLY on panels whose numbers come from the
-# MAINLINE wave, because that is the only wave the anchor was run in.
+# The classical anchor as a reference line, ON EVERY PANEL (user 2026-08-19).
 #
-# This is not caution for its own sake. SI fig a's BACE/Tox21/QM7 cells come from the
-# label-efficiency wave at its 100% fraction, and those differ from the mainline table by up to
-# 8% -- Tox21 0.7356 here against 0.7961 mainline, QM7 212.7 against 197.9. Dropping a mainline
-# anchor onto those panels would draw a line that beats both encoders by a wide margin and looks
-# like a result, when most of the gap is the protocol change. The figure's own docstring already
-# forbids comparing a value in one panel against a value in another; a reference line is exactly
-# that comparison, made to look authoritative.
+# READ THE CAVEAT BEFORE QUOTING A GAP FROM THIS LINE. The anchor exists only in the MAINLINE
+# wave, while this figure's BACE / Tox21 / QM7 / HIV cells come from the LABEL-EFFICIENCY wave at
+# its 100% fraction. Those two waves do not agree: the same frozen `unsupervised` encoder reads
+# 0.7356 here and 0.7961 in the mainline table on Tox21, 212.7 against 197.9 on QM7 -- up to 8%.
+# So on those panels the LINE AND THE POINTS COME FROM DIFFERENT PROTOCOLS, and a large part of
+# any gap between them is the protocol, not the model. On MoleculeACE and Ames the line is
+# protocol-matched and the gap is real: checked rather than assumed, MoleculeACE's frozen values
+# here equal the mainline table to the digit and Ames is within 0.25%.
 #
-# Where it IS drawn the identity was checked, not assumed: MoleculeACE's frozen values in this
-# table equal the mainline table to the digit, and Ames is within 0.25%.
+# The honest fix is a run, not a caveat -- an fp+desc anchor under the label-efficiency protocol.
+# The label-efficiency wave currently has only bare ecfp4, and on a different scale for QM7, so
+# there is nothing to read instead. Requested from the compute session 2026-08-19.
 ANCHOR_ARM = "ecfp_desc"
-ANCHOR_PROTOCOL = "mainline"
+MATCHED_PROTOCOL = "mainline"      # the only wave whose points the line can be quoted against
 
 
 def _anchor_values():
@@ -114,6 +114,12 @@ def main():
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
 
+        # Anchor first, so it is drawn even on panels with no encoder data (HIV) -- there the line
+        # is the only content and it is what makes the empty panel worth printing.
+        av = ANCHOR.get(p)
+        if av is not None:
+            ax.axhline(av, color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3, zorder=2)
+
         if g_all.empty:
             # Short enough to sit INSIDE a ~1.1in panel. The long form overran into both
             # neighbours' y-axis labels once the grid went to one row.
@@ -145,17 +151,13 @@ def main():
             vals += [v for v in ys if np.isfinite(v)]
             errs += es
 
-        proto = str(g_all.protocol.iloc[0]) if "protocol" in g_all else ""
-        av = ANCHOR.get(p) if proto == ANCHOR_PROTOCOL else None
-        if av is not None:
-            ax.axhline(av, color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3, zorder=2)
-            vals.append(av)
-
         ax.set_xticks([0, 1])
         ax.set_xticklabels(XTICKS, fontsize=FS["annot"])
         ax.set_xlim(-0.32, 1.32)
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
+        if av is not None:
+            vals.append(av)
         lo, hi = min(vals) - max(errs), max(vals) + max(errs)
         pad = 0.22 * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
@@ -166,7 +168,7 @@ def main():
     handles = [Line2D([], [], color=ARMS[k]["color"], marker="o", ms=5.0, lw=1.4, label=lab)
                for _, k, lab in SERIES]
     handles.append(Line2D([], [], color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3,
-                          label=f"{ARMS[ANCHOR_ARM]['label']} (XGBoost, mainline wave only)"))
+                          label="XGBoost, ECFP4+desc"))
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=2,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
