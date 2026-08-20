@@ -38,10 +38,21 @@ P2 = Path("figure_data/climb_v2_phase2")
 CBS = Path("figure_data/cbs_benchmark")
 CBS_CSV = "data/cbs.csv"
 
-REPLICATES = {"_s1": [3, 4, 5], "_s2": [6, 7, 8]}
+# ANCHOR_REPL picks which dirs to (re)build. "" is the BASE run on the canonical triple {0,1,2};
+# the stereo fix (2026-08-19) invalidated it too, so it is no longer just the replicates that
+# need rebuilding.
+_ALL_REPL = {"": [0, 1, 2], "_s1": [3, 4, 5], "_s2": [6, 7, 8]}
+# The base dir's suffix is the empty string, which is falsy -- so the selector uses the literal
+# token "base" for it. Reading os.environ.get("ANCHOR_REPL") directly would silently fall through
+# to the default and rebuild the replicates instead of the base.
+_ALIAS = {"base": ""}
+_want = os.environ.get("ANCHOR_REPL", "").strip()
+REPLICATES = ({_ALIAS.get(k, k): _ALL_REPL[_ALIAS.get(k, k)] for k in _want.split(",")} if _want
+              else {"_s1": _ALL_REPL["_s1"], "_s2": _ALL_REPL["_s2"]})
 # dataset -> output subdir, matching what the base run already writes
 SUBDIR = {"BACE": "moleculenet_cv", "Tox21": "moleculenet_cv_tox21fixed",
-          "QM7": "moleculenet_cv_qm7native", "HIV": "moleculenet_cv"}
+          "QM7": "moleculenet_cv_qm7native", "HIV": "moleculenet_cv",
+          "BBBP": "moleculenet_cv", "ESOL": "moleculenet_cv"}
 
 ANCHORS = {
     # base dir            featurizer  head   datasets to replicate      preserve existing rows?
@@ -150,7 +161,10 @@ def main(only=None) -> int:
         if cfg.get("npz"):
             common += ["--features_npz", cfg["npz"]]
         for suf, seeds in REPLICATES.items():
-            name = base + suf
+            # ANCHOR_TAG keeps a second featurizer variant in its OWN dirs, so the orthodox
+            # ECFP4 anchor and the max-information Morgan variant can be produced concurrently
+            # without either writing over the other.
+            name = base + suf + os.environ.get("ANCHOR_TAG", "")
             seed_args = ["--head_seeds"] + [str(s) for s in seeds]
             for ds in (ds_filter or cfg["ds"]):
                 dest_dir = P2 / name / SUBDIR[ds]

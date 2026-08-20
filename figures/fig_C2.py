@@ -9,8 +9,13 @@ Every point is one (SFT family, eval task) pair (24 = 4 families x 6 tasks -- th
 the old ipynb H10 panel), coloured by eval task only: x = mean max ECFP4 Tanimoto similarity between
 the family's pretraining molecules and the task's molecules (figure_data/_tanimoto/
 family_task_similarity.csv; families are sampled, so similarities are lower bounds), y = the
-arm's lift over the honest floor ("no pretrain, end2end" -- the random-init encoder fine-tuned
-on the task; beating a frozen random encoder is close to automatic, so it is not the comparator).
+arm's lift over "no pretrain, random" -- the random-init encoder FROZEN, probed the same way the
+arms are.
+
+FLOOR CHANGED 2026-08-20 (user), from the fine-tuned random init to the frozen one. The arms here
+are frozen probes, so the old floor mixed "did pretraining help" with "frozen vs fine-tuned" in
+one number. Matching the floor's protocol to the arm's is the whole point; it is the same change
+made in fig_C1 and fig_D, so C, D and E now share one floor and one meaning of "lift".
 
 Arms are the molecule-set SFT families of the deduped ablation wave (figure_data/
 climb_v2_ablation_dedup): PCBA, L1000 (MCF7+VCAP pooled), PCQM, and sparse_all (PCBA+L1000).
@@ -21,15 +26,18 @@ similarity against, so they have no x-coordinate and are absent by construction 
 the task-similarity figure D, not here).
 
 The deduped wave drops 34,301 eval molecules from SFT via a blocklist, so no arm trains on
-eval-test molecules. All arms and the ablation-wave floor are 5-fold CV means (suite_summary.json
-<task>_MEAN). The end2end floor lives in climb_v2_phase2; borrowing it cross-wave is safe only
-while the two waves' FROZEN random-encoder floors agree (same three inits, both CV-scored) --
-checked at runtime and printed, never assumed.
+eval-test molecules. All arms and the floor are 5-fold CV means (suite_summary.json <task>_MEAN).
 
-Eval tasks are the MoleculeNet tasks covered by the similarity table (CBS / MoleculeACE / hERG
-have no family-similarity measurements). Lipophilicity drops out: the phase2 end2end floor runs
-were never scored on it, so there is no honest floor to lift against (n=24 = 4 families x 6
-tasks). seq_sparse_all's x pools its three families.
+NOTHING IS BORROWED CROSS-WAVE ANY MORE. The old end2end floor lived in climb_v2_phase2 and had to
+be imported into the ablation wave under a runtime agreement check, because the ablation wave has
+no end2end runs. It DOES have its own random_baseline_0{0,1,2}, so the frozen floor is read
+in-wave and arm and floor are siblings. The agreement check is kept as a drift tripwire with no
+number depending on it.
+
+Eval tasks are the canonical six (n=24 = 4 families x 6 tasks). seq_sparse_all's x pools its
+three families. An earlier version of this note said Lipophilicity drops out for want of a floor;
+Lipophilicity is not in the canonical panel set at all, so that sentence described a panel set
+this figure no longer uses.
 
 Run:  python3 -m figures.fig_C2
 

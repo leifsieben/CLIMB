@@ -26,7 +26,26 @@ S3B = "s3://climb-s3-bucket/experiments/climb_v2_phase2"
 S3OUT = "s3://climb-s3-bucket/experiments/cbs_benchmark"
 TOK = "figure_data/_tokenizer"
 CBS = Path("data/cbs.csv")
-ENCODERS = {"unsup_8M": "unsup_8M_e2e", "skip_dense_8M": "skip_dense_8M_e2e"}  # src prefix -> output run label
+# src prefix -> output run label. ALL THREE PRETRAINING SEEDS, not just the base one.
+#
+# Every other CBS cell in fig_A1 rests on 3 pretraining seeds (cbs_battery.py's 8 arms x 3, plus
+# the replicates cbs_seeds_run.sh closed). With only the base seed these two arms would be the sole
+# single-seed CBS cells in the figure, on the axis the paper is actually about. figures/allsuites.py
+# _cbs_value pools fold rows across an arm's whole `mol` dir list, so adding _s1/_s2 turns CBS into
+# 15 fold values (3 seeds x 5 folds) with no figure-side special-casing.
+#
+# NOTE the fine-tune SEEDS below are a different axis and are NOT an error bar: they are ensembled
+# before scoring (see run_arm), which is what eval_v2 does for every frozen CBS cell. Do not
+# "align" them to MolNet's single fine-tune seed -- that would make these the only CBS cells scored
+# by a different estimator, and would bias them down against every arm they are plotted with.
+ENCODERS = {
+    "unsup_8M":         "unsup_8M_e2e",
+    "unsup_8M_s1":      "unsup_8M_e2e_s1",
+    "unsup_8M_s2":      "unsup_8M_e2e_s2",
+    "skip_dense_8M":    "skip_dense_8M_e2e",
+    "skip_dense_8M_s1": "skip_dense_8M_e2e_s1",
+    "skip_dense_8M_s2": "skip_dense_8M_e2e_s2",
+}
 SEEDS = [int(s) for s in os.environ.get("CBS_E2E_SEEDS", "0 1 2").split()]
 EPOCHS = int(os.environ.get("CBS_E2E_EPOCHS", FT_HPARAMS["epochs"]))
 SMOKE = os.environ.get("CBS_E2E_SMOKE") == "1"  # 1 fold, tiny train, fast path check
@@ -94,6 +113,7 @@ def run_arm(prefix, run):
     if SMOKE:
         folds = folds[:1]
     per_fold = []
+    cells = []   # un-averaged per (seed, fold) rows -> per_fold_cells.csv
     for f in folds:
         te = np.where(fold == f)[0]
         pool = np.where(fold != f)[0]
@@ -111,6 +131,15 @@ def run_arm(prefix, run):
             seed_preds.append(np.asarray(pred, dtype=np.float64).ravel())
         pred = np.mean(np.stack(seed_preds, 0), 0)
         yte = y[te].ravel()
+        # Un-averaged per-seed scores, so the fine-tune seed axis stays RECOVERABLE. per_fold.csv
+        # keeps the ensembled estimator exactly as before -- these go to a separate file and change
+        # no existing number. eval_v2 emits the equivalent as `*_cell` rows at s{seed}_fold{j}.
+        for sd, sp in zip(SEEDS, seed_preds):
+            cells.append({"seed": int(sd), "fold": int(f),
+                          "nef1": float(compute_nef(sp.reshape(-1, 1), y[te])),
+                          "roc_auc": float(roc_auc_score(yte, sp)) if len(set(yte.tolist())) > 1
+                                     else float("nan"),
+                          "n_test": int(len(te)), "n_active": int(yte.sum())})
         nef = compute_nef(pred.reshape(-1, 1), y[te])
         roc = roc_auc_score(yte, pred) if len(set(yte.tolist())) > 1 else float("nan")
         per_fold.append({"fold": int(f), "nef1": float(nef), "roc_auc": float(roc),
@@ -127,6 +156,9 @@ def run_arm(prefix, run):
     with (out / "per_fold.csv").open("w", newline="") as fc:
         w = csv.DictWriter(fc, fieldnames=["fold", "nef1", "roc_auc", "n_test", "n_active"])
         w.writeheader(); w.writerows(per_fold)
+    with (out / "per_fold_cells.csv").open("w", newline="") as fc:
+        w = csv.DictWriter(fc, fieldnames=["seed", "fold", "nef1", "roc_auc", "n_test", "n_active"])
+        w.writeheader(); w.writerows(cells)
     (ROOT / "figure_data" / "cbs_benchmark" / run / "verified.json").write_text(
         json.dumps({"run": run, "metric": "nef1", "cv": "provided-5fold", "arm": "e2e"}))
     sh(["aws", "s3", "cp", "--recursive", f"figure_data/cbs_benchmark/{run}",

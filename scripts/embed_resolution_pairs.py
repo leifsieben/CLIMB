@@ -108,7 +108,8 @@ def featurize(name, kind, spec, smiles):
                   f"chemprop>=2.2 host and copy it here. Skipping.", flush=True)
             return None
         z = np.load(p, allow_pickle=True)
-        table = {str(s): z["X"][i] for i, s in enumerate(z["smiles"])}
+        X, S = z["X"], z["smiles"]   # hoisted: np.load on .npz is lazy, z["X"] re-decodes each time
+        table = {str(s): X[i] for i, s in enumerate(S)}
         miss = [s for s in smiles if s not in table]
         if miss:
             print(f"  [{name}] {len(miss)} SMILES absent from the table, e.g. {miss[:2]} -- "

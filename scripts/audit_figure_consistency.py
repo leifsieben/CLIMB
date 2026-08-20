@@ -883,6 +883,30 @@ def check_positional_metric_reads():
     if not bad:
         print(f"  OK - all {checked} summary-reading scope(s) in figures/ and the table builders "
               f"filter on main_metric")
+
+    # PART 2, a data-shape invariant that makes a whole class of positional reads SAFE rather than
+    # policing each one. mainline_8M.csv carries a `metric` column, so `r["value"]` for a panel is
+    # a positional metric read exactly like a MEAN row is -- and the static rule above cannot see
+    # it, because it keys on the column name `main_value` that this file does not use. It has
+    # never been wrong, for one reason only: it holds exactly ONE row per (arm, panel). Asserting
+    # that here means every consumer inherits the guarantee, instead of each having to filter.
+    # SI_fig_a's anchor line is the reason this matters: HIV's row is nef1 and its panel is nef1,
+    # but a second HIV row on roc_auc would have drawn a 0.7373 ROC-AUC onto a NEF1 axis silently.
+    import collections as _c
+    f = ROOT / "figure_data" / "six_panel" / "mainline_8M.csv"
+    if f.exists():
+        rows = list(_csv.DictReader(f.open())) if "_csv" in dir() else None
+        import csv as _c2
+        rows = list(_c2.DictReader(f.open()))
+        dup = [k for k, n in _c.Counter((r["arm"], r["panel"]) for r in rows).items() if n > 1]
+        if dup:
+            print(f"  FAIL  mainline_8M.csv has {len(dup)} (arm, panel) pair(s) on MORE THAN ONE "
+                  f"row - e.g. {dup[:3]}. Every consumer reads it positionally; add a metric "
+                  f"filter to each, or keep the table one-row-per-panel")
+            bad += 1
+        else:
+            print(f"  OK    mainline_8M.csv is one row per (arm, panel) over {len(rows)} rows - "
+                  f"positional metric reads of it are safe by construction")
     return bad
 
 

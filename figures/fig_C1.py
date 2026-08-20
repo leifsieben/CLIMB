@@ -60,14 +60,15 @@ ONE script, ONE figure: figures_v2/figC1.png / .pdf
 
 What it shows
 -------------
-Per-molecule squared errors of the unsupervised (MLM) arm vs the honest floor -- the random-init
-encoder FINE-TUNED end-to-end ("no pretrain, end2end", mean of 3 replicate runs; beating a frozen
-random encoder is close to automatic, so it is not the comparator) -- binned by the molecule's TRUE
+Per-molecule squared errors of the unsupervised (MLM) arm vs "no pretrain, random" -- the
+random-init encoder FROZEN and probed exactly as the arm is (mean of 3 replicate runs) -- binned
+by the molecule's TRUE
 max ECFP4 Tanimoto similarity to the full 12M pretraining corpus (analysis/dedup_i1/
 full_corpus_similarity_i1.csv, all 12 shards, NOT a subsample lower bound).
 
   (a) RMSE lift (%) over the floor for three molecule groups, averaged over the two regression
-      tasks (ESOL, QM7): corpus-IDENTICAL molecules (Tanimoto = 1.0 or literal match -- excluded
+      tasks (MoleculeACE and QM7 -- this line said ESOL until 2026-08-20, naming a task the
+      canonical migration removed): corpus-IDENTICAL molecules (Tanimoto = 1.0 or literal match -- excluded
       from the trend, reported apart), the most corpus-similar quartile, and the most novel
       quartile. This separates memorization (identity) from interpolation (similarity).
   (b) The same lift as a continuous trend: 5 quantile bins per task over NON-identical molecules,

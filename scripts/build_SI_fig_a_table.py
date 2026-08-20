@@ -43,11 +43,24 @@ OUT = FD / "SI_fig_a" / "SI_fig_a_e2e_need.csv"
 
 # arms.py key -> (mainline arm key, e2e run dir, label-efficiency frozen arm, wave-3 e2e arm)
 # key, mainline arm key, FROZEN run dir, e2e run dir, label-eff frozen arm, wave-3 e2e arm, label
-ENCODERS = [("unsup", "unsup", "unsup_8M", "unsup_8M_e2e", "unsup", "unsup_only", "unsupervised"),
+# The trailing LABEL is arms.py's, not a literal. It is the join key the figure matches on, and
+# when the two were separate literals they drifted: arms.py renamed sup_dense to "supervised,
+# desc" while figures/SI_fig_a.py still asked for "supervised, dense", so the figure's join
+# returned nothing and that encoder's line silently vanished from all six panels. Nothing failed --
+# the panels were still populated by the OTHER encoder, so no empty-panel check fired.
+import sys as _sys
+_sys.path.insert(0, str(ROOT))
+from figures.arms import ARMS, PANELS
+
+ENCODERS = [("unsup", "unsup", "unsup_8M", "unsup_8M_e2e", "unsup", "unsup_only",
+             ARMS["unsup"]["label"]),
             ("sup_dense", "sup_dense", "skip_dense_8M", "skip_dense_8M_e2e", "sup",
-             "sup_only:dense", "supervised, desc")]
+             "sup_only:dense", ARMS["sup_dense"]["label"])]
 AMES = ("tdcommons/ames", "roc_auc")
-HIGHER = {"MoleculeACE": 0, "CBS": 1, "BACE": 1, "Ames": 1, "Tox21": 1, "QM7": 0}
+# Direction comes from arms.py, not a literal dict. The literal omitted HIV, so adding the HIV
+# branch raised KeyError -- which is the good failure. The bad version of the same bug is a dict
+# that happens to contain the key with a stale value.
+HIGHER = {p: int(d["higher_better"]) for p, d in PANELS.items()}
 MOL_METRIC = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 
 
@@ -111,6 +124,37 @@ def main() -> None:
             if len(v):
                 add("CBS", label, "end2end", v.mean(),
                     v.std(ddof=1) if len(v) > 1 else np.nan, len(v), "CBS provided folds")
+
+        # ---- HIV: mainline protocol, BOTH sides in the same wave ----
+        #
+        # HIV was the one empty panel in this figure until 2026-08-20, and it was empty because
+        # this builder had no branch for it, not because the data was missing: HIV's e2e runs are
+        # 5-fold CV in climb_v2_phase2 (mainline), while the branch below covers only the three
+        # label-efficiency panels. Both sides are now read from the mainline wave.
+        #
+        # SD IS THE PRETRAINING-SEED SPREAD ON BOTH SIDES, deliberately. mainline_8M.csv offers
+        # sd_total for HIV, but that is over 15 cells (3 seeds x 5 folds) and reads 0.104 -- an
+        # order of magnitude above the e2e side's 0.012, which is a spread over 3 seed means. One
+        # slope drawn with a fold-spread bar at one end and a seed-spread bar at the other would
+        # invite exactly the comparison it cannot support, so the frozen end uses sd_seeds.
+        hiv_metric = PANELS["HIV"]["metric"]
+        rf = main_tbl[(main_tbl.arm == main_arm) & (main_tbl.panel == "HIV")
+                      & (main_tbl.metric == hiv_metric)]
+        if len(rf):
+            add("HIV", label, "frozen", float(rf.value.iloc[0]), _sd(rf.extra.iloc[0], "sd_seeds"),
+                3, "mainline")
+        vals = []
+        for d in (e2e_dir, f"{e2e_dir}_s1", f"{e2e_dir}_s2"):
+            f = FD / "climb_v2_phase2" / d / "moleculenet_cv" / "moleculenet_summary.csv"
+            if not f.exists():
+                continue
+            o = pd.read_csv(f)
+            o = o[(o.dataset == "HIV") & (o.main_metric == hiv_metric) & (o.head_seed == "MEAN")]
+            if len(o):
+                vals.append(float(o.main_value.iloc[0]))
+        if vals:
+            add("HIV", label, "end2end", float(np.mean(vals)),
+                float(np.std(vals, ddof=1)) if len(vals) > 1 else np.nan, len(vals), "mainline")
 
         # ---- BACE / Tox21 / QM7: label-efficiency protocol at 100% ----
         for panel, metric in MOL_METRIC.items():

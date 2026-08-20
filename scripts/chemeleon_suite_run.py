@@ -136,6 +136,21 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
     out_dir = ROOT / "figure_data" / "chemeleon_suite" / track / model
     out_dir.mkdir(parents=True, exist_ok=True)
     feat, std_method = make_featurizer(featurizer, encoder_path, tokenizer_path)
+    # MATCH THE HEAD, AND MATCH THIS ARM'S OWN MolNet CELL.
+    #
+    # make_featurizer returns std="none" for ecfp4/fp_desc because those arms were defined with an
+    # XGBoost head, which is scale-invariant. An MLP is not: raw RDKit descriptors span orders of
+    # magnitude (MolWt ~1e2, some counts ~1e6) next to 0/1 fingerprint bits, and unscaled they
+    # collapse it. On Polaris that is not hypothetical -- fp_desc__mlp returned a CONSTANT
+    # prediction for whole (task, seed) cells, which is why pearsonr/spearmanr came back NaN on 7
+    # tasks that had no NaN inputs at all.
+    #
+    # head_comparison_run.sh already passes --standardize zscore for the MolNet half of this exact
+    # arm, so leaving the suite half at "none" also made the two halves incomparable. Align them.
+    if head != "xgb" and std_method == "none":
+        print(f"[suite] head={head} on featurizer={featurizer}: standardize none -> zscore "
+              f"(matches this arm's MolNet cell; unscaled descriptors collapse an MLP)", flush=True)
+        std_method = "zscore"
     tasks = task_list(track)
     rows = []
     pred_rows = []
@@ -156,6 +171,33 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
             if n_keep < len(tr):
                 rng_sub = np.random.default_rng(SUBSAMPLE_SEED)
                 tr = np.sort(rng_sub.choice(tr, size=n_keep, replace=False))
+        # NaN DESCRIPTORS MEET A HEAD THAT CANNOT EAT THEM.
+        #
+        # fp_desc deliberately KEEPS non-finite descriptor values as NaN, because XGBoost consumes
+        # them natively and imputing would throw away the "this descriptor is undefined here"
+        # signal. An MLP cannot: one NaN input makes every output NaN. Worse, std_method="none"
+        # for fp_desc, so nothing upstream removes them, and the failure is silent -- the run exits
+        # 0 and writes a full-size test_predictions.csv in which every value is NaN.
+        #
+        # That is what happened to fp_desc__mlp on Polaris (2026-08-20): 9 of 28 tasks, including
+        # tdcommons/ames -- the Ames panel -- came back 100% NaN. The regression tasks among them
+        # then scored to NaN rather than raising, so they entered polaris_scores.csv looking like
+        # data. Only the classification ones failed loudly.
+        #
+        # Impute from the TRAIN fold only (median, 0.0 for an all-NaN column), so no test
+        # information reaches the fit, and only when the head actually needs it -- an XGBoost arm
+        # is untouched and every existing number is bit-identical. Loud, because a silent impute is
+        # how this class of bug survives.
+        if head != "xgb" and not np.isfinite(X).all():
+            bad = ~np.isfinite(X)
+            with np.errstate(all="ignore"):
+                med = np.nanmedian(np.where(np.isfinite(X[tr]), X[tr], np.nan), axis=0)
+            med[~np.isfinite(med)] = 0.0
+            print(f"[suite] {task}: head={head} cannot consume NaN -- imputing "
+                  f"{int(bad.sum())} non-finite cells in {int(bad.any(0).sum())} column(s) "
+                  f"from train medians", flush=True)
+            X = np.where(bad, med, X)
+
         sp = fit_standardizer(X[tr], std_method)
         Xtr, Xte = apply_standardizer(X[tr], sp), apply_standardizer(X[te], sp)
         ysc = eval_v2._fit_target_scaler(y[tr], ttype)

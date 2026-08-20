@@ -44,6 +44,7 @@ OUT = ROOT / "analysis" / "rigor" / "cobest_all_suites.csv"
 N_BOOT = 200 if "--quick" in sys.argv else 1000
 ALPHA = 0.05
 CONTROLS = {"random_encoder", "e2e_no_pretrain"}
+MIN_DATASETS_FOR_TRIPWIRE = 5   # below this a co-best RATE is not a meaningful statistic
 
 
 # ------------------------------------------------------------------ metrics -------------------
@@ -201,7 +202,21 @@ def load_cbs():
 def load_moleculeace(task):
     src = pd.read_csv(ROOT / "chemeleon_suite/data/moleculeace" / f"{task}.csv")
     te = src[src.split == "test"].reset_index(drop=True)
-    base = pd.DataFrame({"raw_smiles": te.smiles, "output_index": 0, "y_true": te["y"].astype(float)})
+    # THE MoleculeACE CSVs CARRY TWO LABEL COLUMNS AND THEY DIFFER BY EXACTLY 9.0:
+    #   "y"              = -log10(exp_mean in nM)   range about -5.0 .. +1.7
+    #   "y [pEC50/pKi]"  = 9 - log10(nM) = pKi      range about  4.0 .. 10.7
+    # Every model is TRAINED and SCORED on pKi (predictions here run 4.5-10.2), so joining "y"
+    # made each residual (r + 9). For a paired difference that does not cancel -- it becomes
+    # (r_A+9)^2 - (r_B+9)^2 = r_A^2 - r_B^2 + 18(r_A - r_B), and the linear term dominates -- so the
+    # bootstrap was testing signed-residual differences, not squared-error differences, and Table
+    # A2's MoleculeACE co-best sets were decided on the wrong quantity.
+    # Found by the figures session in fig_C1 (2026-08-20), where the same join turned a +28.6% lift
+    # into a -0.29% null. Asserted rather than commented, so a future join outside pKi range fails.
+    yt = te["y [pEC50/pKi]"].astype(float)
+    if not (yt.min() > 2.0 and yt.max() < 14.0):
+        raise ValueError(f"{task}: MoleculeACE labels outside pKi range "
+                         f"[{yt.min():.2f}, {yt.max():.2f}] -- wrong column?")
+    base = pd.DataFrame({"raw_smiles": te.smiles, "output_index": 0, "y_true": yt})
     preds = {}
     for a in ARM_ORDER:
         f = FD / "chemeleon_suite" / "moleculeace" / _suite_dir(a, "mace") / "test_predictions.csv"
@@ -367,6 +382,46 @@ def main():
         pd.DataFrame(rows).to_csv(OUT, index=False)          # checkpoint after every dataset
 
     print(f"\nwrote {OUT}  ({len(rows)} rows, {time.time()-t0:.0f}s, n_boot={N_BOOT})")
+
+    # ---- CONTROL-ARM TRIPWIRE -------------------------------------------------------------------
+    # A control arm doing suspiciously WELL is the same class of evidence as a real arm doing
+    # implausibly well, and it is the tell this table already gave us once and we misread: with the
+    # MoleculeACE truth column off by 9.0, the paired statistic gained a linear term that swamped
+    # the quadratic one, every CI went wide, and random_encoder came out co-best on 28 of 30
+    # MoleculeACE targets. That read as a modest result instead of a broken test. After the fix it
+    # is 2 of 30.
+    #
+    # The range assertion in load_moleculeace catches THAT join. This catches the SYMPTOM, whatever
+    # upstream defect produces it -- a randomly initialised encoder should not tie the best real arm
+    # on more datasets than a TYPICAL real arm. Compared against the median rather than the max on
+    # purpose: in the broken table random_encoder scored 28 and so did three real arms, so a
+    # "control must not exceed the best real arm" rule passed the very table it was written for.
+    # The median real arm was 26, which the control cleared. Checked against both tables before
+    # committing: the rule fires on the old one and passes the fixed one. Non-fatal by design: the
+    # table is already on
+    # disk and is what you need to diagnose with, so this reports and exits non-zero rather than
+    # destroying the evidence.
+    df = pd.DataFrame(rows)
+    bad = []
+    for suite, g in df.groupby("suite"):
+        cb = g.groupby("arm")["cobest_overall"].sum()
+        ctl = cb[cb.index.isin(CONTROLS)]
+        real = cb[~cb.index.isin(CONTROLS)]
+        if ctl.empty or real.empty:
+            continue
+        if g["dataset"].nunique() < MIN_DATASETS_FOR_TRIPWIRE:
+            continue        # CBS is a single dataset: every arm is co-best on 1, controls included,
+                            # and "co-best rate" is not a distribution you can reason about at n=1
+        for arm, v in ctl.items():
+            if v >= real.median():
+                bad.append(f"{suite}: control {arm} co-best on {int(v)}/{g['dataset'].nunique()} "
+                           f"datasets, at or above the MEDIAN real arm ({real.median():.1f})")
+    if bad:
+        print("\nCONTROL-ARM TRIPWIRE FIRED -- treat this table as suspect, not as a result:")
+        for b in bad:
+            print(f"  {b}")
+        sys.exit(2)
+    print("control-arm tripwire: OK (no control ties the best real arm more often than it wins)")
 
 
 if __name__ == "__main__":

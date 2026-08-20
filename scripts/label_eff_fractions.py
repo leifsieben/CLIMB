@@ -51,14 +51,22 @@ from transformers import ModernBertModel, PreTrainedTokenizerFast
 SRC = "figure_data/climb_v2_phase2"
 TOK = "figure_data/_tokenizer"
 _ALL_ARMS = {"random": "random_baseline_00", "unsup": "unsup_8M",
-             "sup": "skip_dense_8M", "unsup2sup": "u2s_dense_from8M"}
+             "sup": "skip_dense_8M", "unsup2sup": "u2s_dense_from8M",
+             # CLASSICAL arm: not an encoder. SI fig a draws the fp+desc anchor as a reference line
+             # on every panel, but the anchor only existed in the MAINLINE wave while four of the
+             # six panels take their points from THIS one -- and the waves disagree by up to 8%
+             # (Tox21 0.7356 here vs 0.7961 mainline). A line and its points from different
+             # protocols measure the wave as much as the model, so the anchor is scored HERE too.
+             # It carries its own featurizer and head; see CLASSICAL below.
+             "fp_desc": "__classical__"}
+CLASSICAL = {"fp_desc": ("fp_desc", "xgb")}      # arm -> (featurizer, head)
 # env overrides (LE_ARMS / LE_TASKS / LE_SEEDS / LE_LONG / LE_SUMM) let the "clean 3-task" re-run
 # reuse this proven scorer without editing constants; defaults preserve the original behaviour.
 _arm_sel = os.environ.get("LE_ARMS", "").split()
 ARMS = {a: _ALL_ARMS[a] for a in _arm_sel} if _arm_sel else _ALL_ARMS
 TASKS = os.environ.get("LE_TASKS", "ESOL Lipophilicity QM7 BBBP BACE Tox21 HIV").split()
 TYPE = dict(MOLECULENET_TASKS_V2)
-FRACTIONS = [0.05, 0.10, 0.25, 0.50, 1.00]
+FRACTIONS = [float(x) for x in os.environ.get("LE_FRACTIONS", "0.05 0.10 0.25 0.50 1.00").split()]
 HEAD_SEEDS = list(range(int(os.environ.get("LE_SEEDS", "3"))))
 POOL, ML, STD, HEAD = "mean", 256, "zscore", "mlp"
 
@@ -83,14 +91,20 @@ def subsample_idx(n_full: int, frac: float, seed: int) -> np.ndarray:
 
 rows = []
 for arm, run in ARMS.items():
-    enc_path = f"{SRC}/{run}/encoder"
-    if not Path(enc_path, "model.safetensors").exists():
-        print(f"[{arm}] MISSING encoder {enc_path} -- skipping", flush=True)
-        continue
-    print(f"\n===== arm={arm} ({run}) =====", flush=True)
-    encoder = ModernBertModel.from_pretrained(enc_path, attn_implementation="sdpa",
-                                              reference_compile=False).to(device)
-    encoder.eval()
+    classical = arm in CLASSICAL
+    if classical:
+        feat_name, head_name = CLASSICAL[arm]
+        print(f"\n===== arm={arm} (classical {feat_name} + {head_name}) =====", flush=True)
+        encoder = None
+    else:
+        enc_path = f"{SRC}/{run}/encoder"
+        if not Path(enc_path, "model.safetensors").exists():
+            print(f"[{arm}] MISSING encoder {enc_path} -- skipping", flush=True)
+            continue
+        print(f"\n===== arm={arm} ({run}) =====", flush=True)
+        encoder = ModernBertModel.from_pretrained(enc_path, attn_implementation="sdpa",
+                                                  reference_compile=False).to(device)
+        encoder.eval()
 
     for task in TASKS:
         tt = TYPE[task]
@@ -102,9 +116,21 @@ for arm, run in ARMS.items():
         n_out = tr_y.shape[1] if tr_y.ndim > 1 else 1
         t0 = time.time()
         # featurize ONCE (the expensive encoder pass); reuse across fractions/seeds
-        tr_x_full = _encoder_features(encoder, tok, list(tr_s), device, POOL, ML)
-        va_x = _encoder_features(encoder, tok, list(va_s), device, POOL, ML)
-        te_x = _encoder_features(encoder, tok, list(te_s), device, POOL, ML)
+        if classical:
+            from featurize_v2 import ecfp4_features
+            from descriptors_v2 import rdkit_descriptors
+
+            def _classical(sm):
+                fp = np.asarray(ecfp4_features(list(sm)), dtype=np.float32)
+                d = np.asarray(rdkit_descriptors(list(sm)), dtype=np.float32)
+                d[~np.isfinite(d)] = np.nan          # XGBoost treats NaN as missing, ERRORS on inf
+                return np.concatenate([fp, d], axis=1)
+
+            tr_x_full, va_x, te_x = _classical(tr_s), _classical(va_s), _classical(te_s)
+        else:
+            tr_x_full = _encoder_features(encoder, tok, list(tr_s), device, POOL, ML)
+            va_x = _encoder_features(encoder, tok, list(va_s), device, POOL, ML)
+            te_x = _encoder_features(encoder, tok, list(te_s), device, POOL, ML)
         print(f"  [{task}] n_train={n_full} featurized in {time.time()-t0:.0f}s", flush=True)
 
         for frac in FRACTIONS:
@@ -113,13 +139,19 @@ for arm, run in ARMS.items():
                 idx = subsample_idx(n_full, frac, ss)
                 n_train = len(idx)
                 trx, try_ = tr_x_full[idx], tr_y[idx]
-                sp = fit_standardizer(trx, STD)
-                trx_s = apply_standardizer(trx, sp)
-                vax_s = apply_standardizer(va_x, sp)
-                tex_s = apply_standardizer(te_x, sp)
+                # ECFP bits are 0/1 and descriptors carry NaNs: XGBoost is scale-invariant and
+                # wants the NaNs, so the classical arm skips standardization exactly as
+                # eval_v2 does for the same featurizer.
+                if classical:
+                    trx_s, vax_s, tex_s = trx, va_x, te_x
+                else:
+                    sp = fit_standardizer(trx, STD)
+                    trx_s = apply_standardizer(trx, sp)
+                    vax_s = apply_standardizer(va_x, sp)
+                    tex_s = apply_standardizer(te_x, sp)
                 ysc = _fit_target_scaler(try_, tt)
                 for hs in HEAD_SEEDS:
-                    hd = make_head(HEAD, tt, n_out, hs).fit(
+                    hd = make_head(head_name if classical else HEAD, tt, n_out, hs).fit(
                         trx_s, _scale_targets(try_, ysc), vax_s, _scale_targets(va_y, ysc))
                     te_pred = _unscale_preds(np.asarray(hd.predict(tex_s), dtype=np.float64), ysc)
                     tr_pred = _unscale_preds(np.asarray(hd.predict(trx_s), dtype=np.float64), ysc)

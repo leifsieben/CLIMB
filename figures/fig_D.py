@@ -5,12 +5,15 @@ ONE script, ONE figure: figures_v2/figD.png / .pdf
 What it shows
 -------------
 Both analyses use the deduped ablation wave (figure_data/climb_v2_ablation_dedup): every arm is
-unsup->sup warm-started from ONE shared 2M-FP MLM base, the SFT blocklist drops 34,301 eval
-molecules (no arm trains on eval-test molecules), and every number is a 5-fold CV mean lifted
-against the honest floor ("no pretrain, end2end" -- the random-init encoder fine-tuned on the
-task; a frozen random encoder is close to automatic to beat, so it is not the comparator). The
-end2end floor is borrowed cross-wave from climb_v2_phase2 only while the two waves' frozen
-random-encoder floors agree -- checked at runtime, printed, never assumed.
+unsup->sup warm-started from ONE shared 2M-FP MLM base, the SFT blocklist drops 34,301 eval molecules (no arm trains on eval-test molecules), and every
+number is a 5-fold CV mean lifted against "no pretrain, random" -- the random-init encoder FROZEN,
+probed the way the arms are.
+
+FLOOR CHANGED 2026-08-20 (user), from the fine-tuned random init to the frozen one, matching the
+arms' own protocol. It also ends a cross-wave borrow: the ablation wave has no end2end runs, which
+is why phase2's were imported under an agreement check, but it does have its own
+random_baseline_0{0,1,2}, so arm and floor are now siblings in one wave. The check is kept as a
+drift tripwire with nothing depending on it. C1, C2, D and E now share one floor.
 
   (a) Which SFT label type helps? Mean lift per arm (horizontal bars; right = helps, left =
       hurts), with the 2M MLM base itself and the ECFP (XGBoost) anchor for context.
@@ -30,8 +33,9 @@ random-encoder floors agree -- checked at runtime, printed, never assumed.
 
 All three panels share the family colours, so bars, matrix rows and slope lines line up.
 
-Lipophilicity is absent everywhere: the phase2 end2end floor was never scored on it, so there is
-no honest floor to lift against (same restriction as Fig C2; n_tasks: 2 property + 4 bioassay).
+n_tasks: 2 property + 4 bioassay, over the canonical six. (An earlier note here explained why
+Lipophilicity was absent; it is not in the canonical panel set, so the explanation described a
+panel set this figure no longer uses.)
 
 Run:  python3 -m figures.fig_D
 

@@ -4,7 +4,7 @@ ONE script, ONE figure: figures_v2/fig_E.png / .pdf   (two panels, a + b)
 
 Both panels hold objective family, data volume, compute, schedule, architecture and probe fixed
 and remove only the CHEMICAL CONTENT of the pretraining signal. Bars are lift over
-`no pretrain (frozen)` -- a random-init encoder, frozen, same probe -- so 0 means "this pretraining
+`no pretrain, random` -- a random-init encoder, frozen, same probe -- so 0 means "this pretraining
 objective bought nothing".
 
 (a) SUPERVISED (descriptor regression). Real targets vs targets permuted across the batch: the
@@ -58,7 +58,7 @@ import matplotlib.ticker as ticker
 from matplotlib.transforms import ScaledTranslation
 
 from figures.style import STYLE, FS, save, check_font
-from figures.arms import SHADES
+from figures.arms import SHADES, ARMS
 
 check_font()
 
@@ -156,8 +156,8 @@ def main():
                              gridspec_kw=dict(width_ratios=[1.0, 1.45], wspace=0.26))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
         draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylims[panel])
-    axes[0].set_ylabel("Lift over no pretrain, frozen")
-    axes[1].set_ylabel("Lift over no pretrain, frozen")
+    axes[0].set_ylabel("Lift over " + ARMS["random_encoder"]["label"])
+    axes[1].set_ylabel("Lift over " + ARMS["random_encoder"]["label"])
 
     fig.subplots_adjust(top=0.905, bottom=0.155, left=0.078, right=0.995)
     # COMPONENT of fig_E+F, so it belongs in panels/ with fig_C1/C2/D and fig_A1/A2 --
@@ -168,7 +168,7 @@ def main():
 
     for panel, _, subtitle, series in PANELS:
         p = d[d.panel == panel]
-        print(f"\nFig E ({panel}) — lift % over no pretrain (frozen), 5-fold CV:")
+        print(f"\nFig E ({panel}) — lift % over no pretrain, random, 5-fold CV:")
         print(f"   {'arm':<38}" + "".join(f"{t:>9}" for t in TASKS))
         for key, label, _ in series:
             s = p[p.arm == key].set_index("dataset")

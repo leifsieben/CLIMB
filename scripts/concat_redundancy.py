@@ -34,7 +34,9 @@ from heads_v2 import make_head, compute_metric, compute_nef
 # Promoted to main-text Fig F 2026-08-18: if BOTH embeddings are redundant to fp+desc, the claim
 # generalises from "CLIMB is redundant" to "these molecular foundation embeddings are redundant".
 EMB = os.environ.get("CONCAT_EMB", "climb")
-TAG = {"climb": "CLM", "chemeleon": "CheMeleon"}[EMB]
+# "CheMel", not "CheMeleon": fig_F's lattice keys on these strings directly, so the tag IS
+# the figure's cell name -- a mapping layer here is one more list to go stale.
+TAG = {"climb": "CLM", "chemeleon": "CheMel"}[EMB]
 OUTFILE = os.environ.get("CONCAT_OUT", f"concat_redundancy{'' if EMB=='climb' else '_chemeleon'}.csv")
 ENC = "figure_data/climb_v2_phase2/unsup_8M/encoder"
 TOK = "figure_data/_tokenizer"
@@ -58,16 +60,54 @@ else:
     encoder = tok = None   # CheMeleon featurizer needs no local encoder (chemprop foundation)
 
 
+# CONCAT_FEATURES_NPZ: a precomputed {smiles: vector} table, so the CheMeleon arm can run in the
+# REFERENCE environment. CheMeleon needs chemprop>=2.2 (python>=3.11) and deepchem 2.8.0 -- which
+# defines the Tox21 parse -- has no 3.12 wheel, so the two cannot share an interpreter. A separate
+# python3.12 pass produces the table; everything that decides a number stays here.
+_FEATURE_TABLE = None
+def _chemeleon_from_npz(smiles):
+    global _FEATURE_TABLE
+    import os as _os
+    p = _os.environ.get("CONCAT_FEATURES_NPZ")
+    if not p:
+        return None
+    if _FEATURE_TABLE is None:
+        z = np.load(p, allow_pickle=True)
+        # HOIST THE ARRAYS OUT OF THE COMPREHENSION. np.load on an .npz is LAZY: every `z["X"]`
+        # decodes the whole member afresh, so `z["X"][i]` inside the loop re-read all 369 MB once
+        # per molecule -- ~150k full decompressions, one core pinned, no progress and no error.
+        # It wedged the fig_F concat box for 38 minutes on a 1,128-molecule dataset (2026-08-20).
+        X, S = z["X"], z["smiles"]
+        _FEATURE_TABLE = {str(s): X[i] for i, s in enumerate(S)}
+        print(f"[concat] {len(_FEATURE_TABLE)} precomputed CheMeleon vectors from {p}", flush=True)
+    miss = [s for s in smiles if str(s) not in _FEATURE_TABLE]
+    if miss:
+        raise KeyError(f"{len(miss)} SMILES absent from the feature table, e.g. {miss[:2]} -- "
+                       "refusing to mean-fill, which would fabricate a molecule's representation")
+    return np.asarray([_FEATURE_TABLE[str(s)] for s in smiles], dtype=np.float32)
+
+
 def feature_sets(smiles):
+    """All seven blocks, so a figure can pick CONTROLLED PAIRS rather than a feature-set parade.
+
+    fig_F's redesign (2026-08-19) holds one block fixed and adds one thing, which needs the bare
+    bases -- `fp` and `desc` alone -- that the original four-set version never produced. Emitting
+    all seven costs one XGBoost fit each on features that are already computed, and it means the
+    figure can be re-cut without another box.
+    """
     fp = np.asarray(ecfp4_features(smiles), dtype=np.float32)
     d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32); d[~np.isfinite(d)] = np.nan
     if EMB == "climb":
         emb = E._encoder_features(encoder, tok, list(smiles), device, "mean", ML).astype(np.float32)
     else:
-        emb = np.asarray(E._chemeleon_features(list(smiles), device), dtype=np.float32)
-    return {"fp+desc": np.concatenate([fp, d], 1), TAG: emb,
+        emb = _chemeleon_from_npz(list(smiles))
+        if emb is None:
+            emb = np.asarray(E._chemeleon_features(list(smiles), device), dtype=np.float32)
+    return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1), TAG: emb,
+            f"fp+{TAG}": np.concatenate([fp, emb], 1),
             f"desc+{TAG}": np.concatenate([d, emb], 1),
             f"fp+desc+{TAG}": np.concatenate([fp, d, emb], 1)}
+
 
 
 rows = []

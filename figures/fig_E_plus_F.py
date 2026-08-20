@@ -45,7 +45,7 @@ import pandas as pd
 from matplotlib.gridspec import GridSpec
 
 from figures.style import STYLE, FS, save, check_font
-from figures.arms import PANEL_ORDER
+from figures.arms import PANEL_ORDER, ARMS
 import figures.fig_E as E
 import figures.fig_F as F
 
@@ -82,7 +82,7 @@ def main():
     for col, (panel, tag, subtitle, series) in enumerate(E.PANELS):
         ax = fig.add_subplot(gsE[0, col])
         E.draw(fig, ax, dE[dE.panel == panel], series, tag, subtitle, ylims[panel])
-        ax.set_ylabel("Lift over no pretrain, frozen", fontsize=FS["label"])
+        ax.set_ylabel("Lift over " + ARMS["random_encoder"]["label"], fontsize=FS["label"])
 
     ylims = F.shared_ylims(dF)          # panels on one metric share one y-range
     tags = "cdefgh"

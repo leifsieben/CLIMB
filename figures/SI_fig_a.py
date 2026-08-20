@@ -6,14 +6,25 @@ The same pretrained encoder used two ways at FULL downstream data: frozen (encod
 trained on the labels) versus end-to-end (whole network fine-tuned). Two encoders, `unsupervised`
 and `supervised, dense`, on each canonical panel.
 
-THE ANSWER IS MOSTLY YES, but it is not universal. End-to-end wins 9 of the 12 encoder x panel
-cells and clears the combined SD in 5 of them. The largest gain by far is CBS with the unsupervised
-encoder (+0.125 NEF1) — fine-tuning lifts the MLM encoder most of the way to the best frozen
-supervised arm, though not past it. Then QM7 unsupervised (-12.0 RMSE) and Tox21 (+0.017 / +0.039).
-All three exceptions involve the SUPERVISED encoder — CBS (-0.015), BACE (-0.013) and QM7
-(-3.3 RMSE) — where freezing is as good or better. Read together: end-to-end training mostly buys
-back what a weak pretraining objective failed to learn, and buys least where the frozen features
-were already good.
+THE ANSWER IS MOSTLY YES, but it is not universal. All six panels are populated as of 2026-08-20.
+End-to-end wins 10 of the 12 encoder x panel cells and clears the combined SD in 8. The largest
+gains are QM7 unsupervised (-12.0 RMSE), HIV supervised (+0.050 NEF1) and Tox21 supervised
+(+0.039). Both exceptions involve the SUPERVISED encoder -- BACE (-0.013) and QM7 (-3.3 RMSE) --
+where freezing is as good or better. Read together: end-to-end training mostly buys back what a
+weak pretraining objective failed to learn, and buys least where the frozen features were already
+good.
+
+HIV WAS EMPTY UNTIL 2026-08-20 AND THE HOLE WAS IN THIS BUILDER, NOT IN THE DATA. Its end-to-end
+runs are 5-fold CV in climb_v2_phase2 (the mainline wave), and build_SI_fig_a_table.py had only a
+label-efficiency branch for MolNet panels plus a mainline branch listing MoleculeACE and Ames by
+name. HIV belonged to neither list, so the panel printed "end2end not run" while the runs existed.
+That is worth recording because the figure said something false about the experiment, in a way
+that reads as a candid admission rather than a bug.
+
+CBS is computed by the builder and NOT drawn -- it is not in the canonical panel set. Its rows are
+left in the table on purpose (its +0.125 NEF1 is the largest single gain anywhere here, and CBS may
+return as an SI panel). Counts above are over the DRAWN cells; this paragraph once said "9 of 12"
+by counting CBS as a panel the reader could see.
 
 So end-to-end fine-tuning is the better default, but the frozen probe is not far behind on several
 panels, and it is the cheaper option by far (SI Fig c). SI Fig e shows how this trade depends on
@@ -26,12 +37,11 @@ PROTOCOL WARNING — the protocol DIFFERS BETWEEN PANELS (MoleculeACE/Ames use t
 BACE/Tox21/QM7 the label-efficiency wave at its 100% fraction). Compare frozen vs end2end WITHIN a
 panel; never compare a value in one panel against a value in another.
 
-HIV IS EMPTY AND IT IS A REAL HOLE, not a resolver bug. `unsup_8M_e2e` and `skip_dense_8M_e2e` are
-suite-track-only runs with no MolNet summary, so this cell needs an end-to-end fine-tune of both
-pretrained encoders on HIV — 41k molecules, GPU work. The panel says so on its face rather than
-being quietly dropped. The docstring claimed "all 6 panels are populated" until 2026-08-19; that
-sentence was written when CBS held the slot HIV now has, and it survived the canonical-six
-migration as a false statement about a different panel set.
+HIV IS NOW POPULATED. Both encoders' end-to-end HIV runs (5-fold CV, 3 pretraining seeds each)
+landed 2026-08-19 and this figure reads them from climb_v2_phase2. Its error bars are the
+pretraining-seed spread on BOTH ends of the slope: mainline_8M.csv also offers sd_total for HIV,
+but that is over 15 cells (3 seeds x 5 folds) and reads 0.104 against the end2end side's 0.012,
+so pairing them would put a fold-spread bar opposite a seed-spread bar on one slope.
 
 Data: figure_data/SI_fig_a/SI_fig_a_e2e_need.csv, built by scripts/build_SI_fig_a_table.py.
 
@@ -57,9 +67,22 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 # value to its end2end value, so the only thing the reader has to judge is the DIRECTION and
 # steepness of the change — which is the whole question — rather than comparing four bar heights.
 # Colour = encoder family: blue = unsupervised, red = supervised, dense.
-SERIES = [("unsupervised",      "unsup",     "unsupervised"),
-          ("supervised, dense", "sup_dense", "supervised, dense")]
+# (join key, arms.py key, legend label) -- all three from arms.py, never a literal. The join key
+# must be byte-identical to what build_SI_fig_a_table.py wrote into the `encoder` column, and the
+# two were separate literals until 2026-08-20, when arms.py's rename of sup_dense to "supervised,
+# desc" left this file asking for "supervised, dense". The join matched nothing and the supervised
+# line disappeared from every panel without any check firing.
+SERIES = [(ARMS["unsup"]["label"],     "unsup",     ARMS["unsup"]["label"]),
+          (ARMS["sup_dense"]["label"], "sup_dense", ARMS["sup_dense"]["label"])]
 PROBES = ["frozen", "end2end"]
+
+# FAIL LOUDLY ON A DEAD JOIN KEY. A series whose key is absent from the table draws nothing and
+# says nothing -- the panels stay populated by the other series, so no empty-panel check fires.
+# Both sides now come from arms.py, so this should be unreachable; it is here because it was
+# reachable once and cost the supervised encoder's line across all six panels.
+_missing = [k for k, _, _ in SERIES if k not in set(DF.encoder)] if len(DF) else []
+assert not _missing, (f"SI fig a: series key(s) {_missing} are not in the table's encoder column "
+                      f"{sorted(set(DF.encoder))} -- rebuild with scripts/build_SI_fig_a_table.py")
 
 # The classical anchor as a reference line, ON EVERY PANEL, and PROTOCOL-MATCHED PER PANEL.
 #

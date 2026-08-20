@@ -66,10 +66,24 @@ rep () {   # $1 py  $2 base model  $3 suffix  $4 seed triple  $5.. featurizer ar
 }
 
 # --- cheap: frozen probes over a deterministic or fixed featurizer --------------------------------
-rep "$CLIMB_PY" ecfp4            _s1 "43 118 710"  --featurizer ecfp4   --head xgb
-rep "$CLIMB_PY" ecfp4            _s2 "44 119 711"  --featurizer ecfp4   --head xgb
-rep "$CLIMB_PY" fp_desc          _s1 "43 118 710"  --featurizer fp_desc --head xgb
-rep "$CLIMB_PY" fp_desc          _s2 "44 119 711"  --featurizer fp_desc --head xgb
+# ECFP4/fp_desc ARE GATED OFF by default (2026-08-19). featurize_v2.ecfp4_features builds its
+# Morgan generator without includeChirality, which RDKit defaults to FALSE -- verified by
+# construction, not from the docs: L- vs D-alanine, (R)- vs (S)-1-phenylethanol and trans- vs
+# cis-crotonic acid all give BYTE-IDENTICAL fingerprints, and the 217 RDKit descriptors do not
+# recover it either (0 of 217 columns differ on L- vs D-alanine). The CLMs and CheMeleon DO see
+# configuration, so replicating the anchors against the stereo-blind featurizer would bank three
+# seeds of a number we already know has to be recomputed -- and MoleculeACE, where these arms would
+# run, is the panel with the highest stereo content and is built out of activity cliffs, which a
+# configuration flip is a textbook example of.
+# Set ANCHOR_STEREO_FIXED=1 once the featurizer change is in, and these four lines run.
+if [ "${ANCHOR_STEREO_FIXED:-0}" = "1" ]; then
+  rep "$CLIMB_PY" ecfp4          _s1 "43 118 710"  --featurizer ecfp4   --head xgb
+  rep "$CLIMB_PY" ecfp4          _s2 "44 119 711"  --featurizer ecfp4   --head xgb
+  rep "$CLIMB_PY" fp_desc        _s1 "43 118 710"  --featurizer fp_desc --head xgb
+  rep "$CLIMB_PY" fp_desc        _s2 "44 119 711"  --featurizer fp_desc --head xgb
+else
+  say "SKIP ecfp4/fp_desc replicates -- stereo-blind featurizer, see ANCHOR_STEREO_FIXED"
+fi
 rep "$CHEM_PY"  chemeleon_frozen _s1 "43 118 710"  --featurizer chemeleon
 rep "$CHEM_PY"  chemeleon_frozen _s2 "44 119 711"  --featurizer chemeleon
 
@@ -105,9 +119,10 @@ if [ -x "$CHEM_PY" ]; then
 fi
 
 aws s3 cp "$LOG" $S3/_logs/suite_replicates.log --only-show-errors
+want=8; [ "${ANCHOR_STEREO_FIXED:-0}" = "1" ] || want=4     # ecfp4/fp_desc gated off
 n=$(ls -d figure_data/chemeleon_suite/moleculeace/{ecfp4,fp_desc,chemeleon_frozen,chemeleon_e2e}_s[12] 2>/dev/null | wc -l)
-say "produced $n of 8 moleculeace replicate dirs"
-if [ "$n" -ge 8 ]; then if [ -n "${CHAIN_NEXT:-}" ]; then
+say "produced $n of $want moleculeace replicate dirs"
+if [ "$n" -ge "$want" ]; then if [ -n "${CHAIN_NEXT:-}" ]; then
     say "complete -> chaining to $CHAIN_NEXT"; exec bash "$CHAIN_NEXT"
   else say "complete -> shutdown"; sudo shutdown -h now; fi
 else say "INCOMPLETE -> staying UP for inspection"; fi

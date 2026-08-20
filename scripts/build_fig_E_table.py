@@ -20,7 +20,7 @@ lift over the SAME kind of floor:
                                 unigram_8M{,_s1,_s2}      -> unigram  (resampled from unigram stats)
                                 wiki_real_8M{,_s1,_s2}    -> wiki     (Wikipedia; zero chemistry)
 
-FLOOR CHOICE. Both panels lift over `no pretrain (frozen)` — a random-init encoder, frozen, same
+FLOOR CHOICE. Both panels lift over `no pretrain, random` — a random-init encoder, frozen, same
 probe. That isolates what the PRETRAINING OBJECTIVE contributes with architecture and probe held
 fixed. (Figs C2/D lift over the end2end floor instead, because they ask a different question —
 "is the frozen pipeline worth it at all". Do not mix the two.)
@@ -316,7 +316,7 @@ def main() -> None:
     d = pd.DataFrame(rows)
     for panel in ("supervised", "unsupervised"):
         p = d[d.panel == panel]
-        print(f"\n{panel} — lift % over no pretrain (frozen):")
+        print(f"\n{panel} — lift % over no pretrain, random:")
         print(p.pivot(index="label", columns="dataset", values="lift_pct")
                .reindex(columns=TASKS).round(1).to_string())
         print("  n pretraining seeds per cell:")
