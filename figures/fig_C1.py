@@ -426,7 +426,7 @@ def main():
         print(f"C1 {t}: most-similar {v[0][0]:+.1f}% [{v[0][1]:+.1f},{v[0][2]:+.1f}]   "
               f"most-novel {v[1][0]:+.1f}% [{v[1][1]:+.1f},{v[1][2]:+.1f}]  (95% bootstrap CI)")
     for t, v in mpairs:
-        print(f"   {t} corpus-identical group (excluded): {v[0]:+.1f}% [{v[1]:+.1f},{v[2]:+.1f}]"
+        print(f"   {t} corpus-identical group (measured; kept out of the (b) quantiles only): {v[0]:+.1f}% [{v[1]:+.1f},{v[2]:+.1f}]"
               f"  (n={v[3]})")
     if pairs:
         sep = [t for t, v in pairs if v[0][1] > v[1][2] or v[1][1] > v[0][2]]
