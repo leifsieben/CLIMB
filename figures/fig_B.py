@@ -125,7 +125,7 @@ def _panels(banded):
                           label="larger corpus (unsup 50M/100M)"))
     for a, ls in REF_LINES:
         handles.append(Line2D([], [], color=ARMS[a]["color"], ls=ls, lw=1.2, label=ARMS[a]["label"]))
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.07),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.050),
                ncol=6, fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
                columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
     # Axes -> shared x-label -> legend, each about one text-height apart (user 2026-08-19:
@@ -133,8 +133,8 @@ def _panels(banded):
     # near the canvas floor: with loc="upper center" a low anchor hangs the legend body off
     # the canvas, and savefig("tight") then GROWS the image downward to contain it -- which
     # adds exactly the white band it looks like it should remove.
-    fig.tight_layout(rect=(0, 0.138, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.088, "pretraining tokens", ha="center", va="bottom",
+    fig.tight_layout(rect=(0, 0.112, 1, 1), w_pad=0.35)
+    fig.text(0.5, 0.068, "pretraining tokens", ha="center", va="bottom",
              fontsize=FS["annot"], color=INK)
     return fig
 
