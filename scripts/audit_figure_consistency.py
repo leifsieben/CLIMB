@@ -279,7 +279,17 @@ def check_comparator_scope():
     # It uses chemeleon_FROZEN only, against CLIMB's frozen arms, with the same probe on the
     # same splits -- like for like, and the whole question there is whether the HEAD changes the
     # ranking, which cannot be asked without a representation from outside our own family.
-    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_f"}
+    #
+    # fig_F admitted 2026-08-19, BY USER DECISION and on a third distinct ground, which is why it
+    # is written down rather than just added. fig_F is the redundancy lattice: does an embedding
+    # add anything to classical features? Its cells are desc/fp/desc+fp each ALONE, each + CLIMB,
+    # and each + CheMeleon, and the CheMeleon column is not a comparison of CheMeleon against
+    # CLIMB -- it is the control that says whether "embeddings are redundant to fingerprints" is a
+    # statement about CLIMB specifically or about learned embeddings in general. Drop it and the
+    # figure can no longer separate those. The protocol confound this check guards does not arise:
+    # every cell in the lattice is the same XGBoost head on concatenated frozen features, so the
+    # frozen-vs-fine-tuned mix that makes CheMeleon's benchmark bars unsafe is not present.
+    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_f", "fig_F"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:
@@ -797,6 +807,85 @@ def check_regression_units():
     return len(bad)
 
 
+def check_positional_metric_reads():
+    """A summary row selected WITHOUT filtering on main_metric is a coin flip between metrics.
+
+    This defect shape has now cost this project three times: build_fig_E_table's `.iloc[0]` gave
+    HIV a ROC-AUC compared against a NEF1 floor (+41%, implausible, caught by the user); the peer
+    session's first pretraining-variance reading divided a nef1 numerator into a roc_auc
+    denominator and got 1.55 where the metric-matched answer is 0.56-0.97, flipping which side of
+    the decision rule it landed on; and pretrain_seed_variance.py itself shipped with `the MEAN
+    row` for a dataset whose summary carries two.
+
+    It keeps recurring because it is invisible at the call site -- `head_seed == "MEAN"` LOOKS
+    fully specified, and on a regression dataset it is. The exposure is real and large:
+    classification summaries carry a roc_auc MEAN and a nef1 MEAN per dataset, and on HIV, whose
+    panel metric is nef1, roc_auc is written FIRST -- so a positional read returns the wrong metric
+    silently, with a plausible value.
+
+    So this checks the CODE rather than the data: every place that reads a moleculenet_summary.csv
+    and reaches a published figure must mention main_metric in the same function. Scoped to
+    figures/ and the table builders that feed them -- the one-off rescore and upload scripts under
+    scripts/ are not gated here, because a wrong read there is caught by the figure that consumes
+    it, and gating 47 files would make this check noise.
+
+    A mention of main_metric is necessary, not sufficient -- it cannot tell a correct filter from a
+    mention in a comment. It is a tripwire for the omission, which is how all three of these
+    actually happened, not a proof of correctness.
+    """
+    print(f"\n{'='*94}\n15. POSITIONAL METRIC READS (summary row taken without a metric filter)\n{'='*94}")
+    import ast as _ast
+    targets = sorted((ROOT / "figures").glob("*.py"))
+    targets += [ROOT / "scripts" / n for n in ("six_panel_aggregate.py", "six_panel_e2e.py",
+                                              "build_SI_fig_a_table.py", "build_fig_E_table.py",
+                                              "pretrain_seed_variance.py")]
+    bad = 0
+    checked = 0
+    for f in targets:
+        if not f.exists():
+            continue
+        src = f.read_text()
+        if "moleculenet_summary.csv" not in src:
+            continue
+        try:
+            tree = _ast.parse(src)
+        except SyntaxError as e:
+            print(f"  FAIL  {f.name}: does not parse ({e})")
+            bad += 1
+            continue
+        lines = src.splitlines()
+        scopes = []   # (label, source text)
+        covered = set()
+        for node in _ast.walk(tree):
+            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                seg = "\n".join(lines[node.lineno - 1:node.end_lineno])
+                scopes.append((f"{f.name}:{node.name}()", seg, node.lineno))
+                covered.update(range(node.lineno, node.end_lineno + 1))
+        rest = "\n".join(l for i, l in enumerate(lines, 1) if i not in covered)
+        scopes.append((f"{f.name}:<module>", rest, 0))
+        for label, seg, lineno in scopes:
+            if "moleculenet_summary.csv" not in seg:
+                continue
+            # Naming the path is not reading a row. The defect is extracting a VALUE without
+            # saying which metric it is, so the trigger is main_value present and main_metric
+            # absent. Without this the check fired on a file-existence helper, two module
+            # docstrings and a scope that reads only the dataset column -- four hits, zero
+            # defects. A tripwire with a 100% false-positive rate gets ignored, which is worse
+            # than not having it.
+            if "main_value" not in seg:
+                continue
+            checked += 1
+            if "main_metric" not in seg:
+                where = f" (line {lineno})" if lineno else ""
+                print(f"  FAIL  {label}{where} reads a summary but never mentions main_metric -- "
+                      f"a MEAN row taken here is whichever metric was written first")
+                bad += 1
+    if not bad:
+        print(f"  OK - all {checked} summary-reading scope(s) in figures/ and the table builders "
+              f"filter on main_metric")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
@@ -804,7 +893,8 @@ def main():
                  check_comparator_scope(), check_bar_vs_ci(),
                  check_qm7_convention(), check_tox21_vintage(),
                  check_replication_parity(), check_aggregate_freshness(),
-                 check_invariant_arms(), check_regression_units()])
+                 check_invariant_arms(), check_regression_units(),
+                 check_positional_metric_reads()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 
