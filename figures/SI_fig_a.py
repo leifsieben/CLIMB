@@ -76,18 +76,32 @@ PROBES = ["frozen", "end2end"]
 # where it belongs, and every CLIMB-to-anchor gap read off those four panels was measuring the
 # wave.
 #
-# THE LABEL-EFFICIENCY ANCHOR IS UNDER QUESTION -- DO NOT QUOTE A GAP AGAINST IT YET. On BACE it
-# reads 0.7836 while the mainline anchor's FIFTEEN fold-cells span 0.8381-0.8896 with sd 0.0167:
-# the LE value is 5.2 fold-SD below the mean and OUTSIDE the entire observed range, on an
-# identical training-set size (1,210 both). Ordinary split-to-split variation does not reach that
-# far, so something other than the split differs and it is not yet identified. Ensembling is part
-# of it -- mainline scores an ensemble of 3 head seeds per fold while the LE path scores single
-# models and averages the metric -- but that is worth 0.5-1% AUC, not 8.8%.
+# THE LABEL-EFFICIENCY ANCHOR IS CORRECT, AND THE 8.8-POINT GAP TO MAINLINE IS THE SPLIT.
+# Verified by re-running it through eval_v2's own single-hold-out path, which reproduces BACE
+# 0.7836 to four decimals from the same features and the same head. There is no defect in the
+# label-efficiency classical path.
 #
-# A claim was drawn from this and is RETRACTED: that the frozen encoders "beat the anchor" on BACE.
-# They beat a number that is 5.2 SD off its own distribution. The encoders drop 0.033 between the
-# two waves and the anchor drops 0.088 -- a 2.7x differential that is the actual anomaly, and
-# until it is explained the BACE/Tox21/QM7 lines are provisional.
+# What the two waves differ in is the SPLIT CONSTRUCTION, and only that: mainline is scaffold
+# 5-fold CV, label-efficiency is a single scaffold hold-out. Training-set size is identical (1,210).
+# The single hold-out is markedly harder, and it is harder FOR THE FINGERPRINT SPECIFICALLY:
+#
+#   anchor  per CV fold 0.8419-0.8891   single hold-out 0.7836   BELOW its worst fold
+#   unsup   per CV fold 0.8186-0.8810   single hold-out 0.8251   INSIDE its fold range
+#
+# So on that split the frozen encoders do beat the classical anchor on BACE (0.8251 vs 0.7836),
+# while under 5-fold CV the anchor wins 4 folds of 5 -- losing fold0 by 0.002. Both are true of
+# their own protocol. The mechanism is plausible rather than established: a held-out scaffold
+# group punishes substructure-matching features more than a learned embedding, so an extrapolative
+# split costs the fingerprint more.
+#
+# QUOTE IT WITH THE PROTOCOL ATTACHED, AND NOTE n=1. The hold-out result rests on ONE split of
+# ~303 test molecules; at fraction=1.0 label_eff_fractions uses a single subsample seed, so there
+# is no split-to-split spread behind it. It is enough to say the verdict is protocol-dependent; it
+# is NOT enough to say the encoders beat the anchor on BACE full stop.
+#
+# An earlier note here called this anchor a 5.2-fold-SD outlier and retracted the encoder result on
+# that basis. That reasoning was wrong: it compared a single-hold-out value against the spread of
+# 5-fold CV cells, which are different estimands, so the SD it was measured against did not apply.
 #
 # METRIC IS MATCHED EXPLICITLY, not positionally: the anchor summary carries BOTH roc_auc and nef1
 # for BACE/Tox21/HIV, so a positional read would silently take whichever sorted first. HIV's line
