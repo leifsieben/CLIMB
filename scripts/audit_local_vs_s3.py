@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -90,7 +90,12 @@ def main() -> int:
     print("LOCAL vs S3 — every run dir figures/arms.py resolves")
     # Anything uploaded within this window is probably a live producer, not drift. Reported, but
     # labelled, so a wave's expected churn does not bury a real finding.
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    # LOCAL time, not UTC. `aws s3 ls` prints timestamps in the LOCAL zone, so a UTC cutoff sits
+    # 7 hours ahead of every stamp here and nothing ever matches -- the freshness label silently
+    # degrades to "sync down" for every row, which is the answer it gives when the feature is
+    # broken AND the answer it gives when there is real drift. Indistinguishable, which is the
+    # whole failure mode this file exists to complain about.
+    cutoff = (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
     bad = 0
     checks = [(k, t, declared(k)) for k, t in TREES.items()]
     # CBS is resolved from the `mol` dir names under a different tree; check it that way.
