@@ -7,6 +7,18 @@ gluing it onto ECFP4+descriptors must beat ECFP4+descriptors alone. If it carrie
 concatenation is at best flat — and, because the extra dimensions cost degrees of freedom, may be
 slightly worse.
 
+THE AXIS IS "% OF THE ECFP4+desc ANCHOR", ONE UNIT FOR ALL SIX PANELS (user 2026-08-19). The
+panels previously each carried their own raw metric -- ROC-AUC, NEF1 and two RMSEs -- with a
+per-panel reference line, so nothing could be read across panels and the compact assembly in
+fig_E+F dropped the y-label entirely, leaving unlabelled bars. Now 100% is parity with the
+classical anchor, by construction, and it is the dotted line in every panel. For RMSE the ratio is
+inverted (100*ref/v) so that "more" still means "better" everywhere; plotting the raw ratio for an
+error would make the worst arm the tallest bar in two of the six.
+
+Read that way the result is one sentence: NO BAR REACHES 100% ON ANY CANONICAL PANEL. The CLIMB
+embedding alone recovers 82-95% of the classical anchor, and adding it on top of the anchor's own
+features recovers 92-99% -- i.e. concatenation does not reach the anchor, let alone beat it.
+
 Four feature sets, same XGBoost head, same splits, same seeds:
 
   fp+desc       ECFP4 (2048 bits) + 217 RDKit descriptors   — the classical anchor
@@ -132,6 +144,45 @@ FEATURES = [("fp+desc", "ECFP4 + descriptors (classical anchor)", SHADES["anchor
             ("fp+desc+CLM", "CLIMB + descriptors + ECFP4", SHADES["unsup"][0])]
 BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
+# ---------------------------------------------------------------------------------------------
+# THE AXIS: percent of the classical anchor, so all six panels share one unit
+# ---------------------------------------------------------------------------------------------
+# Raw metrics cannot share an axis -- ROC-AUC, NEF1 and two RMSEs in different units -- so every
+# panel used to carry its own scale and its own dotted reference line, and nothing could be read
+# across panels. Expressing each feature set as a PERCENTAGE OF THE ECFP4+desc ANCHOR puts them
+# on one axis: 100% is parity with the anchor, by construction, and is the dotted line.
+#
+# For higher-is-better metrics that is 100*v/ref. For RMSE it is 100*ref/v -- the RATIO IS
+# INVERTED so that "more" still means "better" on the same axis; plotting 100*v/ref for an error
+# would make the worst arm the tallest bar in two of the six panels.
+#
+# The anchor's OWN uncertainty is deliberately not propagated: it is the reference, it is 100% by
+# definition, and folding its spread into every other bar would make the comparison to it noisier
+# than it is. Each bar's error is its own spread rescaled by the same factor as its mean, so the
+# error bars answer "how well is this feature set measured", not "is it distinguishable from the
+# anchor" -- that second question is what the delta column of fig_F.csv is for.
+PCT_YLABEL = "% of ECFP4+desc"
+PCT_YLIM = (0, 132)
+
+
+def as_pct_of_anchor(values, errs, metric):
+    """(values, errs) rescaled so the anchor is 100. Returns NaNs unchanged."""
+    ref = values[0]
+    if not np.isfinite(ref) or ref == 0:
+        return [np.nan] * len(values), [0.0] * len(values)
+    lower_better = metric in LOWER_BETTER_METRIC
+    out_v, out_e = [], []
+    for v, e in zip(values, errs):
+        if not np.isfinite(v) or v == 0:
+            out_v.append(np.nan); out_e.append(0.0); continue
+        if lower_better:
+            out_v.append(100.0 * ref / v)
+            out_e.append(100.0 * ref * e / (v * v))      # |d(ref/v)/dv| * e
+        else:
+            out_v.append(100.0 * v / ref)
+            out_e.append(100.0 * e / ref)
+    return out_v, out_e
+
 
 def compute():
     """The concatenation table. Exposed so figures/fig_E_plus_F.py can assemble this figure with fig_E
@@ -191,8 +242,10 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
                 fontweight="bold",
                 va="bottom", ha="left", color=INK,
                 transform=ax.transAxes + ScaledTranslation(11 / 72, 0, fig.dpi_scale_trans))
-    if not compact:
-        ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"], color=INK)
+    # The y-axis is now the SAME quantity in every panel, so it is labelled in every panel --
+    # including the compact assembly, where it used to be dropped entirely and the reader was left
+    # with unlabelled bars (user 2026-08-19: "missing labels!").
+    ax.set_ylabel(PCT_YLABEL, fontsize=FS["annot"] - (1 if compact else 0), color=INK)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     for sp in ("top", "right"):
@@ -205,9 +258,10 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
     metric = PRIMARY[task]
     g = d[(d.task == task) & (d.metric == metric)].set_index("features")
     x = np.arange(len(FEATURES))
-    ys = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-    es = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-    es = [0.0 if not np.isfinite(e) else e for e in es]
+    raw = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
+    rawe = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
+    rawe = [0.0 if not np.isfinite(e) else e for e in rawe]
+    ys, es = as_pct_of_anchor(raw, rawe, metric)
     cs = [c for _, _, c in FEATURES]
     # bar width tracks panel width for the same reason rotation does: 0.42 was chosen for a 1.1in
     # panel, and at the stacked layout's 1.8in it leaves the bars as thin spikes.
@@ -215,7 +269,9 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
            color=cs, edgecolor=INK, linewidth=0.7,
            yerr=es, error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9, ecolor=INK, zorder=6),
            zorder=3)
-    ax.axhline(ys[0], color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
+    # 100% IS THE ANCHOR, BY CONSTRUCTION. Every panel is on this one axis, so the line means the
+    # same thing in all six and a reader can compare across panels instead of only within one.
+    ax.axhline(100.0, color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
     ax.set_xticks(x)
     if compact:
         # single-line short labels. ROTATION IS A FUNCTION OF PANEL WIDTH, not of `compact`: at the
@@ -236,16 +292,10 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         # 8 ticks of "0.725 0.750 ..." in a short panel run together and eat the panel's width in
         # label gutter; 4 is enough to read a bar height off a gridline.
         ax.yaxis.set_major_locator(ticker.MaxNLocator(4))
-    if ylims and metric in ylims:
-        ax.set_ylim(*ylims[metric])
-    else:
-        lo = min(v - e for v, e in zip(ys, es) if np.isfinite(v))
-        hi = max(v + e for v, e in zip(ys, es) if np.isfinite(v))
-        pad = 0.30 * max(hi - lo, 1e-9)
-        y0, y1 = lo - pad, hi + pad
-        if meta["metric"] == "roc_auc":
-            y1 = min(y1, 1.0)
-        ax.set_ylim(y0, y1)
+    # ONE y-range for all six panels. The whole point of normalising is cross-panel comparability;
+    # per-panel autoscaling would put six different zooms on one unit and undo it.
+    ax.set_ylim(*PCT_YLIM)
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
 
 
 # Wrapped forms for the VERTICAL legend. "CLIMB + descriptors + ECFP4" on one line is 3.3in wide,

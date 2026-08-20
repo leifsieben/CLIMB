@@ -206,12 +206,19 @@ def draw(ax, compact=False):
         else:
             ax.text(r.mean_rank, yi + 0.30, f"{r.mean_rank:.1f}", ha="center", va="bottom",
                     fontsize=FS["annot"], color=INK)
-        # two-line row label: system in bold, recipe below in regular. Drawn by hand rather than
+        # Two-line row label: system in bold, recipe below in regular. Drawn by hand rather than
         # via tick labels because matplotlib cannot mix weights inside one tick string.
-        ax.text(-0.012, yi + 0.19, system(a), transform=ytrans, ha="right", va="center",
-                fontsize=FS["tick"], fontweight="bold", color=INK)
-        ax.text(-0.012, yi - 0.19, label(a), transform=ytrans, ha="right", va="center",
-                fontsize=FS["tick"], color=INK)
+        #
+        # The two lines were the same size and read as one crowded block -- system name and recipe
+        # running into each other (user 2026-08-19). The fix is SIZE, not spacing: the recipe drops
+        # a point and the system name a fraction, which relieves the crowding without touching the
+        # grouping. Pushing them apart instead was tried and is wrong -- at +-0.26 the within-row
+        # gap (0.52) exceeds the between-row gap (0.48), so each recipe reads as though it belongs
+        # to the arm BELOW it. Whatever the spacing, within-row must stay tighter than between-row.
+        ax.text(-0.012, yi + 0.21, system(a), transform=ytrans, ha="right", va="center",
+                fontsize=FS["tick"] - 0.4, fontweight="bold", color=INK)
+        ax.text(-0.012, yi - 0.21, label(a), transform=ytrans, ha="right", va="center",
+                fontsize=FS["tick"] - 1.3, color=INK)
 
     ax.set_yticks(y); ax.set_yticklabels([])
     ax.set_ylim(-0.62, N - 0.42)
