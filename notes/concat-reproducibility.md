@@ -36,7 +36,11 @@ reproduces between them.
   tree. Tested and rejected on this machine:
 
       OMP_NUM_THREADS=2 / default(12) / 16      all 7 cells bit-identical
-      n_jobs forced to 2 explicitly at fit()    identical again
+      n_jobs forced to 2 and to 12 at fit()     identical again
+
+  Five configurations, seven blocks, one number each. Evidence:
+  `_verify_esol_local.csv`, `_verify_esol_t2.csv`, `_verify_esol_t16.csv`,
+  `_probe_nj2.csv`, `_probe_nj12.csv` in `analysis/rigor/`.
 
   The env-var arm alone would have been worthless — `n_jobs=0` may resolve from hardware and ignore
   `OMP_NUM_THREADS`, so a null there could just mean the lever is disconnected. Forcing `n_jobs` at
