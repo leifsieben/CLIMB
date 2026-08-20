@@ -214,7 +214,14 @@ GROUPS = [(tick, base, [(base if r is NO_EMB else f"{base}+{ROLE_SUFFIX[r]}", r)
                         for r in ROLE_ORDER])
           for tick, base in (("desc", "desc"), ("ECFP4", "fp"), ("desc+ECFP4", "fp+desc"))]
 FEATURES = [(k, role, ROLE_COLOR[role]) for _, _, mem in GROUPS for k, role in mem if k]
-BASE, CONCAT = "fp+desc", "fp+desc+CLM"
+BASE = "fp+desc"
+# TWO HEADLINE DELTAS, NOT ONE (user 2026-08-20: "it'll become two numbers yes, everywhere report
+# supervised and unsupervised"). The concatenation test is run separately for each CLIMB arm, so
+# the figure reports the redundancy verdict for each rather than picking one arm to speak for
+# both. Derived from ROLE_SUFFIX so a fourth embedding would be picked up automatically.
+CONCAT_ARMS = [(r, f"{BASE}+{ROLE_SUFFIX[r]}") for r in (EMB_CLM_U, EMB_CLM_S)]
+# short column-safe keys for the CSV
+CONCAT_TAG = {EMB_CLM_U: "unsup", EMB_CLM_S: "sup"}
 
 # ---------------------------------------------------------------------------------------------
 # THE AXIS: percent of the classical anchor, so all six panels share one unit
@@ -486,25 +493,35 @@ def main():
     rows = []
     for task, metric in ALL_TASKS.items():
         g = d[(d.task == task) & (d.metric == metric)].set_index("features")
-        if BASE not in g.index or CONCAT not in g.index:
+        if BASE not in g.index:
             continue
         sign = -1 if metric in LOWER_BETTER_METRIC else 1
-        delta = sign * (float(g.loc[CONCAT, "mean"]) - float(g.loc[BASE, "mean"]))
-        sd = float(g.loc[CONCAT, "std"])
-        sd = 0.0 if not np.isfinite(sd) else sd     # 1-replicate cell: no SD to beat
         row = dict(task=task, metric=metric,
                    in_canonical_panels=int(task in {v for v in PANEL_TASK.values() if v}))
         for f, _, _ in FEATURES:
             row[f] = round(float(g.loc[f, "mean"]), 4) if f in g.index else ""
             _sd = float(g.loc[f, "std"]) if f in g.index else float("nan")
             row[f + "_sd"] = round(_sd, 4) if np.isfinite(_sd) else ""
-        row.update(delta_vs_fp_desc=round(delta, 4), concat_sd=round(sd, 4),
-                   beats_sd="yes" if delta > sd else "no")
+        # one delta per CLIMB arm; an arm with no run leaves its columns blank rather than
+        # inheriting the other arm's verdict
+        for role, key in CONCAT_ARMS:
+            t = CONCAT_TAG[role]
+            if key not in g.index:
+                row[f"delta_{t}"] = row[f"sd_{t}"] = row[f"beats_sd_{t}"] = ""
+                continue
+            delta = sign * (float(g.loc[key, "mean"]) - float(g.loc[BASE, "mean"]))
+            sd = float(g.loc[key, "std"])
+            sd = 0.0 if not np.isfinite(sd) else sd   # 1-replicate cell: no SD to beat
+            row[f"delta_{t}"] = round(delta, 4)
+            row[f"sd_{t}"] = round(sd, 4)
+            row[f"beats_sd_{t}"] = "yes" if delta > sd else "no"
         rows.append(row)
     OUTDIR.mkdir(exist_ok=True)
     cols = ["task", "metric", "in_canonical_panels"] + \
            [c for f, _, _ in FEATURES for c in (f, f + "_sd")] + \
-           ["delta_vs_fp_desc", "concat_sd", "beats_sd"]
+           [c for role, _ in CONCAT_ARMS
+            for c in (f"delta_{CONCAT_TAG[role]}", f"sd_{CONCAT_TAG[role]}",
+                      f"beats_sd_{CONCAT_TAG[role]}")]
     DATADIR.mkdir(parents=True, exist_ok=True)
     with open(DATADIR / "fig_F.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
@@ -529,25 +546,42 @@ def main():
 
     print("\nFig F — does concatenating CLIMB onto the classical features help?")
     print("  (delta signed so + = concatenation helped)\n")
-    print(f"  {'task':<13}{'canon':<7}" + "".join(f"{f:>16}" for f, _, _ in FEATURES) +
-          f"{'delta':>10}{'> SD?':>7}")
+    head = "".join(f"{f:>16}" for f, _, _ in FEATURES)
+    head += "".join(f"{'Δ ' + CONCAT_TAG[role]:>11}{'>SD':>5}" for role, _ in CONCAT_ARMS)
+    print(f"  {'task':<13}{'canon':<7}{head}")
     for r in rows:
         line = f"  {r['task']:<13}{'yes' if r['in_canonical_panels'] else '—':<7}"
         for f, _, _ in FEATURES:
             v = r.get(f)
             line += (f"{v:>16.4f}" if isinstance(v, (int, float)) else f"{'—':>16}")
-        line += f"{r['delta_vs_fp_desc']:>+10.4f}{r['beats_sd']:>7}"
+        for role, _ in CONCAT_ARMS:
+            t = CONCAT_TAG[role]
+            dv = r.get(f"delta_{t}")
+            line += (f"{dv:>+11.4f}" if isinstance(dv, (int, float)) else f"{'—':>11}")
+            line += f"{r.get(f'beats_sd_{t}') or '—':>5}"
         print(line)
-    # SPLIT BY WHETHER THE TASK IS DRAWN. The bare "1/9" counts tasks the figure does not plot --
-    # BBBP, ESOL and CBS are in the table but not in the canonical panel set -- and the single
-    # "yes" is BBBP, a non-canonical task. Quoted unqualified it reads as though concatenation
-    # helped somewhere the reader can see, when on the drawn panels it helps nowhere.
-    helped = sum(r["beats_sd"] == "yes" for r in rows)
+    # ONE VERDICT PER CLIMB ARM (user 2026-08-20). Reporting a single number meant silently
+    # choosing which arm "the embedding" refers to, and it was the unsupervised one -- the weaker
+    # of the two on most panels. The claim is stronger stated for both, and an arm with no runs
+    # says "not run" rather than borrowing the other's verdict.
+    #
+    # SPLIT BY WHETHER THE TASK IS DRAWN. A bare count over `rows` includes BBBP, ESOL and CBS,
+    # which are in the table but not in the canonical panel set, and the only positive is BBBP --
+    # so unqualified it reads as though concatenation helped somewhere the reader can see.
     canon = [r for r in rows if r["in_canonical_panels"]]
-    helped_canon = sum(r["beats_sd"] == "yes" for r in canon)
-    where = ", ".join(r["task"] for r in rows if r["beats_sd"] == "yes") or "nowhere"
-    print(f"\n  concatenation beat its own SD on {helped}/{len(rows)} tasks ({where}), and on "
-          f"{helped_canon}/{len(canon)} of the DRAWN canonical panels")
+    print()
+    for role, _ in CONCAT_ARMS:
+        t = CONCAT_TAG[role]
+        have = [r for r in rows if r.get(f"beats_sd_{t}") in ("yes", "no")]
+        if not have:
+            print(f"  {role}: NOT RUN — no concatenation cells for this arm yet")
+            continue
+        helped = [r["task"] for r in have if r[f"beats_sd_{t}"] == "yes"]
+        hc = [r for r in canon if r.get(f"beats_sd_{t}") == "yes"]
+        nc = [r for r in canon if r.get(f"beats_sd_{t}") in ("yes", "no")]
+        print(f"  {role}: beat its own SD on {len(helped)}/{len(have)} tasks "
+              f"({', '.join(helped) or 'nowhere'}), and on {len(hc)}/{len(nc)} "
+              f"of the DRAWN canonical panels")
     print("  wrote figures_v2/fig_F.png/pdf + figure_data/fig_F/fig_F.csv")
 
 
