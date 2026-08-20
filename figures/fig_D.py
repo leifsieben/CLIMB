@@ -124,9 +124,9 @@ LOWER_BETTER = {"MoleculeACE", "QM7"}                            # rmse; the res
 # only these three live in the MolNet CV tree, so only these can drift between the two waves
 MOLNET_TASKS = ["BACE", "Tox21", "QM7", "HIV"]
 
-FLOOR_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]
+FLOOR_RUNS = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]
 FROZEN = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]
-FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]
+FLOOR_LABEL = ARMS["random_encoder"]["label"]
 
 # panel (a) context rows: the shared MLM base itself (phase2 wave) and the XGBoost anchor
 BASE_SRC = dict(mace="unsup_2M", mol=["unsup_2M"])               # the shared MLM base itself
@@ -164,7 +164,7 @@ def _lift(arm_val, task, floor_val):
 
 def _joint(task, run):
     """The one MolNet subdir BOTH trees can supply — see figures.sixpanel.joint_molnet_subdirs."""
-    return joint_molnet_subdirs(task, [(ABL.name, [run]), (PHASE2.name, FLOOR_RUNS)])
+    return joint_molnet_subdirs(task, [(ABL.name, [run]), (ABL.name, FLOOR_RUNS)])
 
 
 def _arm_value(run, task):
@@ -175,8 +175,19 @@ def _arm_value(run, task):
 
 
 def _floor_value(task, run):
-    """Floor read in the SAME convention as the arm it is lifted against."""
-    return canonical_value(task, ARMS["e2e_no_pretrain"]["src"], molnet_subdirs=_joint(task, run))
+    """The no-pretraining floor, read in the SAME convention as the arm it is lifted against.
+
+    FLOOR CHANGED 2026-08-19 (user): frozen random encoder ("no pretrain, random"), not the
+    fine-tuned one. The arms on this figure are FROZEN probes, so the fine-tuned floor mixed the
+    pretraining question with the frozen-vs-fine-tuned question in a single lift.
+
+    It also removes a cross-wave borrow rather than merely relabelling one. The ablation wave has
+    NO end2end floor, which is why phase2's was imported under a runtime agreement check; it has
+    its OWN random_baseline_0{0,1,2}. Reading the floor from ABL makes arm and floor siblings in
+    one wave, so the agreement check now guards a borrow that no longer happens.
+    """
+    return canonical_value(task, ARMS["random_encoder"]["src"], molnet_root=ABL.name,
+                           molnet_subdirs=_joint(task, run))
 
 
 def compute():

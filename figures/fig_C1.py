@@ -1,39 +1,60 @@
 """Fig C1 -- does molecular similarity (pretrain corpus <-> eval molecule) explain the benefit of
 UNSUPERVISED pretraining?
 
-READ THIS FIRST: THERE IS NO BENEFIT TO EXPLAIN, AND THAT IS THE RESULT.
-Against the honest floor -- a random-init encoder FINE-TUNED end-to-end -- unsupervised pretraining
-is worth, over ALL molecules and before any binning:
+RETRACTED HEADLINE (2026-08-19). This file used to open with "THERE IS NO BENEFIT TO EXPLAIN,
+AND THAT IS THE RESULT", quoting MoleculeACE -0.29% and QM7 -2.68% over all molecules. That null
+was an artefact of two separate defects, and neither was visible in the figure, which looked
+entirely reasonable throughout.
 
-    MoleculeACE   -0.29%  [-0.40, -0.18]        QM7   -2.68%  [-5.25, -0.94]
+  1. WRONG LABEL COLUMN on MoleculeACE. chemeleon_suite/data/moleculeace/*.csv carry both `y` and
+     `y [pEC50/pKi]`, differing by EXACTLY 9.0 -- `y` is -log10(exp_mean in nM), the models are
+     trained and scored on pKi. The truth join took `y`, so every squared error was (residual - 9)
+     and read ~81 instead of ~0.87. Lift is (floor SE - arm SE)/floor SE and the constant does NOT
+     cancel: it inflates the denominator ~90x and crushes every lift toward zero. See _mace_truth.
+  2. PROTOCOL-MIXED FLOOR. A FROZEN pretrained arm was lifted against a FINE-TUNED random-init
+     arm, so the number mixed "did pretraining help" with "frozen vs fine-tuned".
 
-i.e. nothing, or slightly negative, on both tasks. So this figure is not apportioning a benefit
-between similar and novel molecules; it is showing that no apportionment is available, INCLUDING
-on the molecules the model has literally read. That is the stronger claim, and it is what panel (a)
-means: the corpus-identical group sits at -0.0%, so there is no memorization advantage to explain
-away in the first place.
+WHAT IT READS NOW. Floor is the frozen random encoder ("no pretrain, random"), matched to the
+frozen arm under test (user decision 2026-08-19); labels are the pKi column. Over ALL molecules,
+before any binning:
 
-Do not read this against fig_E, which reports the same arm at +6.4% (MoleculeACE) and +2.9% (QM7).
-Fig E's floor is no pretraining FROZEN; this figure's floor is no pretraining FINE-TUNED. Both are
-true and together they are the point: pretraining beats an untrained encoder held fixed, and does
-not beat the same untrained encoder allowed to learn. Beating a frozen random encoder is close to
-automatic, which is exactly why it is not the comparator here.
+    MoleculeACE   +18.98%  [+17.06, +20.98]        QM7   +2.79%  [+1.04, +4.52]
 
-PRE-REGISTERED CHANGE OF FLOOR (2026-08-19, before the data exists). The floor above is
-protocol-MIXED: a FROZEN pretrained arm against a FINE-TUNED random-init arm, so it answers
-"pretrain-and-freeze vs train-from-scratch" rather than "does pretraining help". The matched
-version is unsup_8M_e2e vs e2e_random, both fine-tuned. `unsup_8M_e2e` exists on MoleculeACE and
-QM7 is queued (peer session), so the swap becomes possible without any new figure logic.
+The two defects pulled in opposite directions and it is worth keeping them apart, because "we
+changed the floor and the result grew" is not what happened:
 
-Committing to the reporting rule NOW, before the number is seen: whatever the matched comparison
-gives is what gets reported, in place of the mixed one. The three outcomes and what each means:
-  * matched lift <= mixed lift   -> report the smaller number; the current headline was partly
-                                    the frozen-vs-fine-tuned axis, not pretraining
-  * matched lift ~ mixed lift    -> the mixed floor was harmless; say so and keep the claim
-  * matched lift  > mixed lift   -> report it, and note the mixed floor had UNDERstated pretraining
-Since the figure's result is already "no benefit to explain", a smaller matched lift strengthens
-the null rather than weakening the paper. The frozen-vs-frozen number (+6.4%, fig E) stays where
-it is and keeps its own floor; it is not an alternative headline to pick between.
+    floor        labels      MoleculeACE      QM7
+    e2e          `y` (bug)        -0.29%    -2.68%     <- the retracted headline
+    e2e          pKi             +28.59%    -3.39%     <- the units fix alone
+    frozen       pKi             +18.98%    +2.79%     <- current
+
+So on MoleculeACE the null was ENTIRELY the units bug, and moving to the matched frozen floor
+actually LOWERS the lift (28.6 -> 19.0). On QM7 the floor is what flips the sign. That asymmetry
+is itself informative and not noise: MoleculeACE targets are a few hundred molecules each, where a
+fine-tuned random init overfits and makes a WEAKER floor than the frozen one; QM7 has 6.8k, enough
+for the fine-tuned floor to be the harder of the two. Which no-pretraining floor is more demanding
+depends on the label budget, so neither is "the honest" one in general -- what matters is that it
+is protocol-matched to the arm, which the frozen floor is and the old one was not.
+
+ON THE PRE-REGISTRATION. This file pre-registered, before any of these numbers existed, that
+"whatever the matched comparison gives is what gets reported", naming a LARGER matched lift as the
+costly direction because the headline was a null. That is what happened, and the null is withdrawn
+rather than defended. The pre-registered swap named e2e-vs-e2e as the matched version; the swap
+actually made is frozen-vs-frozen, which is matched on the same principle and is the one this
+figure's arm supports today. The e2e-vs-e2e number remains worth having as the practical claim and
+is one QM7 run away (peer session).
+
+WHAT THE FIGURE NOW SHOWS, which is a result rather than an absence of one: the benefit is real
+and it does NOT concentrate on corpus-similar molecules. Among non-identical molecules the most-
+similar and most-novel quantiles are indistinguishable (MoleculeACE +9.2% [6.8,11.4] vs +9.4%
+[6.8,12.1]; QM7 +2.0% vs +0.8%, CIs overlapping). The corpus-identical group sits modestly higher
+(+11.3% MoleculeACE, +2.6% QM7) but its interval overlaps the most-similar quantile, so it is not
+a clean memorization signal either. Generalisation, not recall -- which is the claim fig_I1 makes
+from the other direction.
+
+Do not read this against fig_E's +6.4% (MoleculeACE) as though it were the same quantity: fig E
+lifts a suite-level metric per task, this figure lifts POOLED PER-MOLECULE squared error, and the
+two aggregate differently even with the same arm and the same floor.
 
 ONE script, ONE figure: figures_v2/figC1.png / .pdf
 
@@ -99,13 +120,13 @@ EXACT = DEDUP / "exact_match_per_molecule.csv"     # literal isomeric-canonical 
 IDENTICAL_THR = 0.99999                            # ECFP4 Tanimoto = 1.0 => corpus-identical
 
 MODEL = "unsup_8M"                                 # the unsupervised arm (matched 8M budget)
-BASE_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]   # no pretrain, end2end (MolNet)
+BASE_RUNS = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]  # frozen floor
 # MoleculeACE lives in its own tree with its own run names for the same two arms, and its
 # predictions carry no y_true -- the labels come from the benchmark's own split files.
 MACE_DIR = ROOT / "figure_data" / "chemeleon_suite" / "moleculeace"
 MACE_DATA = ROOT / "chemeleon_suite" / "data" / "moleculeace"
 MACE_MODEL = ["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"]
-MACE_BASE = ["no_pretrain_e2e_e2e", "no_pretrain_e2e_e2e_s1", "no_pretrain_e2e_e2e_s2"]
+MACE_BASE = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]
 # The canonical six has exactly TWO regression panels, and this figure needs per-molecule squared
 # errors, so these are the two it can use. (Pre-canonical it was ESOL + QM7.)
 TASKS = ["MoleculeACE", "QM7"]
@@ -121,7 +142,7 @@ C_MEM = SHADES["e2e"][1]
 C_SIM = SHADES["unsup"][0]
 C_NOV = SHADES["unsup"][2]
 TASK_COL = {"MoleculeACE": SHADES["unsup"][0], "QM7": SHADES["unsup"][2]}
-FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]     # "no pretrain, end2end"
+FLOOR_LABEL = ARMS["random_encoder"]["label"]      # "no pretrain, random" (frozen, matched)
 
 NBOOT = 400
 
@@ -136,14 +157,35 @@ def _mace_truth():
     so the labels are joined from chemeleon_suite/data/moleculeace/<task>.csv. Verified 2026-08-19
     that `test_index` indexes the split=="test" rows of that file in order (smiles match exactly),
     so the join is by SMILES and the index is only a cross-check.
+
+    THE LABEL COLUMN IS `y [pEC50/pKi]`, NOT `y`, AND THE DIFFERENCE IS NOT COSMETIC. Those files
+    carry both, and they differ by EXACTLY 9.0 everywhere -- `y` is -log10(exp_mean in nM) while
+    the models are trained and scored on pKi = 9 - log10(nM). Joining `y` therefore subtracts a
+    constant 9 from every label, and squared errors go from ~0.87 to ~81: the true signal survives
+    only as a rounding term on a large constant.
+
+    That is exactly what this figure measures, so it mattered. Lift is (floor SE - arm SE)/floor
+    SE, and adding the same constant to both numerator terms does NOT cancel -- it inflates the
+    denominator by two orders of magnitude and crushes every lift toward zero. Read with `y`,
+    MoleculeACE lift was -0.29% and the figure's headline was "there is no benefit to explain".
+    That headline was measuring the unit error.
+
+    Caught 2026-08-19 by a scale sanity check, not by the figure looking wrong -- it did not. The
+    assertion below is the fix that generalises: any future truth join whose residuals are absurd
+    for the metric fails here instead of rendering.
     """
     out = {}
     for f in sorted(MACE_DATA.glob("*.csv")):
         d = pd.read_csv(f)
         if "split" not in d.columns:
             continue
+        col = "y [pEC50/pKi]"
+        assert col in d.columns, f"{f.name}: no {col!r} column; do NOT silently fall back to 'y'"
         te = d[d.split == "test"]
-        out.update(dict(zip(te.smiles, te.y)))
+        out.update(dict(zip(te.smiles, te[col])))
+    assert 3.0 < min(out.values()) and max(out.values()) < 14.0, (
+        f"MoleculeACE labels out of pKi range [{min(out.values()):.2f}, {max(out.values()):.2f}] "
+        f"-- the 'y' column (pKi - 9) is the likely join")
     return out
 
 
@@ -185,7 +227,7 @@ def _floor_preds():
     if m is not None:
         bs.append(m)
     if not bs:
-        raise FileNotFoundError("no e2e floor predictions found")
+        raise FileNotFoundError("no random-encoder floor predictions found")
     return (pd.concat(bs).groupby(["dataset", "raw_smiles"], as_index=False)
              .agg(y_true=("y_true", "first"), y_pred=("y_pred", "mean")))
 
@@ -434,13 +476,19 @@ def main():
             print(f"Non-overlapping CIs on {', '.join(sep)} => the gain DOES depend on corpus "
                   f"similarity there even among non-identical molecules.")
         else:
+            # The identical group's values are DERIVED here. They were hardcoded into this
+            # sentence as "MoleculeACE -0.1%, QM7 +0.1%" and survived a floor change and a label
+            # -units fix that moved MoleculeACE to +15%, still printing the old pair as though it
+            # were a fresh reading. A narrative line that quotes numbers must compute them.
+            mem = ", ".join(f"{t} {v[0]:+.1f}%" for t, v in mpairs)
+            flat = all(abs(v[0]) < 2.0 for _, v in mpairs)
             print("Once corpus-identical molecules are removed, no task shows the lift "
-                  "concentrating on corpus-similar molecules (CIs overlap). NOTE the corpus-"
-                  "identical group is ALSO flat on the canonical panels (MoleculeACE -0.1%, "
-                  "QM7 +0.1%), so on this task set there is no memorization advantage to explain "
-                  "away -- the unsupervised arm gains nothing on molecules it has effectively "
-                  "seen. That is a stronger statement than the pre-canonical ESOL/QM7 version, "
-                  "where the top bin WAS carried by the identical group.")
+                  "concentrating on corpus-similar molecules (CIs overlap).")
+            print(f"   corpus-identical group: {mem} -- "
+                  + ("also flat, so there is no memorization advantage to explain away on this "
+                     "task set." if flat else
+                     "NOT flat, so the identical group carries a gain that the non-identical "
+                     "quantiles do not explain; report it as its own result."))
 
 
 if __name__ == "__main__":

@@ -220,7 +220,12 @@ ARMS = {
 
     # ---- controls ---------------------------------------------------------------------------
     "random_encoder": dict(
-        label="random encoder", short="random enc.", family="random", color=FAMILY_COLORS["random"],
+        # "no pretrain, random" rather than "random encoder" (user 2026-08-19): this arm and
+        # `e2e_no_pretrain` are BOTH random-init and the reader has to be able to tell which
+        # question each one floors. Naming them as a pair -- "no pretrain, random" (frozen) and
+        # "no pretrain, end2end" (fine-tuned) -- puts the shared "no pretrain" first and the
+        # protocol second, which is the axis that actually differs.
+        label="no pretrain, random", short="no pretrain, random", family="random", color=FAMILY_COLORS["random"],
         probe="frozen", in_ablation=True,
         # MoleculeACE spelled out: the controls' replicates are _00/_01/_02, not <base>/_s1/_s2,
         # so the default resolver would find only the first dir and leave this arm at 1 seed

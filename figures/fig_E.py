@@ -78,7 +78,7 @@ PANELS = [
       ("shuffled", "shuffled tokens",    SHADES["unsup"][1]),
       ("bigram",   "bigram corpus",      SHADES["unsup"][2]),
       ("unigram",  "unigram corpus",     SHADES["unsup"][3]),
-      ("wiki",     "wiki (zero chem.)",  SHADES["random"][1])]),
+      ("wiki",     "Wikipedia",          SHADES["random"][1])]),
 ]
 
 

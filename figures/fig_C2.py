@@ -110,10 +110,10 @@ LOWER_BETTER = {"MoleculeACE", "QM7"}                            # rmse; the res
 # siblings in ONE tree -- there is no second wave to drift against, so they are not checked.
 MOLNET_TASKS = ["BACE", "Tox21", "QM7", "HIV"]
 
-FLOOR_RUNS = ["e2e_random_00", "e2e_random_01", "e2e_random_02"]  # phase2, end2end floor
+FLOOR_RUNS = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]  # frozen floor
 FROZEN_ABL = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]
 FROZEN_PH2 = ["random_baseline_00", "random_baseline_01", "random_baseline_02"]
-FLOOR_LABEL = ARMS["e2e_no_pretrain"]["label"]                    # "no pretrain, end2end"
+FLOOR_LABEL = ARMS["random_encoder"]["label"]                     # "no pretrain, random"
 
 
 def _suite_mean(run_dir, task):
@@ -144,7 +144,7 @@ def _joint(task, arm):
     """The one MolNet subdir BOTH trees can supply for this task — see joint_molnet_subdirs.
     Without it the QM7 lift reads +99% because the floor has a native re-eval and the arm does not.
     """
-    return joint_molnet_subdirs(task, [(ABL.name, [arm]), (PHASE2.name, FLOOR_RUNS)])
+    return joint_molnet_subdirs(task, [(ABL.name, [arm]), (ABL.name, FLOOR_RUNS)])
 
 
 def _arm_value(arm, task):
@@ -158,20 +158,35 @@ def _arm_value(arm, task):
 
 
 def _floor_value(task, arm):
-    """The end-to-end random-init floor, read in the SAME convention as the arm it is lifted against."""
-    return canonical_value(task, ARMS["e2e_no_pretrain"]["src"], molnet_subdirs=_joint(task, arm))
+    """The no-pretraining floor, read in the SAME convention as the arm it is lifted against.
+
+    FLOOR CHANGED 2026-08-19 (user): frozen random encoder ("no pretrain, random"), not the
+    fine-tuned one. The arms on this figure are FROZEN probes, so the fine-tuned floor mixed the
+    pretraining question with the frozen-vs-fine-tuned question in a single lift.
+
+    It also removes a cross-wave borrow rather than merely relabelling one. The ablation wave has
+    NO end2end floor, which is why phase2's was imported under a runtime agreement check; it has
+    its OWN random_baseline_0{0,1,2}. Reading the floor from ABL makes arm and floor siblings in
+    one wave, so the agreement check now guards a borrow that no longer happens.
+    """
+    return canonical_value(task, ARMS["random_encoder"]["src"], molnet_root=ABL.name,
+                           molnet_subdirs=_joint(task, arm))
 
 
 def compute():
     """All C2 numbers, once. Shared by the standalone figure and the assembled fig_C."""
-    # cross-wave safety: the two waves' frozen random-encoder floors must agree before we borrow
-    # phase2's end2end floor for the ablation wave's arms (same check as the old notebook).
+    # Cross-wave check, KEPT although the borrow it guarded is gone. Until 2026-08-19 the floor
+    # was phase2's end2end run imported into the ablation wave, and this check licensed that
+    # import by requiring the two waves' frozen random encoders to agree. The floor is now the
+    # ablation wave's OWN frozen random encoder, so arm and floor are siblings and there is
+    # nothing to borrow. What the check still buys is a wave-drift tripwire: if the two waves'
+    # identical-by-construction floors ever diverge, something has changed underneath both
+    # figures, and that is worth knowing even when no number depends on it.
     tasks, dropped = crosswave_safe(TASKS, ABL, PHASE2, FROZEN_ABL, MOLNET_TASKS)
     report_crosswave(dropped, FLOOR_LABEL)
     if not dropped:
         print(f"   frozen floors agree across both waves on all {len(MOLNET_TASKS)} MolNet tasks "
-              f"-> safe to lift against phase2's {FLOOR_LABEL} floor "
-              f"(MoleculeACE/CBS/Ames share ONE tree, so there is nothing to drift)")
+              f"(informational: the {FLOOR_LABEL} floor is now read IN-WAVE, nothing is borrowed)")
 
     sim = pd.read_csv(SIMP)
     pts = []
@@ -228,63 +243,55 @@ def draw(ax, data, tag=None, compact=False):
 
     task_handles = [Line2D([], [], color=TASK_COLORS[t], marker="o", ls="none", ms=5,
                            mec="white", mew=0.5, label=t) for t in TASKS if t in set(TK)]
-    if compact:
-        # inside, lower right (empty quadrant of the scatter) so the assembled figure's two rows
-        # can share one left-to-right width -- no legend hanging outside the panel.
-        # BOXED, and no title (user 2026-08-19): sitting unframed on the same axes as the scatter,
-        # the legend's own markers read as data points. A light frame separates key from data.
-        # BLACK box, and this is the ONLY boxed legend in the set (user 2026-08-19): panel (c) is
-        # the one whose legend markers are the same glyph as its data points, so it is the one that
-        # needs separating. Elsewhere a frame is just clutter.
-        # TWO COLUMNS (user 2026-08-19: "the legend for c) is blocking data points"). A 5-row
-        # single column is ~0.65in tall, which at this panel's scale is ~18 y-units and reached up
-        # to lift=-12 -- right through the HIV point at (0.400, -17.96), the lowest in the cloud.
-        # 3 rows is ~0.40in, so with the deepened floor below the box clears that point by ~6
-        # y-units. Checked against the data, not by eye: see the assertion after set_ylim.
-        # LOWER LEFT, two columns (user 2026-08-19: "on c) the legend is fully blocking things").
-        # The upper-right 3x2 box was as wide as the panel, so "upper right" still reached across
-        # the top and covered the whole upper-left cloud -- six points, including the highest in
-        # the figure. The old assertion did not catch it because it only tested x >= 0.55 of the
-        # range, i.e. the right-hand part of a box that extended far past it.
-        #
-        # The corner is chosen from the DATA, not by eye: scanning the four corners at 45% x 30%
-        # of the data range, lower-left contains 0 of 24 points where upper-left contains 6. Two
-        # columns rather than three keeps the box inside that 45%.
-        ax.legend(handles=task_handles, loc="lower left", ncol=2, frameon=True, framealpha=1.0,
-                  edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"] - 0.5,
-                  handletextpad=0.25, borderaxespad=0.35, borderpad=0.3, labelspacing=0.22,
-                  columnspacing=0.6, handlelength=0.9)
-    else:
-        # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
-        # expands savefig's tight bbox past the page width, so this figure came out 7.10in wide
-        # against the set's 6.69in and LaTeX then downscaled its fonts relative to every other
-        # figure. Keep every legend inside the canvas.
-        # BOXED, and no title (user 2026-08-19): sitting unframed on the same axes as the scatter,
-        # the legend's own markers read as data points. A light frame separates key from data.
-        # BLACK box, and this is the ONLY boxed legend in the set (user 2026-08-19): panel (c) is
-        # the one whose legend markers are the same glyph as its data points, so it is the one that
-        # needs separating. Elsewhere a frame is just clutter.
-        ax.legend(handles=task_handles, loc="lower right", frameon=True, framealpha=1.0,
-                  edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
-                  handletextpad=0.3, borderaxespad=0.4, borderpad=0.45, labelspacing=0.3)
-
-    # The lower-right legend was landing on the point cloud. Dropping the floor opens an empty
-    # band beneath the data for it to sit in, rather than shrinking the legend (user 2026-08-17).
-    # NOTHING is forced any more -- the legend moved out of the data's way instead of the axis
-    # being stretched to make room for it, so the range is what the points need plus headroom for
-    # the legend box itself.
+    # LEGEND PLACEMENT IS CHOSEN FROM THE DATA, not fixed to a corner.
+    #
+    # It was pinned to one corner with a comment recording how many points that corner held on the
+    # day it was written ("lower-left contains 0 of 24"). That is a measurement, not a property:
+    # changing the floor from fine-tuned to frozen moved the cloud and put a point straight under
+    # the box, and the assertion -- correctly -- failed. Re-pinning to whichever corner happens to
+    # be empty today would just reset the same trap for the next data change.
+    #
+    # So: open room below, then test all four corners against the actual box footprint and take
+    # the first empty one. If none is empty the assertion fires rather than the emptiest being
+    # picked -- a legend on one point is still a legend on a point.
     lo, hi = ax.get_ylim()
     span = hi - lo
-    # Room is opened BELOW now, where the legend actually sits, instead of above where it used to.
-    ax.set_ylim(lo - 0.26 * span, hi + 0.06 * span)
-    # Assert the corner the legend OCCUPIES is empty in the data. The previous version asserted a
-    # different corner from the one `loc` put the box in, so it passed while the legend sat on six
-    # points -- a check pointed at the wrong place is worse than none, because it reads as cover.
-    y1 = lo - 0.26 * span + 0.34 * (hi + 0.06 * span - (lo - 0.26 * span))
-    x1 = X.min() + 0.50 * (X.max() - X.min())
-    intruders = [(x, y) for x, y in zip(X, Y) if x <= x1 and y <= y1]
-    assert not intruders, (f"fig_C2 legend box (x<={x1:.3f}, y<={y1:.2f}) now covers "
-                           f"{len(intruders)} point(s): {intruders}")
+    ax0, ax1 = X.min(), X.max()
+    BW, BH = (0.62, 0.20) if compact else (0.52, 0.30)   # box footprint as a fraction of each axis
+    def CORNER_TESTS(ay0, ay1):
+        xl = ax0 + BW * (ax1 - ax0); xr = ax1 - BW * (ax1 - ax0)
+        yb = ay0 + BH * (ay1 - ay0); yt = ay1 - BH * (ay1 - ay0)
+        return [("lower left",  lambda x, y: x <= xl and y <= yb),
+                ("lower right", lambda x, y: x >= xr and y <= yb),
+                ("upper left",  lambda x, y: x <= xl and y >= yt),
+                ("upper right", lambda x, y: x >= xr and y >= yt)]
+    # Open room BELOW in steps until some corner is genuinely clear. Growing the axis is the
+    # cheap resolution here -- the y range is a lift percentage with no natural bound, so empty
+    # space at the bottom costs nothing a reader can misread, whereas a box over a point hides
+    # data. The alternative (shrinking the legend) was already spent: it is 3 columns and 2 rows.
+    for pad in (0.26, 0.34, 0.42, 0.50, 0.60):
+        ax.set_ylim(lo - pad * span, hi + 0.06 * span)
+        ay0, ay1 = ax.get_ylim()
+        occupancy = [(n, [(x, y) for x, y in zip(X, Y) if f(x, y)]) for n, f in CORNER_TESTS(ay0, ay1)]
+        empty = [n for n, pts in occupancy if not pts]
+        if empty:
+            break
+    assert empty, ("fig_C2: every legend corner covers data even at 0.60 padding - "
+                   + "; ".join(f"{n} {len(q)}" for n, q in occupancy)
+                   + ". Split the legend rather than covering points.")
+    loc = empty[0]
+    # BOXED and untitled (user 2026-08-19): on the same axes as the scatter an unframed legend's
+    # markers read as data points. This is the only boxed legend in the set, for that reason.
+    kw = dict(handles=task_handles, loc=loc, frameon=True, framealpha=1.0,
+              edgecolor=STYLE["ink"], facecolor="white")
+    if compact:
+        ax.legend(ncol=3, fontsize=FS["legend"] - 0.5, handletextpad=0.25, borderaxespad=0.35,
+                  borderpad=0.3, labelspacing=0.22, columnspacing=0.6, handlelength=0.9, **kw)
+    else:
+        ax.legend(ncol=2, fontsize=FS["legend"], handletextpad=0.3, borderaxespad=0.4,
+                  borderpad=0.45, labelspacing=0.3, **kw)
+    print(f"   C2 legend -> {loc} at {pad:.2f} bottom padding ("
+          + ", ".join(f"{n}:{len(q)}" for n, q in occupancy) + " points per corner)")
 
     ax.set_title("Transfer vs chemical similarity" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
