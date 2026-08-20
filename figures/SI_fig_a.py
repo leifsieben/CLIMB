@@ -76,6 +76,19 @@ PROBES = ["frozen", "end2end"]
 # where it belongs, and every CLIMB-to-anchor gap read off those four panels was measuring the
 # wave.
 #
+# THE LABEL-EFFICIENCY ANCHOR IS UNDER QUESTION -- DO NOT QUOTE A GAP AGAINST IT YET. On BACE it
+# reads 0.7836 while the mainline anchor's FIFTEEN fold-cells span 0.8381-0.8896 with sd 0.0167:
+# the LE value is 5.2 fold-SD below the mean and OUTSIDE the entire observed range, on an
+# identical training-set size (1,210 both). Ordinary split-to-split variation does not reach that
+# far, so something other than the split differs and it is not yet identified. Ensembling is part
+# of it -- mainline scores an ensemble of 3 head seeds per fold while the LE path scores single
+# models and averages the metric -- but that is worth 0.5-1% AUC, not 8.8%.
+#
+# A claim was drawn from this and is RETRACTED: that the frozen encoders "beat the anchor" on BACE.
+# They beat a number that is 5.2 SD off its own distribution. The encoders drop 0.033 between the
+# two waves and the anchor drops 0.088 -- a 2.7x differential that is the actual anomaly, and
+# until it is explained the BACE/Tox21/QM7 lines are provisional.
+#
 # METRIC IS MATCHED EXPLICITLY, not positionally: the anchor summary carries BOTH roc_auc and nef1
 # for BACE/Tox21/HIV, so a positional read would silently take whichever sorted first. HIV's line
 # is its nef1 (0.6190), which is quantised -- zero spread across three seeds -- and BACE's nef1 is
@@ -102,15 +115,19 @@ def _anchor_values(protocols):
             # match the metric the PANEL plots; both roc_auc and nef1 are present for some tasks
             if r["metric"] != PANELS[p]["metric"]:
                 continue
-            # A panel with no points yet has no protocol to match against, and HIV is exactly
-            # that case. It is NOT left on the mainline value by default: the compute session's
-            # HIV end2end run is in the label-efficiency wave like BACE/Tox21/QM7, so the
-            # label-efficiency anchor is the one its points will belong beside. Falling through to
-            # mainline would put HIV's line at 0.7373 instead of 0.6190 -- a 19% error, in the
-            # direction that flatters the anchor, on the one panel where the line is the only
-            # content and nothing else on the panel would contradict it.
-            known = protocols.get(p)
-            if known is None or known.startswith("label-efficiency"):
+            # ONLY panels whose points are known to be label-efficiency. A panel with no points
+            # has no protocol to match and MUST NOT be guessed: HIV was briefly pinned to the
+            # label-efficiency anchor on the assumption its end2end run belonged to that wave, and
+            # it does not. scripts/hiv_e2e_molnet_run.sh calls evaluate_finetuned(cv_folds=5),
+            # i.e. scaffold 5-fold -- the MAINLINE protocol -- while label_eff_fractions.py says in
+            # its own docstring that it subsamples "a single-hold-out train split". HIV's matched
+            # anchor is therefore mainline 0.7373, not 0.6190.
+            #
+            # The trap that made the wrong guess look right: LE HIV n_train is 32,896 and scaffold
+            # 5-fold train is 4/5 x 41,127 = 32,902. The training sizes agree to 0.02%, so "same
+            # n_train" reads as confirmation that the protocols match. Same size, different split
+            # construction. Match on how the split was BUILT, never on how big it is.
+            if str(protocols.get(p, "")).startswith("label-efficiency"):
                 out[p] = (float(r["mean"]), "label-efficiency")
     return out
 # "end2end" spelled out (user 2026-08-19: "e2e that is not commonly understood"). It does not fit
