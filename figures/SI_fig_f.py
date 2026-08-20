@@ -1,6 +1,10 @@
-"""SI Fig g — is the frozen-probe result a property of the EMBEDDING or of the HEAD?
+"""SI Fig f — is the frozen-probe result a property of the EMBEDDING or of the HEAD?
 
-ONE script, ONE figure: figures_v2/SI_fig_g.png / .pdf
+ONE script, ONE figure: figures_v2/SI_fig_f.png / .pdf
+
+LETTERED f, NOT g. The old SI fig f (the class-B resolution block) was dropped on
+2026-08-19 and its content folded into fig_G, which left the SI sequence reading
+a, b, c, d, e, g -- a gap a reader will hunt for. This figure takes the free letter.
 
 Every frozen-probe number in this paper is an embedding scored through ONE head, and the headline
 comparison puts an XGBoost-on-fingerprints anchor beside MLP-on-transformer-embedding arms. That
@@ -29,7 +33,7 @@ standardize or median-impute the classical descriptor block for non-tree heads, 
 was reported and then withdrawn. Tree heads are scale-invariant and never showed it. Fixed in
 commit 0ab0388; any MLP-on-fp_desc cell produced before that is invalid, not merely noisy.
 
-Run:  python3 -m figures.SI_fig_g
+Run:  python3 -m figures.SI_fig_f
 """
 from __future__ import annotations
 from pathlib import Path
@@ -64,7 +68,7 @@ SERIES = [("ecfp_desc",        "fp_desc_anchor",   "xgb"),
           ("sup_dense",        "skip_dense_8M",    "mlp"),
           ("chemeleon_frozen", "chemeleon_frozen", "mlp")]
 assert all(a != "chemeleon_e2e" for a, _, _ in SERIES), \
-    "SI fig g compares PROBE HEADS on frozen embeddings; chemeleon_e2e is a fine-tune, not a probe"
+    "SI fig f compares PROBE HEADS on frozen embeddings; chemeleon_e2e is a fine-tune, not a probe"
 
 # metric per canonical panel, and which way is better
 METRIC = {"MoleculeACE": "rmse", "HIV": "nef1", "BACE": "roc_auc",
@@ -181,10 +185,10 @@ def main():
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.105, 1, 1), w_pad=0.35)
-    save(fig, "SI_fig_g")
+    save(fig, "SI_fig_f")
     plt.close(fig)
 
-    print("\nSI Fig g — same embedding, two probe heads (XGBoost -> MLP):\n")
+    print("\nSI Fig f — same embedding, two probe heads (XGBoost -> MLP):\n")
     print(f"   {'panel':<13}{'representation':<22}{'XGBoost':>10}{'MLP':>10}   delta")
     for p in PANEL_ORDER:
         for arm, _, _ in SERIES:

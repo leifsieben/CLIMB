@@ -60,6 +60,33 @@ DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_a" / "SI_fig_a_e2e_need.csv")
 SERIES = [("unsupervised",      "unsup",     "unsupervised"),
           ("supervised, dense", "sup_dense", "supervised, dense")]
 PROBES = ["frozen", "end2end"]
+
+# The classical anchor as a reference line (user 2026-08-19: "add as a golden dotted line XGBoost
+# on fp+desc so we can contextualize"). It is drawn ONLY on panels whose numbers come from the
+# MAINLINE wave, because that is the only wave the anchor was run in.
+#
+# This is not caution for its own sake. SI fig a's BACE/Tox21/QM7 cells come from the
+# label-efficiency wave at its 100% fraction, and those differ from the mainline table by up to
+# 8% -- Tox21 0.7356 here against 0.7961 mainline, QM7 212.7 against 197.9. Dropping a mainline
+# anchor onto those panels would draw a line that beats both encoders by a wide margin and looks
+# like a result, when most of the gap is the protocol change. The figure's own docstring already
+# forbids comparing a value in one panel against a value in another; a reference line is exactly
+# that comparison, made to look authoritative.
+#
+# Where it IS drawn the identity was checked, not assumed: MoleculeACE's frozen values in this
+# table equal the mainline table to the digit, and Ames is within 0.25%.
+ANCHOR_ARM = "ecfp_desc"
+ANCHOR_PROTOCOL = "mainline"
+
+
+def _anchor_values():
+    """{panel: value} for the classical anchor, from the table every other figure draws."""
+    import csv as _csv
+    f = ROOT / "figure_data" / "six_panel" / "mainline_8M.csv"
+    if not f.exists():
+        return {}
+    return {r["panel"]: float(r["value"]) for r in _csv.DictReader(f.open())
+            if r["arm"] == ANCHOR_ARM and r["value"] not in ("", "nan")}
 # "end2end" spelled out (user 2026-08-19: "e2e that is not commonly understood"). It does not fit
 # horizontally under a ~1.1in panel, so the x tick labels are rotated instead of abbreviated --
 # shortening to jargon to win space is the wrong trade.
@@ -67,6 +94,7 @@ XTICKS = ["frozen", "end2end"]
 
 
 def main():
+    ANCHOR = _anchor_values()
     # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
     # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
     # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
@@ -117,6 +145,12 @@ def main():
             vals += [v for v in ys if np.isfinite(v)]
             errs += es
 
+        proto = str(g_all.protocol.iloc[0]) if "protocol" in g_all else ""
+        av = ANCHOR.get(p) if proto == ANCHOR_PROTOCOL else None
+        if av is not None:
+            ax.axhline(av, color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3, zorder=2)
+            vals.append(av)
+
         ax.set_xticks([0, 1])
         ax.set_xticklabels(XTICKS, fontsize=FS["annot"])
         ax.set_xlim(-0.32, 1.32)
@@ -131,6 +165,8 @@ def main():
 
     handles = [Line2D([], [], color=ARMS[k]["color"], marker="o", ms=5.0, lw=1.4, label=lab)
                for _, k, lab in SERIES]
+    handles.append(Line2D([], [], color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3,
+                          label=f"{ARMS[ANCHOR_ARM]['label']} (XGBoost, mainline wave only)"))
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=2,
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
                borderpad=0.0, frameon=False, labelcolor=INK)

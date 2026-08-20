@@ -273,13 +273,13 @@ def check_comparator_scope():
     #
     # SI_fig_f was the other half of this experiment and was dropped 2026-08-19; its two informative
     # class-B modes are fig_G panels (k) and (l), so the exemption is now one figure, not two.
-    # SI_fig_g is admitted for a DIFFERENT reason than fig_G, and the distinction is the rule
+    # SI_fig_f (the probe-head figure) is admitted for a DIFFERENT reason than fig_G, and the distinction is the rule
     # itself. The confound this check guards is frozen-probe vs end-to-end fine-tune: CheMeleon's
     # benchmark bars mix the two, so placing them beside CLIMB invites an unguarded comparison.
-    # SI_fig_g uses chemeleon_FROZEN only, against CLIMB's frozen arms, with the same probe on the
+    # It uses chemeleon_FROZEN only, against CLIMB's frozen arms, with the same probe on the
     # same splits -- like for like, and the whole question there is whether the HEAD changes the
     # ranking, which cannot be asked without a representation from outside our own family.
-    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_g"}
+    allowed = {"fig_A", "fig_A1", "fig_A2", "fig_G", "SI_fig_f"}
     bad = 0
     for p in sorted(list(FIGDIR.glob("fig_*.py")) + list(FIGDIR.glob("SI_fig_*.py"))):
         if p.stem in allowed:
