@@ -183,7 +183,11 @@ def suite_handles(with_dagger=False):
     # The cross's key. It is what makes the mark readable rather than mysterious, which is the
     # whole reason the earlier unkeyed version was removed. Filled ink, not per-arm colour: the
     # key names the PROTOCOL, and colouring it after any one arm would suggest otherwise.
-    h.append(Line2D([], [], ls="none", marker="X", color=INK, ms=5.0,
+    # "x" (stroked) not "X" (filled). The filled glyph reads as a heavy blob beside four thin
+    # open suite markers; the stroked one matches their weight (user 2026-08-20: "less fat, like
+    # thinner lines"). mew is set explicitly so the stroke width does not follow the rcParam that
+    # sizes the marker EDGES elsewhere in this figure.
+    h.append(Line2D([], [], ls="none", marker="x", color=INK, ms=5.2, mew=1.1,
                     label="fine-tuned end-to-end"))
     return h
 
@@ -266,13 +270,18 @@ def draw(ax, compact=False):
     # fine-tune the whole network while every other arm is a frozen probe.
     for yi, a in zip(y, order):
         if a in E2E_ARMS:
-            ax.plot(0.985, yi, transform=ytrans, marker="X", ms=(4.6 if compact else 5.8),
-                    color=ARMS[a]["color"], mec="white", mew=0.7, ls="none", zorder=5,
-                    clip_on=False)
+            # matches the key: stroked "x", no white halo (a halo on a stroked glyph eats the
+            # strokes rather than separating them from a background this mark never overlaps).
+            ax.plot(0.985, yi, transform=ytrans, marker="x", ms=(4.8 if compact else 6.0),
+                    color=ARMS[a]["color"], mew=1.1, ls="none", zorder=5, clip_on=False)
 
     if not compact:
-        ax.legend(handles=suite_handles(), loc="upper center",
-                  bbox_to_anchor=(0.5, -0.095), ncol=len(SUITES), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
+        # ONE ROW (user 2026-08-20). ncol=len(SUITES) was 4 while the legend carries 5 entries --
+        # the four suites plus the end-to-end key -- so it wrapped to a ragged second row holding
+        # one item. ncol is the handle count, so adding a key keeps the row rather than breaking it.
+        _h = suite_handles()
+        ax.legend(handles=_h, loc="upper center",
+                  bbox_to_anchor=(0.5, -0.095), ncol=len(_h), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
                   columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
 
 
