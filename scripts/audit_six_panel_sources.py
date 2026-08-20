@@ -106,7 +106,10 @@ def audit_mace(arm, spec):
 
 
 def audit_cbs(arm, spec):
-    src = spec["src"].get("cbs")
+    # cbs_legacy_label, NOT a path: this audit checks the DEPRECATED
+    # experiment_cbs/cbs_nef1_summary.csv, which no figure reads. The CBS panel the
+    # figures draw comes from allsuites._cbs_value via the arm's `mol` dir names.
+    src = spec["src"].get("cbs_legacy_label")
     if not src:
         return
     f = ROOT / "experiment_cbs" / "cbs_nef1_summary.csv"

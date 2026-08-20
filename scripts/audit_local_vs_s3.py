@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -38,10 +39,34 @@ TREES = {"mol": "climb_v2_phase2",
 CBS_TREE = "cbs_benchmark"
 
 
-def s3_dirs(prefix: str) -> set[str]:
-    out = subprocess.run(["aws", "s3", "ls", f"{S3}/{prefix}/"],
+def s3_dirs(prefix: str) -> dict[str, str]:
+    """{dir: newest object timestamp}. One recursive listing per tree.
+
+    The TIMESTAMP is what makes a repeated run readable. This check gets run during a compute wave,
+    and a producer that uploads each dir as it finishes will show every not-yet-pulled dir as
+    S3-ONLY on every run -- expected noise that buries the finding you actually care about. A dir
+    uploaded minutes ago is a producer still producing; one from days ago is drift. Same bytes,
+    opposite meanings, and only the age separates them (climb-06, 2026-08-20).
+    """
+    out = subprocess.run(["aws", "s3", "ls", f"{S3}/{prefix}/", "--recursive"],
                          capture_output=True, text=True).stdout
-    return {ln.split("PRE ", 1)[1].rstrip("/ \n") for ln in out.splitlines() if " PRE " in ln}
+    newest: dict[str, str] = {}
+    # `aws s3 ls --recursive` prints keys relative to the BUCKET ROOT, not to the prefix you
+    # listed: "experiments/<tree>/<dir>/...". Stripping only <tree>/ matches nothing, every dir
+    # reads as absent from S3, and the check inverts into 197 false LOCAL-ONLY reports -- a
+    # tripwire that fails loudly enough to catch, which is why the CLEAN baseline is worth keeping.
+    head = f"{S3.split('/', 3)[3]}/{prefix.rstrip('/')}/"
+    for ln in out.splitlines():
+        parts = ln.split(maxsplit=3)
+        if len(parts) < 4 or not parts[3].startswith(head):
+            continue
+        rest = parts[3][len(head):]
+        if "/" not in rest:
+            continue
+        d, stamp = rest.split("/", 1)[0], f"{parts[0]} {parts[1]}"
+        if stamp > newest.get(d, ""):
+            newest[d] = stamp
+    return newest
 
 
 def local_dirs(tree: str) -> set[str]:
@@ -63,6 +88,9 @@ def declared(key: str) -> dict[str, list[str]]:
 
 def main() -> int:
     print("LOCAL vs S3 — every run dir figures/arms.py resolves")
+    # Anything uploaded within this window is probably a live producer, not drift. Reported, but
+    # labelled, so a wave's expected churn does not bury a real finding.
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
     bad = 0
     checks = [(k, t, declared(k)) for k, t in TREES.items()]
     # CBS is resolved from the `mol` dir names under a different tree; check it that way.
@@ -74,12 +102,15 @@ def main() -> int:
             for d in dirs:
                 inl, ins3 = d in here, d in there
                 if ins3 and not inl:
-                    s3_only.append((arm, d))
+                    s3_only.append((arm, d, there[d]))
                 elif inl and not ins3:
                     local_only.append((arm, d))
         print(f"\n  {key:14s} {tree:28s} local {len(here):3d}  s3 {len(there):3d}")
-        for arm, d in s3_only:
-            print(f"    S3-ONLY     {arm:22s} {d}  <- sync down; coverage is under-reported")
+        for arm, d, stamp in sorted(s3_only, key=lambda r: r[2], reverse=True):
+            fresh = stamp >= cutoff
+            tag = "uploaded just now - producer still running?" if fresh else \
+                  "sync down; coverage is under-reported"
+            print(f"    S3-ONLY     {arm:22s} {d:32s} {stamp}  <- {tag}")
         for arm, d in local_only:
             print(f"    LOCAL-ONLY  {arm:22s} {d}  <- push up; this result is unprotected")
         bad += len(s3_only) + len(local_only)

@@ -130,6 +130,18 @@ SHADES = {
 #          "no pretrain, end2end" control sitting a few rows away.
 # So label="end2end" and short="CheMeleon, end2end", and both are correct where they are used.
 # scripts/audit_figure_consistency.py check 17 enforces all of this.
+#
+# `cbs_legacy_label` IS NOT A PATH, WHICH IS WHY IT IS NO LONGER CALLED `cbs`. It holds an arm's
+# name in the DEPRECATED experiment_cbs/cbs_nef1_summary.csv, and exactly one consumer reads it
+# (scripts/audit_six_panel_sources.py, which audits that deprecated summary). The CBS PANEL every
+# figure draws is resolved by allsuites._cbs_value from the arm's `mol` DIR NAMES under the
+# cbs_benchmark tree -- so an arm with no entry here still has a CBS cell, and an entry here does
+# not give it one.
+#
+# Renamed 2026-08-20 after a field called `cbs` that was not the CBS source cost a queued box-hour:
+# the three __xgb arms have no entry here, were read as "no CBS", and were scheduled for a run whose
+# results were already on disk. Same failure family as a verified.json writing "featurizer": "ecfp4"
+# for three different featurizations -- a name that answers confidently and stops you looking.
 ARMS = {
     # ---- XGBoost anchors (orange) -----------------------------------------------------------
     "ecfp": dict(
@@ -148,12 +160,12 @@ ARMS = {
         # {6,7,8}), i.e. the SAME estimator the mainline plots -- exposing the existing _cell rows
         # instead would have swapped in the pre-ensemble estimator and moved every anchor bar.
         # MoleculeACE and Polaris are still one run each: those tracks were not replicated.
-        src=dict(mace="ecfp4", cbs="ecfp4",
+        src=dict(mace="ecfp4", cbs_legacy_label="ecfp4",
                  mol=["ecfp4_anchor", "ecfp4_anchor_s1", "ecfp4_anchor_s2"])),
     "ecfp_desc": dict(
         label="ECFP4+desc", short="ECFP4+desc", family="anchor", color=SHADES["anchor"][0], probe="xgb", pretrain_replicates=False,
         in_ablation=True,
-        src=dict(mace="fp_desc", cbs="fp_desc",
+        src=dict(mace="fp_desc", cbs_legacy_label="fp_desc",
                  mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
 
     # The r3-counts fingerprint as its OWN pair of arms rather than a replacement. Leif asked for
@@ -169,66 +181,66 @@ ARMS = {
     "r3fp": dict(
         label="R3FP", short="R3FP", family="anchor", color=SHADES["anchor"][4],
         probe="xgb", pretrain_replicates=False, in_ablation=False,
-        src=dict(mace="ecfp4_r3c", cbs="ecfp4_r3c",
+        src=dict(mace="ecfp4_r3c", cbs_legacy_label="ecfp4_r3c",
                  mol=["ecfp4_anchor_r3c", "ecfp4_anchor_s1_r3c", "ecfp4_anchor_s2_r3c"])),
     "r3fp_desc": dict(
         label="R3FP+desc", short="R3FP+desc", family="anchor",
         color=SHADES["anchor"][3], probe="xgb", pretrain_replicates=False, in_ablation=False,
-        src=dict(mace="fp_desc_r3c", cbs="fp_desc_r3c",
+        src=dict(mace="fp_desc_r3c", cbs_legacy_label="fp_desc_r3c",
                  mol=["fp_desc_anchor_r3c", "fp_desc_anchor_s1_r3c", "fp_desc_anchor_s2_r3c"])),
 
     # ---- supervised pretraining (red) -------------------------------------------------------
     "sup_dense": dict(
         label="supervised, desc", short="sup, desc", family="sup", color=SHADES["sup"][0],
         probe="frozen", in_ablation=True,
-        src=dict(mace="skip_dense_8M", mol=["skip_dense_8M", "skip_dense_8M_s1", "skip_dense_8M_s2"], cbs="sup_only:dense")),
+        src=dict(mace="skip_dense_8M", mol=["skip_dense_8M", "skip_dense_8M_s1", "skip_dense_8M_s2"], cbs_legacy_label="sup_only:dense")),
     "sup_dense_sparse": dict(
         label="supervised, desc+sparse", short="sup, desc+sparse", family="sup", color=SHADES["sup"][1],
         probe="frozen", in_ablation=True,
         src=dict(mace="skip_dense_plus_sparse_8M", mol=["skip_dense_plus_sparse_8M", "skip_dense_plus_sparse_8M_s1", "skip_dense_plus_sparse_8M_s2"],
-                 cbs="sup_only:dense_plus_sparse")),
+                 cbs_legacy_label="sup_only:dense_plus_sparse")),
     "sup_mixed": dict(
         label="supervised, mixed", short="sup, mixed", family="sup", color=SHADES["sup"][2],
         probe="frozen", in_ablation=True,
-        src=dict(mace="skip_mixed_8M", mol=["skip_mixed_8M", "skip_mixed_8M_s1", "skip_mixed_8M_s2"], cbs="sup_only:mixed")),
+        src=dict(mace="skip_mixed_8M", mol=["skip_mixed_8M", "skip_mixed_8M_s1", "skip_mixed_8M_s2"], cbs_legacy_label="sup_only:mixed")),
     "sup_sparse": dict(
         label="supervised, sparse", short="sup, sparse", family="sup", color=SHADES["sup"][3],
         probe="frozen", in_ablation=True,
-        src=dict(mace="skip_sparse_all_8M", mol=["skip_sparse_all_8M", "skip_sparse_all_8M_s1", "skip_sparse_all_8M_s2"], cbs="sup_only:sparse_all")),
+        src=dict(mace="skip_sparse_all_8M", mol=["skip_sparse_all_8M", "skip_sparse_all_8M_s1", "skip_sparse_all_8M_s2"], cbs_legacy_label="sup_only:sparse_all")),
     "sup_minimol": dict(
         label="supervised, MiniMol tasks", short="sup, MiniMol", family="sup", color=SHADES["sup"][4],
         probe="frozen", in_ablation=True,
-        src=dict(mace="skip_minimol_full_8M", mol=["skip_minimol_full_8M", "skip_minimol_full_8M_s1", "skip_minimol_full_8M_s2"], cbs="sup_only:minimol_full")),
+        src=dict(mace="skip_minimol_full_8M", mol=["skip_minimol_full_8M", "skip_minimol_full_8M_s1", "skip_minimol_full_8M_s2"], cbs_legacy_label="sup_only:minimol_full")),
 
     # ---- unsupervised pretraining (blue) ----------------------------------------------------
     "unsup": dict(
         label="unsupervised", short="unsup", family="unsup", color=SHADES["unsup"][0],
         probe="frozen", in_ablation=True,
-        src=dict(mace="unsup_8M", mol=["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"], cbs="unsup_only")),
+        src=dict(mace="unsup_8M", mol=["unsup_8M", "unsup_8M_s1", "unsup_8M_s2"], cbs_legacy_label="unsup_only")),
 
     # ---- unsupervised -> supervised (green) -------------------------------------------------
     "u2s_dense": dict(
         label="unsup→sup, desc", short="unsup→sup, desc", family="u2s", color=SHADES["u2s"][0],
         probe="frozen", in_ablation=True,
-        src=dict(mace="u2s_dense_from8M", mol=["u2s_dense_from8M", "u2s_dense_from8M_s1", "u2s_dense_from8M_s2"], cbs="unsup2sup:dense")),
+        src=dict(mace="u2s_dense_from8M", mol=["u2s_dense_from8M", "u2s_dense_from8M_s1", "u2s_dense_from8M_s2"], cbs_legacy_label="unsup2sup:dense")),
     "u2s_dense_sparse": dict(
         label="unsup→sup, desc+sparse", short="unsup→sup, desc+sparse", family="u2s",
         color=SHADES["u2s"][1], probe="frozen", in_ablation=True,
         src=dict(mace="u2s_dense_plus_sparse_from8M", mol=["u2s_dense_plus_sparse_from8M", "u2s_dense_plus_sparse_from8M_s1", "u2s_dense_plus_sparse_from8M_s2"],
-                 cbs="unsup2sup:dense_plus_sparse")),
+                 cbs_legacy_label="unsup2sup:dense_plus_sparse")),
     "u2s_mixed": dict(
         label="unsup→sup, mixed", short="unsup→sup, mixed", family="u2s", color=SHADES["u2s"][2],
         probe="frozen", in_ablation=True,
-        src=dict(mace="u2s_mixed_from8M", mol=["u2s_mixed_from8M", "u2s_mixed_from8M_s1", "u2s_mixed_from8M_s2"], cbs="unsup2sup:mixed")),
+        src=dict(mace="u2s_mixed_from8M", mol=["u2s_mixed_from8M", "u2s_mixed_from8M_s1", "u2s_mixed_from8M_s2"], cbs_legacy_label="unsup2sup:mixed")),
     "u2s_sparse": dict(
         label="unsup→sup, sparse", short="unsup→sup, sparse", family="u2s", color=SHADES["u2s"][3],
         probe="frozen", in_ablation=True,
-        src=dict(mace="u2s_sparse_all_from8M", mol=["u2s_sparse_all_from8M", "u2s_sparse_all_from8M_s1", "u2s_sparse_all_from8M_s2"], cbs="unsup2sup:sparse_all")),
+        src=dict(mace="u2s_sparse_all_from8M", mol=["u2s_sparse_all_from8M", "u2s_sparse_all_from8M_s1", "u2s_sparse_all_from8M_s2"], cbs_legacy_label="unsup2sup:sparse_all")),
     "u2s_minimol": dict(
         label="unsup→sup, MiniMol tasks", short="unsup→sup, MiniMol", family="u2s",
         color=SHADES["u2s"][4], probe="frozen", in_ablation=True,
         src=dict(mace="u2s_minimol_full_from8M", mol=["u2s_minimol_full_from8M", "u2s_minimol_full_from8M_s1", "u2s_minimol_full_from8M_s2"],
-                 cbs="unsup2sup:minimol_full")),
+                 cbs_legacy_label="unsup2sup:minimol_full")),
 
     # ---- supervised -> unsupervised (catastrophic-forgetting mirror) -------------------------
     # Mirror of unsup -> supervised: 8M supervised MTR, then a 2M MLM continuation. Isolates
@@ -242,7 +254,7 @@ ARMS = {
         probe="frozen", in_ablation=True,
         src=dict(mace=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
                  mol=["s2u_dense_from8M_s0", "s2u_dense_from8M_s1", "s2u_dense_from8M_s2"],
-                 cbs="sup2unsup:dense")),
+                 cbs_legacy_label="sup2unsup:dense")),
 
     # ---- CLIMB end-to-end (same encoders as `unsup` / `sup_dense`, fine-tuned) ----------------
     #
@@ -271,7 +283,7 @@ ARMS = {
         suite_seed_axis="finetune",
         src=dict(mace="unsup_8M_e2e",
                  mol=["unsup_8M_e2e", "unsup_8M_e2e_s1", "unsup_8M_e2e_s2"],
-                 cbs="unsup_8M_e2e")),
+                 cbs_legacy_label="unsup_8M_e2e")),
     "sup_dense_e2e": dict(
         label="supervised, desc end2end", short="sup, desc end2end", family="sup",
         color=SHADES["sup"][5], probe="e2e", in_ablation=False,
@@ -282,7 +294,7 @@ ARMS = {
         suite_seed_axis="finetune",
         src=dict(mace="skip_dense_8M_e2e",
                  mol=["skip_dense_8M_e2e", "skip_dense_8M_e2e_s1", "skip_dense_8M_e2e_s2"],
-                 cbs="skip_dense_8M_e2e")),
+                 cbs_legacy_label="skip_dense_8M_e2e")),
 
     # ---- XGBoost probe on a FROZEN embedding (the head-comparison arms) -----------------------
     #
@@ -342,11 +354,11 @@ ARMS = {
         # so the default resolver would find only the first dir and leave this arm at 1 seed
         # while every CLIMB arm has 3 (audit check 3). The _01/_02 dirs landed 2026-08-18.
         src=dict(mace=["random_baseline_00", "random_baseline_01", "random_baseline_02"],
-                 mol=["random_baseline_00", "random_baseline_01", "random_baseline_02"], cbs="no_pretrain")),
+                 mol=["random_baseline_00", "random_baseline_01", "random_baseline_02"], cbs_legacy_label="no_pretrain")),
     "e2e_no_pretrain": dict(
         label="no pretrain, end2end", short="no pretrain, end2end", family="e2e", color=FAMILY_COLORS["e2e"],
         probe="e2e", in_ablation=True,
-        src=dict(mace="no_pretrain_e2e_e2e", mol=["e2e_random_00", "e2e_random_01", "e2e_random_02"], cbs="no_pretrain_e2e")),
+        src=dict(mace="no_pretrain_e2e_e2e", mol=["e2e_random_00", "e2e_random_01", "e2e_random_02"], cbs_legacy_label="no_pretrain_e2e")),
 
     # ---- external comparator (curiosity only) -----------------------------------------------
     # SPLIT 2026-08-17 (was a single "chemeleon" arm labelled "end2end" but sourced entirely from
@@ -370,7 +382,7 @@ ARMS = {
         label="end2end", short="CheMeleon, end2end", family="chemeleon", color=SHADES["chemeleon"][0],
         probe="e2e", pretrain_replicates=False, in_ablation=False,
         src=dict(mace="chemeleon_e2e", mol=["chemeleon_e2e", "chemeleon_e2e_s1", "chemeleon_e2e_s2"],
-                 cbs="chemeleon_e2e")),
+                 cbs_legacy_label="chemeleon_e2e")),
     "chemeleon_frozen": dict(
         label="frozen, MLP probe", short="CheMeleon, frozen", family="chemeleon", color=SHADES["chemeleon"][1],
         # OUT OF fig_A1 (user 2026-08-20): the same representation ranks 3rd under XGBoost and
@@ -394,7 +406,7 @@ ARMS = {
         # _s1/_s2 carry QM7 only, so BACE/Tox21 correctly stay at the base dir alone.
         src=dict(mace="chemeleon_frozen",
                  mol=["chemeleon_frozen", "chemeleon_frozen_s1", "chemeleon_frozen_s2"],
-                 cbs="chemeleon_frozen")),
+                 cbs_legacy_label="chemeleon_frozen")),
 }
 
 # display order: anchors, supervised, unsupervised, unsup->sup, controls, comparator
