@@ -19,14 +19,29 @@ Read that way the result is one sentence: NO BAR REACHES 100% ON ANY CANONICAL P
 embedding alone recovers 82-95% of the classical anchor, and adding it on top of the anchor's own
 features recovers 92-99% -- i.e. concatenation does not reach the anchor, let alone beat it.
 
-Four feature sets, same XGBoost head, same splits, same seeds:
+LAYOUT: THREE CLASSICAL BASES x FOUR BARS (user 2026-08-20). One tick per classical block --
+desc, ECFP4, desc+ECFP4 -- and inside each, the block ALONE followed by the block plus each
+embedding. Redundancy is then read entirely WITHIN a group: an embedding that adds nothing leaves
+its bar level with the plain block beside it. The old "none" group (embeddings with no classical
+features) is gone; it answers "how good is the embedding by itself", which is a different question
+and cost a quarter of the panel width. Those numbers are still in fig_F.csv.
 
-  fp+desc       ECFP4 (2048 bits) + 217 RDKit descriptors   — the classical anchor
-  CLM           the frozen CLIMB embedding alone
-  desc+CLM      descriptors + CLIMB   (drops the fingerprint)
-  fp+desc+CLM   everything            — the concatenation test
+THREE EMBEDDINGS, all frozen, all through the same XGBoost head on the same splits and seeds:
 
-THE RESULT: concatenation helps on 1 of the 9 tasks run, and on NONE of the canonical panels.
+  + CLIMB unsup.        the MLM arm             (source tag CLM)
+  + CLIMB sup., desc    the descriptor-SFT arm  (source tag CLMsup)
+  + CheMeleon frozen    the external comparator (source tag CheMel)
+
+THE SUPERVISED CLIMB ARM HAD NEVER BEEN RUN THROUGH THIS EXPERIMENT. scripts/concat_redundancy.py
+hardcodes ENC = climb_v2_phase2/unsup_8M/encoder, so every "CLIMB" number this figure has ever
+shown is the UNSUPERVISED arm, and the paper's other headline CLIMB arm was simply absent from the
+redundancy test. Caught by the user 2026-08-20. Its cells draw as declared "not run" slots until
+the run lands -- an absence the reader can see, rather than one they cannot.
+
+THE RESULT: concatenation helps on 1 of the 8 tasks run (BBBP, which is not a canonical panel),
+and on NONE of the 5 canonical panels currently drawn. Quote the qualified form: the unqualified
+"1 of 9" counts tasks the figure does not plot, and its single positive is BBBP, whose control
+cell is a NEF1 pinned at a quantised ceiling with zero spread.
 `fp+desc+CLM` is worse than `fp+desc` alone on MoleculeACE (0.728 vs 0.690 macro RMSE), Ames
 (-0.028), ESOL (-0.028), QM7 (-2.20), HIV (-0.018), Tox21 (-0.012) and BACE (-0.006), and EXACTLY
 TIES on CBS (0.930 both). That tie is real rather than a duplicated row: NEF1 counts hits in the
@@ -172,17 +187,32 @@ ALL_TASKS = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "ESOL": "rmse", "QM7": 
 # this task at all" -- which is what turns a flat embedding result from unreadable into negative.
 # It was a dotted reference line for one revision; back to bars so it sits on the same footing as
 # everything else it is being compared against.
-NO_EMB, EMB_CLM, EMB_CHE = "no embedding", "+ CLIMB", "+ CheMeleon"
-ROLE_COLOR = {NO_EMB: SHADES["anchor"][0], EMB_CLM: SHADES["unsup"][0],
-              EMB_CHE: SHADES["chemeleon"][0]}
-GROUPS = [("none", None,
-           [(None, NO_EMB), ("CLM", EMB_CLM), ("CheMel", EMB_CHE)]),
-          ("desc", "desc",
-           [("desc", NO_EMB), ("desc+CLM", EMB_CLM), ("desc+CheMel", EMB_CHE)]),
-          ("ECFP4", "fp",
-           [("fp", NO_EMB), ("fp+CLM", EMB_CLM), ("fp+CheMel", EMB_CHE)]),
-          ("desc+ECFP4", "fp+desc",
-           [("fp+desc", NO_EMB), ("fp+desc+CLM", EMB_CLM), ("fp+desc+CheMel", EMB_CHE)])]
+# LAYOUT (user 2026-08-20). One tick per CLASSICAL BASE -- desc, ECFP4, desc+ECFP4 -- and inside
+# each, the classical block ALONE followed by the same block plus each embedding. The question the
+# figure exists to answer is read entirely within a group: if an embedding is redundant to a
+# classical block, its bar equals the block's own bar.
+#
+# THE "none" GROUP IS GONE (user). It held the embeddings with no classical features at all, which
+# answers a different question -- how good is the embedding on its own -- and made the panel four
+# groups wide for a comparison the redundancy claim does not use. The embedding-alone numbers are
+# still in the CSV; they are just not what this panel is for.
+#
+# THREE EMBEDDINGS, NOT ONE. Until 2026-08-20 the only CLIMB embedding here was `CLM`, which is
+# unsup_8M -- scripts/concat_redundancy.py hardcodes ENC = climb_v2_phase2/unsup_8M/encoder -- so
+# the supervised arm had never been through this experiment at all. The user spotted the gap. Both
+# CLIMB arms and CheMeleon frozen now have a slot; the supervised cells draw as "not run" until
+# the run lands, which is the honest state rather than a silent absence.
+NO_EMB = "no embedding"
+EMB_CLM_U, EMB_CLM_S, EMB_CHE = "+ CLIMB unsup.", "+ CLIMB sup., desc", "+ CheMeleon frozen"
+ROLE_COLOR = {NO_EMB: SHADES["anchor"][0], EMB_CLM_U: SHADES["unsup"][0],
+              EMB_CLM_S: SHADES["sup"][0], EMB_CHE: SHADES["chemeleon"][0]}
+# role -> the suffix its feature key carries in the source tables. "CLMsup" is the tag the
+# supervised concat run must write; it is named here so the request and the reader agree.
+ROLE_SUFFIX = {NO_EMB: None, EMB_CLM_U: "CLM", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
+ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S, EMB_CHE]
+GROUPS = [(tick, base, [(base if r is NO_EMB else f"{base}+{ROLE_SUFFIX[r]}", r)
+                        for r in ROLE_ORDER])
+          for tick, base in (("desc", "desc"), ("ECFP4", "fp"), ("desc+ECFP4", "fp+desc"))]
 FEATURES = [(k, role, ROLE_COLOR[role]) for _, _, mem in GROUPS for k, role in mem if k]
 BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
@@ -444,8 +474,9 @@ def legend_handles(skip_anchor=False, wrap=False):
     `skip_anchor` and `wrap` are kept for the fig_E+F caller's signature; the role legend is short
     enough that neither changes it now.
     """
-    return [Patch(facecolor=ROLE_COLOR[r], edgecolor=INK, lw=0.8, label=r)
-            for r in (NO_EMB, EMB_CLM, EMB_CHE)]
+    # Driven by ROLE_ORDER, so adding or renaming an embedding cannot leave the legend behind --
+    # this line was a literal tuple and broke the moment the second CLIMB arm was added.
+    return [Patch(facecolor=ROLE_COLOR[r], edgecolor=INK, lw=0.8, label=r) for r in ROLE_ORDER]
 
 
 def main():
