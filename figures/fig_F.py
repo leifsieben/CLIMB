@@ -92,6 +92,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font
 from figures.arms import PANELS, PANEL_ORDER, SHADES
@@ -138,10 +139,35 @@ ALL_TASKS = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "ESOL": "rmse", "QM7": 
              "HIV": "roc_auc"}
 # classical anchor keeps the anchor amber; anything containing CLIMB moves into the unsup blues,
 # darkening as more classical information is added back
-FEATURES = [("fp+desc", "ECFP4 + descriptors (classical anchor)", SHADES["anchor"][0]),
-            ("CLM", "CLIMB alone", SHADES["unsup"][2]),
-            ("desc+CLM", "CLIMB + descriptors", SHADES["unsup"][1]),
-            ("fp+desc+CLM", "CLIMB + descriptors + ECFP4", SHADES["unsup"][0])]
+# THE FULL LATTICE (user 2026-08-19). Every combination of the two classical blocks with at most
+# one embedding: 4 classical bases x {no embedding, + CLIMB, + CheMeleon}, minus the empty cell.
+# CLIMB+CheMeleon is deliberately absent -- stacking two learned embeddings answers no question
+# this paper asks.
+#
+# COLOUR IS THE EMBEDDING, GROUP IS THE CLASSICAL BASE, and that is what makes the panel answer
+# both directions of the redundancy question at once:
+#   read WITHIN a group   -> does the embedding add anything to this classical block?
+#   read ONE COLOUR ACROSS groups -> does the classical block add anything to this embedding?
+# Redundancy is directional, so a figure that only shows the first reading cannot support the
+# claim: a flat within-group result is equally consistent with the head failing to exploit 512
+# dense dims beside 2048 sparse bits, with added variance at fixed n, or with a task ceiling.
+#
+# The desc+ECFP4 group is also the POSITIVE CONTROL -- "does adding a second block ever help on
+# this task at all" -- which is what turns a flat embedding result from unreadable into negative.
+# It was a dotted reference line for one revision; back to bars so it sits on the same footing as
+# everything else it is being compared against.
+NO_EMB, EMB_CLM, EMB_CHE = "no embedding", "+ CLIMB", "+ CheMeleon"
+ROLE_COLOR = {NO_EMB: SHADES["anchor"][0], EMB_CLM: SHADES["unsup"][0],
+              EMB_CHE: SHADES["chemeleon"][0]}
+GROUPS = [("none", None,
+           [(None, NO_EMB), ("CLM", EMB_CLM), ("CheMel", EMB_CHE)]),
+          ("desc", "desc",
+           [("desc", NO_EMB), ("desc+CLM", EMB_CLM), ("desc+CheMel", EMB_CHE)]),
+          ("ECFP4", "fp",
+           [("fp", NO_EMB), ("fp+CLM", EMB_CLM), ("fp+CheMel", EMB_CHE)]),
+          ("desc+ECFP4", "fp+desc",
+           [("fp+desc", NO_EMB), ("fp+desc+CLM", EMB_CLM), ("fp+desc+CheMel", EMB_CHE)])]
+FEATURES = [(k, role, ROLE_COLOR[role]) for _, _, mem in GROUPS for k, role in mem if k]
 BASE, CONCAT = "fp+desc", "fp+desc+CLM"
 
 # ---------------------------------------------------------------------------------------------
@@ -242,10 +268,12 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
                 fontweight="bold",
                 va="bottom", ha="left", color=INK,
                 transform=ax.transAxes + ScaledTranslation(11 / 72, 0, fig.dpi_scale_trans))
-    # The y-axis is now the SAME quantity in every panel, so it is labelled in every panel --
-    # including the compact assembly, where it used to be dropped entirely and the reader was left
-    # with unlabelled bars (user 2026-08-19: "missing labels!").
-    ax.set_ylabel(PCT_YLABEL, fontsize=FS["annot"] - (1 if compact else 0), color=INK)
+    # ABSOLUTE metric (user 2026-08-19: "I do think absolute performance was more meaningful").
+    # The % -of-anchor axis was tried and dropped: it made the panels comparable to each other but
+    # answered the wrong question, since the comparison that matters here is base vs base+embedding
+    # WITHIN a group, and that is a like-for-like pair already. Labelled in every panel including
+    # the compact assembly, where it used to be dropped and left the bars unlabelled.
+    ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"] - (1 if compact else 0), color=INK)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     for sp in ("top", "right"):
@@ -257,45 +285,88 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         return
     metric = PRIMARY[task]
     g = d[(d.task == task) & (d.metric == metric)].set_index("features")
-    x = np.arange(len(FEATURES))
-    raw = [float(g.loc[f, "mean"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-    rawe = [float(g.loc[f, "std"]) if f in g.index else np.nan for f, _, _ in FEATURES]
-    rawe = [0.0 if not np.isfinite(e) else e for e in rawe]
-    ys, es = as_pct_of_anchor(raw, rawe, metric)
-    cs = [c for _, _, c in FEATURES]
-    # bar width tracks panel width for the same reason rotation does: 0.42 was chosen for a 1.1in
-    # panel, and at the stacked layout's 1.8in it leaves the bars as thin spikes.
-    ax.bar(x, ys, width=(bw if bw is not None else (0.42 if compact else 0.72)),
-           color=cs, edgecolor=INK, linewidth=0.7,
-           yerr=es, error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9, ecolor=INK, zorder=6),
-           zorder=3)
-    # 100% IS THE ANCHOR, BY CONSTRUCTION. Every panel is on this one axis, so the line means the
-    # same thing in all six and a reader can compare across panels instead of only within one.
-    ax.axhline(100.0, color=SHADES["anchor"][0], ls=":", lw=1.1, zorder=2)
-    ax.set_xticks(x)
-    if compact:
-        # single-line short labels. ROTATION IS A FUNCTION OF PANEL WIDTH, not of `compact`: at the
-        # old ~1.1in the four labels had to lean 40 deg to avoid overlapping, but in the stacked
-        # fig_E+F each panel is ~1.8in wide and gets ~0.45in per tick, which fits "ECFP+d"
-        # horizontally at 6pt. Horizontal labels are the readable option whenever they fit, so the
-        # caller passes xrot=0 there and the default stays 40 for anything narrower.
-        rot = 40 if xrot is None else xrot
-        ax.set_xticklabels(["ECFP+d", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"] - 1,
-                           rotation=rot,
-                           **(dict(ha="right", rotation_mode="anchor") if rot else dict(ha="center")))
-    else:
-        ax.set_xticklabels(["ECFP\n+desc", "CLIMB", "+desc", "+fp"], fontsize=FS["annot"])
+
+    def cell(k):
+        if k not in g.index:
+            return None, None
+        v = float(g.loc[k, "mean"])
+        e = float(g.loc[k, "std"])
+        return v, (0.0 if not np.isfinite(e) else e)
+
+    # x positions: two groups of three with a gap between, so the eye reads "base, +CLIMB,
+    # +CheMeleon" twice rather than six unrelated bars.
+    GAP = 0.8
+    xs, ys, es, cs, present = [], [], [], [], []
+    xi = 0.0
+    group_centres = []
+    for _, _, members in GROUPS:
+        start = xi
+        for k, role in members:
+            if k is None:
+                # "no classical, no embedding" is the empty feature set -- it holds a slot so the
+                # three colours stay in the same order in every group, and draws nothing.
+                xi += 1.0
+                continue
+            v, e = cell(k)
+            xs.append(xi); ys.append(v); es.append(e)
+            cs.append(ROLE_COLOR[role]); present.append(v is not None)
+            xi += 1.0
+        group_centres.append((start + xi - 1.0) / 2.0)
+        xi += GAP
+    x = np.array(xs)
+
+    base_v = None      # desc+ECFP4 is a BAR again, not a reference line
+    drawn = [v for v in ys if v is not None]
+    if not drawn and base_v is None:
+        ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
+                ha="center", va="center", fontsize=FS["annot"], color=INK)
+        ax.set_xticks([]); ax.set_yticks([])
+        return
+
+    # y range first: the placeholders need a height to sit in, and the range must not depend on
+    # which arms happen to have landed -- otherwise the axis moves as data arrives and two
+    # printings of "the same" figure disagree.
+    # Include the ERROR BARS, not just the means: sizing to the means alone let MoleculeACE's
+    # whisker run off the top of the panel.
+    span_vals = [v + e for v, e in zip(ys, es) if v is not None]
+    span_vals += [v - e for v, e in zip(ys, es) if v is not None]
+    span_vals += [base_v] if base_v is not None else []
+    lo, hi = min(span_vals), max(span_vals)
+    pad = 0.42 * max(hi - lo, 1e-9)
+    y0, y1 = lo - pad, hi + pad
+    if meta["metric"] == "roc_auc":
+        y1 = min(y1, 1.0)
+    ax.set_ylim(y0, y1)
+
+    bw = bw if bw is not None else (0.62 if compact else 0.74)
+    for xi_, v, e, c, ok in zip(x, ys, es, cs, present):
+        if ok:
+            ax.bar([xi_], [v], width=bw, color=c, edgecolor=INK, linewidth=0.7,
+                   yerr=[e], error_kw=dict(elinewidth=0.9, capsize=1.8, capthick=0.9,
+                                           ecolor=INK, zorder=6), zorder=3)
+        else:
+            # NOT RUN, drawn as an empty slot rather than omitted. A missing bar and a bar at the
+            # axis floor look identical, and here the two mean opposite things -- "no measurement"
+            # against "the embedding destroyed the score".
+            ax.bar([xi_], [y1 - y0], bottom=y0, width=bw, facecolor="none",
+                   edgecolor=STYLE["grid"], linewidth=0.7, linestyle=(0, (2, 2)), zorder=2)
+            ax.text(xi_, y0 + 0.5 * (y1 - y0), "not run", rotation=90, ha="center", va="center",
+                    fontsize=FS["annot"] - 2, color="#8A8A8A", zorder=4)
+
+    # NO per-bar tick labels. Eleven of them do not fit at any panel width in this set, and they
+    # would repeat what the colour already says -- the legend names the three embeddings once and
+    # the group name names the classical base. Ticks are the group names alone.
+    ax.set_xticks(group_centres)
+    # Rotated in BOTH layouts: "desc+ECFP4" beside "ECFP4" needs ~0.9in horizontally and the
+    # widest panel in this set gives ~0.55in per group.
+    ax.set_xticklabels([g for g, _, _ in GROUPS], fontsize=FS["annot"] - 1, rotation=30,
+                       ha="right", rotation_mode="anchor")
+    ax.tick_params(axis="x", length=0)
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
     if compact:
         ax.tick_params(axis="y", labelsize=FS["annot"] - 1)
-        # 8 ticks of "0.725 0.750 ..." in a short panel run together and eat the panel's width in
-        # label gutter; 4 is enough to read a bar height off a gridline.
         ax.yaxis.set_major_locator(ticker.MaxNLocator(4))
-    # ONE y-range for all six panels. The whole point of normalising is cross-panel comparability;
-    # per-panel autoscaling would put six different zooms on one unit and undo it.
-    ax.set_ylim(*PCT_YLIM)
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
 
 
 # Wrapped forms for the VERTICAL legend. "CLIMB + descriptors + ECFP4" on one line is 3.3in wide,
@@ -307,14 +378,21 @@ WRAPPED = {"CLIMB alone": "CLIMB\nalone",
 
 
 def legend_handles(skip_anchor=False, wrap=False):
-    """`skip_anchor` drops the ECFP4+desc entry so the remaining three fit on ONE row (user
-    2026-08-19). The anchor stays identifiable without it: its bar is the first in every panel,
-    tick-labelled "ECFP+d", and it is the dotted reference line.
+    """Three ROLES, not six bars, plus the dotted baseline.
 
-    `wrap` breaks the two long labels across lines for a single-column (vertical) legend."""
-    feats = [f for f in FEATURES if not (skip_anchor and f[0] == "fp+desc")]
-    return [Patch(facecolor=c, edgecolor=INK, lw=0.8,
-                  label=(WRAPPED.get(lab, lab) if wrap else lab)) for _, lab, c in feats]
+    The same three colours repeat in both groups -- classical block alone, + CLIMB, + CheMeleon --
+    so naming them once is the whole key; which classical block a group uses is written under its
+    own bars. Six entries would just be the same three words twice.
+
+    The dotted line gets its OWN entry (user 2026-08-19). It used to be the anchor's bar as well,
+    which was redundant; with the bar gone the line is the only thing carrying fp+desc, and an
+    unlabelled reference line is a number the reader cannot name.
+
+    `skip_anchor` and `wrap` are kept for the fig_E+F caller's signature; the role legend is short
+    enough that neither changes it now.
+    """
+    return [Patch(facecolor=ROLE_COLOR[r], edgecolor=INK, lw=0.8, label=r)
+            for r in (NO_EMB, EMB_CLM, EMB_CHE)]
 
 
 def main():
@@ -372,7 +450,8 @@ def main():
     for r in rows:
         line = f"  {r['task']:<13}{'yes' if r['in_canonical_panels'] else '—':<7}"
         for f, _, _ in FEATURES:
-            line += f"{r[f]:>16.4f}"
+            v = r.get(f)
+            line += (f"{v:>16.4f}" if isinstance(v, (int, float)) else f"{'—':>16}")
         line += f"{r['delta_vs_fp_desc']:>+10.4f}{r['beats_sd']:>7}"
         print(line)
     helped = sum(r["beats_sd"] == "yes" for r in rows)
