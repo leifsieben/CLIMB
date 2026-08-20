@@ -26,6 +26,33 @@ predictions -- it is a rank statistic on a handful of actives and it is quantise
 cross-metric ratio measures the metric, not the probe. This script reads main_metric from the row
 it uses and pairs like with like.
 
+RESULT AS OF 2026-08-20 (two datasets; e2e halves measured by the peer session, frozen halves
+from the local seed dirs, metric matched on both sides):
+
+    dataset  arm        metric    frozen    e2e    ratio
+    HIV      unsup      roc_auc    1.14%   0.64%   0.56
+    HIV      unsup      nef1       2.63%   1.76%   0.67
+    HIV      sup:dense  roc_auc    0.49%   0.45%   0.92
+    HIV      sup:dense  nef1       1.68%   1.63%   0.97
+    QM7      unsup      rmse       0.42%   0.18%   0.44
+    QM7      sup:dense  rmse       0.07%   0.32%   SKIPPED, denominator under the floor
+
+Every usable cell is BELOW 1, median 0.67: end-to-end fine-tuning DAMPS pretraining-seed spread
+rather than amplifying it. The pre-registered rule called that the surprising direction, to be
+investigated rather than banked, so: the mechanism is that fine-tuning updates the encoder itself
+and washes out the initialisation it started from, and it is corroborated by a measurement taken
+for another purpose entirely -- the same e2e arms show near-zero lift over a fine-tuned random
+init (fig_C1, QM7 -3.39%). Two independent readings of one thing: for an end-to-end arm, what the
+encoder was before fine-tuning matters little, whether "before" differs by seed or by whether it
+was pretrained at all.
+
+CONSEQUENCE. The two e2e arms' single-pretraining-seed cells on MoleculeACE and Polaris are
+defensible, and ~700 gap-filling fine-tunes are not required. Transferring the median 0.67 onto
+the frozen arm's MoleculeACE SD of 0.0204 estimates ~0.014 there. State the estimate as an
+estimate: it rests on 2 datasets, and MolNet is less pretraining-seed sensitive in absolute terms
+than MoleculeACE (0.3-1.6% vs ~2.4% for the same frozen arm), so the ratio is transferred across
+suites that differ in the very quantity being transferred.
+
 Run:  python3 scripts/pretrain_seed_variance.py
 """
 from __future__ import annotations
