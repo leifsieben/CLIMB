@@ -17,12 +17,13 @@ as a SLOPE: left is XGBoost, right is MLP, one line per representation. The ques
 lines CROSS. Parallel means the head is a level shift and the ranking of representations is
 head-independent -- which is what the rest of the paper assumes.
 
-THE LINES CROSS ON EVERY PANEL THAT HAS RUN (5 of 5: MoleculeACE, HIV, BACE, Tox21, QM7; Ames is
-short one cell). The ranking of the four representations is NOT the same under the two heads
+THE LINES CROSS ON EVERY PANEL (6 of 6, complete 2026-08-20). The ranking of the four representations is NOT the same under the two heads
 anywhere:
 
   MoleculeACE  ECFP4+desc leads under both heads, but CheMeleon goes from SECOND under XGBoost
                (0.688) to LAST under the MLP (0.826), crossing both CLIMB arms
+  Ames         CheMeleon leads under XGBoost (0.873) and is THIRD under the MLP (0.831); both
+               CLIMB arms improve under the MLP while both classical/external arms get worse
   BACE         XGBoost puts CheMeleon first, the MLP puts ECFP4+desc first
   Tox21        XGBoost puts ECFP4+desc first, the MLP puts CheMeleon first
   QM7          XGBoost puts ECFP4+desc first by 8 kcal/mol; under the MLP it is third and
@@ -34,11 +35,19 @@ The size of the effect is the point: CheMeleon moves 16.2 kcal/mol on QM7, 0.063
 reports BETWEEN representations. It is the same arm every time, and always in the direction of
 preferring the tree ensemble.
 
-ONE CROSS-HEAD READING TO HEAD OFF. CheMeleon-under-XGBoost (0.688 on MoleculeACE) beats
-ECFP4+desc-under-the-MLP (0.738), which invites "CheMeleon is the best representation on
-MoleculeACE". It is not a comparison this figure supports: WITHIN each head ECFP4+desc leads, and
-the only reason the cross-head pairing flatters CheMeleon is the head swap this figure exists to
-expose. Compare down a column, never across the diagonal.
+COMPARE DOWN A COLUMN, NEVER ACROSS THE DIAGONAL. CheMeleon-under-XGBoost (0.688 on MoleculeACE)
+beats ECFP4+desc-under-the-MLP (0.738), which invites "CheMeleon is the best representation on
+MoleculeACE". WITHIN the XGBoost column ECFP4+desc leads at 0.676; the cross-head pairing flatters
+CheMeleon only because of the head swap this figure exists to expose. The same trap runs the other
+way on Ames, where CheMeleon-XGBoost (0.873) against ECFP4+desc-MLP (0.807) looks like a wide win
+and the within-column gap is 0.873 vs 0.870 -- a tie.
+
+AND THE SHARPER SENTENCE, ON MoleculeACE, ALL UNDER XGBoost: bare ECFP4 with no descriptors reads
+0.6877 against CheMeleon-frozen's 0.6875. A 2048-bit fingerprint matches a molecular foundation
+model to three decimals under the same probe, and the descriptor and R3FP variants beat both
+(ECFP4+desc 0.6757, R3FP 0.6721, R3FP+desc 0.6676). Ames is the counterweight and is why neither
+"CheMeleon is strong" nor "classical wins" survives a single panel: there CheMeleon and ECFP4+desc
+tie at the top under XGBoost while both CLIMB arms sit 0.07-0.11 below.
 
 WHAT THAT DOES AND DOES NOT LICENCE. It does not overturn fig_A1: that figure scores every arm
 through the head each is normally used with, which is the honest engineering comparison, and the
@@ -142,6 +151,12 @@ def _head_cell(arm, head, panel):
     Returns None when the run has not been done -- the panel then says so rather than dropping the
     line silently, which is the difference between "no effect" and "not measured".
     """
+    # THE POLARIS FILE IS THE WHOLE TRACK, NOT ONE PANEL. polaris_scores.csv holds 28 tasks; the
+    # Ames panel is ONE of them, PANELS["Ames"]["polaris_task"] = "tdcommons/ames". Until
+    # 2026-08-20 this branch filtered on metric alone and averaged every roc_auc row in the file,
+    # i.e. nine unrelated Polaris classification tasks pooled into a cell labelled Ames. It read
+    # 0.7688 where Ames alone is 0.7652 -- close enough to look like a plausible Ames number,
+    # which is why it survived. arms.py already declared the task; this file simply never asked.
     task = panel
     if panel in ("MoleculeACE", "Ames"):
         track = "moleculeace" if panel == "MoleculeACE" else "polaris"
@@ -154,7 +169,9 @@ def _head_cell(arm, head, panel):
             if panel == "MoleculeACE":
                 if r.get("subset") == "overall" and r.get("metric") == "rmse":
                     vals.append(float(r["value"]))
-            elif r.get("metric") == "roc_auc" and r.get("value") not in ("", "nan"):
+            elif (r.get("task") == PANELS[panel]["polaris_task"]
+                  and r.get("metric") == PANELS[panel]["metric"]
+                  and r.get("value") not in ("", "nan")):
                 vals.append(float(r["value"]))
         return st.mean(vals) if vals else None
 
