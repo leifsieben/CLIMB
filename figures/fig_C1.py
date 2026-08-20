@@ -304,8 +304,13 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     bars = []
     if mpairs:
         mem, se_m = _agg([(t, v) for t, v in mpairs])
-        bars.append(("identical\n(excluded)" if compact else
-                     "corpus-identical\n(Tanimoto=1.0,\nexcluded)", mem, se_m, C_MEM))
+        # NOT "(excluded)". That label made the bar read as zero by definition -- excluded from
+        # the analysis, so of course it shows nothing -- when it is the opposite: this group is
+        # MEASURED, and its coming out at -0.0% is the memorization control and one of the
+        # figure's results. "Excluded" refers only to panel (b), where these molecules are kept
+        # out of the similarity quantiles because a Tanimoto of exactly 1.0 is not a percentile.
+        bars.append(("corpus-\nidentical" if compact else
+                     "corpus-identical\n(Tanimoto = 1.0,\nseen in pretraining)", mem, se_m, C_MEM))
     if pairs:
         simv, se_s = _agg([(t, v[0]) for t, v in pairs])
         nov, se_n = _agg([(t, v[1]) for t, v in pairs])
