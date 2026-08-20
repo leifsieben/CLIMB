@@ -47,22 +47,32 @@ reproduces between them.
   `fit()` (`scratchpad/njobs_probe.py`, patching `fit` rather than `__init__`, which sklearn's
   `get_params` rejects) is a lever that cannot be ignored, and it also shows no effect.
 
-## What is left
+## What it IS: the CPU architecture. Confirmed both ways.
 
-CPU architecture. The box is Intel with AVX-512; this laptop is Apple silicon. SIMD width changes
-the reduction order in the same way threads would have, and it fits every part of the signature:
-every row moves including embedding-free ones, deterministic within a machine, immune to matching
-versions and matching code, independent of the encoder. Unlike thread count it cannot be
-configured away.
+    arm64 (Apple silicon)  12 threads / 16 / 2 / n_jobs=2 forced   ->  0.7281   (= stereo)
+    x86_64 (Intel)         16 cores / 4 cores via taskset          ->  0.7350   (= v2)
 
-Untested, because confirming it needs an x86 box running the same code — the stereo box is gone.
+The peer session ran the same ESOL test on x86 and reproduced v2 bit-identically in every block, at
+two different core counts — using `taskset` to vary the hardware, which is the lever `n_jobs=0`
+actually resolves from, rather than the environment variable it may ignore. So thread count was
+falsified independently on both architectures, from opposite directions, and each machine is
+internally deterministic under every thread configuration.
+
+SIMD width changes floating-point reduction order the same way a thread count would have. It fits
+every part of the signature — every row moves including embedding-free ones, deterministic within a
+machine, immune to matching code and matching versions, independent of the encoder — and unlike
+thread count it cannot be configured away.
 
 ## What follows for the paper
 
 1. **fig_F keeps the stereo table.** It is the one the figure was drawn from AND the one a second
    machine reproduces. v2 is not adopted.
-2. **One environment per table.** A merged panel would carry the machine difference inside a
-   within-panel delta — the confound audit check 13 exists to catch.
+2. **One architecture per table, not one machine for everything.** The constraint is on what gets
+   COMPARED, not on where things run: any table whose rows are read against each other must come
+   from one architecture, and different figures may come from different machines provided no single
+   comparison spans them. A merged panel would carry the machine difference inside a within-panel
+   delta — the confound audit check 13 exists to catch. This is weaker and far more workable than
+   "rerun everything in one place", which is the rule it would be easy to over-apply.
 3. **The reproducibility claim is machine-class-scoped.** "Reproducible" here means reproducible on
    the same CPU architecture. The paper should not claim more.
 4. **Size it before dismissing it.** ESOL fp+desc moves 0.95% relative between machines. On
