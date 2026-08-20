@@ -241,16 +241,19 @@ def draw(ax, data, tag=None, compact=False):
         # to lift=-12 -- right through the HIV point at (0.400, -17.96), the lowest in the cloud.
         # 3 rows is ~0.40in, so with the deepened floor below the box clears that point by ~6
         # y-units. Checked against the data, not by eye: see the assertion after set_ylim.
-        # 3 x 2 in the UPPER right (user 2026-08-19). Lower-right needed the floor forced down to
-        # open an empty band, which spent a quarter of the panel on whitespace. The upper-right
-        # quadrant is already empty in the data -- every point above +4% lift sits at x < 0.37,
-        # while every point at x > 0.40 sits below +1% -- so the legend costs nothing and the
-        # floor goes back to being data-driven. Checked against the points, not by eye: the
-        # assertion below fails the build if a future rerun moves one into the box.
-        ax.legend(handles=task_handles, loc="upper right", ncol=3, frameon=True, framealpha=1.0,
-                  edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"],
-                  handletextpad=0.25, borderaxespad=0.4, borderpad=0.35, labelspacing=0.25,
-                  columnspacing=0.7, handlelength=0.9)
+        # LOWER LEFT, two columns (user 2026-08-19: "on c) the legend is fully blocking things").
+        # The upper-right 3x2 box was as wide as the panel, so "upper right" still reached across
+        # the top and covered the whole upper-left cloud -- six points, including the highest in
+        # the figure. The old assertion did not catch it because it only tested x >= 0.55 of the
+        # range, i.e. the right-hand part of a box that extended far past it.
+        #
+        # The corner is chosen from the DATA, not by eye: scanning the four corners at 45% x 30%
+        # of the data range, lower-left contains 0 of 24 points where upper-left contains 6. Two
+        # columns rather than three keeps the box inside that 45%.
+        ax.legend(handles=task_handles, loc="lower left", ncol=2, frameon=True, framealpha=1.0,
+                  edgecolor=STYLE["ink"], facecolor="white", fontsize=FS["legend"] - 0.5,
+                  handletextpad=0.25, borderaxespad=0.35, borderpad=0.3, labelspacing=0.22,
+                  columnspacing=0.6, handlelength=0.9)
     else:
         # ALSO inside the axes. A legend anchored outside (the old bbox_to_anchor=(1.02, 1.0))
         # expands savefig's tight bbox past the page width, so this figure came out 7.10in wide
@@ -272,12 +275,15 @@ def draw(ax, data, tag=None, compact=False):
     # the legend box itself.
     lo, hi = ax.get_ylim()
     span = hi - lo
-    ax.set_ylim(lo, hi + 0.34 * span)
-    # the legend sits in the top-right; assert the corner it occupies is empty in the DATA
-    y0 = hi + 0.34 * span - 0.42 * (hi + 0.34 * span - lo)
-    x0 = X.min() + 0.55 * (X.max() - X.min())
-    intruders = [(x, y) for x, y in zip(X, Y) if x >= x0 and y >= y0]
-    assert not intruders, (f"fig_C2 legend box (x>={x0:.3f}, y>={y0:.2f}) now covers "
+    # Room is opened BELOW now, where the legend actually sits, instead of above where it used to.
+    ax.set_ylim(lo - 0.26 * span, hi + 0.06 * span)
+    # Assert the corner the legend OCCUPIES is empty in the data. The previous version asserted a
+    # different corner from the one `loc` put the box in, so it passed while the legend sat on six
+    # points -- a check pointed at the wrong place is worse than none, because it reads as cover.
+    y1 = lo - 0.26 * span + 0.34 * (hi + 0.06 * span - (lo - 0.26 * span))
+    x1 = X.min() + 0.50 * (X.max() - X.min())
+    intruders = [(x, y) for x, y in zip(X, Y) if x <= x1 and y <= y1]
+    assert not intruders, (f"fig_C2 legend box (x<={x1:.3f}, y<={y1:.2f}) now covers "
                            f"{len(intruders)} point(s): {intruders}")
 
     ax.set_title("Transfer vs chemical similarity" if compact else

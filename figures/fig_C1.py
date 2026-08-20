@@ -353,13 +353,21 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
         err = np.vstack([np.array(ys) - np.array(lo), np.array(hi) - np.array(ys)])
         ax1.errorbar(xs, ys, yerr=err, color=TASK_COL[t], marker="o", mec="white", mew=0.6,
                      lw=STYLE["lw"], capsize=STYLE["cap_size"],
-                     label=f"{t} (n/bin\u2248{int(np.median(nn))})")
+                     label=f"{t} (n\u2248{int(np.median(nn))})")
     ax1.axhline(0, color=SHADES["random"][0], lw=0.6)
-    # LOWER RIGHT and BOXED, matching panels (c) and (f) (user 2026-08-19). Both curves rise to
-    # the right and flatten near zero, so the old upper-left corner was in fact where the
-    # MoleculeACE line begins; and unframed on a line plot the legend's own markers read as data.
-    ax1.legend(loc="lower right", fontsize=FS["legend"], frameon=False,
-               handletextpad=0.4, labelspacing=0.25, borderaxespad=0.4)
+    # LOWER RIGHT. Both curves rise to the right and flatten near zero, so the upper-left corner
+    # is where the MoleculeACE line begins.
+    #
+    # The labels lost their "/bin" ("n/bin\u22481585" -> "n\u22481585") and the box lost a point of
+    # size, because at the A4 re-lay this panel is ~1.75in wide and the long form made the legend
+    # nearly panel-wide: anchored lower-RIGHT it still reached back under the QM7 error bar at
+    # x=0.40, which runs down to -5.5 (user 2026-08-19). The floor is also dropped to open a clean
+    # band beneath the data rather than letting the box sit on it. "per bin" is what the x-axis
+    # already says, so the shortened label loses nothing.
+    ax1.legend(loc="lower right", fontsize=FS["legend"] - 0.5, frameon=False,
+               handletextpad=0.35, labelspacing=0.22, borderaxespad=0.3)
+    lo1, hi1 = ax1.get_ylim()
+    ax1.set_ylim(lo1 - 0.20 * (hi1 - lo1), hi1)
     # "ECFP4" here is NOT the anchor's fingerprint and must not be "fixed" to match it.
     # The MODEL featurizer became Morgan r=3 counts with chirality on 2026-08-19; this
     # SIMILARITY axis deliberately stays stereo-blind binary r=2 (scripts/
