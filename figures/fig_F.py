@@ -545,7 +545,14 @@ def main():
     plt.close(fig)
 
     print("\nFig F — does concatenating CLIMB onto the classical features help?")
-    print("  (delta signed so + = concatenation helped)\n")
+    print("  (delta signed so + = concatenation helped)")
+    # THE SOURCE TAGS ARE AMBIGUOUS AND THE COLUMN NAMES INHERIT THEM. `CLM` is not "CLIMB", it is
+    # the UNSUPERVISED arm specifically -- concat_redundancy.py hardcodes unsup_8M -- so a column
+    # headed desc+CLM reads as the family when it means one member of it. The tags are kept as-is
+    # because they are the join key into the source tables and renaming them would break that
+    # trail; the mapping is printed instead, every run, so it travels with the numbers.
+    print("  source tag -> arm:  " + ",  ".join(
+        f"{ROLE_SUFFIX[r]} = {r.lstrip('+ ')}" for r in ROLE_ORDER if ROLE_SUFFIX[r]) + "\n")
     head = "".join(f"{f:>16}" for f, _, _ in FEATURES)
     head += "".join(f"{'Δ ' + CONCAT_TAG[role]:>11}{'>SD':>5}" for role, _ in CONCAT_ARMS)
     print(f"  {'task':<13}{'canon':<7}{head}")
