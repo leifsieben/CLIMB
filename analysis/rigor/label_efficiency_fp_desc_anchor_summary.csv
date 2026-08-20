@@ -1,0 +1,12 @@
+arm,task,task_type,metric,split,fraction,pct,n_train,mean,std,n_cells
+fp_desc,BACE,classification,nef1,test,1.0,100,1210,1.0,0.0,3
+fp_desc,BACE,classification,roc_auc,test,1.0,100,1210,0.7835748792270532,0.0069983207295518796,3
+fp_desc,BACE,classification,roc_auc,train,1.0,100,1210,0.9658704104677424,0.003589598440527923,3
+fp_desc,HIV,classification,nef1,test,1.0,100,32896,0.6190476190476191,0.0,3
+fp_desc,HIV,classification,roc_auc,test,1.0,100,32896,0.7609254465608056,0.004487988453495128,3
+fp_desc,HIV,classification,roc_auc,train,1.0,100,32896,0.9959458308450856,0.0031973367655517408,3
+fp_desc,QM7,regression,rmse,test,1.0,100,5470,194.1529083251953,0.8213301142617041,3
+fp_desc,QM7,regression,rmse,train,1.0,100,5470,179.41866048177084,4.679666852774482,3
+fp_desc,Tox21,classification,nef1,test,1.0,100,6258,0.63369708994709,0.026537713865396332,3
+fp_desc,Tox21,classification,roc_auc,test,1.0,100,6258,0.7638080579314498,0.0013358269798342212,3
+fp_desc,Tox21,classification,roc_auc,train,1.0,100,6258,0.9873582357661804,0.0027555671779665937,3

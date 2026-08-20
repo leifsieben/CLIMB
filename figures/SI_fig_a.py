@@ -61,32 +61,58 @@ SERIES = [("unsupervised",      "unsup",     "unsupervised"),
           ("supervised, dense", "sup_dense", "supervised, dense")]
 PROBES = ["frozen", "end2end"]
 
-# The classical anchor as a reference line, ON EVERY PANEL (user 2026-08-19).
+# The classical anchor as a reference line, ON EVERY PANEL, and PROTOCOL-MATCHED PER PANEL.
 #
-# READ THE CAVEAT BEFORE QUOTING A GAP FROM THIS LINE. The anchor exists only in the MAINLINE
-# wave, while this figure's BACE / Tox21 / QM7 / HIV cells come from the LABEL-EFFICIENCY wave at
-# its 100% fraction. Those two waves do not agree: the same frozen `unsupervised` encoder reads
-# 0.7356 here and 0.7961 in the mainline table on Tox21, 212.7 against 197.9 on QM7 -- up to 8%.
-# So on those panels the LINE AND THE POINTS COME FROM DIFFERENT PROTOCOLS, and a large part of
-# any gap between them is the protocol, not the model. On MoleculeACE and Ames the line is
-# protocol-matched and the gap is real: checked rather than assumed, MoleculeACE's frozen values
-# here equal the mainline table to the digit and Ames is within 0.25%.
+# This figure is built from two waves and the anchor is now measured in both, so each panel's line
+# comes from the same wave as its points:
+#   MoleculeACE, Ames      mainline wave           -> six_panel/mainline_8M.csv
+#   BACE, Tox21, QM7, HIV  label-efficiency 100%   -> analysis/rigor/label_efficiency_fp_desc_anchor_summary.csv
 #
-# The honest fix is a run, not a caveat -- an fp+desc anchor under the label-efficiency protocol.
-# The label-efficiency wave currently has only bare ecfp4, and on a different scale for QM7, so
-# there is nothing to read instead. Requested from the compute session 2026-08-19.
+# It is worth recording why this mattered, because the mismatched version was drawn first and
+# looked entirely plausible. The two waves disagree by far more than the models do: the SAME
+# ECFP4+desc features through the SAME XGBoost read 0.8712 on BACE in the mainline wave and 0.7836
+# under label-efficiency -- 8.8 points, larger than the entire spread between arms on that panel.
+# A mainline line on a label-efficiency panel therefore drew the anchor roughly a protocol above
+# where it belongs, and every CLIMB-to-anchor gap read off those four panels was measuring the
+# wave.
+#
+# METRIC IS MATCHED EXPLICITLY, not positionally: the anchor summary carries BOTH roc_auc and nef1
+# for BACE/Tox21/HIV, so a positional read would silently take whichever sorted first. HIV's line
+# is its nef1 (0.6190), which is quantised -- zero spread across three seeds -- and BACE's nef1 is
+# pinned at 1.0 and is not plotted anywhere. That is small-active-count quantisation rather than a
+# bug, and it is only safe here because a reference LINE needs a level and not an interval.
 ANCHOR_ARM = "ecfp_desc"
-MATCHED_PROTOCOL = "mainline"      # the only wave whose points the line can be quoted against
+LABELEFF_ANCHOR = ROOT / "analysis" / "rigor" / "label_efficiency_fp_desc_anchor_summary.csv"
 
 
-def _anchor_values():
-    """{panel: value} for the classical anchor, from the table every other figure draws."""
+def _anchor_values(protocols):
+    """{panel: (value, source)} for the classical anchor, matched to each panel's own wave."""
     import csv as _csv
-    f = ROOT / "figure_data" / "six_panel" / "mainline_8M.csv"
-    if not f.exists():
-        return {}
-    return {r["panel"]: float(r["value"]) for r in _csv.DictReader(f.open())
-            if r["arm"] == ANCHOR_ARM and r["value"] not in ("", "nan")}
+    out = {}
+    main = ROOT / "figure_data" / "six_panel" / "mainline_8M.csv"
+    if main.exists():
+        for r in _csv.DictReader(main.open()):
+            if r["arm"] == ANCHOR_ARM and r["value"] not in ("", "nan"):
+                out[r["panel"]] = (float(r["value"]), "mainline")
+    if LABELEFF_ANCHOR.exists():
+        for r in _csv.DictReader(LABELEFF_ANCHOR.open()):
+            p = r["task"]
+            if r["split"] != "test" or p not in PANELS:
+                continue
+            # match the metric the PANEL plots; both roc_auc and nef1 are present for some tasks
+            if r["metric"] != PANELS[p]["metric"]:
+                continue
+            # A panel with no points yet has no protocol to match against, and HIV is exactly
+            # that case. It is NOT left on the mainline value by default: the compute session's
+            # HIV end2end run is in the label-efficiency wave like BACE/Tox21/QM7, so the
+            # label-efficiency anchor is the one its points will belong beside. Falling through to
+            # mainline would put HIV's line at 0.7373 instead of 0.6190 -- a 19% error, in the
+            # direction that flatters the anchor, on the one panel where the line is the only
+            # content and nothing else on the panel would contradict it.
+            known = protocols.get(p)
+            if known is None or known.startswith("label-efficiency"):
+                out[p] = (float(r["mean"]), "label-efficiency")
+    return out
 # "end2end" spelled out (user 2026-08-19: "e2e that is not commonly understood"). It does not fit
 # horizontally under a ~1.1in panel, so the x tick labels are rotated instead of abbreviated --
 # shortening to jargon to win space is the wrong trade.
@@ -94,7 +120,8 @@ XTICKS = ["frozen", "end2end"]
 
 
 def main():
-    ANCHOR = _anchor_values()
+    PROTO = {r.panel: str(r.protocol) for r in DF.itertuples()} if len(DF) else {}
+    ANCHOR = _anchor_values(PROTO)
     # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
     # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
     # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
@@ -116,7 +143,7 @@ def main():
 
         # Anchor first, so it is drawn even on panels with no encoder data (HIV) -- there the line
         # is the only content and it is what makes the empty panel worth printing.
-        av = ANCHOR.get(p)
+        av = ANCHOR.get(p, (None, None))[0]
         if av is not None:
             ax.axhline(av, color=ARMS[ANCHOR_ARM]["color"], ls=":", lw=1.3, zorder=2)
 
