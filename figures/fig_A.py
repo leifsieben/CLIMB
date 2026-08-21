@@ -123,19 +123,20 @@ def build(height=HEIGHT, top_frac=0.62):
     _h2 = A2.legend_handles()
     fig.legend(handles=_h2, loc="upper center",
                bbox_to_anchor=((b_x0 + b_x1) / 2, b_bot - 0.030),
-               # WIDER, NOT LONGER was the instruction (user 2026-08-20), and 4 columns is as
-               # wide as it goes. Measured at the tightened handlelength/columnspacing below,
-               # which are already past their defaults:
-               #     4 columns -> 6.68in     fits the 6.69in text block
-               #     5 columns -> 6.85in     +2.4%
-               #     6 columns -> 7.21in     +7.8%
-               # Past 4, the legend rather than the panels sets the plate width, LaTeX scales the
-               # whole figure down to fit, and every font shrinks with it -- so a wider legend
-               # makes worse use of the page, not better. The labels are what cost the width
-               # ("CheMeleon, frozen XGBoost", "no pretrain, random, reference"); shortening them
-               # would buy a fifth column and is the only lever left if 4 is ever not enough.
-               ncol=row_ncol(_h2, rows=4), frameon=False, fontsize=FS["legend"], handlelength=1.1,
-               handletextpad=0.35, labelspacing=0.3, columnspacing=0.75, borderpad=0.0,
+               # TWO ROWS, SIX COLUMNS (user 2026-08-20: "two rows and way more columns").
+               #
+               # Six columns did NOT fit when this was first tried -- 7.21in against a 6.69in text
+               # block. What changed is not the legend: it is that panel (b) now starts at
+               # x=0.0665 instead of 0.185, so the figure's content already spans nearly the full
+               # width and a legend centred on 0.5 no longer overhangs it. The same key that set
+               # the plate width before is now narrower than the panels.
+               #
+               # Re-measured after the margin change:
+               #     5 columns -> 6.68 x 9.26in
+               #     6 columns -> 6.68 x 9.26in     <- two rows, and 0.12in shorter than 3x4
+               #     7 columns -> 7.70 x 9.14in     overhangs, plate width set by the key again
+               ncol=row_ncol(_h2, rows=2), frameon=False, fontsize=FS["legend"], handlelength=0.95,
+               handletextpad=0.28, labelspacing=0.3, columnspacing=0.45, borderpad=0.0,
                labelcolor=INK)
     return fig
 
