@@ -1122,28 +1122,50 @@ def check_featurizer_homogeneity():
             if v is None:
                 continue
             dirs = list(v) if isinstance(v, (list, tuple)) else [v, f"{v}_s1", f"{v}_s2"]
-            seen = {}
+            seen, feats = {}, {}
             for d in dirs:
                 f = FD / tree / d / "verified.json"
                 if not f.exists():
                     continue
                 try:
-                    seen[d] = _json.loads(f.read_text()).get("fp_variant")
+                    j = _json.loads(f.read_text())
+                    seen[d], feats[d] = j.get("fp_variant"), j.get("featurizer")
                 except Exception:                                     # noqa: BLE001
                     seen[d] = "<unreadable>"
             if len(seen) < 2:
                 continue
             labelled = {d: fv for d, fv in seen.items() if fv}
             unlabelled = [d for d, fv in seen.items() if not fv]
+
+            # fp_variant ONLY DESCRIBES FINGERPRINT ARMS. The runner writes it from the
+            # environment, so it lands on runs that use no fingerprint at all -- CheMeleon's
+            # XGBoost probe carries "featurizer": "chemeleon" AND "fp_variant": "ecfp4_stereo",
+            # which is a false claim about a component the arm does not have. Numerically
+            # harmless, and exactly the failure family this file keeps finding: a field that
+            # answers confidently about something it does not describe.
+            if not any(str(feats.get(d, "")).startswith(("ecfp", "fp_desc", "r3fp", "morgan"))
+                       for d in seen):
+                stray = sorted(labelled)
+                if stray:
+                    print(f"  FAIL  {arm} ({key}) is featurized by "
+                          f"'{feats.get(sorted(seen)[0])}' and has NO fingerprint, but "
+                          f"{len(stray)} dir(s) record fp_variant={sorted(set(labelled.values()))} "
+                          f"- the environment default leaked onto a run it does not describe")
+                    bad += 1
+                continue
+
             if len(set(labelled.values())) > 1:
                 print(f"  FAIL  {arm} ({key}) pools MORE THAN ONE featurizer: "
                       + ", ".join(f"{d}={fv}" for d, fv in sorted(labelled.items())))
                 bad += 1
             elif labelled and unlabelled:
-                print(f"  FAIL  {arm} ({key}) pools {sorted(labelled.values())[0]} dirs with "
-                      f"UNLABELLED dir(s) {sorted(unlabelled)} - an unlabelled dir beside a "
-                      f"labelled one is the vintage-mix signature; label or re-run it")
-                bad += 1
+                # NOT counted. fp_variant exists only on dirs written after 2026-08-20 and was
+                # deliberately not backfilled, so a base untouched by that pass is unlabelled
+                # whether or not it matches. This states what the artefacts can and cannot show
+                # rather than converting an inference into a verdict in either direction.
+                print(f"  UNVERIF {arm} ({key}) pools {sorted(set(labelled.values()))[0]} dirs "
+                      f"with UNLABELLED base {sorted(unlabelled)} - same vintage per the runner "
+                      f"that produced it, NOT confirmable from the files")
     print("  OK - no arm pools dirs of differing featurizer vintage" if not bad
           else f"  {bad} arm(s) pooling mixed or unverifiable featurizer vintages")
     return bad

@@ -321,7 +321,13 @@ ARMS = {
     "chemeleon_frozen_xgb": dict(
         label="frozen, XGBoost probe", short="CheMeleon, frozen XGBoost", family="chemeleon",
         color=SHADES["chemeleon"][2], probe="xgb", pretrain_replicates=False, in_ablation=False,
-        src=dict(mace="chemeleon_frozen__xgb", mol=["chemeleon_frozen__xgb"])),
+        # The mol list is EXPLICIT and must name the replicate dirs. A bare string means "this
+        # dir plus _s1/_s2 if they exist"; a list means "exactly these", which is what stopped the
+        # aggregator seeing the replicates produced 2026-08-20 even after they were synced. The
+        # list was written when only one dir existed and could not know about the other two.
+        src=dict(mace="chemeleon_frozen__xgb",
+                 mol=["chemeleon_frozen__xgb", "chemeleon_frozen__xgb_s1",
+                      "chemeleon_frozen__xgb_s2"])),
     "unsup_xgb": dict(
         label="unsupervised, XGBoost probe", short="unsup, XGBoost", family="unsup",
         color=SHADES["unsup"][2], probe="xgb", pretrain_replicates=False, in_ablation=False,
