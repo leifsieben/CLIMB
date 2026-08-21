@@ -1094,6 +1094,61 @@ def check_label_conventions():
     return bad
 
 
+
+def check_featurizer_homogeneity():
+    """Every dir pooled into one arm must have been built by the SAME featurizer.
+
+    A pooled arm is a mean over its replicate dirs. If one of those dirs was produced by a
+    different featurizer, the mean belongs to no featurizer at all -- and the number is not
+    obviously wrong, which is what makes it dangerous. Live case, 2026-08-20: ecfp4's MoleculeACE
+    base was pre-stereo while its two replicates were ecfp4_stereo, and the pooled value read
+    0.6878 against a pre-stereo base of 0.6877 and stereo replicates of 0.6873 and 0.6886. The
+    contamination sat well inside the seed-to-seed spread and was invisible in the value.
+
+    verified.json carries fp_variant only for dirs written after 2026-08-20, and deliberately was
+    not backfilled -- the older dirs' variant is known from the runner, not from the artefact, and
+    asserting it would convert an inference into the file's own claim. So MISSING is reported
+    separately from MIXED: a dir with no variant is unlabelled, not wrong, and only becomes a
+    finding when it sits beside a labelled one.
+    """
+    print(f"\n{'='*94}\n18. FEATURIZER HOMOGENEITY WITHIN A POOLED ARM\n{'='*94}")
+    import json as _json
+    from figures.arms import ARMS
+    FD = ROOT / "figure_data"
+    bad = 0
+    for arm, meta in ARMS.items():
+        for key, tree in (("mace", "chemeleon_suite/moleculeace"), ("mol", "climb_v2_phase2")):
+            v = meta.get("src", {}).get(key)
+            if v is None:
+                continue
+            dirs = list(v) if isinstance(v, (list, tuple)) else [v, f"{v}_s1", f"{v}_s2"]
+            seen = {}
+            for d in dirs:
+                f = FD / tree / d / "verified.json"
+                if not f.exists():
+                    continue
+                try:
+                    seen[d] = _json.loads(f.read_text()).get("fp_variant")
+                except Exception:                                     # noqa: BLE001
+                    seen[d] = "<unreadable>"
+            if len(seen) < 2:
+                continue
+            labelled = {d: fv for d, fv in seen.items() if fv}
+            unlabelled = [d for d, fv in seen.items() if not fv]
+            if len(set(labelled.values())) > 1:
+                print(f"  FAIL  {arm} ({key}) pools MORE THAN ONE featurizer: "
+                      + ", ".join(f"{d}={fv}" for d, fv in sorted(labelled.items())))
+                bad += 1
+            elif labelled and unlabelled:
+                print(f"  FAIL  {arm} ({key}) pools {sorted(labelled.values())[0]} dirs with "
+                      f"UNLABELLED dir(s) {sorted(unlabelled)} - an unlabelled dir beside a "
+                      f"labelled one is the vintage-mix signature; label or re-run it")
+                bad += 1
+    print("  OK - no arm pools dirs of differing featurizer vintage" if not bad
+          else f"  {bad} arm(s) pooling mixed or unverifiable featurizer vintages")
+    return bad
+
+
 def main():
     print("CROSS-FIGURE CONSISTENCY AUDIT")
     total = sum([check_superseded(), check_units(), check_replication(),
@@ -1103,7 +1158,8 @@ def main():
                  check_replication_parity(), check_aggregate_freshness(),
                  check_invariant_arms(), check_regression_units(),
                  check_positional_metric_reads(), check_source_coverage(),
-                 check_label_conventions()])
+                 check_label_conventions(),
+                 check_featurizer_homogeneity()])
     print(f"\n{'='*94}\n{'CLEAN' if not total else str(total) + ' ITEM(S) NEED ATTENTION'}\n{'='*94}")
 
 
