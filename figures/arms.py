@@ -335,12 +335,14 @@ ARMS = {
         # that suits it -- CLIMB with its MLP probe, CheMeleon with XGBoost -- so the weaker
         # half of each pair is declared out. The arms stay defined because SI fig f is built
         # from the pair and needs both ends of every slope.
-        in_ranking=False,
+        in_ranking=True,
         # NO REPLICATES ON ANY PANEL, BY DECISION (2026-08-20), declared so the parity audit
         # reports it rather than counting it as an open gap. Two reasons, both checked
-        # rather than assumed: (1) no figure draws an interval for this arm -- it is
-        # unranked (in_ranking=False) and the one figure showing its cells, SI fig f,
-        # plots point values with no errorbar() anywhere; (2) the suite BASE was built
+        # rather than assumed -- and NARROWED to one on 2026-08-21, when Leif admitted this arm
+        # to the ranking. The reason that lapsed: "no figure draws an interval for it, and it is
+        # unranked". fig_A1 does draw an SE on its mean rank now, though that is an SE across the
+        # four SUITE means, not the per-panel replicate spread a replicate dir would tighten.
+        # THE REASON THAT STILL HOLDS: the suite BASE was built
         # in a venv that no longer exists on any box (chemeleon_suite_run.py has no
         # --features_npz path, so it cannot use the pinned reference env the MolNet and
         # CBS cells use). Replicates from a different library SET would make the spread
@@ -355,12 +357,14 @@ ARMS = {
         # that suits it -- CLIMB with its MLP probe, CheMeleon with XGBoost -- so the weaker
         # half of each pair is declared out. The arms stay defined because SI fig f is built
         # from the pair and needs both ends of every slope.
-        in_ranking=False,
+        in_ranking=True,
         # NO REPLICATES ON ANY PANEL, BY DECISION (2026-08-20), declared so the parity audit
         # reports it rather than counting it as an open gap. Two reasons, both checked
-        # rather than assumed: (1) no figure draws an interval for this arm -- it is
-        # unranked (in_ranking=False) and the one figure showing its cells, SI fig f,
-        # plots point values with no errorbar() anywhere; (2) the suite BASE was built
+        # rather than assumed -- and NARROWED to one on 2026-08-21, when Leif admitted this arm
+        # to the ranking. The reason that lapsed: "no figure draws an interval for it, and it is
+        # unranked". fig_A1 does draw an SE on its mean rank now, though that is an SE across the
+        # four SUITE means, not the per-panel replicate spread a replicate dir would tighten.
+        # THE REASON THAT STILL HOLDS: the suite BASE was built
         # in a venv that no longer exists on any box (chemeleon_suite_run.py has no
         # --features_npz path, so it cannot use the pinned reference env the MolNet and
         # CBS cells use). Replicates from a different library SET would make the spread
@@ -418,7 +422,7 @@ ARMS = {
         # rather than about representations. The XGBoost row is the one kept. This arm is still
         # drawn in fig_A2, SI fig a, SI fig f and fig_G, where the frozen MLP number is the
         # quantity those figures are actually about.
-        in_ranking=False,
+        in_ranking=True,
         probe="frozen", pretrain_replicates=False, in_ablation=False,
         # QM7 REPLICATION (2026-08-18). chemeleon_frozen's original single run put a 427.7 fold in
         # the mean and shipped 268.8. Four probe runs settled it: the elevation is REAL (every run

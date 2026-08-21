@@ -1,0 +1,7 @@
+# Written by resume.sh --save. Committing this is fine: it holds no secrets,
+# only the coordinates needed to find the fleet again from a fresh session.
+PROJECT=CLIMB
+BUCKET=climb-s3-bucket
+LOG_PREFIX=experiments/_logs/jobs
+REGION=
+PROFILE=

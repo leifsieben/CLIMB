@@ -152,7 +152,21 @@ E2E_ARMS = {a for a, m in ARMS.items() if m.get("probe") == "e2e"}
 # here, so a new arm inherits the right treatment.
 RANKABLE = [a for a in ARM_ORDER if ARMS[a].get("in_ranking", True)]
 _S0, _ = wide_table(RANKABLE)
-ARMS_USED = [a for a in RANKABLE if _S0.loc[a].notna().sum() >= 60]
+# FULL COVERAGE, NOT 60 OF 65 (Leif 2026-08-21). A mean rank is an average over the datasets an
+# arm HAPPENS to have, so two arms admitted on different subsets are not comparable even after
+# wide_ranks rescales each dataset to the full field: the arm missing a dataset simply is not
+# scored where it might have done badly. At >=60 that was up to five free passes. It now costs an
+# arm the panel to be missing ONE.
+#
+# Drops s2u_dense at 63/65 (no BBBP, no ESOL) and nothing else -- every other rankable arm is at
+# 65/65. The dropped arm was 14th of 22 and its exclusion changes no conclusion; the point is the
+# rule, not this arm.
+MIN_DATASETS = 65
+ARMS_USED = [a for a in RANKABLE if _S0.loc[a].notna().sum() >= MIN_DATASETS]
+_dropped = [a for a in RANKABLE if a not in ARMS_USED]
+if _dropped:
+    print(f"  fig_A1: {len(_dropped)} arm(s) below {MIN_DATASETS}/{_S0.shape[1]} datasets, "
+          f"excluded: {', '.join(f'{a}={int(_S0.loc[a].notna().sum())}' for a in _dropped)}")
 N = len(ARMS_USED)
 
 # PER-SUITE EQUAL WEIGHTING (user decision 2026-08-19). Each arm's headline number is the mean of
