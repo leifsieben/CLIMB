@@ -1,0 +1,106 @@
+% Citations for the Polaris benchmark suite as used in this paper.
+%
+% Our "Ames" panel is one benchmark (tdcommons/ames) inside a 28-benchmark Polaris suite.
+% Polaris is a PLATFORM, not a dataset -- it hosts benchmarks whose data comes from elsewhere --
+% so citing it alone would credit the hosting and not the data. The 28 benchmarks we score break
+% down as:
+%
+%   17  tdcommons/*            -> Therapeutics Data Commons  (huang2021tdc / huang2022tdc)
+%    6  polaris/adme-fang-*    -> Fang et al. 2023           (fang2023adme)
+%    5  polaris/pkis2-*        -> PKIS2, Drewry et al. 2017  (drewry2017pkis2)
+%
+% Minimum honest citation for a sentence naming Ames: wognum2024polaris + huang2021tdc.
+% Every field below was verified against Crossref metadata (2026-08-20), not reconstructed
+% from memory -- except zenodo_polaris, see the note on that entry.
+
+% ---- the platform, and its evaluation protocol ------------------------------------------------
+@article{wognum2024polaris,
+  title   = {A call for an industry-led initiative to critically assess machine learning for
+             real-world drug discovery},
+  author  = {Wognum, Cas and Ash, Jeremy R. and Aldeghi, Matteo and Rodr{\'i}guez-P{\'e}rez, Raquel
+             and Fang, Cheng and Cheng, Alan C. and Price, Daniel J. and Clevert, Djork-Arn{\'e}
+             and Engkvist, Ola and Walters, W. Patrick},
+  journal = {Nature Machine Intelligence},
+  volume  = {6},
+  number  = {10},
+  pages   = {1120--1121},
+  year    = {2024},
+  doi     = {10.1038/s42256-024-00911-w},
+}
+
+@misc{ash2024methodcomparison,
+  title   = {Practically significant method comparison protocols for machine learning in small
+             molecule drug discovery},
+  author  = {Ash, Jeremy R. and Wognum, Cas and Rodr{\'i}guez-P{\'e}rez, Raquel and Aldeghi, Matteo
+             and Cheng, Alan C. and Clevert, Djork-Arn{\'e} and Engkvist, Ola and Fang, Cheng
+             and Price, Daniel J. and Hughes-Oliver, Jacqueline M. and Walters, W. Patrick},
+  year    = {2024},
+  howpublished = {ChemRxiv preprint},
+  doi     = {10.26434/chemrxiv-2024-6dbwv-v2},
+  note    = {Cite alongside wognum2024polaris when justifying the comparison protocol itself},
+}
+
+% Software DOI, for the library that produced our scores. UNVERIFIED FIELDS: Zenodo is not in
+% Crossref, so unlike every other entry here the author list and year below were NOT machine-
+% checked -- confirm on the Zenodo record before submission. We scored with polaris 0.13.0.
+@software{zenodo_polaris,
+  title     = {Polaris},
+  author    = {{Polaris Hub contributors}},
+  publisher = {Zenodo},
+  version   = {0.13.0},
+  doi       = {10.5281/zenodo.13652587},
+  url       = {https://polarishub.io},
+}
+
+% ---- where the data actually comes from --------------------------------------------------------
+@inproceedings{huang2021tdc,
+  title     = {Therapeutics Data Commons: Machine Learning Datasets and Tasks for Drug Discovery
+               and Development},
+  author    = {Huang, Kexin and Fu, Tianfan and Gao, Wenhao and Zhao, Yue and Roohani, Yusuf
+               and Leskovec, Jure and Coley, Connor W. and Xiao, Cao and Sun, Jimeng
+               and Zitnik, Marinka},
+  booktitle = {Proceedings of the Neural Information Processing Systems Track on Datasets and
+               Benchmarks (NeurIPS Datasets and Benchmarks)},
+  year      = {2021},
+  eprint    = {2102.09548},
+  archivePrefix = {arXiv},
+}
+
+@article{huang2022tdc,
+  title   = {Artificial intelligence foundation for therapeutic science},
+  author  = {Huang, Kexin and Fu, Tianfan and Gao, Wenhao and Zhao, Yue and Roohani, Yusuf
+             and Leskovec, Jure and Coley, Connor W. and Xiao, Cao and Sun, Jimeng
+             and Zitnik, Marinka},
+  journal = {Nature Chemical Biology},
+  volume  = {18},
+  number  = {10},
+  pages   = {1033--1036},
+  year    = {2022},
+  doi     = {10.1038/s41589-022-01131-2},
+}
+
+@article{fang2023adme,
+  title   = {Prospective Validation of Machine Learning Algorithms for Absorption, Distribution,
+             Metabolism, and Excretion Prediction: An Industrial Perspective},
+  author  = {Fang, Cheng and Wang, Ye and Grater, Richard and Kapadnis, Sudarshan and Black, Cheryl
+             and Trapa, Patrick and Sciabola, Simone},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {63},
+  number  = {11},
+  pages   = {3263--3274},
+  year    = {2023},
+  doi     = {10.1021/acs.jcim.3c00160},
+}
+
+@article{drewry2017pkis2,
+  title   = {Progress towards a public chemogenomic set for protein kinases and a call for
+             contributions},
+  author  = {Drewry, David H. and Wells, Carrow I. and Andrews, David M. and Angell, Richard
+             and others},
+  journal = {PLOS ONE},
+  volume  = {12},
+  number  = {8},
+  pages   = {e0181585},
+  year    = {2017},
+  doi     = {10.1371/journal.pone.0181585},
+}

@@ -1,0 +1,35 @@
+[anchor] === ecfp4_anchor_s1_r3c BBBP ===
+[anchor] ecfp4_anchor_s1_r3c BBBP: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1_r3c/moleculenet_cv/moleculenet_summary.csv (kept 88)
+[anchor] merged 2039 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1_r3c/moleculenet_cv/test_predictions.csv (kept 42633)
+[anchor] === ecfp4_anchor_s1_r3c ESOL ===
+[anchor] ecfp4_anchor_s1_r3c ESOL: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1_r3c/moleculenet_cv/moleculenet_summary.csv (kept 132)
+[anchor] merged 1128 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1_r3c/moleculenet_cv/test_predictions.csv (kept 44672)
+[anchor] === ecfp4_anchor_s2_r3c BBBP ===
+[anchor] ecfp4_anchor_s2_r3c BBBP: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2_r3c/moleculenet_cv/moleculenet_summary.csv (kept 88)
+[anchor] merged 2039 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2_r3c/moleculenet_cv/test_predictions.csv (kept 42633)
+[anchor] === ecfp4_anchor_s2_r3c ESOL ===
+[anchor] ecfp4_anchor_s2_r3c ESOL: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2_r3c/moleculenet_cv/moleculenet_summary.csv (kept 132)
+[anchor] merged 1128 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2_r3c/moleculenet_cv/test_predictions.csv (kept 44672)
+[anchor] === fp_desc_anchor_s1_r3c BBBP ===
+[anchor] fp_desc_anchor_s1_r3c BBBP: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1_r3c/moleculenet_cv/moleculenet_summary.csv (kept 88)
+[anchor] merged 2039 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1_r3c/moleculenet_cv/test_predictions.csv (kept 42633)
+[anchor] === fp_desc_anchor_s1_r3c ESOL ===
+[anchor] fp_desc_anchor_s1_r3c ESOL: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1_r3c/moleculenet_cv/moleculenet_summary.csv (kept 132)
+[anchor] merged 1128 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1_r3c/moleculenet_cv/test_predictions.csv (kept 44672)
+[anchor] === fp_desc_anchor_s2_r3c BBBP ===
+[anchor] fp_desc_anchor_s2_r3c BBBP: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2_r3c/moleculenet_cv/moleculenet_summary.csv (kept 88)
+[anchor] merged 2039 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2_r3c/moleculenet_cv/test_predictions.csv (kept 42633)
+[anchor] === fp_desc_anchor_s2_r3c ESOL ===
+[anchor] fp_desc_anchor_s2_r3c ESOL: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2_r3c/moleculenet_cv/moleculenet_summary.csv (kept 132)
+[anchor] merged 1128 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2_r3c/moleculenet_cv/test_predictions.csv (kept 44672)
+
+[anchor] DONE  0 failure(s): none
+TOPUP_VARIANT_DONE

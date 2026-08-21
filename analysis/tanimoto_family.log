@@ -1,0 +1,66 @@
+[famsim 09:19:58] eval tasks: CBS=10445, MoleculeACE=9130, Ames=1451, BBBP=2024, BACE=1513, HIV=40958, Tox21=7063, ESOL=778, QM7=6843, Lipophilicity=4054
+[famsim 09:19:58] shard 0: PCBA=0, L1000_MCF7=0, L1000_VCAP=0, PCQM=98304, WONG=0
+[famsim 09:19:58] shard 2: PCBA=0, L1000_MCF7=0, L1000_VCAP=0, PCQM=196608, WONG=0
+[famsim 09:19:59] shard 4: PCBA=0, L1000_MCF7=0, L1000_VCAP=0, PCQM=294912, WONG=0
+[famsim 09:19:59] shard 31: PCBA=0, L1000_MCF7=0, L1000_VCAP=0, PCQM=394549, WONG=11
+[famsim 09:20:00] shard 36: PCBA=265, L1000_MCF7=1197, L1000_VCAP=2013, PCQM=475080, WONG=18923
+[famsim 09:20:00] shard 38: PCBA=1398, L1000_MCF7=1197, L1000_VCAP=2013, PCQM=548808, WONG=18923
+[famsim 09:20:00] shard 40: PCBA=4784, L1000_MCF7=1197, L1000_VCAP=2013, PCQM=548808, WONG=18923
+[famsim 09:20:01] shard 42: PCBA=8081, L1000_MCF7=1197, L1000_VCAP=2013, PCQM=548808, WONG=18923
+[famsim 09:20:01] shard 52: PCBA=10074, L1000_MCF7=11718, L1000_VCAP=15349, PCQM=558227, WONG=38789
+[famsim 09:20:02] PCBA: fingerprinted 10068 unique molecules
+[famsim 09:20:03] L1000_MCF7: fingerprinted 11521 unique molecules
+[famsim 09:20:04] L1000_VCAP: fingerprinted 12000 unique molecules
+[famsim 09:20:05] PCQM: fingerprinted 12000 unique molecules
+[famsim 09:20:06] WONG: fingerprinted 12000 unique molecules
+[famsim 09:20:10]   CBS            x PCBA         mean-max=0.366
+[famsim 09:20:13]   CBS            x L1000_MCF7   mean-max=0.380
+[famsim 09:20:16]   CBS            x L1000_VCAP   mean-max=0.363
+[famsim 09:20:19]   CBS            x PCQM         mean-max=0.333
+[famsim 09:20:23]   CBS            x WONG         mean-max=0.368
+[famsim 09:20:26]   MoleculeACE    x PCBA         mean-max=0.339
+[famsim 09:20:29]   MoleculeACE    x L1000_MCF7   mean-max=0.377
+[famsim 09:20:31]   MoleculeACE    x L1000_VCAP   mean-max=0.358
+[famsim 09:20:34]   MoleculeACE    x PCQM         mean-max=0.310
+[famsim 09:20:37]   MoleculeACE    x WONG         mean-max=0.321
+[famsim 09:20:38]   Ames           x PCBA         mean-max=0.434
+[famsim 09:20:38]   Ames           x L1000_MCF7   mean-max=0.419
+[famsim 09:20:39]   Ames           x L1000_VCAP   mean-max=0.372
+[famsim 09:20:39]   Ames           x PCQM         mean-max=0.398
+[famsim 09:20:39]   Ames           x WONG         mean-max=0.395
+[famsim 09:20:40]   BBBP           x PCBA         mean-max=0.467
+[famsim 09:20:41]   BBBP           x L1000_MCF7   mean-max=0.647
+[famsim 09:20:41]   BBBP           x L1000_VCAP   mean-max=0.563
+[famsim 09:20:42]   BBBP           x PCQM         mean-max=0.368
+[famsim 09:20:43]   BBBP           x WONG         mean-max=0.481
+[famsim 09:20:43]   BACE           x PCBA         mean-max=0.269
+[famsim 09:20:44]   BACE           x L1000_MCF7   mean-max=0.278
+[famsim 09:20:44]   BACE           x L1000_VCAP   mean-max=0.266
+[famsim 09:20:45]   BACE           x PCQM         mean-max=0.275
+[famsim 09:20:45]   BACE           x WONG         mean-max=0.262
+[famsim 09:20:59]   HIV            x PCBA         mean-max=0.516
+[famsim 09:21:11]   HIV            x L1000_MCF7   mean-max=0.352
+[famsim 09:21:24]   HIV            x L1000_VCAP   mean-max=0.333
+[famsim 09:21:37]   HIV            x PCQM         mean-max=0.338
+[famsim 09:21:49]   HIV            x WONG         mean-max=0.335
+[famsim 09:21:52]   Tox21          x PCBA         mean-max=0.436
+[famsim 09:21:54]   Tox21          x L1000_MCF7   mean-max=0.502
+[famsim 09:21:56]   Tox21          x L1000_VCAP   mean-max=0.431
+[famsim 09:21:58]   Tox21          x PCQM         mean-max=0.418
+[famsim 09:22:01]   Tox21          x WONG         mean-max=0.440
+[famsim 09:22:01]   ESOL           x PCBA         mean-max=0.431
+[famsim 09:22:01]   ESOL           x L1000_MCF7   mean-max=0.471
+[famsim 09:22:01]   ESOL           x L1000_VCAP   mean-max=0.406
+[famsim 09:22:02]   ESOL           x PCQM         mean-max=0.441
+[famsim 09:22:02]   ESOL           x WONG         mean-max=0.424
+[famsim 09:22:04]   QM7            x PCBA         mean-max=0.254
+[famsim 09:22:06]   QM7            x L1000_MCF7   mean-max=0.232
+[famsim 09:22:08]   QM7            x L1000_VCAP   mean-max=0.202
+[famsim 09:22:10]   QM7            x PCQM         mean-max=0.349
+[famsim 09:22:12]   QM7            x WONG         mean-max=0.262
+[famsim 09:22:14]   Lipophilicity  x PCBA         mean-max=0.388
+[famsim 09:22:15]   Lipophilicity  x L1000_MCF7   mean-max=0.439
+[famsim 09:22:16]   Lipophilicity  x L1000_VCAP   mean-max=0.399
+[famsim 09:22:18]   Lipophilicity  x PCQM         mean-max=0.330
+[famsim 09:22:19]   Lipophilicity  x WONG         mean-max=0.353
+[famsim 09:22:19] wrote figure_data/_tanimoto/family_task_similarity.csv (50 family x task pairs)

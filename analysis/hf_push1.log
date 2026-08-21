@@ -1,0 +1,835 @@
+=== RESULTS ===
+  climb_v2_lrsweep: 8 to upload
+    climb_v2_lrsweep/lr1e-4_dense: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  13%|█▎        | 2.48MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv:  13%|█▎        | 2.48MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  13%|█▎        | 2.48MB / 18.8MB, 6.20MB/s  
+New Data Upload               :  13%|█▎        | 2.48MB / 18.8MB, 6.20MB/s  [A
+
+  ...t_cv/test_predictions.csv:  26%|██▋       | 4.95MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  26%|██▋       | 4.95MB / 18.8MB, 8.25MB/s  
+New Data Upload               :  26%|██▋       | 4.95MB / 18.8MB, 8.25MB/s  [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  92%|█████████▏| 17.3MB / 18.8MB, 21.7MB/s  
+New Data Upload               :  92%|█████████▏| 17.3MB / 18.8MB, 21.7MB/s  [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 15.7MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 15.7MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 13.4MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 13.4MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+    climb_v2_lrsweep/lr1e-4_sparse_all: 14 files, 24.4 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  90%|█████████ | 11.9MB / 13.2MB            [A[A
+
+  ...t_cv/test_predictions.csv:  90%|█████████ | 11.9MB / 13.2MB            [A[AProcessing Files (0 / 1)      :  90%|█████████ | 11.9MB / 13.2MB,   ???B/s  
+New Data Upload               :  90%|█████████ | 11.9MB / 13.2MB,   ???B/s  [A
+
+  ...t_cv/test_predictions.csv:  90%|█████████ | 11.9MB / 13.2MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 13.2MB / 13.2MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 13.2MB / 13.2MB, 3.28MB/s  
+New Data Upload               : 100%|██████████| 13.2MB / 13.2MB, 3.28MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 13.2MB / 13.2MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 13.2MB / 13.2MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 13.2MB / 13.2MB, 2.18MB/s  
+New Data Upload               : 100%|██████████| 13.2MB / 13.2MB, 2.18MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 13.2MB / 13.2MB            
+    climb_v2_lrsweep/lr2e-4_dense: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB,   ???B/s  
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB,  0.00B/s  
+New Data Upload               : |          |  0.00B /  0.00B,  0.00B/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+    climb_v2_lrsweep/lr2e-4_sparse_all: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  93%|█████████▎| 17.5MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv:  93%|█████████▎| 17.5MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  93%|█████████▎| 17.5MB / 18.8MB,   ???B/s  
+New Data Upload               :  93%|█████████▎| 17.5MB / 18.8MB,   ???B/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 6.69MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 6.69MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 3.34MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 3.34MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+    climb_v2_lrsweep/lr2e-5_dense: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  92%|█████████▏| 17.3MB / 18.8MB,   ???B/s  
+New Data Upload               :  92%|█████████▏| 17.3MB / 18.8MB,   ???B/s  [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 3.85MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 3.85MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 3.68MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 3.68MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+    climb_v2_lrsweep/lr2e-5_sparse_all: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  92%|█████████▏| 17.3MB / 18.8MB,   ???B/s  
+New Data Upload               :  92%|█████████▏| 17.3MB / 18.8MB,   ???B/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 7.29MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 7.29MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 3.65MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 3.65MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+    climb_v2_lrsweep/lr5e-5_dense: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  92%|█████████▏| 17.3MB / 18.8MB, 86.9MB/s  
+New Data Upload               :  92%|█████████▏| 17.3MB / 18.8MB, 86.9MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 47.0MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 47.0MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 31.3MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 31.3MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+    climb_v2_lrsweep/lr5e-5_sparse_all: 14 files, 30.0 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv:  92%|█████████▏| 17.3MB / 18.8MB            [A[AProcessing Files (0 / 1)      :  92%|█████████▏| 17.3MB / 18.8MB,   ???B/s  
+New Data Upload               :  92%|█████████▏| 17.3MB / 18.8MB,   ???B/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 7.29MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 7.29MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.8MB / 18.8MB, 3.62MB/s  
+New Data Upload               : 100%|██████████| 18.8MB / 18.8MB, 3.62MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.8MB / 18.8MB            
+  cbs_benchmark: 102 to upload
+    cbs_benchmark/bigram_8M: 4 files, 1.5 MB
+    cbs_benchmark/bigram_8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/bigram_8M_s2: 4 files, 1.5 MB
+    cbs_benchmark/bpe_1000: 4 files, 1.5 MB
+    cbs_benchmark/bpe_12000: 4 files, 1.5 MB
+    cbs_benchmark/bpe_261: 4 files, 1.5 MB
+    cbs_benchmark/bpe_3000: 4 files, 1.5 MB
+    cbs_benchmark/chemeleon_e2e: 2 files, 0.0 MB
+    cbs_benchmark/chemeleon_frozen_s1: 3 files, 1.5 MB
+    cbs_benchmark/chemeleon_frozen_s2: 3 files, 1.5 MB
+    cbs_benchmark/corrupt_mlm_8M: 4 files, 2.9 MB
+    cbs_benchmark/corrupt_mlm_8M_s1: 4 files, 2.9 MB
+    cbs_benchmark/corrupt_mlm_8M_s2: 4 files, 2.9 MB
+    cbs_benchmark/corrupt_mtr_8M: 4 files, 2.9 MB
+    cbs_benchmark/corrupt_mtr_8M_s1: 3 files, 1.5 MB
+    cbs_benchmark/corrupt_mtr_8M_s2: 3 files, 1.5 MB
+    cbs_benchmark/ecfp4_anchor_s1: 3 files, 1.5 MB
+    cbs_benchmark/ecfp4_anchor_s2: 3 files, 1.5 MB
+    cbs_benchmark/experiment_cbs: no eligible files, skipped
+    cbs_benchmark/fp_desc_anchor_s1: 3 files, 1.5 MB
+    cbs_benchmark/fp_desc_anchor_s2: 3 files, 1.5 MB
+    cbs_benchmark/s2u_dense_from8M_s0: 3 files, 1.5 MB
+    cbs_benchmark/s2u_dense_from8M_s1: 3 files, 1.5 MB
+    cbs_benchmark/s2u_dense_from8M_s2: 3 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p001_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p001_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p001_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p01_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p01_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p01_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p1_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p1_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p1_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p3_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p3_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_frac0p3_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_fracfull_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_fracfull_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_canonical_fracfull_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p001_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p001_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p001_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p01_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p01_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p01_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p1_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p1_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p1_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p3_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p3_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_frac0p3_s2: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_fracfull_s0: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_fracfull_s1: 4 files, 1.5 MB
+    cbs_benchmark/scaling_enumerated_fracfull_s2: 4 files, 1.5 MB
+    cbs_benchmark/seq_dense_plus_sparse: 4 files, 1.5 MB
+    cbs_benchmark/seq_l1000: 4 files, 1.5 MB
+    cbs_benchmark/seq_mtr: 4 files, 1.5 MB
+    cbs_benchmark/seq_pcba: 4 files, 1.5 MB
+    cbs_benchmark/seq_pcqm: 4 files, 1.5 MB
+    cbs_benchmark/seq_sparse_all: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_24M: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_2M: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_48M: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_8M_e2e: 3 files, 0.0 MB
+    cbs_benchmark/skip_dense_96M: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_plus_sparse_24M: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_plus_sparse_2M: 4 files, 1.5 MB
+    cbs_benchmark/skip_dense_plus_sparse_48M: 4 files, 1.5 MB
+    cbs_benchmark/skip_minimol_full_8M: 4 files, 1.5 MB
+    cbs_benchmark/skip_minimol_full_8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/skip_minimol_full_8M_s2: 4 files, 1.5 MB
+    cbs_benchmark/skip_mixed_8M: 4 files, 1.5 MB
+    cbs_benchmark/skip_mixed_8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/skip_mixed_8M_s2: 4 files, 1.5 MB
+    cbs_benchmark/skip_sparse_all_24M: 4 files, 1.5 MB
+    cbs_benchmark/skip_sparse_all_2M: 4 files, 1.5 MB
+    cbs_benchmark/skip_sparse_all_48M: 4 files, 1.5 MB
+    cbs_benchmark/u2s_dense_from24M: 4 files, 1.5 MB
+    cbs_benchmark/u2s_dense_from2M: 4 files, 1.5 MB
+    cbs_benchmark/u2s_dense_from48M: 4 files, 1.5 MB
+    cbs_benchmark/u2s_minimol_full_from8M: 4 files, 1.5 MB
+    cbs_benchmark/u2s_minimol_full_from8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/u2s_minimol_full_from8M_s2: 4 files, 1.5 MB
+    cbs_benchmark/u2s_mixed_from8M: 4 files, 1.5 MB
+    cbs_benchmark/u2s_mixed_from8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/u2s_mixed_from8M_s2: 4 files, 1.5 MB
+    cbs_benchmark/unigram_1200: 4 files, 1.5 MB
+    cbs_benchmark/unigram_261: 4 files, 1.5 MB
+    cbs_benchmark/unigram_3000: 4 files, 1.5 MB
+    cbs_benchmark/unigram_700: 4 files, 1.5 MB
+    cbs_benchmark/unigram_8M: 4 files, 2.9 MB
+    cbs_benchmark/unigram_8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/unigram_8M_s2: 4 files, 1.5 MB
+    cbs_benchmark/unsup_100M: 4 files, 1.5 MB
+    cbs_benchmark/unsup_24M: 4 files, 1.5 MB
+    cbs_benchmark/unsup_2M: 4 files, 1.5 MB
+    cbs_benchmark/unsup_48M: 4 files, 1.5 MB
+    cbs_benchmark/unsup_50M: 4 files, 1.5 MB
+    cbs_benchmark/unsup_8M_e2e: 3 files, 0.0 MB
+    cbs_benchmark/wiki_real_8M: 4 files, 1.5 MB
+    cbs_benchmark/wiki_real_8M_s1: 4 files, 1.5 MB
+    cbs_benchmark/wiki_real_8M_s2: 4 files, 1.5 MB
+
+=== ENCODERS ===
+    climb_v2_lrsweep/lr1e-4_dense: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   0%|          |  555kB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   0%|          |  555kB /  166MB            [A[AProcessing Files (0 / 1)      :   0%|          |  555kB /  166MB, 1.39MB/s  
+New Data Upload               :   1%|          |  555kB / 67.1MB, 1.39MB/s  [A
+
+  ...encoder/model.safetensors:   1%|          | 1.11MB /  166MB            [A[AProcessing Files (0 / 1)      :   1%|          | 1.11MB /  166MB, 1.85MB/s  
+New Data Upload               :   1%|          | 1.11MB /  134MB, 1.85MB/s  [A
+
+  ...encoder/model.safetensors:   3%|▎         | 4.44MB /  166MB            [A[AProcessing Files (0 / 1)      :   3%|▎         | 4.44MB /  166MB, 5.55MB/s  
+New Data Upload               :   3%|▎         | 4.44MB /  134MB, 5.55MB/s  [A
+
+  ...encoder/model.safetensors:   7%|▋         | 11.1MB /  166MB            [A[AProcessing Files (0 / 1)      :   7%|▋         | 11.1MB /  166MB, 11.1MB/s  
+New Data Upload               :   8%|▊         | 11.1MB /  134MB, 11.1MB/s  [A
+
+  ...encoder/model.safetensors:  10%|█         | 17.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  10%|█         | 17.2MB /  166MB, 14.3MB/s  
+New Data Upload               :  13%|█▎        | 17.2MB /  134MB, 14.3MB/s  [A
+
+  ...encoder/model.safetensors:  14%|█▎        | 22.7MB /  166MB            [A[AProcessing Files (0 / 1)      :  14%|█▎        | 22.7MB /  166MB, 16.2MB/s  
+New Data Upload               :  17%|█▋        | 22.7MB /  134MB, 16.2MB/s  [A
+
+  ...encoder/model.safetensors:  18%|█▊        | 29.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  18%|█▊        | 29.9MB /  166MB, 18.7MB/s  
+New Data Upload               :  22%|██▏       | 29.9MB /  134MB, 18.7MB/s  [A
+
+  ...encoder/model.safetensors:  23%|██▎       | 37.7MB /  166MB            [A[AProcessing Files (0 / 1)      :  23%|██▎       | 37.7MB /  166MB, 21.0MB/s  
+New Data Upload               :  28%|██▊       | 37.7MB /  134MB, 21.0MB/s  [A
+
+  ...encoder/model.safetensors:  28%|██▊       | 46.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  28%|██▊       | 46.0MB /  166MB, 23.0MB/s  
+New Data Upload               :  34%|███▍      | 46.0MB /  134MB, 23.0MB/s  [A
+
+  ...encoder/model.safetensors:  32%|███▏      | 53.8MB /  166MB            [A[AProcessing Files (0 / 1)      :  32%|███▏      | 53.8MB /  166MB, 24.5MB/s  
+New Data Upload               :  40%|████      | 53.8MB /  134MB, 24.5MB/s  [A
+
+  ...encoder/model.safetensors:  37%|███▋      | 62.1MB /  166MB            [A[AProcessing Files (0 / 1)      :  37%|███▋      | 62.1MB /  166MB, 25.9MB/s  
+New Data Upload               :  46%|████▋     | 62.1MB /  134MB, 25.9MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.5MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 66.5MB /  166MB, 25.6MB/s  
+New Data Upload               :  50%|████▉     | 66.5MB /  134MB, 25.6MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.5MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.5MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.5MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  41%|████      | 67.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  41%|████      | 67.6MB /  166MB, 19.9MB/s  
+New Data Upload               :  50%|█████     | 67.6MB /  134MB, 19.9MB/s  [A
+
+  ...encoder/model.safetensors:  45%|████▍     | 74.3MB /  166MB            [A[AProcessing Files (0 / 1)      :  45%|████▍     | 74.3MB /  166MB, 20.6MB/s  
+New Data Upload               :  45%|████▍     | 74.3MB /  166MB, 20.6MB/s  [A
+
+  ...encoder/model.safetensors:  50%|█████     | 83.1MB /  166MB            [A[AProcessing Files (0 / 1)      :  50%|█████     | 83.1MB /  166MB, 21.9MB/s  
+New Data Upload               :  50%|█████     | 83.1MB /  166MB, 21.9MB/s  [A
+
+  ...encoder/model.safetensors:  59%|█████▊    | 97.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  59%|█████▊    | 97.0MB /  166MB, 24.2MB/s  
+New Data Upload               :  59%|█████▊    | 97.0MB /  166MB, 24.2MB/s  [A
+
+  ...encoder/model.safetensors:  67%|██████▋   |  111MB /  166MB            [A[AProcessing Files (0 / 1)      :  67%|██████▋   |  111MB /  166MB, 26.5MB/s  
+New Data Upload               :  67%|██████▋   |  111MB /  166MB, 26.5MB/s  [A
+
+  ...encoder/model.safetensors:  74%|███████▎  |  122MB /  166MB            [A[AProcessing Files (0 / 1)      :  74%|███████▎  |  122MB /  166MB, 27.7MB/s  
+New Data Upload               :  74%|███████▎  |  122MB /  166MB, 27.7MB/s  [A
+
+  ...encoder/model.safetensors:  81%|████████  |  134MB /  166MB            [A[AProcessing Files (0 / 1)      :  81%|████████  |  134MB /  166MB, 29.0MB/s  
+New Data Upload               :  81%|████████  |  134MB /  166MB, 29.0MB/s  [A
+
+  ...encoder/model.safetensors:  88%|████████▊ |  145MB /  166MB            [A[AProcessing Files (0 / 1)      :  88%|████████▊ |  145MB /  166MB, 30.3MB/s  
+New Data Upload               :  88%|████████▊ |  145MB /  166MB, 30.3MB/s  [A
+
+  ...encoder/model.safetensors:  95%|█████████▍|  157MB /  166MB            [A[AProcessing Files (0 / 1)      :  95%|█████████▍|  157MB /  166MB, 31.4MB/s  
+New Data Upload               :  95%|█████████▍|  157MB /  166MB, 31.4MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  165MB /  166MB, 31.8MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  166MB, 31.8MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 27.6MB/s  
+New Data Upload               : 100%|██████████|  166MB /  166MB, 27.6MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 25.9MB/s  
+New Data Upload               : 100%|██████████|  166MB /  166MB, 25.9MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr1e-4_sparse_all: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   0%|          |  309kB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   0%|          |  309kB /  166MB            [A[AProcessing Files (0 / 1)      :   0%|          |  309kB /  166MB,   ???B/s  
+
+  ...encoder/model.safetensors:   7%|▋         | 10.9MB /  166MB            [A[AProcessing Files (0 / 1)      :   7%|▋         | 10.9MB /  166MB, 52.9MB/s  
+New Data Upload               :   8%|▊         | 10.5MB /  134MB, 52.9MB/s  [A
+
+  ...encoder/model.safetensors:  13%|█▎        | 21.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  13%|█▎        | 21.9MB /  166MB, 54.2MB/s  
+New Data Upload               :  16%|█▌        | 21.6MB /  134MB, 54.2MB/s  [A
+
+  ...encoder/model.safetensors:  20%|██        | 33.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  20%|██        | 33.6MB /  166MB, 55.6MB/s  
+New Data Upload               :  25%|██▍       | 33.3MB /  134MB, 55.6MB/s  [A
+
+  ...encoder/model.safetensors:  27%|██▋       | 45.3MB /  166MB            [A[AProcessing Files (0 / 1)      :  27%|██▋       | 45.3MB /  166MB, 56.3MB/s  
+New Data Upload               :  33%|███▎      | 44.9MB /  134MB, 56.3MB/s  [A
+
+  ...encoder/model.safetensors:  35%|███▍      | 57.5MB /  166MB            [A[AProcessing Files (0 / 1)      :  35%|███▍      | 57.5MB /  166MB, 57.2MB/s  
+New Data Upload               :  43%|████▎     | 57.2MB /  134MB, 57.2MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 66.9MB /  166MB, 55.6MB/s  
+New Data Upload               :  50%|████▉     | 66.6MB /  134MB, 55.6MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  45%|████▌     | 75.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  45%|████▌     | 75.2MB /  166MB, 34.0MB/s  
+New Data Upload               :  45%|████▌     | 74.9MB /  165MB, 34.0MB/s  [A
+
+  ...encoder/model.safetensors:  55%|█████▍    | 90.7MB /  166MB            [A[AProcessing Files (0 / 1)      :  55%|█████▍    | 90.7MB /  166MB, 37.7MB/s  
+New Data Upload               :  55%|█████▍    | 90.4MB /  165MB, 37.7MB/s  [A
+
+  ...encoder/model.safetensors:  64%|██████▍   |  106MB /  166MB            [A[AProcessing Files (0 / 1)      :  64%|██████▍   |  106MB /  166MB, 40.7MB/s  
+New Data Upload               :  64%|██████▍   |  106MB /  165MB, 40.7MB/s  [A
+
+  ...encoder/model.safetensors:  73%|███████▎  |  122MB /  166MB            [A[AProcessing Files (0 / 1)      :  73%|███████▎  |  122MB /  166MB, 43.4MB/s  
+New Data Upload               :  73%|███████▎  |  121MB /  165MB, 43.4MB/s  [A
+
+  ...encoder/model.safetensors:  83%|████████▎ |  137MB /  166MB            [A[AProcessing Files (0 / 1)      :  83%|████████▎ |  137MB /  166MB, 45.7MB/s  
+New Data Upload               :  83%|████████▎ |  137MB /  165MB, 45.7MB/s  [A
+
+  ...encoder/model.safetensors:  90%|████████▉ |  148MB /  166MB            [A[AProcessing Files (0 / 1)      :  90%|████████▉ |  148MB /  166MB, 46.3MB/s  
+New Data Upload               :  90%|████████▉ |  148MB /  165MB, 46.3MB/s  [A
+
+  ...encoder/model.safetensors:  96%|█████████▌|  159MB /  166MB            [A[AProcessing Files (0 / 1)      :  96%|█████████▌|  159MB /  166MB, 46.8MB/s  
+New Data Upload               :  96%|█████████▌|  159MB /  165MB, 46.8MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  166MB /  166MB, 45.9MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  165MB, 45.9MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 37.6MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 37.6MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 36.0MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 36.0MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr2e-4_dense: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB,   ???B/s  
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB,  0.00B/s  
+New Data Upload               : |          |  0.00B /  0.00B,  0.00B/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr2e-4_sparse_all: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   3%|▎         | 4.18MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   3%|▎         | 4.18MB /  166MB            [A[AProcessing Files (0 / 1)      :   3%|▎         | 4.18MB /  166MB,   ???B/s  
+New Data Upload               :   6%|▌         | 3.88MB / 67.1MB,   ???B/s  [A
+
+  ...encoder/model.safetensors:   8%|▊         | 13.1MB /  166MB            [A[AProcessing Files (0 / 1)      :   8%|▊         | 13.1MB /  166MB, 44.5MB/s  
+New Data Upload               :  19%|█▉        | 12.8MB / 67.1MB, 44.5MB/s  [A
+
+  ...encoder/model.safetensors:  15%|█▍        | 24.1MB /  166MB            [A[AProcessing Files (0 / 1)      :  15%|█▍        | 24.1MB /  166MB, 49.9MB/s  
+New Data Upload               :  18%|█▊        | 23.8MB /  134MB, 49.9MB/s  [A
+
+  ...encoder/model.safetensors:  21%|██▏       | 35.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  21%|██▏       | 35.2MB /  166MB, 51.7MB/s  
+New Data Upload               :  26%|██▌       | 34.9MB /  134MB, 51.7MB/s  [A
+
+  ...encoder/model.safetensors:  29%|██▊       | 47.4MB /  166MB            [A[AProcessing Files (0 / 1)      :  29%|██▊       | 47.4MB /  166MB, 54.1MB/s  
+New Data Upload               :  35%|███▌      | 47.1MB /  134MB, 54.1MB/s  [A
+
+  ...encoder/model.safetensors:  35%|███▌      | 58.5MB /  166MB            [A[AProcessing Files (0 / 1)      :  35%|███▌      | 58.5MB /  166MB, 54.3MB/s  
+New Data Upload               :  43%|████▎     | 58.2MB /  134MB, 54.3MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 66.8MB /  166MB, 52.2MB/s  
+New Data Upload               :  50%|████▉     | 66.5MB /  134MB, 52.2MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  45%|████▌     | 75.1MB /  166MB            [A[AProcessing Files (0 / 1)      :  45%|████▌     | 75.1MB /  166MB, 35.5MB/s  
+New Data Upload               :  45%|████▌     | 74.8MB /  165MB, 35.5MB/s  [A
+
+  ...encoder/model.safetensors:  56%|█████▌    | 92.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  56%|█████▌    | 92.9MB /  166MB, 40.3MB/s  
+New Data Upload               :  56%|█████▌    | 92.6MB /  165MB, 40.3MB/s  [A
+
+  ...encoder/model.safetensors:  64%|██████▍   |  107MB /  166MB            [A[AProcessing Files (0 / 1)      :  64%|██████▍   |  107MB /  166MB, 42.7MB/s  
+New Data Upload               :  64%|██████▍   |  106MB /  165MB, 42.7MB/s  [A
+
+  ...encoder/model.safetensors:  72%|███████▏  |  119MB /  166MB            [A[AProcessing Files (0 / 1)      :  72%|███████▏  |  119MB /  166MB, 44.3MB/s  
+New Data Upload               :  72%|███████▏  |  119MB /  165MB, 44.3MB/s  [A
+
+  ...encoder/model.safetensors:  81%|████████  |  134MB /  166MB            [A[AProcessing Files (0 / 1)      :  81%|████████  |  134MB /  166MB, 46.5MB/s  
+New Data Upload               :  81%|████████  |  134MB /  165MB, 46.5MB/s  [A
+
+  ...encoder/model.safetensors:  87%|████████▋ |  144MB /  166MB            [A[AProcessing Files (0 / 1)      :  87%|████████▋ |  144MB /  166MB, 46.8MB/s  
+New Data Upload               :  87%|████████▋ |  144MB /  165MB, 46.8MB/s  [A
+
+  ...encoder/model.safetensors:  94%|█████████▍|  156MB /  166MB            [A[AProcessing Files (0 / 1)      :  94%|█████████▍|  156MB /  166MB, 47.5MB/s  
+New Data Upload               :  94%|█████████▍|  156MB /  165MB, 47.5MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  165MB /  166MB, 47.3MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  165MB, 47.3MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  165MB /  166MB, 44.7MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  165MB, 44.7MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 38.4MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 38.4MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 35.1MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 35.1MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr2e-5_dense: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   5%|▌         | 8.87MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   5%|▌         | 8.87MB /  166MB            [A[AProcessing Files (0 / 1)      :   5%|▌         | 8.87MB /  166MB, 44.2MB/s  
+New Data Upload               :  13%|█▎        | 8.87MB / 67.1MB, 44.2MB/s  [A
+
+  ...encoder/model.safetensors:  12%|█▏        | 20.5MB /  166MB            [A[AProcessing Files (0 / 1)      :  12%|█▏        | 20.5MB /  166MB, 51.2MB/s  
+New Data Upload               :  15%|█▌        | 20.5MB /  134MB, 51.2MB/s  [A
+
+  ...encoder/model.safetensors:  19%|█▉        | 31.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  19%|█▉        | 31.6MB /  166MB, 52.6MB/s  
+New Data Upload               :  24%|██▎       | 31.6MB /  134MB, 52.6MB/s  [A
+
+  ...encoder/model.safetensors:  26%|██▌       | 42.7MB /  166MB            [A[AProcessing Files (0 / 1)      :  26%|██▌       | 42.7MB /  166MB, 53.4MB/s  
+New Data Upload               :  32%|███▏      | 42.7MB /  134MB, 53.4MB/s  [A
+
+  ...encoder/model.safetensors:  32%|███▏      | 53.8MB /  166MB            [A[AProcessing Files (0 / 1)      :  32%|███▏      | 53.8MB /  166MB, 53.8MB/s  
+New Data Upload               :  40%|████      | 53.8MB /  134MB, 53.8MB/s  [A
+
+  ...encoder/model.safetensors:  40%|███▉      | 66.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|███▉      | 66.0MB /  166MB, 55.0MB/s  
+New Data Upload               :  49%|████▉     | 66.0MB /  134MB, 55.0MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 66.6MB /  166MB, 47.5MB/s  
+New Data Upload               :  50%|████▉     | 66.6MB /  134MB, 47.5MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.6MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.6MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  43%|████▎     | 70.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  43%|████▎     | 70.9MB /  166MB, 35.4MB/s  
+New Data Upload               :  43%|████▎     | 70.9MB /  166MB, 35.4MB/s  [A
+
+  ...encoder/model.safetensors:  52%|█████▏    | 85.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  52%|█████▏    | 85.9MB /  166MB, 39.0MB/s  
+New Data Upload               :  52%|█████▏    | 85.9MB /  166MB, 39.0MB/s  [A
+
+  ...encoder/model.safetensors:  61%|██████    |  101MB /  166MB            [A[AProcessing Files (0 / 1)      :  61%|██████    |  101MB /  166MB, 42.2MB/s  
+New Data Upload               :  61%|██████    |  101MB /  166MB, 42.2MB/s  [A
+
+  ...encoder/model.safetensors:  71%|███████   |  117MB /  166MB            [A[AProcessing Files (0 / 1)      :  71%|███████   |  117MB /  166MB, 45.2MB/s  
+New Data Upload               :  71%|███████   |  117MB /  166MB, 45.2MB/s  [A
+
+  ...encoder/model.safetensors:  81%|████████  |  134MB /  166MB            [A[AProcessing Files (0 / 1)      :  81%|████████  |  134MB /  166MB, 47.9MB/s  
+New Data Upload               :  81%|████████  |  134MB /  166MB, 47.9MB/s  [A
+
+  ...encoder/model.safetensors:  87%|████████▋ |  145MB /  166MB            [A[AProcessing Files (0 / 1)      :  87%|████████▋ |  145MB /  166MB, 48.2MB/s  
+New Data Upload               :  87%|████████▋ |  145MB /  166MB, 48.2MB/s  [A
+
+  ...encoder/model.safetensors:  94%|█████████▍|  156MB /  166MB            [A[AProcessing Files (0 / 1)      :  94%|█████████▍|  156MB /  166MB, 48.8MB/s  
+New Data Upload               :  94%|█████████▍|  156MB /  166MB, 48.8MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  166MB /  166MB, 48.7MB/s  
+New Data Upload               : 100%|█████████▉|  166MB /  166MB, 48.7MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 39.4MB/s  
+New Data Upload               : 100%|██████████|  166MB /  166MB, 39.4MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 36.0MB/s  
+New Data Upload               : 100%|██████████|  166MB /  166MB, 36.0MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr2e-5_sparse_all: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   0%|          |  280kB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   0%|          |  280kB /  166MB            [A[AProcessing Files (0 / 1)      :   0%|          |  280kB /  166MB,   ???B/s  
+
+  ...encoder/model.safetensors:   6%|▌         | 9.16MB /  166MB            [A[AProcessing Files (0 / 1)      :   6%|▌         | 9.16MB /  166MB, 44.3MB/s  
+New Data Upload               :   7%|▋         | 8.88MB /  134MB, 44.3MB/s  [A
+
+  ...encoder/model.safetensors:   9%|▊         | 14.2MB /  166MB            [A[AProcessing Files (0 / 1)      :   9%|▊         | 14.2MB /  166MB, 34.7MB/s  
+New Data Upload               :  10%|█         | 13.9MB /  134MB, 34.7MB/s  [A
+
+  ...encoder/model.safetensors:  14%|█▍        | 23.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  14%|█▍        | 23.6MB /  166MB, 38.8MB/s  
+New Data Upload               :  17%|█▋        | 23.3MB /  134MB, 38.8MB/s  [A
+
+  ...encoder/model.safetensors:  19%|█▉        | 31.4MB /  166MB            [A[AProcessing Files (0 / 1)      :  19%|█▉        | 31.4MB /  166MB, 38.8MB/s  
+New Data Upload               :  23%|██▎       | 31.1MB /  134MB, 38.8MB/s  [A
+
+  ...encoder/model.safetensors:  24%|██▍       | 39.7MB /  166MB            [A[AProcessing Files (0 / 1)      :  24%|██▍       | 39.7MB /  166MB, 39.4MB/s  
+New Data Upload               :  29%|██▉       | 39.4MB /  134MB, 39.4MB/s  [A
+
+  ...encoder/model.safetensors:  29%|██▉       | 48.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  29%|██▉       | 48.6MB /  166MB, 40.3MB/s  
+New Data Upload               :  36%|███▌      | 48.3MB /  134MB, 40.3MB/s  [A
+
+  ...encoder/model.safetensors:  34%|███▍      | 56.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  34%|███▍      | 56.9MB /  166MB, 40.4MB/s  
+New Data Upload               :  42%|████▏     | 56.6MB /  134MB, 40.4MB/s  [A
+
+  ...encoder/model.safetensors:  40%|███▉      | 65.8MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|███▉      | 65.8MB /  166MB, 40.9MB/s  
+New Data Upload               :  49%|████▉     | 65.5MB /  134MB, 40.9MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 66.9MB /  166MB, 37.0MB/s  
+New Data Upload               :  50%|████▉     | 66.6MB /  134MB, 37.0MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.9MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  49%|████▉     | 81.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  49%|████▉     | 81.2MB /  166MB, 31.1MB/s  
+New Data Upload               :  49%|████▉     | 80.9MB /  165MB, 31.1MB/s  [A
+
+  ...encoder/model.safetensors:  57%|█████▋    | 95.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  57%|█████▋    | 95.0MB /  166MB, 33.8MB/s  
+New Data Upload               :  57%|█████▋    | 94.7MB /  165MB, 33.8MB/s  [A
+
+  ...encoder/model.safetensors:  68%|██████▊   |  112MB /  166MB            [A[AProcessing Files (0 / 1)      :  68%|██████▊   |  112MB /  166MB, 37.3MB/s  
+New Data Upload               :  68%|██████▊   |  112MB /  165MB, 37.3MB/s  [A
+
+  ...encoder/model.safetensors:  76%|███████▌  |  126MB /  166MB            [A[AProcessing Files (0 / 1)      :  76%|███████▌  |  126MB /  166MB, 39.3MB/s  
+New Data Upload               :  76%|███████▌  |  126MB /  165MB, 39.3MB/s  [A
+
+  ...encoder/model.safetensors:  79%|███████▉  |  132MB /  166MB            [A[AProcessing Files (0 / 1)      :  79%|███████▉  |  132MB /  166MB, 38.6MB/s  
+New Data Upload               :  79%|███████▉  |  131MB /  165MB, 38.6MB/s  [A
+
+  ...encoder/model.safetensors:  84%|████████▍ |  139MB /  166MB            [A[AProcessing Files (0 / 1)      :  84%|████████▍ |  139MB /  166MB, 38.6MB/s  
+New Data Upload               :  84%|████████▍ |  139MB /  165MB, 38.6MB/s  [A
+
+  ...encoder/model.safetensors:  88%|████████▊ |  146MB /  166MB            [A[AProcessing Files (0 / 1)      :  88%|████████▊ |  146MB /  166MB, 38.3MB/s  
+New Data Upload               :  88%|████████▊ |  145MB /  165MB, 38.3MB/s  [A
+
+  ...encoder/model.safetensors:  92%|█████████▏|  152MB /  166MB            [A[AProcessing Files (0 / 1)      :  92%|█████████▏|  152MB /  166MB, 38.0MB/s  
+New Data Upload               :  92%|█████████▏|  152MB /  165MB, 38.0MB/s  [A
+
+  ...encoder/model.safetensors:  96%|█████████▋|  160MB /  166MB            [A[AProcessing Files (0 / 1)      :  96%|█████████▋|  160MB /  166MB, 37.9MB/s  
+New Data Upload               :  96%|█████████▋|  159MB /  165MB, 37.9MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  166MB /  166MB, 37.6MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  165MB, 37.6MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 30.6MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 30.6MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 28.5MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 28.5MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr5e-5_dense: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   2%|▏         | 3.88MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   2%|▏         | 3.88MB /  166MB            [A[AProcessing Files (0 / 1)      :   2%|▏         | 3.88MB /  166MB, 19.4MB/s  
+New Data Upload               :   6%|▌         | 3.88MB / 67.1MB, 19.4MB/s  [A
+
+  ...encoder/model.safetensors:   6%|▌         | 9.98MB /  166MB            [A[AProcessing Files (0 / 1)      :   6%|▌         | 9.98MB /  166MB, 24.9MB/s  
+New Data Upload               :  15%|█▍        | 9.98MB / 67.1MB, 24.9MB/s  [A
+
+  ...encoder/model.safetensors:  10%|█         | 16.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  10%|█         | 16.6MB /  166MB, 27.8MB/s  
+New Data Upload               :  12%|█▏        | 16.6MB /  134MB, 27.8MB/s  [A
+
+  ...encoder/model.safetensors:  15%|█▍        | 24.4MB /  166MB            [A[AProcessing Files (0 / 1)      :  15%|█▍        | 24.4MB /  166MB, 30.5MB/s  
+New Data Upload               :  18%|█▊        | 24.4MB /  134MB, 30.5MB/s  [A
+
+  ...encoder/model.safetensors:  19%|█▉        | 32.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  19%|█▉        | 32.2MB /  166MB, 32.2MB/s  
+New Data Upload               :  24%|██▍       | 32.2MB /  134MB, 32.2MB/s  [A
+
+  ...encoder/model.safetensors:  24%|██▍       | 39.4MB /  166MB            [A[AProcessing Files (0 / 1)      :  24%|██▍       | 39.4MB /  166MB, 32.8MB/s  
+New Data Upload               :  29%|██▉       | 39.4MB /  134MB, 32.8MB/s  [A
+
+  ...encoder/model.safetensors:  28%|██▊       | 46.6MB /  166MB            [A[AProcessing Files (0 / 1)      :  28%|██▊       | 46.6MB /  166MB, 33.3MB/s  
+New Data Upload               :  35%|███▍      | 46.6MB /  134MB, 33.3MB/s  [A
+
+  ...encoder/model.safetensors:  32%|███▏      | 53.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  32%|███▏      | 53.2MB /  166MB, 33.3MB/s  
+New Data Upload               :  40%|███▉      | 53.2MB /  134MB, 33.3MB/s  [A
+
+  ...encoder/model.safetensors:  37%|███▋      | 61.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  37%|███▋      | 61.0MB /  166MB, 33.9MB/s  
+New Data Upload               :  45%|████▌     | 61.0MB /  134MB, 33.9MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 67.1MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 67.1MB /  166MB, 33.6MB/s  
+New Data Upload               :  50%|█████     | 67.1MB /  134MB, 33.6MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 67.1MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 67.1MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 67.1MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  43%|████▎     | 71.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  43%|████▎     | 71.0MB /  166MB, 25.4MB/s  
+New Data Upload               :  53%|█████▎    | 71.0MB /  134MB, 25.4MB/s  [A
+
+  ...encoder/model.safetensors:  49%|████▉     | 81.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  49%|████▉     | 81.0MB /  166MB, 27.0MB/s  
+New Data Upload               :  49%|████▉     | 81.0MB /  166MB, 27.0MB/s  [A
+
+  ...encoder/model.safetensors:  53%|█████▎    | 88.2MB /  166MB            [A[AProcessing Files (0 / 1)      :  53%|█████▎    | 88.2MB /  166MB, 27.6MB/s  
+New Data Upload               :  53%|█████▎    | 88.2MB /  166MB, 27.6MB/s  [A
+
+  ...encoder/model.safetensors:  58%|█████▊    | 95.4MB /  166MB            [A[AProcessing Files (0 / 1)      :  58%|█████▊    | 95.4MB /  166MB, 28.1MB/s  
+New Data Upload               :  58%|█████▊    | 95.4MB /  166MB, 28.1MB/s  [A
+
+  ...encoder/model.safetensors:  64%|██████▍   |  106MB /  166MB            [A[AProcessing Files (0 / 1)      :  64%|██████▍   |  106MB /  166MB, 29.4MB/s  
+New Data Upload               :  64%|██████▍   |  106MB /  166MB, 29.4MB/s  [A
+
+  ...encoder/model.safetensors:  72%|███████▏  |  120MB /  166MB            [A[AProcessing Files (0 / 1)      :  72%|███████▏  |  120MB /  166MB, 31.5MB/s  
+New Data Upload               :  72%|███████▏  |  120MB /  166MB, 31.5MB/s  [A
+
+  ...encoder/model.safetensors:  81%|████████  |  134MB /  166MB            [A[AProcessing Files (0 / 1)      :  81%|████████  |  134MB /  166MB, 33.6MB/s  
+New Data Upload               :  81%|████████  |  134MB /  166MB, 33.6MB/s  [A
+
+  ...encoder/model.safetensors:  90%|████████▉ |  149MB /  166MB            [A[AProcessing Files (0 / 1)      :  90%|████████▉ |  149MB /  166MB, 35.4MB/s  
+New Data Upload               :  90%|████████▉ |  149MB /  166MB, 35.4MB/s  [A
+
+  ...encoder/model.safetensors:  96%|█████████▌|  159MB /  166MB            [A[AProcessing Files (0 / 1)      :  96%|█████████▌|  159MB /  166MB, 36.0MB/s  
+New Data Upload               :  96%|█████████▌|  159MB /  166MB, 36.0MB/s  [A
+
+  ...encoder/model.safetensors:  99%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      :  99%|█████████▉|  165MB /  166MB, 35.8MB/s  
+New Data Upload               :  99%|█████████▉|  165MB /  166MB, 35.8MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  165MB /  166MB, 34.4MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  166MB, 34.4MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 30.7MB/s  
+New Data Upload               : 100%|██████████|  166MB /  166MB, 30.7MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 28.6MB/s  
+New Data Upload               : 100%|██████████|  166MB /  166MB, 28.6MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+    climb_v2_lrsweep/lr5e-5_sparse_all: 2 files, 165.7 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...encoder/model.safetensors:   0%|          |  191kB /  166MB            [A[A
+
+  ...encoder/model.safetensors:   0%|          |  191kB /  166MB            [A[AProcessing Files (0 / 1)      :   0%|          |  191kB /  166MB,   ???B/s  
+
+  ...encoder/model.safetensors:   5%|▍         | 7.96MB /  166MB            [A[AProcessing Files (0 / 1)      :   5%|▍         | 7.96MB /  166MB, 38.6MB/s  
+New Data Upload               :  12%|█▏        | 7.77MB / 67.0MB, 38.6MB/s  [A
+
+  ...encoder/model.safetensors:   9%|▉         | 15.7MB /  166MB            [A[AProcessing Files (0 / 1)      :   9%|▉         | 15.7MB /  166MB, 38.9MB/s  
+New Data Upload               :  12%|█▏        | 15.5MB /  134MB, 38.9MB/s  [A
+
+  ...encoder/model.safetensors:  14%|█▍        | 23.5MB /  166MB            [A[AProcessing Files (0 / 1)      :  14%|█▍        | 23.5MB /  166MB, 38.8MB/s  
+New Data Upload               :  17%|█▋        | 23.3MB /  134MB, 38.8MB/s  [A
+
+  ...encoder/model.safetensors:  19%|█▉        | 31.8MB /  166MB            [A[AProcessing Files (0 / 1)      :  19%|█▉        | 31.8MB /  166MB, 39.5MB/s  
+New Data Upload               :  24%|██▎       | 31.6MB /  134MB, 39.5MB/s  [A
+
+  ...encoder/model.safetensors:  24%|██▎       | 39.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  24%|██▎       | 39.0MB /  166MB, 38.8MB/s  
+New Data Upload               :  29%|██▉       | 38.8MB /  134MB, 38.8MB/s  [A
+
+  ...encoder/model.safetensors:  29%|██▊       | 47.4MB /  166MB            [A[AProcessing Files (0 / 1)      :  29%|██▊       | 47.4MB /  166MB, 39.3MB/s  
+New Data Upload               :  35%|███▌      | 47.2MB /  134MB, 39.3MB/s  [A
+
+  ...encoder/model.safetensors:  33%|███▎      | 55.1MB /  166MB            [A[AProcessing Files (0 / 1)      :  33%|███▎      | 55.1MB /  166MB, 39.2MB/s  
+New Data Upload               :  41%|████      | 54.9MB /  134MB, 39.2MB/s  [A
+
+  ...encoder/model.safetensors:  38%|███▊      | 62.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  38%|███▊      | 62.9MB /  166MB, 39.2MB/s  
+New Data Upload               :  47%|████▋     | 62.7MB /  134MB, 39.2MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[AProcessing Files (0 / 1)      :  40%|████      | 66.8MB /  166MB, 37.0MB/s  
+New Data Upload               :  50%|████▉     | 66.6MB /  134MB, 37.0MB/s  [A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  40%|████      | 66.8MB /  166MB            [A[A
+
+  ...encoder/model.safetensors:  45%|████▍     | 73.9MB /  166MB            [A[AProcessing Files (0 / 1)      :  45%|████▍     | 73.9MB /  166MB, 28.3MB/s  
+New Data Upload               :  45%|████▍     | 73.7MB /  165MB, 28.3MB/s  [A
+
+  ...encoder/model.safetensors:  55%|█████▍    | 91.0MB /  166MB            [A[AProcessing Files (0 / 1)      :  55%|█████▍    | 91.0MB /  166MB, 32.4MB/s  
+New Data Upload               :  55%|█████▍    | 90.9MB /  165MB, 32.4MB/s  [A
+
+  ...encoder/model.safetensors:  64%|██████▍   |  107MB /  166MB            [A[AProcessing Files (0 / 1)      :  64%|██████▍   |  107MB /  166MB, 35.5MB/s  
+New Data Upload               :  64%|██████▍   |  106MB /  165MB, 35.5MB/s  [A
+
+  ...encoder/model.safetensors:  73%|███████▎  |  122MB /  166MB            [A[AProcessing Files (0 / 1)      :  73%|███████▎  |  122MB /  166MB, 37.9MB/s  
+New Data Upload               :  73%|███████▎  |  121MB /  165MB, 37.9MB/s  [A
+
+  ...encoder/model.safetensors:  83%|████████▎ |  137MB /  166MB            [A[AProcessing Files (0 / 1)      :  83%|████████▎ |  137MB /  166MB, 40.3MB/s  
+New Data Upload               :  83%|████████▎ |  137MB /  165MB, 40.3MB/s  [A
+
+  ...encoder/model.safetensors:  90%|████████▉ |  149MB /  166MB            [A[AProcessing Files (0 / 1)      :  90%|████████▉ |  149MB /  166MB, 41.3MB/s  
+New Data Upload               :  90%|████████▉ |  149MB /  165MB, 41.3MB/s  [A
+
+  ...encoder/model.safetensors:  96%|█████████▌|  159MB /  166MB            [A[AProcessing Files (0 / 1)      :  96%|█████████▌|  159MB /  166MB, 41.9MB/s  
+New Data Upload               :  96%|█████████▌|  159MB /  165MB, 41.9MB/s  [A
+
+  ...encoder/model.safetensors:  99%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      :  99%|█████████▉|  165MB /  166MB, 41.1MB/s  
+New Data Upload               :  99%|█████████▉|  165MB /  165MB, 41.1MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[AProcessing Files (0 / 1)      : 100%|█████████▉|  165MB /  166MB, 39.3MB/s  
+New Data Upload               : 100%|█████████▉|  165MB /  165MB, 39.3MB/s  [A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|█████████▉|  165MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 34.5MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 34.5MB/s  [A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[A
+
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            [A[AProcessing Files (1 / 1)      : 100%|██████████|  166MB /  166MB, 33.1MB/s  
+New Data Upload               : 100%|██████████|  165MB /  165MB, 33.1MB/s  
+  ...encoder/model.safetensors: 100%|██████████|  166MB /  166MB            
+
+uploaded 109 result runs, 8 encoders

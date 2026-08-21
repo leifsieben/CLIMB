@@ -1,0 +1,34 @@
+[anchor] === ecfp4_anchor_s1 BACE ===
+[anchor] ecfp4_anchor_s1 BACE: OK
+[anchor] === ecfp4_anchor_s1 Tox21 ===
+[anchor] ecfp4_anchor_s1 Tox21: OK
+[anchor] === ecfp4_anchor_s1 QM7 ===
+[anchor] ecfp4_anchor_s1 QM7: OK
+[anchor] === ecfp4_anchor_s1 cbs ===
+[anchor] ecfp4_anchor_s1 cbs: OK
+[anchor] === ecfp4_anchor_s2 BACE ===
+[anchor] ecfp4_anchor_s2 BACE: OK
+[anchor] === ecfp4_anchor_s2 Tox21 ===
+[anchor] ecfp4_anchor_s2 Tox21: OK
+[anchor] === ecfp4_anchor_s2 QM7 ===
+[anchor] ecfp4_anchor_s2 QM7: OK
+[anchor] === ecfp4_anchor_s2 cbs ===
+[anchor] ecfp4_anchor_s2 cbs: OK
+[anchor] === fp_desc_anchor_s1 BACE ===
+[anchor] fp_desc_anchor_s1 BACE: OK
+[anchor] === fp_desc_anchor_s1 Tox21 ===
+[anchor] fp_desc_anchor_s1 Tox21: OK
+[anchor] === fp_desc_anchor_s1 QM7 ===
+[anchor] fp_desc_anchor_s1 QM7: OK
+[anchor] === fp_desc_anchor_s1 cbs ===
+[anchor] fp_desc_anchor_s1 cbs: OK
+[anchor] === fp_desc_anchor_s2 BACE ===
+[anchor] fp_desc_anchor_s2 BACE: OK
+[anchor] === fp_desc_anchor_s2 Tox21 ===
+[anchor] fp_desc_anchor_s2 Tox21: OK
+[anchor] === fp_desc_anchor_s2 QM7 ===
+[anchor] fp_desc_anchor_s2 QM7: OK
+[anchor] === fp_desc_anchor_s2 cbs ===
+[anchor] fp_desc_anchor_s2 cbs: OK
+
+[anchor] DONE  0 failure(s): none

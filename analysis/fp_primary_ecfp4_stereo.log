@@ -1,0 +1,130 @@
+=== PRIMARY: ECFP4 + stereo (r=2, bits, chirality ON) ===
+[anchor] === ecfp4_anchor BACE ===
+[anchor] ecfp4_anchor BACE: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/moleculenet_summary.csv (kept 176)
+[anchor] merged 1513 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/test_predictions.csv (kept 128989)
+[anchor] === ecfp4_anchor BBBP ===
+[anchor] ecfp4_anchor BBBP: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/moleculenet_summary.csv (kept 176)
+[anchor] merged 2039 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/test_predictions.csv (kept 128463)
+[anchor] === ecfp4_anchor ESOL ===
+[anchor] ecfp4_anchor ESOL: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/moleculenet_summary.csv (kept 198)
+[anchor] merged 1128 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/test_predictions.csv (kept 129374)
+[anchor] === ecfp4_anchor HIV ===
+[anchor] ecfp4_anchor HIV: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/moleculenet_summary.csv (kept 176)
+[anchor] merged 41120 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv/test_predictions.csv (kept 89382)
+[anchor] === ecfp4_anchor QM7 ===
+[anchor] ecfp4_anchor QM7: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv_qm7native/moleculenet_summary.csv (kept 0)
+[anchor] merged 6838 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv_qm7native/test_predictions.csv (kept 0)
+[anchor] === ecfp4_anchor Tox21 ===
+[anchor] ecfp4_anchor Tox21: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 176)
+[anchor] merged 77864 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor/moleculenet_cv_tox21fixed/test_predictions.csv (kept 0)
+[anchor] === ecfp4_anchor cbs ===
+[anchor] ecfp4_anchor cbs: OK
+[anchor] === fp_desc_anchor BACE ===
+[anchor] fp_desc_anchor BACE: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/moleculenet_summary.csv (kept 176)
+[anchor] merged 1513 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/test_predictions.csv (kept 128996)
+[anchor] === fp_desc_anchor BBBP ===
+[anchor] fp_desc_anchor BBBP: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/moleculenet_summary.csv (kept 176)
+[anchor] merged 2039 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/test_predictions.csv (kept 128470)
+[anchor] === fp_desc_anchor ESOL ===
+[anchor] fp_desc_anchor ESOL: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/moleculenet_summary.csv (kept 198)
+[anchor] merged 1128 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/test_predictions.csv (kept 129381)
+[anchor] === fp_desc_anchor HIV ===
+[anchor] fp_desc_anchor HIV: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/moleculenet_summary.csv (kept 176)
+[anchor] merged 41120 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv/test_predictions.csv (kept 89382)
+[anchor] === fp_desc_anchor QM7 ===
+[anchor] fp_desc_anchor QM7: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv_qm7native/moleculenet_summary.csv (kept 0)
+[anchor] merged 6838 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv_qm7native/test_predictions.csv (kept 0)
+[anchor] === fp_desc_anchor Tox21 ===
+[anchor] fp_desc_anchor Tox21: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 176)
+[anchor] merged 77864 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor/moleculenet_cv_tox21fixed/test_predictions.csv (kept 0)
+[anchor] === fp_desc_anchor cbs ===
+[anchor] fp_desc_anchor cbs: OK
+
+[anchor] DONE  0 failure(s): none
+[anchor] === ecfp4_anchor_s1 BACE ===
+[anchor] ecfp4_anchor_s1 BACE: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv/moleculenet_summary.csv (kept 110)
+[anchor] merged 1513 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv/test_predictions.csv (kept 44287)
+[anchor] === ecfp4_anchor_s1 HIV ===
+[anchor] ecfp4_anchor_s1 HIV: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv/moleculenet_summary.csv (kept 110)
+[anchor] merged 41120 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv/test_predictions.csv (kept 4680)
+[anchor] === ecfp4_anchor_s1 QM7 ===
+[anchor] ecfp4_anchor_s1 QM7: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv_qm7native/moleculenet_summary.csv (kept 0)
+[anchor] merged 6838 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv_qm7native/test_predictions.csv (kept 0)
+[anchor] === ecfp4_anchor_s1 Tox21 ===
+[anchor] ecfp4_anchor_s1 Tox21: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+[anchor] merged 77864 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s1/moleculenet_cv_tox21fixed/test_predictions.csv (kept 0)
+[anchor] === ecfp4_anchor_s1 cbs ===
+[anchor] ecfp4_anchor_s1 cbs: OK
+[anchor] === ecfp4_anchor_s2 BACE ===
+[anchor] ecfp4_anchor_s2 BACE: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv/moleculenet_summary.csv (kept 44)
+[anchor] merged 1513 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv/test_predictions.csv (kept 41120)
+[anchor] === ecfp4_anchor_s2 HIV ===
+[anchor] ecfp4_anchor_s2 HIV: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv/moleculenet_summary.csv (kept 44)
+[anchor] merged 41120 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv/test_predictions.csv (kept 1513)
+[anchor] === ecfp4_anchor_s2 QM7 ===
+[anchor] ecfp4_anchor_s2 QM7: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv_qm7native/moleculenet_summary.csv (kept 0)
+[anchor] merged 6838 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv_qm7native/test_predictions.csv (kept 0)
+[anchor] === ecfp4_anchor_s2 Tox21 ===
+[anchor] ecfp4_anchor_s2 Tox21: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+[anchor] merged 77864 pred rows into figure_data/climb_v2_phase2/ecfp4_anchor_s2/moleculenet_cv_tox21fixed/test_predictions.csv (kept 0)
+[anchor] === ecfp4_anchor_s2 cbs ===
+[anchor] ecfp4_anchor_s2 cbs: OK
+[anchor] === fp_desc_anchor_s1 BACE ===
+[anchor] fp_desc_anchor_s1 BACE: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv/moleculenet_summary.csv (kept 44)
+[anchor] merged 1513 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv/test_predictions.csv (kept 41120)
+[anchor] === fp_desc_anchor_s1 HIV ===
+[anchor] fp_desc_anchor_s1 HIV: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv/moleculenet_summary.csv (kept 44)
+[anchor] merged 41120 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv/test_predictions.csv (kept 1513)
+[anchor] === fp_desc_anchor_s1 QM7 ===
+[anchor] fp_desc_anchor_s1 QM7: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv_qm7native/moleculenet_summary.csv (kept 0)
+[anchor] merged 6838 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv_qm7native/test_predictions.csv (kept 0)
+[anchor] === fp_desc_anchor_s1 Tox21 ===
+[anchor] fp_desc_anchor_s1 Tox21: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+[anchor] merged 77864 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s1/moleculenet_cv_tox21fixed/test_predictions.csv (kept 0)
+[anchor] === fp_desc_anchor_s1 cbs ===
+[anchor] fp_desc_anchor_s1 cbs: OK
+[anchor] === fp_desc_anchor_s2 BACE ===
+[anchor] fp_desc_anchor_s2 BACE: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv/moleculenet_summary.csv (kept 44)
+[anchor] merged 1513 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv/test_predictions.csv (kept 41120)
+[anchor] === fp_desc_anchor_s2 HIV ===
+[anchor] fp_desc_anchor_s2 HIV: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv/moleculenet_summary.csv (kept 44)
+[anchor] merged 41120 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv/test_predictions.csv (kept 1513)
+[anchor] === fp_desc_anchor_s2 QM7 ===
+[anchor] fp_desc_anchor_s2 QM7: OK
+[anchor] merged 22 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv_qm7native/moleculenet_summary.csv (kept 0)
+[anchor] merged 6838 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv_qm7native/test_predictions.csv (kept 0)
+[anchor] === fp_desc_anchor_s2 Tox21 ===
+[anchor] fp_desc_anchor_s2 Tox21: OK
+[anchor] merged 44 rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+[anchor] merged 77864 pred rows into figure_data/climb_v2_phase2/fp_desc_anchor_s2/moleculenet_cv_tox21fixed/test_predictions.csv (kept 0)
+[anchor] === fp_desc_anchor_s2 cbs ===
+[anchor] fp_desc_anchor_s2 cbs: OK
+
+[anchor] DONE  0 failure(s): none
+PRIMARY_DONE

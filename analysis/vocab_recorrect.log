@@ -1,0 +1,12 @@
+
+=== climb_v2_vocab: 8 runs ===
+[climb_v2_vocab] bpe_1000                                   moleculenet_cv:done          (156s)
+[climb_v2_vocab] bpe_12000                                  moleculenet_cv:done          (194s)
+[climb_v2_vocab] bpe_261                                    moleculenet_cv:done          (206s)
+[climb_v2_vocab] bpe_3000                                   moleculenet_cv:done          (179s)
+[climb_v2_vocab] unigram_1200                               moleculenet_cv:done          (233s)
+[climb_v2_vocab] unigram_261                                moleculenet_cv:done          (206s)
+[climb_v2_vocab] unigram_3000                               moleculenet_cv:done          (181s)
+[climb_v2_vocab] unigram_700                                moleculenet_cv:done          (187s)
+
+done: 8 runs processed

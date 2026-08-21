@@ -112,24 +112,61 @@ def apply_standardizer(feats: np.ndarray, params: Dict) -> np.ndarray:
 #     bits cannot help. Do not "improve" this by widening the vector.
 #   - includeRedundantEnvironments changes nothing either, at any radius.
 #
-# DEFAULT: radius 3, counts, chirality on. Radius 4 buys 8 molecules in 29,918 while adding
-# environments that only appear in a handful of training rows, which is a bad trade on the
-# 600-molecule MoleculeACE targets. The published pre-2026-08-19 results are exactly the
-# `radius=2, counts=False, chirality=False` row, so they remain reproducible as the standard-ECFP4
-# ablation rather than being thrown away.
+# TWO VARIANTS ARE BUILT AND REPORTED, selected by the FP_VARIANT env var:
+#
+#   "ecfp4_stereo"  (DEFAULT)  radius 2, BITS, chirality on   -- the headline anchor
+#   "morgan_r3_counts"         radius 3, counts, chirality on -- the max-information variant
+#   "ecfp4_legacy"             radius 2, bits, chirality OFF  -- reproduces every pre-2026-08-19 number
+#
+# The default is deliberately the ORTHODOX one. "ECFP4" denotes a specific object -- Morgan
+# radius 2, binary -- and a radius-3 count vector is not an ECFP4 with extra settings, it is a
+# different descriptor. Since the anchor exists to be the classical baseline a reader recognises,
+# the headline number is the textbook descriptor with the bug fixed, and the more informative
+# variant is reported alongside it rather than substituted for it. Radius 4 was measured and
+# rejected: it buys 8 molecules in 29,918 while adding environments that appear in a handful of
+# training rows, a bad trade on the 600-molecule MoleculeACE targets.
+#
+# The variant is resolved ONCE per call and PRINTED, because this function is invoked across
+# subprocess boundaries where a silently defaulted setting would produce plausible, unlabelled
+# numbers -- the failure mode this repo keeps re-finding.
 
-def ecfp4_features(smiles: List[str], n_bits: int = 2048, radius: int = 3,
-                   include_chirality: bool = True, counts: bool = True) -> np.ndarray:
-    """Dense Morgan count vectors with stereochemistry -> [N, n_bits] float32.
+FP_VARIANTS = {
+    "ecfp4_stereo":     dict(radius=2, counts=False, include_chirality=True),
+    "morgan_r3_counts": dict(radius=3, counts=True,  include_chirality=True),
+    "ecfp4_legacy":     dict(radius=2, counts=False, include_chirality=False),
+}
+FP_VARIANT_DEFAULT = "ecfp4_stereo"
+
+
+def _fp_settings(radius=None, include_chirality=None, counts=None):
+    """Resolve explicit kwargs over FP_VARIANT over the default, and say which won."""
+    import os
+    name = os.environ.get("FP_VARIANT", FP_VARIANT_DEFAULT)
+    if name not in FP_VARIANTS:
+        raise ValueError(f"FP_VARIANT={name!r} unknown; expected one of {sorted(FP_VARIANTS)}")
+    cfg = dict(FP_VARIANTS[name])
+    for k, v in (("radius", radius), ("include_chirality", include_chirality), ("counts", counts)):
+        if v is not None:
+            cfg[k] = v
+            name = f"{name}+explicit"
+    return name, cfg
+
+def ecfp4_features(smiles: List[str], n_bits: int = 2048, radius: int = None,
+                   include_chirality: bool = None, counts: bool = None) -> np.ndarray:
+    """Dense Morgan fingerprints -> [N, n_bits] float32, variant chosen by FP_VARIANT.
 
     Invalid SMILES yield an all-zero row (logged count). Flows through the same head as the
     encoder features, so Morgan+XGBoost stays a like-for-like 'how good is a classical model'
-    anchor. Pass radius=2, counts=False, include_chirality=False to reproduce the pre-2026-08-19
-    ECFP4 bit-vector anchor exactly.
+    anchor. Explicit kwargs override the variant; passing none uses FP_VARIANT, defaulting to
+    the orthodox stereo-aware ECFP4.
     """
     from rdkit import Chem
     from rdkit.Chem import rdFingerprintGenerator
 
+    name, cfg = _fp_settings(radius, include_chirality, counts)
+    radius, include_chirality, counts = cfg["radius"], cfg["include_chirality"], cfg["counts"]
+    print(f"[ecfp4_features] variant={name} radius={radius} counts={counts} "
+          f"chirality={include_chirality} n_bits={n_bits}", flush=True)
     gen = rdFingerprintGenerator.GetMorganGenerator(
         radius=radius, fpSize=n_bits, includeChirality=include_chirality)
     out = np.zeros((len(smiles), n_bits), dtype=np.float32)

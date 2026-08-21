@@ -1,0 +1,291 @@
+=== moleculeace ecfp4 -> ecfp4_r3c (FP_VARIANT=morgan_r3_counts) ===
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL1862_Ki: done (161 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL1871_Ki: done (134 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL2034_Ki: done (152 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL2047_EC50: done (128 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL204_Ki: done (553 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL2147_Ki: done (294 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL214_Ki: done (666 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL218_EC50: done (208 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL219_Ki: done (374 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL228_Ki: done (342 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL231_Ki: done (197 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL233_Ki: done (630 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL234_Ki: done (733 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL235_EC50: done (472 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL236_Ki: done (521 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL237_EC50: done (193 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL237_Ki: done (522 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL238_Ki: done (213 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL239_EC50: done (347 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL244_Ki: done (621 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL262_Ki: done (173 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL264_Ki: done (574 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL2835_Ki: done (126 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL287_Ki: done (267 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL2971_Ki: done (197 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL3979_EC50: done (226 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL4005_Ki: done (193 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL4203_Ki: done (149 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL4616_EC50: done (139 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/ecfp4_r3c CHEMBL4792_Ki: done (297 test, scored)
+[suite] wrote /Users/lsieben/VSCode/CLIMB/figure_data/chemeleon_suite/moleculeace/ecfp4_r3c/results.csv  (30/30 tasks)
+rc=0
+=== moleculeace fp_desc -> fp_desc_r3c (FP_VARIANT=morgan_r3_counts) ===
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL1862_Ki: done (161 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+/Users/lsieben/VSCode/CLIMB/descriptors_v2.py:61: RuntimeWarning: overflow encountered in cast
+  out[i, j] = v
+[suite] moleculeace/fp_desc_r3c CHEMBL1871_Ki: done (134 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL2034_Ki: done (152 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL2047_EC50: done (128 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL204_Ki: done (553 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL2147_Ki: done (294 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL214_Ki: done (666 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL218_EC50: done (208 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL219_Ki: done (374 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL228_Ki: done (342 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL231_Ki: done (197 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL233_Ki: done (630 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL234_Ki: done (733 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL235_EC50: done (472 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL236_Ki: done (521 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL237_EC50: done (193 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL237_Ki: done (522 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL238_Ki: done (213 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL239_EC50: done (347 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL244_Ki: done (621 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL262_Ki: done (173 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL264_Ki: done (574 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL2835_Ki: done (126 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL287_Ki: done (267 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL2971_Ki: done (197 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL3979_EC50: done (226 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL4005_Ki: done (193 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL4203_Ki: done (149 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL4616_EC50: done (139 test, scored)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] moleculeace/fp_desc_r3c CHEMBL4792_Ki: done (297 test, scored)
+[suite] wrote /Users/lsieben/VSCode/CLIMB/figure_data/chemeleon_suite/moleculeace/fp_desc_r3c/results.csv  (30/30 tasks)
+rc=0
+=== polaris ecfp4 -> ecfp4_r3c (FP_VARIANT=morgan_r3_counts) ===
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/adme-fang-hclint-1: done (575 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/adme-fang-hppb-1: done (34 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/adme-fang-perm-1: done (483 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/adme-fang-rclint-1: done (559 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/adme-fang-rppb-1: done (24 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/adme-fang-solu-1: done (400 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/pkis2-egfr-wt-reg-v2: done (144 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/pkis2-kit-wt-cls-v2: done (116 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/pkis2-kit-wt-reg-v2: done (116 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/pkis2-ret-wt-cls-v2: done (106 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c polaris/pkis2-ret-wt-reg-v2: done (106 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/ames: done (1457 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:11] WARNING: not removing hydrogen atom without neighbors
+[14:29:12] WARNING: not removing hydrogen atom without neighbors
+[14:29:12] WARNING: not removing hydrogen atom without neighbors
+[14:29:12] WARNING: not removing hydrogen atom without neighbors
+[14:29:12] WARNING: not removing hydrogen atom without neighbors
+[suite] polaris/ecfp4_r3c tdcommons/bbb-martins: done (406 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/bioavailability-ma: done (128 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/caco2-wang: done (182 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/clearance-hepatocyte-az: done (243 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/clearance-microsome-az: done (221 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/cyp2c9-substrate-carbonmangels: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/cyp2d6-substrate-carbonmangels: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/cyp3a4-substrate-carbonmangels: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/dili: done (96 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/half-life-obach: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[14:30:01] WARNING: not removing hydrogen atom without neighbors
+[14:30:01] WARNING: not removing hydrogen atom without neighbors
+[suite] polaris/ecfp4_r3c tdcommons/herg: done (132 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/ld50-zhu: done (1478 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/lipophilicity-astrazeneca: done (840 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/pgp-broccatelli: done (245 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/ppbr-az: done (559 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/ecfp4_r3c tdcommons/vdss-lombardo: done (226 test, preds-only)
+[suite] wrote /Users/lsieben/VSCode/CLIMB/figure_data/chemeleon_suite/polaris/ecfp4_r3c/results.csv  (28/28 tasks)
+rc=0
+=== polaris fp_desc -> fp_desc_r3c (FP_VARIANT=morgan_r3_counts) ===
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/adme-fang-hclint-1: done (575 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/adme-fang-hppb-1: done (34 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/adme-fang-perm-1: done (483 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/adme-fang-rclint-1: done (559 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/adme-fang-rppb-1: done (24 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/adme-fang-solu-1: done (400 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/pkis2-egfr-wt-reg-v2: done (144 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/pkis2-kit-wt-cls-v2: done (116 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/pkis2-kit-wt-reg-v2: done (116 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/pkis2-ret-wt-cls-v2: done (106 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c polaris/pkis2-ret-wt-reg-v2: done (106 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/ames: done (1457 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+/Users/lsieben/VSCode/CLIMB/descriptors_v2.py:61: RuntimeWarning: overflow encountered in cast
+  out[i, j] = v
+[suite] polaris/fp_desc_r3c tdcommons/bbb-martins: done (406 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/bioavailability-ma: done (128 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/caco2-wang: done (182 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/clearance-hepatocyte-az: done (243 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/clearance-microsome-az: done (221 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/cyp2c9-substrate-carbonmangels: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/cyp2d6-substrate-carbonmangels: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/cyp3a4-substrate-carbonmangels: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/dili: done (96 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/half-life-obach: done (135 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/herg: done (132 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/ld50-zhu: done (1478 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/lipophilicity-astrazeneca: done (840 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/pgp-broccatelli: done (245 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/ppbr-az: done (559 test, preds-only)
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+[suite] polaris/fp_desc_r3c tdcommons/vdss-lombardo: done (226 test, preds-only)
+[suite] wrote /Users/lsieben/VSCode/CLIMB/figure_data/chemeleon_suite/polaris/fp_desc_r3c/results.csv  (28/28 tasks)
+rc=0
+R3C_SUITE_DONE

@@ -1,0 +1,60 @@
+=== RESULTS ===
+  climb_v2_phase2: 14 to upload
+    climb_v2_phase2/chemeleon_frozen_part1: 3 files, 0.8 MB
+    climb_v2_phase2/chemeleon_frozen_part2: 3 files, 0.8 MB
+    climb_v2_phase2/chemeleon_frozen_s1: 6 files, 15.6 MB
+    climb_v2_phase2/chemeleon_frozen_s2: 6 files, 15.6 MB
+    climb_v2_phase2/corrupt_mtr_8M_s1: 6 files, 18.6 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  14%|█▎        | 2.55MB / 18.6MB            [A[A
+
+  ...t_cv/test_predictions.csv:  14%|█▎        | 2.55MB / 18.6MB            [A[AProcessing Files (0 / 1)      :  14%|█▎        | 2.55MB / 18.6MB, 6.37MB/s  
+New Data Upload               :  14%|█▎        | 2.34MB / 17.1MB, 5.86MB/s  [A
+
+  ...t_cv/test_predictions.csv:  41%|████      | 7.65MB / 18.6MB            [A[AProcessing Files (0 / 1)      :  41%|████      | 7.65MB / 18.6MB, 12.8MB/s  
+New Data Upload               :  41%|████      | 7.03MB / 17.1MB, 11.7MB/s  [A
+
+  ...t_cv/test_predictions.csv:  96%|█████████▌| 17.8MB / 18.6MB            [A[AProcessing Files (0 / 1)      :  96%|█████████▌| 17.8MB / 18.6MB, 22.3MB/s  
+New Data Upload               :  96%|█████████▌| 16.4MB / 17.1MB, 20.5MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.6MB / 18.6MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.6MB / 18.6MB, 18.6MB/s  
+New Data Upload               : 100%|██████████| 17.1MB / 17.1MB, 17.1MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.6MB / 18.6MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.6MB / 18.6MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 18.6MB / 18.6MB, 15.5MB/s  
+New Data Upload               : 100%|██████████| 17.1MB / 17.1MB, 14.3MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 18.6MB / 18.6MB            
+    climb_v2_phase2/corrupt_mtr_8M_s2: 6 files, 16.6 MB
+Processing Files (0 / 0)      : |          |  0.00B /  0.00B            
+New Data Upload               : |          |  0.00B /  0.00B            [A
+
+  ...t_cv/test_predictions.csv:  86%|████████▋ | 14.3MB / 16.6MB            [A[A
+
+  ...t_cv/test_predictions.csv:  86%|████████▋ | 14.3MB / 16.6MB            [A[AProcessing Files (0 / 1)      :  86%|████████▋ | 14.3MB / 16.6MB,   ???B/s  
+New Data Upload               :  86%|████████▋ | 14.3MB / 16.6MB,   ???B/s  [A
+
+  ...t_cv/test_predictions.csv:  86%|████████▋ | 14.3MB / 16.6MB            [A[A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 16.6MB / 16.6MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 16.6MB / 16.6MB, 6.28MB/s  
+New Data Upload               : 100%|██████████| 16.6MB / 16.6MB, 6.28MB/s  [A
+
+  ...t_cv/test_predictions.csv: 100%|██████████| 16.6MB / 16.6MB            [A[AProcessing Files (1 / 1)      : 100%|██████████| 16.6MB / 16.6MB, 5.60MB/s  
+New Data Upload               : 100%|██████████| 16.6MB / 16.6MB, 5.60MB/s  
+  ...t_cv/test_predictions.csv: 100%|██████████| 16.6MB / 16.6MB            
+    climb_v2_phase2/ecfp4_anchor_s1: 9 files, 10.0 MB
+    climb_v2_phase2/ecfp4_anchor_s2: 9 files, 10.0 MB
+    climb_v2_phase2/fp_desc_anchor_s1: 9 files, 10.0 MB
+    climb_v2_phase2/fp_desc_anchor_s2: 9 files, 10.0 MB
+    climb_v2_phase2/manifests: no eligible files, skipped
+    climb_v2_phase2/s2u_dense_from8M_s0: 5 files, 10.0 MB
+    climb_v2_phase2/s2u_dense_from8M_s1: 5 files, 10.0 MB
+    climb_v2_phase2/s2u_dense_from8M_s2: 5 files, 10.0 MB
+  cbs_benchmark: 1 to upload
+    cbs_benchmark/experiment_cbs: no eligible files, skipped
+
+=== ENCODERS ===
+
+uploaded 13 result runs, 0 encoders

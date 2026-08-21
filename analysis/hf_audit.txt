@@ -1,0 +1,70 @@
+climb_v2_phase2              local=  99  s3=  99  hf_results=  84  local_enc=  62  hf_enc=  78
+climb_v2_h1                  local=  31  s3=  31  hf_results=  30  local_enc=   0  hf_enc=  30
+climb_v2_ablation_dedup      local=  10  s3=  10  hf_results=  10  local_enc=   9  hf_enc=   9
+climb_v2_vocab               local=   8  s3=   9  hf_results=   8  local_enc=   0  hf_enc=   8
+climb_v2_expA                local=  12  s3=   9  hf_results=   9  local_enc=   0  hf_enc=   8
+climb_v2_expB                local=   3  s3=   3  hf_results=   3  local_enc=   0  hf_enc=   3
+climb_v2_lrsweep             local=   8  s3=   8  hf_results=   0  local_enc=   8  hf_enc=   0
+cbs_benchmark                local= 140  s3= 140  hf_results=  36  local_enc=   0  hf_enc=   0
+
+===== RESULTS on S3 but NOT on HF =====
+  climb_v2_phase2: 15 missing of 99
+      _logs
+      chemeleon_frozen_part1
+      chemeleon_frozen_part2
+      chemeleon_frozen_s1
+      chemeleon_frozen_s2
+      corrupt_mtr_8M_s1
+      corrupt_mtr_8M_s2
+      ecfp4_anchor_s1
+      ecfp4_anchor_s2
+      fp_desc_anchor_s1
+      fp_desc_anchor_s2
+      manifests
+      ... 3 more
+  climb_v2_h1: 1 missing of 31
+      _logs
+  climb_v2_vocab: 1 missing of 9
+      _logs
+  climb_v2_lrsweep: 8 missing of 8
+      lr1e-4_dense
+      lr1e-4_sparse_all
+      lr2e-4_dense
+      lr2e-4_sparse_all
+      lr2e-5_dense
+      lr2e-5_sparse_all
+      lr5e-5_dense
+      lr5e-5_sparse_all
+  cbs_benchmark: 104 missing of 140
+      bigram_8M
+      bigram_8M_s1
+      bigram_8M_s2
+      bpe_1000
+      bpe_12000
+      bpe_261
+      bpe_3000
+      chemeleon_e2e
+      chemeleon_frozen_s1
+      chemeleon_frozen_s2
+      corrupt_mlm_8M
+      corrupt_mlm_8M_s1
+      ... 92 more
+
+===== RESULTS local but NOT on S3 =====
+  climb_v2_expA: 3 missing of 12
+      wiki_real_8M
+      wiki_real_8M_s1
+      wiki_real_8M_s2
+
+===== ENCODERS local but NOT on HF =====
+  climb_v2_lrsweep: 8 missing of 8
+      lr1e-4_dense
+      lr1e-4_sparse_all
+      lr2e-4_dense
+      lr2e-4_sparse_all
+      lr2e-5_dense
+      lr2e-5_sparse_all
+      lr5e-5_dense
+      lr5e-5_sparse_all
+
+TOTAL gaps: 140

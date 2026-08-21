@@ -1,0 +1,97 @@
+No normalization for SPS. Feature removed!
+No normalization for AvgIpc. Feature removed!
+No normalization for NumAmideBonds. Feature removed!
+No normalization for NumAtomStereoCenters. Feature removed!
+No normalization for NumBridgeheadAtoms. Feature removed!
+No normalization for NumHeterocycles. Feature removed!
+No normalization for NumSpiroAtoms. Feature removed!
+No normalization for NumUnspecifiedAtomStereoCenters. Feature removed!
+No normalization for Phi. Feature removed!
+Skipped loading some Tensorflow models, missing a dependency. No module named 'tensorflow'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. No module named 'torch_geometric'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. cannot import name 'DMPNN' from 'deepchem.models.torch_models' (/Users/lsieben/VSCode/CLIMB/.venv_sanity/lib/python3.9/site-packages/deepchem/models/torch_models/__init__.py)
+Skipped loading modules with pytorch-lightning dependency, missing a dependency. No module named 'lightning'
+Skipped loading some Jax models, missing a dependency. No module named 'jax'
+Skipped loading some PyTorch models, missing a dependency. No module named 'tensorflow'
+Failed to featurize datapoint 1322, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 2290, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 2297, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 3558, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 4565, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 4649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 5538, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Failed to featurize datapoint 6723, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True, bool includeAtomMaps=True, bool includeChiralPresence=False)
+Exception message: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (7831,) + inhomogeneous part.
+1300 pairs, 2849 unique molecules (incl. 1000 background)
+
+=== ECFP4+stereo ===
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+/Users/lsieben/VSCode/CLIMB/scripts/embed_resolution_pairs.py:176: RuntimeWarning: divide by zero encountered in matmul
+  med_bg = np.median(1.0 - (A / na[:, None]) @ BGn.T, axis=1)
+/Users/lsieben/VSCode/CLIMB/scripts/embed_resolution_pairs.py:176: RuntimeWarning: overflow encountered in matmul
+  med_bg = np.median(1.0 - (A / na[:, None]) @ BGn.T, axis=1)
+/Users/lsieben/VSCode/CLIMB/scripts/embed_resolution_pairs.py:176: RuntimeWarning: invalid value encountered in matmul
+  med_bg = np.median(1.0 - (A / na[:, None]) @ BGn.T, axis=1)
+  identical pairs: 414/1300
+=== ECFP4+desc ===
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+/Users/lsieben/VSCode/CLIMB/descriptors_v2.py:61: RuntimeWarning: overflow encountered in cast
+  out[i, j] = v
+/Users/lsieben/VSCode/CLIMB/.venv_sanity/lib/python3.9/site-packages/numpy/_core/_methods.py:188: RuntimeWarning: overflow encountered in multiply
+  x = um.multiply(x, x, out=x)
+  identical pairs: 311/1300
+=== Morgan r3-counts ===
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+  identical pairs: 402/1300
+=== Morgan r3-cnt+desc ===
+[ecfp4_features] variant=morgan_r3_counts radius=3 counts=True chirality=True n_bits=2048
+  identical pairs: 306/1300
+=== CLIMB sup ===
+  identical pairs: 100/1300
+=== CLIMB unsup ===
+  identical pairs: 100/1300
+=== CheMeleon ===
+  identical pairs: 178/1300
+=== CLIMB unsup (enum-aug) ===
+  identical pairs: 100/1300
+=== CLIMB unsup (canon-ctrl) ===
+  identical pairs: 100/1300
+=== random encoder ===
+  identical pairs: 100/1300
+=== ECFP4 stereo-blind ===
+[ecfp4_features] variant=ecfp4_legacy radius=2 counts=False chirality=False n_bits=2048
+  identical pairs: 607/1300
+
+wrote figure_data/embedding_resolution/distances.csv: 14300 rows

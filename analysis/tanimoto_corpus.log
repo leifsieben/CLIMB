@@ -1,0 +1,24 @@
+[tanimoto 09:00:03] evaluated molecules: 84,274
+[tanimoto 09:00:04] corpus shard holds 1,000,000 molecules
+[tanimoto 09:00:04] fingerprinting 500,000 corpus molecules
+[tanimoto 09:00:49] reference matrix (499837, 32)
+[tanimoto 09:00:49] fingerprinting evaluated molecules
+[tanimoto 09:00:56] query matrix (84259, 32) (15 unparseable dropped)
+[tanimoto 09:02:03]   5,000/84,259  (67s, eta 1068s)
+[tanimoto 09:03:10]   10,000/84,259  (134s, eta 997s)
+[tanimoto 09:04:18]   15,000/84,259  (202s, eta 934s)
+[tanimoto 09:05:25]   20,000/84,259  (270s, eta 867s)
+[tanimoto 09:06:33]   25,000/84,259  (338s, eta 800s)
+[tanimoto 09:07:40]   30,000/84,259  (405s, eta 732s)
+[tanimoto 09:08:48]   35,000/84,259  (472s, eta 664s)
+[tanimoto 09:09:55]   40,000/84,259  (539s, eta 596s)
+[tanimoto 09:11:01]   45,000/84,259  (606s, eta 529s)
+[tanimoto 09:12:08]   50,000/84,259  (673s, eta 461s)
+[tanimoto 09:13:16]   55,000/84,259  (741s, eta 394s)
+[tanimoto 09:14:24]   60,000/84,259  (808s, eta 327s)
+[tanimoto 09:15:31]   65,000/84,259  (875s, eta 259s)
+[tanimoto 09:16:38]   70,000/84,259  (943s, eta 192s)
+[tanimoto 09:17:46]   75,000/84,259  (1010s, eta 125s)
+[tanimoto 09:18:52]   80,000/84,259  (1077s, eta 57s)
+[tanimoto 09:19:49] wrote figure_data/_tanimoto/corpus_similarity.csv  median max-Tanimoto=0.500
+[tanimoto 09:19:49] {"5": 0.32608696818351746, "25": 0.4202898442745209, "50": 0.5, "75": 0.6000000238418579, "95": 0.7931034564971924}

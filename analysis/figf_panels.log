@@ -1,0 +1,56 @@
+=== concat_redundancy_panels.py (MoleculeACE/CBS/Ames) FP_VARIANT=ecfp4_stereo ===
+device: cpu | emb: climb | panels: ['MoleculeACE', 'CBS', 'Ames']
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  MoleculeACE 5/30
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  MoleculeACE 10/30
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  MoleculeACE 15/30
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  MoleculeACE 20/30
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  MoleculeACE 25/30
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  MoleculeACE 30/30
+  MoleculeACE fp+desc            macro_rmse=0.6904
+  MoleculeACE CLM                macro_rmse=0.8185
+  MoleculeACE desc+CLM           macro_rmse=0.7478
+  MoleculeACE fp+desc+CLM        macro_rmse=0.7279
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  CBS fp+desc            nef1=0.9300
+  CBS CLM                nef1=0.7678
+  CBS desc+CLM           nef1=0.8800
+  CBS fp+desc+CLM        nef1=0.9300
+[ecfp4_features] variant=ecfp4_stereo radius=2 counts=False chirality=True n_bits=2048
+  Ames fp+desc            predictions written (score off-box via Polaris)
+  Ames CLM                predictions written (score off-box via Polaris)
+  Ames desc+CLM           predictions written (score off-box via Polaris)
+  Ames fp+desc+CLM        predictions written (score off-box via Polaris)
+
+DONE -> analysis/rigor/concat_panels_climb_stereo.csv
+rc=0
+FIGF_PANELS_DONE

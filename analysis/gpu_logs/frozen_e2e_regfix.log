@@ -1,0 +1,647 @@
+Skipped loading some Tensorflow models, missing a dependency. No module named 'tensorflow'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. No module named 'torch_geometric'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. cannot import name 'DMPNN' from 'deepchem.models.torch_models' (/home/ec2-user/venvs/climb/lib64/python3.9/site-packages/deepchem/models/torch_models/__init__.py)
+Skipped loading modules with pytorch-lightning dependency, missing a dependency. No module named 'lightning'
+Skipped loading some Jax models, missing a dependency. No module named 'jax'
+Skipped loading some PyTorch models, missing a dependency. No module named 'tensorflow'
+
+===== e2e_ESOL_f005_s0  budget=45 (n=45) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.7370 train=1.4290 (9s elapsed)
+  seed1: rmse=1.7885 train=1.4297 (11s elapsed)
+  seed2: rmse=1.8019 train=1.4892 (13s elapsed)
+  ESOL: rmse = 1.7758 ± 0.0280 (n_train=45)
+[ok] e2e_ESOL_f005_s0 in 0.2 min
+
+===== e2e_ESOL_f005_s1  budget=45 (n=45) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=2.0754 train=1.4758 (2s elapsed)
+  seed1: rmse=2.2097 train=1.6516 (4s elapsed)
+  seed2: rmse=2.3402 train=1.8619 (5s elapsed)
+  ESOL: rmse = 2.2084 ± 0.1081 (n_train=45)
+[ok] e2e_ESOL_f005_s1 in 0.1 min
+
+===== e2e_ESOL_f005_s2  budget=45 (n=45) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.9348 train=1.7703 (1s elapsed)
+  seed1: rmse=1.8582 train=1.2876 (3s elapsed)
+  seed2: rmse=1.8099 train=1.3254 (5s elapsed)
+  ESOL: rmse = 1.8676 ± 0.0514 (n_train=45)
+[ok] e2e_ESOL_f005_s2 in 0.1 min
+
+===== e2e_ESOL_f010_s0  budget=90 (n=90) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.3208 train=1.0463 (4s elapsed)
+  seed1: rmse=1.3585 train=1.0402 (7s elapsed)
+  seed2: rmse=1.3141 train=1.0548 (10s elapsed)
+  ESOL: rmse = 1.3311 ± 0.0195 (n_train=90)
+[ok] e2e_ESOL_f010_s0 in 0.2 min
+
+===== e2e_ESOL_f010_s1  budget=90 (n=90) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.4673 train=1.0074 (4s elapsed)
+  seed1: rmse=1.4795 train=1.0174 (7s elapsed)
+  seed2: rmse=1.4744 train=1.0350 (11s elapsed)
+  ESOL: rmse = 1.4737 ± 0.0050 (n_train=90)
+[ok] e2e_ESOL_f010_s1 in 0.2 min
+
+===== e2e_ESOL_f010_s2  budget=90 (n=90) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.6328 train=0.9226 (4s elapsed)
+  seed1: rmse=1.6596 train=0.9427 (7s elapsed)
+  seed2: rmse=1.6229 train=0.9575 (10s elapsed)
+  ESOL: rmse = 1.6384 ± 0.0155 (n_train=90)
+[ok] e2e_ESOL_f010_s2 in 0.2 min
+
+===== e2e_ESOL_f025_s0  budget=226 (n=226) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.3699 train=1.1168 (7s elapsed)
+  seed1: rmse=1.3620 train=1.0572 (13s elapsed)
+  seed2: rmse=1.2686 train=1.0766 (20s elapsed)
+  ESOL: rmse = 1.3335 ± 0.0460 (n_train=226)
+[ok] e2e_ESOL_f025_s0 in 0.3 min
+
+===== e2e_ESOL_f025_s1  budget=226 (n=226) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.4117 train=0.9859 (7s elapsed)
+  seed1: rmse=1.4465 train=0.9836 (13s elapsed)
+  seed2: rmse=1.4140 train=0.9554 (20s elapsed)
+  ESOL: rmse = 1.4241 ± 0.0159 (n_train=226)
+[ok] e2e_ESOL_f025_s1 in 0.3 min
+
+===== e2e_ESOL_f025_s2  budget=226 (n=226) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.5077 train=0.9902 (7s elapsed)
+  seed1: rmse=1.5588 train=0.9943 (13s elapsed)
+  seed2: rmse=1.4589 train=0.9130 (20s elapsed)
+  ESOL: rmse = 1.5085 ± 0.0408 (n_train=226)
+[ok] e2e_ESOL_f025_s2 in 0.3 min
+
+===== e2e_ESOL_f050_s0  budget=451 (n=451) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.2553 train=0.7828 (12s elapsed)
+  seed1: rmse=1.2375 train=0.7888 (23s elapsed)
+  seed2: rmse=1.2967 train=0.8246 (34s elapsed)
+  ESOL: rmse = 1.2632 ± 0.0248 (n_train=451)
+[ok] e2e_ESOL_f050_s0 in 0.6 min
+
+===== e2e_ESOL_f050_s1  budget=451 (n=451) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.2321 train=0.7648 (12s elapsed)
+  seed1: rmse=1.2695 train=0.7603 (23s elapsed)
+  seed2: rmse=1.2547 train=0.7489 (34s elapsed)
+  ESOL: rmse = 1.2521 ± 0.0154 (n_train=451)
+[ok] e2e_ESOL_f050_s1 in 0.6 min
+
+===== e2e_ESOL_f050_s2  budget=451 (n=451) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.4151 train=1.0222 (9s elapsed)
+  seed1: rmse=1.3065 train=0.8583 (20s elapsed)
+  seed2: rmse=1.3112 train=0.8313 (31s elapsed)
+  ESOL: rmse = 1.3443 ± 0.0501 (n_train=451)
+[ok] e2e_ESOL_f050_s2 in 0.5 min
+
+===== e2e_ESOL_f100_s0  budget=None (n=902) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.1363 train=0.6585 (21s elapsed)
+  seed1: rmse=1.1426 train=0.7151 (42s elapsed)
+  seed2: rmse=1.2895 train=0.9827 (55s elapsed)
+  ESOL: rmse = 1.1895 ± 0.0708 (n_train=902)
+[ok] e2e_ESOL_f100_s0 in 0.9 min
+
+===== e2e_Lipophilicity_f005_s0  budget=168 (n=168) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0608 train=1.0239 (12s elapsed)
+  seed1: rmse=1.0495 train=1.0486 (20s elapsed)
+  seed2: rmse=1.0545 train=1.0689 (26s elapsed)
+  Lipophilicity: rmse = 1.0549 ± 0.0046 (n_train=168)
+[ok] e2e_Lipophilicity_f005_s0 in 0.4 min
+
+===== e2e_Lipophilicity_f005_s1  budget=168 (n=168) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0352 train=0.9637 (11s elapsed)
+  seed1: rmse=1.0329 train=0.9760 (18s elapsed)
+  seed2: rmse=1.0329 train=0.9733 (25s elapsed)
+  Lipophilicity: rmse = 1.0337 ± 0.0011 (n_train=168)
+[ok] e2e_Lipophilicity_f005_s1 in 0.4 min
+
+===== e2e_Lipophilicity_f005_s2  budget=168 (n=168) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0392 train=0.8802 (12s elapsed)
+  seed1: rmse=1.0408 train=0.9033 (19s elapsed)
+  seed2: rmse=1.0259 train=0.9059 (26s elapsed)
+  Lipophilicity: rmse = 1.0353 ± 0.0067 (n_train=168)
+[ok] e2e_Lipophilicity_f005_s2 in 0.4 min
+
+===== e2e_Lipophilicity_f010_s0  budget=336 (n=336) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0267 train=0.9740 (15s elapsed)
+  seed1: rmse=1.0215 train=0.9983 (25s elapsed)
+  seed2: rmse=1.0258 train=1.0037 (35s elapsed)
+  Lipophilicity: rmse = 1.0247 ± 0.0023 (n_train=336)
+[ok] e2e_Lipophilicity_f010_s0 in 0.6 min
+
+===== e2e_Lipophilicity_f010_s1  budget=336 (n=336) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0246 train=1.0504 (10s elapsed)
+  seed1: rmse=1.0145 train=1.0413 (19s elapsed)
+  seed2: rmse=1.0103 train=1.0574 (26s elapsed)
+  Lipophilicity: rmse = 1.0164 ± 0.0060 (n_train=336)
+[ok] e2e_Lipophilicity_f010_s1 in 0.4 min
+
+===== e2e_Lipophilicity_f010_s2  budget=336 (n=336) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0494 train=1.0487 (11s elapsed)
+  seed1: rmse=1.0323 train=1.0350 (20s elapsed)
+  seed2: rmse=1.0170 train=1.0667 (27s elapsed)
+  Lipophilicity: rmse = 1.0329 ± 0.0132 (n_train=336)
+[ok] e2e_Lipophilicity_f010_s2 in 0.5 min
+
+===== e2e_Lipophilicity_f025_s0  budget=840 (n=840) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9904 train=0.8648 (27s elapsed)
+  seed1: rmse=1.0414 train=1.0538 (37s elapsed)
+  seed2: rmse=1.0023 train=0.9455 (62s elapsed)
+  Lipophilicity: rmse = 1.0114 ± 0.0218 (n_train=840)
+[ok] e2e_Lipophilicity_f025_s0 in 1.0 min
+
+===== e2e_Lipophilicity_f025_s1  budget=840 (n=840) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0390 train=1.0036 (14s elapsed)
+  seed1: rmse=1.0266 train=1.0020 (26s elapsed)
+  seed2: rmse=1.0242 train=1.0229 (34s elapsed)
+  Lipophilicity: rmse = 1.0300 ± 0.0065 (n_train=840)
+[ok] e2e_Lipophilicity_f025_s1 in 0.6 min
+
+===== e2e_Lipophilicity_f025_s2  budget=840 (n=840) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9927 train=1.0128 (20s elapsed)
+  seed1: rmse=1.0127 train=1.0118 (38s elapsed)
+  seed2: rmse=0.9855 train=0.9618 (62s elapsed)
+  Lipophilicity: rmse = 0.9969 ± 0.0115 (n_train=840)
+[ok] e2e_Lipophilicity_f025_s2 in 1.0 min
+
+===== e2e_Lipophilicity_f050_s0  budget=1680 (n=1680) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9673 train=0.7977 (46s elapsed)
+  seed1: rmse=1.0093 train=0.9844 (69s elapsed)
+  seed2: rmse=0.9696 train=0.7928 (112s elapsed)
+  Lipophilicity: rmse = 0.9820 ± 0.0193 (n_train=1680)
+[ok] e2e_Lipophilicity_f050_s0 in 1.9 min
+
+===== e2e_Lipophilicity_f050_s1  budget=1680 (n=1680) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9258 train=0.7429 (48s elapsed)
+  seed1: rmse=0.9413 train=0.7613 (93s elapsed)
+  seed2: rmse=0.9281 train=0.7839 (138s elapsed)
+  Lipophilicity: rmse = 0.9317 ± 0.0068 (n_train=1680)
+[ok] e2e_Lipophilicity_f050_s1 in 2.3 min
+
+===== e2e_Lipophilicity_f050_s2  budget=1680 (n=1680) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9761 train=0.7720 (48s elapsed)
+  seed1: rmse=1.0044 train=1.0245 (73s elapsed)
+  seed2: rmse=0.9606 train=0.7648 (117s elapsed)
+  Lipophilicity: rmse = 0.9804 ± 0.0181 (n_train=1680)
+[ok] e2e_Lipophilicity_f050_s2 in 2.0 min
+
+===== e2e_Lipophilicity_f100_s0  budget=None (n=3360) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9266 train=0.6361 (86s elapsed)
+  seed1: rmse=0.9153 train=0.6571 (169s elapsed)
+  seed2: rmse=0.9223 train=0.6806 (253s elapsed)
+  Lipophilicity: rmse = 0.9214 ± 0.0046 (n_train=3360)
+[ok] e2e_Lipophilicity_f100_s0 in 4.2 min
+
+===== e2e_QM7_f005_s0  budget=274 (n=274) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=198.4411 train=233.1752 (7s elapsed)
+  seed1: rmse=200.7376 train=230.7658 (12s elapsed)
+  seed2: rmse=203.0678 train=228.7240 (17s elapsed)
+  QM7: rmse = 200.7488 ± 1.8889 (n_train=274)
+[ok] e2e_QM7_f005_s0 in 0.3 min
+
+===== e2e_QM7_f005_s1  budget=274 (n=274) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=198.6424 train=224.4335 (7s elapsed)
+  seed1: rmse=199.6413 train=222.8835 (11s elapsed)
+  seed2: rmse=198.5663 train=225.3489 (15s elapsed)
+  QM7: rmse = 198.9500 ± 0.4898 (n_train=274)
+[ok] e2e_QM7_f005_s1 in 0.3 min
+
+===== e2e_QM7_f005_s2  budget=274 (n=274) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=198.5954 train=217.8774 (7s elapsed)
+  seed1: rmse=198.5014 train=216.7039 (11s elapsed)
+  seed2: rmse=199.8843 train=216.4966 (16s elapsed)
+  QM7: rmse = 198.9937 ± 0.6309 (n_train=274)
+[ok] e2e_QM7_f005_s2 in 0.3 min
+
+===== e2e_QM7_f010_s0  budget=547 (n=547) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=198.6257 train=230.7807 (8s elapsed)
+  seed1: rmse=200.1094 train=225.8468 (13s elapsed)
+  seed2: rmse=205.0621 train=224.9898 (21s elapsed)
+  QM7: rmse = 201.2657 ± 2.7519 (n_train=547)
+[ok] e2e_QM7_f010_s0 in 0.3 min
+
+===== e2e_QM7_f010_s1  budget=547 (n=547) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=198.5353 train=219.5600 (8s elapsed)
+  seed1: rmse=205.3865 train=213.4218 (16s elapsed)
+  seed2: rmse=201.2357 train=217.9781 (22s elapsed)
+  QM7: rmse = 201.7192 ± 2.8178 (n_train=547)
+[ok] e2e_QM7_f010_s1 in 0.4 min
+
+===== e2e_QM7_f010_s2  budget=547 (n=547) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=199.2760 train=223.2331 (10s elapsed)
+  seed1: rmse=197.9183 train=222.0320 (15s elapsed)
+  seed2: rmse=200.4419 train=219.1845 (23s elapsed)
+  QM7: rmse = 199.2121 ± 1.0313 (n_train=547)
+[ok] e2e_QM7_f010_s2 in 0.4 min
+
+===== e2e_QM7_f025_s0  budget=1368 (n=1368) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=203.3881 train=218.8567 (18s elapsed)
+  seed1: rmse=198.6040 train=222.8494 (29s elapsed)
+  seed2: rmse=200.9424 train=219.6635 (41s elapsed)
+  QM7: rmse = 200.9781 ± 1.9533 (n_train=1368)
+[ok] e2e_QM7_f025_s0 in 0.7 min
+
+===== e2e_QM7_f025_s1  budget=1368 (n=1368) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=199.4139 train=216.6643 (13s elapsed)
+  seed1: rmse=198.2427 train=217.3417 (24s elapsed)
+  seed2: rmse=200.7065 train=216.5776 (34s elapsed)
+  QM7: rmse = 199.4544 ± 1.0062 (n_train=1368)
+[ok] e2e_QM7_f025_s1 in 0.6 min
+
+===== e2e_QM7_f025_s2  budget=1368 (n=1368) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=200.5303 train=231.0501 (15s elapsed)
+  seed1: rmse=200.2279 train=225.9332 (25s elapsed)
+  seed2: rmse=203.7381 train=224.7069 (36s elapsed)
+  QM7: rmse = 201.4988 ± 1.5882 (n_train=1368)
+[ok] e2e_QM7_f025_s2 in 0.6 min
+
+===== e2e_QM7_f050_s0  budget=2735 (n=2735) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=204.3891 train=222.8134 (22s elapsed)
+  seed1: rmse=208.1831 train=218.3440 (44s elapsed)
+  seed2: rmse=203.2979 train=224.2833 (64s elapsed)
+  QM7: rmse = 205.2900 ± 2.0936 (n_train=2735)
+[ok] e2e_QM7_f050_s0 in 1.1 min
+
+===== e2e_QM7_f050_s1  budget=2735 (n=2735) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=200.7487 train=221.5224 (22s elapsed)
+  seed1: rmse=201.6408 train=218.8216 (41s elapsed)
+  seed2: rmse=205.6669 train=217.1570 (64s elapsed)
+  QM7: rmse = 202.6855 ± 2.1394 (n_train=2735)
+[ok] e2e_QM7_f050_s1 in 1.1 min
+
+===== e2e_QM7_f050_s2  budget=2735 (n=2735) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=204.3377 train=210.8365 (34s elapsed)
+  seed1: rmse=207.4118 train=191.8490 (93s elapsed)
+  seed2: rmse=210.5568 train=195.0044 (145s elapsed)
+  QM7: rmse = 207.4354 ± 2.5390 (n_train=2735)
+[ok] e2e_QM7_f050_s2 in 2.4 min
+
+===== e2e_QM7_f100_s0  budget=None (n=5470) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=206.7797 train=189.2386 (91s elapsed)
+  seed1: rmse=203.0141 train=192.2180 (174s elapsed)
+  seed2: rmse=203.6292 train=219.8651 (211s elapsed)
+  QM7: rmse = 204.4743 ± 1.6494 (n_train=5470)
+[ok] e2e_QM7_f100_s0 in 3.5 min
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+[skip] e2e_BBBP_f005_s0 (done)
+[skip] e2e_BBBP_f005_s1 (done)
+[skip] e2e_BBBP_f005_s2 (done)
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+[skip] e2e_BBBP_f010_s0 (done)
+[skip] e2e_BBBP_f010_s1 (done)
+[skip] e2e_BBBP_f010_s2 (done)
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+[skip] e2e_BBBP_f025_s0 (done)
+[skip] e2e_BBBP_f025_s1 (done)
+[skip] e2e_BBBP_f025_s2 (done)
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+[skip] e2e_BBBP_f050_s0 (done)
+[skip] e2e_BBBP_f050_s1 (done)
+[skip] e2e_BBBP_f050_s2 (done)
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+[skip] e2e_BBBP_f100_s0 (done)
+[skip] e2e_BACE_f005_s0 (done)
+[skip] e2e_BACE_f005_s1 (done)
+[skip] e2e_BACE_f005_s2 (done)
+[skip] e2e_BACE_f010_s0 (done)
+[skip] e2e_BACE_f010_s1 (done)
+[skip] e2e_BACE_f010_s2 (done)
+[skip] e2e_BACE_f025_s0 (done)
+[skip] e2e_BACE_f025_s1 (done)
+[skip] e2e_BACE_f025_s2 (done)
+[skip] e2e_BACE_f050_s0 (done)
+[skip] e2e_BACE_f050_s1 (done)
+[skip] e2e_BACE_f050_s2 (done)
+[skip] e2e_BACE_f100_s0 (done)
+[skip] e2e_Tox21_f005_s0 (done)
+[skip] e2e_Tox21_f005_s1 (done)
+[skip] e2e_Tox21_f005_s2 (done)
+[skip] e2e_Tox21_f010_s0 (done)
+[skip] e2e_Tox21_f010_s1 (done)
+[skip] e2e_Tox21_f010_s2 (done)
+[skip] e2e_Tox21_f025_s0 (done)
+[skip] e2e_Tox21_f025_s1 (done)
+[skip] e2e_Tox21_f025_s2 (done)
+[skip] e2e_Tox21_f050_s0 (done)
+[skip] e2e_Tox21_f050_s1 (done)
+[skip] e2e_Tox21_f050_s2 (done)
+[skip] e2e_Tox21_f100_s0 (done)
+[skip] e2e_HIV_f005_s0 (done)
+[skip] e2e_HIV_f005_s1 (done)
+[skip] e2e_HIV_f005_s2 (done)
+[skip] e2e_HIV_f010_s0 (done)
+[skip] e2e_HIV_f010_s1 (done)
+[skip] e2e_HIV_f010_s2 (done)
+[skip] e2e_HIV_f025_s0 (done)
+[skip] e2e_HIV_f025_s1 (done)
+[skip] e2e_HIV_f025_s2 (done)
+[skip] e2e_HIV_f050_s0 (done)
+[skip] e2e_HIV_f050_s1 (done)
+[skip] e2e_HIV_f050_s2 (done)
+[skip] e2e_HIV_f100_s0 (done)
+
+DONE in 35.6 min -> analysis/rigor/label_efficiency_fractions_e2e.csv (702 rows), analysis/rigor/label_efficiency_fractions_e2e_summary.csv (90 points)

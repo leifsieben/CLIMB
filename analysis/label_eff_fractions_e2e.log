@@ -1,0 +1,308 @@
+No normalization for SPS. Feature removed!
+No normalization for AvgIpc. Feature removed!
+No normalization for NumAmideBonds. Feature removed!
+No normalization for NumAtomStereoCenters. Feature removed!
+No normalization for NumBridgeheadAtoms. Feature removed!
+No normalization for NumHeterocycles. Feature removed!
+No normalization for NumSpiroAtoms. Feature removed!
+No normalization for NumUnspecifiedAtomStereoCenters. Feature removed!
+No normalization for Phi. Feature removed!
+Skipped loading some Tensorflow models, missing a dependency. No module named 'tensorflow'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. No module named 'torch_geometric'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. cannot import name 'DMPNN' from 'deepchem.models.torch_models' (/Users/lsieben/VSCode/CLIMB/.venv_sanity/lib/python3.9/site-packages/deepchem/models/torch_models/__init__.py)
+Skipped loading modules with pytorch-lightning dependency, missing a dependency. No module named 'lightning'
+Skipped loading some Jax models, missing a dependency. No module named 'jax'
+Skipped loading some PyTorch models, missing a dependency. No module named 'tensorflow'
+
+===== e2e_ESOL_f005_s0  budget=45 (n=45) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.9424 train=1.8681 (12s elapsed)
+  seed1: rmse=1.9817 train=1.8117 (21s elapsed)
+  seed2: rmse=2.0219 train=1.8317 (31s elapsed)
+  ESOL: rmse = 1.9820 ± 0.0324 (n_train=45)
+[ok] e2e_ESOL_f005_s0 in 0.5 min
+
+===== e2e_ESOL_f005_s1  budget=45 (n=45) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=2.1162 train=1.9035 (10s elapsed)
+  seed1: rmse=2.1363 train=1.9502 (20s elapsed)
+  seed2: rmse=2.1989 train=1.9022 (28s elapsed)
+  ESOL: rmse = 2.1504 ± 0.0352 (n_train=45)
+[ok] e2e_ESOL_f005_s1 in 0.5 min
+
+===== e2e_ESOL_f005_s2  budget=45 (n=45) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.9261 train=1.7907 (9s elapsed)
+  seed1: rmse=1.9355 train=1.8222 (18s elapsed)
+  seed2: rmse=1.9537 train=1.8475 (28s elapsed)
+  ESOL: rmse = 1.9384 ± 0.0115 (n_train=45)
+[ok] e2e_ESOL_f005_s2 in 0.5 min
+
+===== e2e_ESOL_f010_s0  budget=90 (n=90) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.8786 train=2.1867 (12s elapsed)
+  seed1: rmse=1.8947 train=2.1549 (25s elapsed)
+  seed2: rmse=1.9142 train=2.2189 (37s elapsed)
+  ESOL: rmse = 1.8958 ± 0.0145 (n_train=90)
+[ok] e2e_ESOL_f010_s0 in 0.6 min
+
+===== e2e_ESOL_f010_s1  budget=90 (n=90) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.9682 train=1.8806 (12s elapsed)
+  seed1: rmse=1.9898 train=1.8814 (24s elapsed)
+  seed2: rmse=1.9988 train=1.8617 (38s elapsed)
+  ESOL: rmse = 1.9856 ± 0.0128 (n_train=90)
+[ok] e2e_ESOL_f010_s1 in 0.6 min
+
+===== e2e_ESOL_f010_s2  budget=90 (n=90) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.8521 train=1.9461 (12s elapsed)
+  seed1: rmse=1.8962 train=2.0086 (22s elapsed)
+  seed2: rmse=1.8858 train=2.0114 (34s elapsed)
+  ESOL: rmse = 1.8781 ± 0.0188 (n_train=90)
+[ok] e2e_ESOL_f010_s2 in 0.6 min
+
+===== e2e_ESOL_f025_s0  budget=226 (n=226) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.4603 train=1.2462 (42s elapsed)
+  seed1: rmse=1.5349 train=1.2190 (84s elapsed)
+  seed2: rmse=1.9809 train=2.0417 (100s elapsed)
+  ESOL: rmse = 1.6587 ± 0.2299 (n_train=226)
+[ok] e2e_ESOL_f025_s0 in 1.7 min
+
+===== e2e_ESOL_f025_s1  budget=226 (n=226) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.8651 train=2.0412 (18s elapsed)
+  seed1: rmse=1.9337 train=2.1201 (35s elapsed)
+  seed2: rmse=1.5015 train=1.0786 (79s elapsed)
+  ESOL: rmse = 1.7668 ± 0.1896 (n_train=226)
+[ok] e2e_ESOL_f025_s1 in 1.3 min
+
+===== e2e_ESOL_f025_s2  budget=226 (n=226) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.6059 train=1.0995 (40s elapsed)
+  seed1: rmse=1.9845 train=2.0293 (54s elapsed)
+  seed2: rmse=2.0414 train=2.0951 (69s elapsed)
+  ESOL: rmse = 1.8773 ± 0.1933 (n_train=226)
+[ok] e2e_ESOL_f025_s2 in 1.2 min
+
+===== e2e_ESOL_f050_s0  budget=451 (n=451) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.3490 train=0.8903 (89s elapsed)
+  seed1: rmse=1.3323 train=0.8660 (175s elapsed)
+  seed2: rmse=1.3409 train=0.8507 (263s elapsed)
+  ESOL: rmse = 1.3408 ± 0.0068 (n_train=451)
+[ok] e2e_ESOL_f050_s0 in 4.4 min
+
+===== e2e_ESOL_f050_s1  budget=451 (n=451) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.2691 train=0.8168 (79s elapsed)
+  seed1: rmse=1.2817 train=0.7751 (159s elapsed)
+  seed2: rmse=1.2710 train=0.8470 (240s elapsed)
+  ESOL: rmse = 1.2740 ± 0.0055 (n_train=451)
+[ok] e2e_ESOL_f050_s1 in 4.0 min
+
+===== e2e_ESOL_f050_s2  budget=451 (n=451) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.3740 train=0.8745 (83s elapsed)
+  seed1: rmse=1.3545 train=0.9089 (165s elapsed)
+  seed2: rmse=1.4087 train=0.8822 (255s elapsed)
+  ESOL: rmse = 1.3791 ± 0.0224 (n_train=451)
+[ok] e2e_ESOL_f050_s2 in 4.3 min
+
+===== e2e_ESOL_f100_s0  budget=None (n=902) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] ESOL (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.1884 train=0.7914 (166s elapsed)
+  seed1: rmse=1.1509 train=0.7384 (342s elapsed)
+  seed2: rmse=1.1381 train=0.7011 (527s elapsed)
+  ESOL: rmse = 1.1592 ± 0.0213 (n_train=902)
+[ok] e2e_ESOL_f100_s0 in 8.8 min
+
+===== e2e_Lipophilicity_f005_s0  budget=168 (n=168) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0619 train=1.0620 (103s elapsed)
+  seed1: rmse=1.0517 train=1.1106 (185s elapsed)
+  seed2: rmse=1.0571 train=1.1401 (244s elapsed)
+  Lipophilicity: rmse = 1.0569 ± 0.0042 (n_train=168)
+[ok] e2e_Lipophilicity_f005_s0 in 4.1 min
+
+===== e2e_Lipophilicity_f005_s1  budget=168 (n=168) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0428 train=0.9682 (98s elapsed)
+  seed1: rmse=1.0354 train=0.9909 (186s elapsed)
+  seed2: rmse=1.0359 train=0.9961 (276s elapsed)
+  Lipophilicity: rmse = 1.0380 ± 0.0034 (n_train=168)
+[ok] e2e_Lipophilicity_f005_s1 in 4.6 min
+
+===== e2e_Lipophilicity_f005_s2  budget=168 (n=168) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0376 train=0.9087 (88s elapsed)
+  seed1: rmse=1.0423 train=0.9178 (175s elapsed)
+  seed2: rmse=1.0310 train=0.9103 (262s elapsed)
+  Lipophilicity: rmse = 1.0370 ± 0.0046 (n_train=168)
+[ok] e2e_Lipophilicity_f005_s2 in 4.4 min
+
+===== e2e_Lipophilicity_f010_s0  budget=336 (n=336) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0308 train=1.0024 (123s elapsed)
+  seed1: rmse=1.0059 train=0.9811 (247s elapsed)
+  seed2: rmse=1.0341 train=0.9953 (383s elapsed)
+  Lipophilicity: rmse = 1.0236 ± 0.0126 (n_train=336)
+[ok] e2e_Lipophilicity_f010_s0 in 6.4 min
+
+===== e2e_Lipophilicity_f010_s1  budget=336 (n=336) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0232 train=1.0523 (123s elapsed)
+  seed1: rmse=1.0277 train=1.0496 (257s elapsed)
+  seed2: rmse=1.0254 train=1.0556 (366s elapsed)
+  Lipophilicity: rmse = 1.0254 ± 0.0018 (n_train=336)
+[ok] e2e_Lipophilicity_f010_s1 in 6.1 min
+
+===== e2e_Lipophilicity_f010_s2  budget=336 (n=336) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0390 train=1.0936 (100s elapsed)
+  seed1: rmse=1.0423 train=1.0325 (236s elapsed)
+  seed2: rmse=1.0406 train=1.0555 (359s elapsed)
+  Lipophilicity: rmse = 1.0406 ± 0.0014 (n_train=336)
+[ok] e2e_Lipophilicity_f010_s2 in 6.0 min
+
+===== e2e_Lipophilicity_f025_s0  budget=840 (n=840) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0225 train=1.0211 (165s elapsed)
+  seed1: rmse=1.0314 train=0.9758 (441s elapsed)
+  seed2: rmse=0.9975 train=0.9543 (714s elapsed)
+  Lipophilicity: rmse = 1.0171 ± 0.0143 (n_train=840)
+[ok] e2e_Lipophilicity_f025_s0 in 11.9 min
+
+===== e2e_Lipophilicity_f025_s1  budget=840 (n=840) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1.0586 train=1.0367 (127s elapsed)
+  seed1: rmse=1.0251 train=0.9952 (289s elapsed)
+  seed2: rmse=1.0482 train=1.0327 (414s elapsed)
+  Lipophilicity: rmse = 1.0440 ± 0.0140 (n_train=840)
+[ok] e2e_Lipophilicity_f025_s1 in 6.9 min
+
+===== e2e_Lipophilicity_f025_s2  budget=840 (n=840) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9974 train=0.9534 (240s elapsed)
+  seed1: rmse=1.0028 train=1.0281 (421s elapsed)
+  seed2: rmse=0.9788 train=0.9663 (654s elapsed)
+  Lipophilicity: rmse = 0.9930 ± 0.0103 (n_train=840)
+[ok] e2e_Lipophilicity_f025_s2 in 10.9 min
+
+===== e2e_Lipophilicity_f050_s0  budget=1680 (n=1680) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9516 train=0.7646 (443s elapsed)
+  seed1: rmse=1.0181 train=1.0020 (670s elapsed)
+  seed2: rmse=0.9713 train=0.8114 (1114s elapsed)
+  Lipophilicity: rmse = 0.9803 ± 0.0279 (n_train=1680)
+[ok] e2e_Lipophilicity_f050_s0 in 18.6 min
+
+===== e2e_Lipophilicity_f050_s1  budget=1680 (n=1680) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9288 train=0.7447 (510s elapsed)
+  seed1: rmse=0.9491 train=0.7706 (997s elapsed)
+  seed2: rmse=0.9554 train=0.7916 (1486s elapsed)
+  Lipophilicity: rmse = 0.9444 ± 0.0113 (n_train=1680)
+[ok] e2e_Lipophilicity_f050_s1 in 24.8 min
+
+===== e2e_Lipophilicity_f050_s2  budget=1680 (n=1680) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9700 train=0.7769 (497s elapsed)
+  seed1: rmse=1.0037 train=1.0342 (767s elapsed)
+  seed2: rmse=0.9553 train=0.7716 (1256s elapsed)
+  Lipophilicity: rmse = 0.9763 ± 0.0203 (n_train=1680)
+[ok] e2e_Lipophilicity_f050_s2 in 20.9 min
+
+===== e2e_Lipophilicity_f100_s0  budget=None (n=3360) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] Lipophilicity (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=0.9380 train=0.6416 (896s elapsed)
+  seed1: rmse=0.9094 train=0.6682 (1794s elapsed)
+  seed2: rmse=0.9186 train=0.6873 (2693s elapsed)
+  Lipophilicity: rmse = 0.9220 ± 0.0119 (n_train=3360)
+[ok] e2e_Lipophilicity_f100_s0 in 44.9 min
+
+===== e2e_QM7_f005_s0  budget=274 (n=274) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1526.4309 train=1528.4625 (79s elapsed)
+  seed1: rmse=1526.6359 train=1528.6671 (157s elapsed)
+  seed2: rmse=1526.7468 train=1528.7775 (240s elapsed)
+  QM7: rmse = 1526.6045 ± 0.1309 (n_train=274)
+[ok] e2e_QM7_f005_s0 in 4.0 min
+
+===== e2e_QM7_f005_s1  budget=274 (n=274) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1526.4340 train=1529.8093 (80s elapsed)
+  seed1: rmse=1526.6388 train=1530.0140 (159s elapsed)
+  seed2: rmse=1526.7485 train=1530.1232 (238s elapsed)
+  QM7: rmse = 1526.6071 ± 0.1304 (n_train=274)
+[ok] e2e_QM7_f005_s1 in 4.0 min
+
+===== e2e_QM7_f005_s2  budget=274 (n=274) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1526.4312 train=1533.0480 (80s elapsed)
+  seed1: rmse=1526.6362 train=1533.2531 (160s elapsed)
+  seed2: rmse=1526.7478 train=1533.3640 (239s elapsed)
+  QM7: rmse = 1526.6051 ± 0.1311 (n_train=274)
+[ok] e2e_QM7_f005_s2 in 4.0 min
+
+===== e2e_QM7_f010_s0  budget=547 (n=547) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1524.5819 train=1527.3319 (132s elapsed)
+  seed1: rmse=1524.7930 train=1527.5422 (260s elapsed)
+  seed2: rmse=1524.9064 train=1527.6553 (387s elapsed)
+  QM7: rmse = 1524.7604 ± 0.1344 (n_train=547)
+[ok] e2e_QM7_f010_s0 in 6.5 min
+
+===== e2e_QM7_f010_s1  budget=547 (n=547) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1524.5808 train=1530.4519 (129s elapsed)
+  seed1: rmse=1524.7891 train=1530.6598 (256s elapsed)
+  seed2: rmse=1524.9087 train=1530.7789 (383s elapsed)
+  QM7: rmse = 1524.7595 ± 0.1355 (n_train=547)
+[ok] e2e_QM7_f010_s1 in 6.4 min
+
+===== e2e_QM7_f010_s2  budget=547 (n=547) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1524.5811 train=1545.7062 (127s elapsed)
+  seed1: rmse=1524.7925 train=1545.9171 (254s elapsed)
+  seed2: rmse=1524.9003 train=1546.0245 (381s elapsed)
+  QM7: rmse = 1524.7579 ± 0.1326 (n_train=547)
+[ok] e2e_QM7_f010_s2 in 6.3 min
+
+===== e2e_QM7_f025_s0  budget=1368 (n=1368) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1519.2632 train=1531.7506 (265s elapsed)
+  seed1: rmse=1519.4701 train=1531.9568 (531s elapsed)
+  seed2: rmse=1519.5907 train=1532.0774 (801s elapsed)
+  QM7: rmse = 1519.4413 ± 0.1352 (n_train=1368)
+[ok] e2e_QM7_f025_s0 in 13.4 min
+
+===== e2e_QM7_f025_s1  budget=1368 (n=1368) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1519.2584 train=1530.0878 (272s elapsed)
+  seed1: rmse=1519.4691 train=1530.2980 (544s elapsed)
+  seed2: rmse=1519.5929 train=1530.4216 (811s elapsed)
+  QM7: rmse = 1519.4401 ± 0.1381 (n_train=1368)
+[ok] e2e_QM7_f025_s1 in 13.5 min
+
+===== e2e_QM7_f025_s2  budget=1368 (n=1368) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1519.2640 train=1520.9110 (269s elapsed)
+  seed1: rmse=1519.4697 train=1521.1161 (537s elapsed)
+  seed2: rmse=1519.5914 train=1521.2373 (803s elapsed)
+  QM7: rmse = 1519.4417 ± 0.1351 (n_train=1368)
+[ok] e2e_QM7_f025_s2 in 13.4 min
+
+===== e2e_QM7_f050_s0  budget=2735 (n=2735) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1509.4915 train=1521.1974 (456s elapsed)
+  seed1: rmse=1509.6997 train=1521.4050 (910s elapsed)
+  seed2: rmse=1509.8069 train=1521.5120 (1362s elapsed)
+  QM7: rmse = 1509.6660 ± 0.1310 (n_train=2735)
+[ok] e2e_QM7_f050_s0 in 22.7 min
+
+===== e2e_QM7_f050_s1  budget=2735 (n=2735) ft_seeds=[0, 1, 2] epochs=20 =====
+[ft_e2e] QM7 (regression) split=scaffold-holdout seeds=[0, 1, 2]
+  seed0: rmse=1509.4941 train=1514.3898 (460s elapsed)
+  seed1: rmse=1509.6963 train=1514.5913 (913s elapsed)

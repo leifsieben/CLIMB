@@ -1,0 +1,406 @@
+device: cuda
+
+===== arm=random (random_baseline_00) =====
+Skipped loading some Tensorflow models, missing a dependency. No module named 'tensorflow'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. No module named 'torch_geometric'
+Skipped loading modules with pytorch-geometric dependency, missing a dependency. cannot import name 'DMPNN' from 'deepchem.models.torch_models' (/home/ec2-user/venvs/climb/lib64/python3.9/site-packages/deepchem/models/torch_models/__init__.py)
+Skipped loading modules with pytorch-lightning dependency, missing a dependency. No module named 'lightning'
+Skipped loading some Jax models, missing a dependency. No module named 'jax'
+Skipped loading some PyTorch models, missing a dependency. No module named 'tensorflow'
+  [ESOL] n_train=902 featurized in 1s
+    ESOL   5%  n=   45  rmse=1.5820±0.1655
+    ESOL  10%  n=   90  rmse=1.3688±0.1281
+    ESOL  25%  n=  226  rmse=1.3147±0.0479
+    ESOL  50%  n=  451  rmse=1.3226±0.0491
+    ESOL 100%  n=  902  rmse=1.2503±0.0314
+  [Lipophilicity] n_train=3360 featurized in 3s
+    Lipophilicity   5%  n=  168  rmse=1.1067±0.0250
+    Lipophilicity  10%  n=  336  rmse=1.0881±0.0224
+    Lipophilicity  25%  n=  840  rmse=1.0464±0.0284
+    Lipophilicity  50%  n= 1680  rmse=0.9991±0.0241
+    Lipophilicity 100%  n= 3360  rmse=0.9714±0.0102
+  [QM7] n_train=5470 featurized in 3s
+    QM7   5%  n=  274  rmse=226.1755±10.8342
+    QM7  10%  n=  547  rmse=225.9046±6.9668
+    QM7  25%  n= 1368  rmse=212.7357±3.0048
+    QM7  50%  n= 2735  rmse=212.6496±4.5619
+    QM7 100%  n= 5470  rmse=210.1575±2.6077
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+  [BBBP] n_train=1631 featurized in 2s
+    BBBP   5%  n=   82  roc_auc=0.6235±0.0371
+    BBBP  10%  n=  163  roc_auc=0.6332±0.0231
+    BBBP  25%  n=  408  roc_auc=0.6601±0.0226
+    BBBP  50%  n=  816  roc_auc=0.6921±0.0153
+    BBBP 100%  n= 1631  roc_auc=0.6941±0.0153
+  [BACE] n_train=1210 featurized in 1s
+    BACE   5%  n=   60  roc_auc=0.6482±0.0616
+    BACE  10%  n=  121  roc_auc=0.6919±0.0303
+    BACE  25%  n=  302  roc_auc=0.6569±0.0194
+    BACE  50%  n=  605  roc_auc=0.6823±0.0277
+    BACE 100%  n= 1210  roc_auc=0.6633±0.0306
+  [Tox21] n_train=6264 featurized in 7s
+    Tox21   5%  n=  313  roc_auc=0.5970±0.0101
+    Tox21  10%  n=  626  roc_auc=0.6250±0.0088
+    Tox21  25%  n= 1566  roc_auc=0.6551±0.0265
+    Tox21  50%  n= 3132  roc_auc=0.6725±0.0117
+    Tox21 100%  n= 6264  roc_auc=0.6870±0.0052
+  [HIV] n_train=32901 featurized in 38s
+    HIV   5%  n= 1645  roc_auc=0.6836±0.0211
+    HIV  10%  n= 3290  roc_auc=0.6986±0.0195
+    HIV  25%  n= 8225  roc_auc=0.7153±0.0186
+    HIV  50%  n=16450  roc_auc=0.7468±0.0081
+    HIV 100%  n=32901  roc_auc=0.7637±0.0040
+
+===== arm=unsup (unsup_8M) =====
+  [ESOL] n_train=902 featurized in 0s
+    ESOL   5%  n=   45  rmse=1.6297±0.0708
+    ESOL  10%  n=   90  rmse=1.3475±0.0567
+    ESOL  25%  n=  226  rmse=1.1812±0.0380
+    ESOL  50%  n=  451  rmse=1.1196±0.0425
+    ESOL 100%  n=  902  rmse=1.0009±0.0232
+  [Lipophilicity] n_train=3360 featurized in 3s
+    Lipophilicity   5%  n=  168  rmse=1.0846±0.0325
+    Lipophilicity  10%  n=  336  rmse=1.0396±0.0223
+    Lipophilicity  25%  n=  840  rmse=0.9919±0.0293
+    Lipophilicity  50%  n= 1680  rmse=0.9215±0.0119
+    Lipophilicity 100%  n= 3360  rmse=0.8842±0.0201
+  [QM7] n_train=5470 featurized in 3s
+    QM7   5%  n=  274  rmse=221.6035±8.6276
+    QM7  10%  n=  547  rmse=222.0041±6.4728
+    QM7  25%  n= 1368  rmse=211.4564±4.8299
+    QM7  50%  n= 2735  rmse=211.9626±3.7736
+    QM7 100%  n= 5470  rmse=212.6710±4.5912
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+  [BBBP] n_train=1631 featurized in 2s
+    BBBP   5%  n=   82  roc_auc=0.6477±0.0459
+    BBBP  10%  n=  163  roc_auc=0.6788±0.0257
+    BBBP  25%  n=  408  roc_auc=0.7230±0.0120
+    BBBP  50%  n=  816  roc_auc=0.7371±0.0074
+    BBBP 100%  n= 1631  roc_auc=0.7438±0.0037
+  [BACE] n_train=1210 featurized in 1s
+    BACE   5%  n=   60  roc_auc=0.6546±0.0586
+    BACE  10%  n=  121  roc_auc=0.7301±0.0227
+    BACE  25%  n=  302  roc_auc=0.7675±0.0180
+    BACE  50%  n=  605  roc_auc=0.8142±0.0216
+    BACE 100%  n= 1210  roc_auc=0.8251±0.0047
+  [Tox21] n_train=6264 featurized in 7s
+    Tox21   5%  n=  313  roc_auc=0.6360±0.0084
+    Tox21  10%  n=  626  roc_auc=0.6566±0.0108
+    Tox21  25%  n= 1566  roc_auc=0.7071±0.0145
+    Tox21  50%  n= 3132  roc_auc=0.7239±0.0093
+    Tox21 100%  n= 6264  roc_auc=0.7356±0.0032
+  [HIV] n_train=32901 featurized in 38s
+    HIV   5%  n= 1645  roc_auc=0.6591±0.0267
+    HIV  10%  n= 3290  roc_auc=0.6705±0.0249
+    HIV  25%  n= 8225  roc_auc=0.6981±0.0388
+    HIV  50%  n=16450  roc_auc=0.7510±0.0131
+    HIV 100%  n=32901  roc_auc=0.7573±0.0109
+
+===== arm=sup (skip_dense_8M) =====
+  [ESOL] n_train=902 featurized in 0s
+    ESOL   5%  n=   45  rmse=1.5332±0.0722
+    ESOL  10%  n=   90  rmse=1.2763±0.0921
+    ESOL  25%  n=  226  rmse=1.1988±0.0512
+    ESOL  50%  n=  451  rmse=1.0865±0.0412
+    ESOL 100%  n=  902  rmse=0.9429±0.0304
+  [Lipophilicity] n_train=3360 featurized in 3s
+    Lipophilicity   5%  n=  168  rmse=1.0424±0.0187
+    Lipophilicity  10%  n=  336  rmse=0.9938±0.0316
+    Lipophilicity  25%  n=  840  rmse=0.9319±0.0241
+    Lipophilicity  50%  n= 1680  rmse=0.8836±0.0111
+    Lipophilicity 100%  n= 3360  rmse=0.8159±0.0169
+  [QM7] n_train=5470 featurized in 3s
+    QM7   5%  n=  274  rmse=214.9361±8.8147
+    QM7  10%  n=  547  rmse=208.7280±4.2514
+    QM7  25%  n= 1368  rmse=204.7296±2.1263
+    QM7  50%  n= 2735  rmse=203.3684±2.3142
+    QM7 100%  n= 5470  rmse=199.8159±2.2431
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+  [BBBP] n_train=1631 featurized in 2s
+    BBBP   5%  n=   82  roc_auc=0.6112±0.0505
+    BBBP  10%  n=  163  roc_auc=0.6027±0.0228
+    BBBP  25%  n=  408  roc_auc=0.6548±0.0265
+    BBBP  50%  n=  816  roc_auc=0.6703±0.0133
+    BBBP 100%  n= 1631  roc_auc=0.6684±0.0178
+  [BACE] n_train=1210 featurized in 1s
+    BACE   5%  n=   60  roc_auc=0.6715±0.0820
+    BACE  10%  n=  121  roc_auc=0.7413±0.0343
+    BACE  25%  n=  302  roc_auc=0.7769±0.0250
+    BACE  50%  n=  605  roc_auc=0.7932±0.0125
+    BACE 100%  n= 1210  roc_auc=0.8162±0.0150
+  [Tox21] n_train=6264 featurized in 7s
+    Tox21   5%  n=  313  roc_auc=0.6222±0.0566
+    Tox21  10%  n=  626  roc_auc=0.6894±0.0058
+    Tox21  25%  n= 1566  roc_auc=0.7053±0.0073
+    Tox21  50%  n= 3132  roc_auc=0.7128±0.0055
+    Tox21 100%  n= 6264  roc_auc=0.7224±0.0047
+  [HIV] n_train=32901 featurized in 38s
+    HIV   5%  n= 1645  roc_auc=0.6777±0.0133
+    HIV  10%  n= 3290  roc_auc=0.6964±0.0173
+    HIV  25%  n= 8225  roc_auc=0.7089±0.0235
+    HIV  50%  n=16450  roc_auc=0.7459±0.0094
+    HIV 100%  n=32901  roc_auc=0.7696±0.0032
+
+===== arm=unsup2sup (u2s_dense_from8M) =====
+  [ESOL] n_train=902 featurized in 0s
+    ESOL   5%  n=   45  rmse=1.7042±0.1053
+    ESOL  10%  n=   90  rmse=1.5048±0.0525
+    ESOL  25%  n=  226  rmse=1.3406±0.1294
+    ESOL  50%  n=  451  rmse=1.2102±0.0496
+    ESOL 100%  n=  902  rmse=1.0849±0.0167
+  [Lipophilicity] n_train=3360 featurized in 3s
+    Lipophilicity   5%  n=  168  rmse=1.0834±0.0284
+    Lipophilicity  10%  n=  336  rmse=1.0248±0.0317
+    Lipophilicity  25%  n=  840  rmse=0.9750±0.0179
+    Lipophilicity  50%  n= 1680  rmse=0.9057±0.0170
+    Lipophilicity 100%  n= 3360  rmse=0.8411±0.0113
+  [QM7] n_train=5470 featurized in 3s
+    QM7   5%  n=  274  rmse=217.9027±10.3191
+    QM7  10%  n=  547  rmse=211.4260±6.6777
+    QM7  25%  n= 1368  rmse=209.0826±1.9997
+    QM7  50%  n= 2735  rmse=208.5786±3.1561
+    QM7 100%  n= 5470  rmse=206.3434±1.3436
+Failed to featurize datapoint 59, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 61, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 391, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 614, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 642, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 645, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 646, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 647, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 648, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 649, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+Failed to featurize datapoint 685, None. Appending empty array
+Exception message: Python argument types in
+    rdkit.Chem.rdmolfiles.CanonicalRankAtoms(NoneType)
+did not match C++ signature:
+    CanonicalRankAtoms(RDKit::ROMol mol, bool breakTies=True, bool includeChirality=True, bool includeIsotopes=True)
+  [BBBP] n_train=1631 featurized in 2s
+    BBBP   5%  n=   82  roc_auc=0.6055±0.0356
+    BBBP  10%  n=  163  roc_auc=0.6140±0.0160
+    BBBP  25%  n=  408  roc_auc=0.6504±0.0190
+    BBBP  50%  n=  816  roc_auc=0.6682±0.0294
+    BBBP 100%  n= 1631  roc_auc=0.6819±0.0174
+  [BACE] n_train=1210 featurized in 1s
+    BACE   5%  n=   60  roc_auc=0.7214±0.0417
+    BACE  10%  n=  121  roc_auc=0.7578±0.0133
+    BACE  25%  n=  302  roc_auc=0.7861±0.0145
+    BACE  50%  n=  605  roc_auc=0.8042±0.0082
+    BACE 100%  n= 1210  roc_auc=0.7878±0.0059
+  [Tox21] n_train=6264 featurized in 7s
+    Tox21   5%  n=  313  roc_auc=0.6496±0.0161
+    Tox21  10%  n=  626  roc_auc=0.6775±0.0107
+    Tox21  25%  n= 1566  roc_auc=0.6981±0.0065
+    Tox21  50%  n= 3132  roc_auc=0.7066±0.0034
+    Tox21 100%  n= 6264  roc_auc=0.7222±0.0033
+  [HIV] n_train=32901 featurized in 38s
+    HIV   5%  n= 1645  roc_auc=0.6439±0.0298
+    HIV  10%  n= 3290  roc_auc=0.6739±0.0209
+    HIV  25%  n= 8225  roc_auc=0.6812±0.0319
+    HIV  50%  n=16450  roc_auc=0.7350±0.0114
+    HIV 100%  n=32901  roc_auc=0.7527±0.0052
+
+DONE -> analysis/rigor/label_efficiency_fractions.csv  (2808 rows)
+     -> analysis/rigor/label_efficiency_fractions_summary.csv  (360 points)

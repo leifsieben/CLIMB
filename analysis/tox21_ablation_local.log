@@ -1,0 +1,32 @@
+=== seq_mtr ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/seq_mtr/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  seq_mtr: OK  77864 rows  Tox21 roc_auc=0.7939
+=== seq_dense_plus_sparse ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/seq_dense_plus_sparse/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  seq_dense_plus_sparse: OK  77864 rows  Tox21 roc_auc=0.7255
+=== seq_pcba ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/seq_pcba/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  seq_pcba: OK  77864 rows  Tox21 roc_auc=0.8075
+=== seq_l1000 ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/seq_l1000/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  seq_l1000: OK  77864 rows  Tox21 roc_auc=0.7885
+=== seq_pcqm ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/seq_pcqm/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  seq_pcqm: OK  77864 rows  Tox21 roc_auc=0.7790
+=== seq_sparse_all ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/seq_sparse_all/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  seq_sparse_all: OK  77864 rows  Tox21 roc_auc=0.7789
+=== random_baseline_00 ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/random_baseline_00/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  random_baseline_00: OK  77864 rows  Tox21 roc_auc=0.7716
+=== random_baseline_01 ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/random_baseline_01/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  random_baseline_01: OK  77864 rows  Tox21 roc_auc=0.7718
+=== random_baseline_02 ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/random_baseline_02/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  random_baseline_02: OK  77864 rows  Tox21 roc_auc=0.7686
+=== ecfp4_anchor ===
+merged 44 Tox21 rows into /Users/lsieben/VSCode/CLIMB/figure_data/climb_v2_ablation_dedup/ecfp4_anchor/moleculenet_cv_tox21fixed/moleculenet_summary.csv (kept 0)
+  ecfp4_anchor: OK  77864 rows  Tox21 roc_auc=0.7732
+
+DONE  ok=10  failed=0  
