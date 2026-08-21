@@ -112,11 +112,19 @@ def build(height=HEIGHT, top_frac=0.62):
     _h2 = A2.legend_handles()
     fig.legend(handles=_h2, loc="upper center",
                bbox_to_anchor=((b_x0 + b_x1) / 2, b_bot - 0.030),
-               # 12 handles. One row is the default and does not fit, and neither does two:
-               # 6 columns rendered 7.49in against a 6.69in text block, i.e. the legend and not
-               # the panels was setting the plate width. rows=3 -> 4 columns, measured.
-               ncol=row_ncol(_h2, rows=3), frameon=False, fontsize=FS["legend"], handlelength=1.5,
-               handletextpad=0.5, labelspacing=0.3, columnspacing=1.1, borderpad=0.0,
+               # WIDER, NOT LONGER was the instruction (user 2026-08-20), and 4 columns is as
+               # wide as it goes. Measured at the tightened handlelength/columnspacing below,
+               # which are already past their defaults:
+               #     4 columns -> 6.68in     fits the 6.69in text block
+               #     5 columns -> 6.85in     +2.4%
+               #     6 columns -> 7.21in     +7.8%
+               # Past 4, the legend rather than the panels sets the plate width, LaTeX scales the
+               # whole figure down to fit, and every font shrinks with it -- so a wider legend
+               # makes worse use of the page, not better. The labels are what cost the width
+               # ("CheMeleon, frozen XGBoost", "no pretrain, random, reference"); shortening them
+               # would buy a fifth column and is the only lever left if 4 is ever not enough.
+               ncol=row_ncol(_h2, rows=3), frameon=False, fontsize=FS["legend"], handlelength=1.1,
+               handletextpad=0.35, labelspacing=0.3, columnspacing=0.75, borderpad=0.0,
                labelcolor=INK)
     return fig
 

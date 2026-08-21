@@ -44,7 +44,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.gridspec import GridSpec
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, row_ncol
 from figures.arms import PANEL_ORDER, ARMS
 import figures.fig_E as E
 import figures.fig_F as F
@@ -60,23 +60,23 @@ def main():
     # is set by what the two halves need: ~1.75in of axes for E's row and ~1.4in per row for F's
     # two. That lands well inside A4's 10.1in text height, so the figure and its caption share a
     # page.
-    RIGHT = 0.995            # E, and the page
-    F_RIGHT = 0.838          # F stops here; the legend column is 0.858..0.995
-    F_TOP, F_BOT = 0.600, 0.090
-    fig = plt.figure(figsize=(STYLE["col2"], 6.05))
+    # ONE RIGHT EDGE FOR BOTH HALVES (user 2026-08-20: "have the width of E and F be the same").
+    # F used to stop at 0.838 so its legend could sit in the gutter beside it; that made F's six
+    # panels 1.78in against E's 2.5/3.6in and, more to the point, put the two halves of one figure
+    # on two different widths. The legend moves under F instead. That is the trade the previous
+    # comment named and declined -- it costs page height for the legend row and buys back the
+    # alignment.
+    RIGHT = 0.995            # E, F, and the page
+    F_TOP, F_BOT = 0.600, 0.170
+    fig = plt.figure(figsize=(STYLE["col2"], 6.55))
     # width_ratios [1.0, 1.45] is fig_E's own: panel b carries five series per group and panel a
     # only two, so b needs the extra width to keep the ladder legible.
     # ONE right edge for both halves. The legend is right-aligned to the SAME number, which is
     # what "aligned with the right side of E" means once E and F are stacked and share it.
     gsE = GridSpec(1, 2, figure=fig, width_ratios=[1.0, 1.45], wspace=0.24,
-                   left=0.082, right=RIGHT, top=0.962, bottom=0.700)
-    # F stops SHORT of the right edge so its one-column legend sits BESIDE it rather than under it
-    # (user 2026-08-19). A legend below cost ~0.5in of page height for three entries; beside, it
-    # costs width that the six F panels can spare -- they were 1.83in and are now 1.63in, still far
-    # above the 1.15in that made the labels illegible in the old side-by-side layout. E keeps the
-    # full text block, so the two halves no longer share a right edge; that is the trade.
+                   left=0.082, right=RIGHT, top=0.962, bottom=0.735)
     gsF = GridSpec(2, 3, figure=fig, wspace=0.30, hspace=0.40,
-                   left=0.082, right=F_RIGHT, top=F_TOP, bottom=F_BOT)
+                   left=0.082, right=RIGHT, top=F_TOP, bottom=F_BOT)
 
     ylims = {panel: E._lim(dE[dE.panel == panel]) for panel, _, _, _ in E.PANELS}
     for col, (panel, tag, subtitle, series) in enumerate(E.PANELS):
@@ -92,21 +92,14 @@ def main():
         # point of the restack.
         F.draw_panel(ax, dF, p, compact=True, tag=tags[k], fig=fig, ylims=ylims, xrot=0, bw=0.62)
 
-    # VERTICAL, in the gutter to the RIGHT of the F block, centred on its height. The anchor entry
-    # is dropped -- it is the first bar in every panel, tick-labelled "ECFP+d", and is the dotted
-    # reference line, so it needs no swatch.
-    # TOP of the gutter, so the three entries sit level with F's FIRST row rather than straddling
-    # both (user 2026-08-19). loc="upper left" anchored at F's own top edge lines the legend's first
-    # swatch up with the top of panels c-e.
-    #
-    # WHAT THIS CANNOT DO: F cannot both carry a legend beside it and extend to E's right edge --
-    # the gutter is the legend. F is widened as far as the wrapped labels allow (0.775 -> 0.838,
-    # panels 1.63in -> 1.78in against E's 2.5/3.6in). Putting F at E's full width means the legend
-    # goes back underneath and the figure grows ~0.5in taller; that trade is in the commit message.
-    fig.legend(handles=F.legend_handles(skip_anchor=True, wrap=True), loc="upper left",
-               bbox_to_anchor=(F_RIGHT + 0.020, F_TOP), ncol=1,
-               fontsize=FS["legend"], handletextpad=0.5, labelspacing=1.1, borderpad=0.0,
-               frameon=False)
+    # HORIZONTAL, UNDER F, spanning its full width. The anchor entry is dropped -- it is the
+    # first bar in every panel, tick-labelled "ECFP+d", and is the dotted reference line, so it
+    # needs no swatch. Four entries fit one row comfortably at the full text-block width, which is
+    # the house default (figures/style.row_ncol) and what the gutter version could never do.
+    _h = F.legend_handles(skip_anchor=True, wrap=False)
+    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.5, F_BOT - 0.098),
+               ncol=row_ncol(_h), fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.4,
+               labelspacing=0.3, borderpad=0.0, frameon=False)
     save(fig, "fig_E+F")
     plt.close(fig)
     print("assembled fig_E+F from fig_E + fig_F (no recomputation beyond their own entry points)")
