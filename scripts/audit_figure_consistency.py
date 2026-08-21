@@ -254,7 +254,12 @@ def check_geometry():
     # ignoring it forever, including if a later edit pushed it back over. An exemption list that
     # outlives its reason is the same failure as checks 3 and 11, so it is verified rather than
     # trusted: a figure claiming the exemption must actually BE wide, or it is flagged.
-    wide = {"fig_A"}
+    # fig_A moved OUT of this set on 2026-08-20 when it was restacked to fit the text block, and
+    # fig_A_horizontal moved in: the landscape layout is kept as a second rendering of the same
+    # numbers for slides and wide spreads. The two must never disagree -- both compose fig_A1.draw()
+    # and fig_A2.draw_panel(), so a disagreement means one was not re-rendered, not that a number
+    # changed.
+    wide = {"fig_A_horizontal"}
     bad = 0
     for pdf in sorted(OUT.glob("*.pdf")):
         w = _pdf_width_in(pdf)
