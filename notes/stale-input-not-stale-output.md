@@ -56,3 +56,27 @@ Ames, all four anchors pooled over 3 dirs: ecfp4 0.8385, fp_desc **0.8691** (was
 ecfp4_r3c 0.8523, fp_desc_r3c 0.8742. Only `fp_desc` moved and the panel ordering is unchanged.
 The six replicate directories were never stale — they did not exist locally before the run, so
 there was nothing old to score.
+
+---
+
+## Postscript: what the shutdown scan found (2026-08-21)
+
+Before the boxes came down, both were scanned for directories holding results that exist nowhere
+else. `climb-chemeleon-jobs` was clean. `climb-a2-bootstrap` held four, now preserved under
+`s3://climb-s3-bucket/experiments/_quarantine/`:
+
+    chemeleon_suite/{moleculeace,polaris}/skip_dense_8M_e2e_tuned
+    cbs_benchmark/{skip_dense_8M_e2e,unsup_8M_e2e}_SMOKE_STUB
+
+None is a result. The `_tuned` pair is a **4-task probe** (`n_tasks: 4` against the real arm's 30),
+and its `verified.json` records `"model": "skip_dense_8M_e2e"` — the REAL arm's name, not its own.
+So a partial probe describes itself as the published arm, which is the same failure family as
+`"featurizer": "ecfp4"` naming three featurizations: the artefact answers confidently and stops you
+looking. They are kept under `_quarantine/` rather than beside the real runs precisely so the name
+in the file cannot be mistaken for the name of the directory it sits in.
+
+The `_SMOKE_STUB` pair is the documented 1-fold, 2-epoch smoke test with NEF1 0.0 that readers must
+never fall back to.
+
+Preserved rather than deleted because "verify before terminating" does not mean "verify it is
+valuable" — it means verify it exists somewhere else first, and then decide.
