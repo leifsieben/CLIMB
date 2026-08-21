@@ -1,23 +1,25 @@
-"""Fig A — the headline result in one figure: overall standing (left) + the six panels (right).
+"""Fig A — the headline result in one figure: overall standing (a) above the six panels (b).
 
 ONE script, ONE figure: figures_v2/fig_A.png / .pdf
 
-Layout: fig_A1's 66-dataset ranking fills the left column; fig_A2's six canonical panels sit to the
-right as 3 rows x 2 columns. Rows are grouped by metric DIRECTION so a reader never has to re-orient
-between neighbours:
+Layout: STACKED (user 2026-08-20). (a) is the 65-dataset ranking across the full text-block width;
+(b) is the six canonical panels as 2x3 beneath it, grouped by metric DIRECTION so a reader never
+has to re-orient between horizontal neighbours:
 
-    row 1   MoleculeACE ↓   QM7 ↓   CBS ↑
+    row 1   MoleculeACE ↓   QM7 ↓    HIV ↑
     row 2   BACE ↑          Ames ↑   Tox21 ↑
 
-The two lower-is-better panels sit side by side at the start of row 1, so a reader never meets a
-direction flip between horizontal neighbours.
+This was side-by-side at 11in wide — landscape, the one figure exempt from the page-width rule.
+The exemption cost more than it bought: a plate wider than the text block is either rotated or
+scaled down in LaTeX, and scaling down takes every font with it, so the authored point sizes stop
+being the sizes on the page. Stacked, the plate is 6.7 x 9.3in and goes in at 1:1.
 
-Nothing is recomputed here. This composes `fig_A1.draw()` and `fig_A2.draw_panel()`, so the numbers,
-error bars and reference lines are by construction identical to the standalone figures — the same
-arrangement fig_C+D uses for C1/C2/D.
+Nothing is recomputed here. This composes `fig_A1.draw()` and `fig_A2.draw_panel()`, so the
+numbers, error bars and reference lines are by construction identical to the standalone figures —
+the same arrangement fig_C+D uses for C1/C2/D.
 
-The ranking panel is drawn with `compact=True`: no per-point value labels and smaller markers,
-because at ~40% of the text block it cannot carry the annotation density it does standalone.
+The ranking panel is drawn with `compact=True`, which now costs only the per-point value labels:
+stacked, it has MORE horizontal room than it had at 37.5% of a landscape plate.
 
 Run:  python3 -m figures.fig_A
 """
@@ -43,61 +45,76 @@ assert sorted(p for row in PANEL_GRID for p in row) == sorted(PANEL_ORDER), \
     f"fig_A's grid {PANEL_GRID} has drifted from arms.PANEL_ORDER {PANEL_ORDER}"
 
 
-# DELIBERATELY WIDER THAN THE A4 TEXT BLOCK. At 6.69in this figure had to run 8.1in down the page
-# to stay legible, which read as distorted. Set landscape / full-bleed instead: the 2x3 panel grid
-# and the ranking sit side by side at a natural aspect. This is the ONE figure exempt from the page
-# -width rule, and save(..., wide=True) records that rather than warning about it.
-WIDTH = 11.0
+# STACKED, AND THEREFORE BACK INSIDE THE A4 TEXT BLOCK (user 2026-08-20).
+#
+# This was side-by-side at 11in wide -- landscape / full-bleed, the one figure exempt from the
+# page-width rule -- because the ranking panel is 22 rows tall and a full-width band of 22 rows
+# plus a 2x3 grid beneath it is most of a page. The exemption cost more than it bought: a plate
+# wider than the text block is either rotated or scaled down in LaTeX, and scaling down takes every
+# font with it, so the authored point sizes stop being the sizes on the page.
+#
+# Stacked, (a) spans the full text-block width and (b) sits under it as 2x3. The ranking gets MORE
+# horizontal room than it had at 37.5% of a landscape plate, not less, so `compact` now only drops
+# the per-point value labels rather than also fighting for width.
+WIDTH = STYLE["col2"]
+HEIGHT = 9.3                      # measured to sit inside A4's ~10.1in text height with margin
 
 
-def build(height=5.5, left_frac=0.375):
+def build(height=HEIGHT, top_frac=0.62):
+    """(a) the ranking, full width; (b) the six panels as 2x3 beneath it.
+
+    `top_frac` is the ranking's share of the vertical space. It needs the larger share: 22 model
+    rows against 2 rows of panels.
+    """
     fig = plt.figure(figsize=(WIDTH, height))
-    # wspace is generous: the right-hand panels carry y-labels that would otherwise land on top
-    # of the ranking panel. bottom reserves a band for BOTH legends.
-    outer = fig.add_gridspec(1, 2, width_ratios=[left_frac, 1 - left_frac], wspace=0.10,
-                             left=0.125, right=0.995, top=0.945, bottom=0.175)
+    # hspace is generous because (a)'s legend sits in the gap between the two halves rather than
+    # at the foot of the figure -- a key three panels away from the marks it explains is a key the
+    # reader has to hold in their head.
+    outer = fig.add_gridspec(2, 1, height_ratios=[top_frac, 1 - top_frac], hspace=0.20,
+                             left=0.185, right=0.995, top=0.972, bottom=0.075)
 
-    axL = fig.add_subplot(outer[0, 0])
-    A1.draw(axL, compact=True)
+    axT = fig.add_subplot(outer[0, 0])
+    A1.draw(axT, compact=True)
     # Sentence case, matching every other title in the set ("Supervised: permuted targets",
     # "Lift by similarity group", "Transfer vs chemical similarity") and standard journal style.
-    axL.set_title("Mean rank, four suites equally weighted", fontsize=FS["title"], fontweight="bold",
-                  color=INK, pad=6)
-    axL.text(-0.34, 1.012, "a", transform=axL.transAxes, fontsize=FS["panel_tag"],
-             fontweight="bold", va="bottom", ha="left", color=INK)
+    axT.set_title("Mean rank, four suites equally weighted", fontsize=FS["title"],
+                  fontweight="bold", color=INK, pad=6)
 
-    gs = outer[0, 1].subgridspec(2, 3, hspace=0.38, wspace=0.30)
-    right_axes = []
+    gs = outer[1, 0].subgridspec(2, 3, hspace=0.42, wspace=0.32)
+    bot_axes = []
     for r, row in enumerate(PANEL_GRID):
         for c, p in enumerate(row):
             ax = fig.add_subplot(gs[r, c])
             A2.draw_panel(ax, p, compact=True)
-            right_axes.append(ax)
-            if (r, c) == (0, 0):
-                ax.text(-0.17, 1.075, "b", transform=ax.transAxes, fontsize=FS["panel_tag"],
-                        fontweight="bold", va="bottom", ha="left", color=INK)
+            bot_axes.append(ax)
 
-    # Each key is CENTRED on the x-extent of the half it describes and sits just under that half's
-    # x-axis, rather than being parked in the figure's bottom corners. Centres are measured from
-    # the realised axes positions, so they track any later change to the gridspec ratios.
+    # Each key is centred on the half it describes and sits just under that half's x-axis, rather
+    # than being parked at the foot of the plate. Positions are measured from the REALISED axes, so
+    # they track any later change to the gridspec ratios instead of being re-tuned by hand.
     fig.canvas.draw()
-    lp = axL.get_position()
-    rp = [a.get_position() for a in right_axes]
-    r_x0, r_x1 = min(p.x0 for p in rp), max(p.x1 for p in rp)
-    r_bot = min(p.y0 for p in rp)
+    tp = axT.get_position()
+    # PANEL TAGS IN FIGURE COORDINATES, at ONE x. Placed per-axes they were not aligned: an
+    # offset given in axes-fraction is a different absolute distance for a full-width panel than
+    # for a third-width one, so "a" sat at the plate edge and "b" a centimetre inside it.
+    bp = [a.get_position() for a in bot_axes]
+    b_x0, b_x1 = min(q.x0 for q in bp), max(q.x1 for q in bp)
+    b_bot = min(q.y0 for q in bp)
+    TAG_X = 0.012
+    for tag, y in (("a", tp.y1), ("b", max(q.y1 for q in bp))):
+        fig.text(TAG_X, y + 0.006, tag, fontsize=FS["panel_tag"], fontweight="bold",
+                 va="bottom", ha="left", color=INK)
 
     _h1 = A1.suite_handles(with_dagger=True)
     fig.legend(handles=_h1, loc="upper center",
-               bbox_to_anchor=((lp.x0 + lp.x1) / 2, lp.y0 - 0.085),
+               bbox_to_anchor=((tp.x0 + tp.x1) / 2, tp.y0 - 0.038),
                ncol=row_ncol(_h1), frameon=False, fontsize=FS["legend"], handletextpad=0.4,
                labelspacing=0.3, columnspacing=1.2, borderpad=0.0, labelcolor=INK)
     _h2 = A2.legend_handles()
     fig.legend(handles=_h2, loc="upper center",
-               bbox_to_anchor=((r_x0 + r_x1) / 2, r_bot - 0.042),
-               # 12 handles. ONE ROW IS THE DEFAULT AND IT DOES NOT FIT HERE, measured rather
-               # than assumed: one row took this plate from 10.85in to 13.96in, past even a
-               # landscape A4 text block. rows=3 balances 12 into 4x3 -- the same three rows the
-               # old ncol=5 produced, but even instead of 5/5/2.
+               bbox_to_anchor=((b_x0 + b_x1) / 2, b_bot - 0.030),
+               # 12 handles. One row is the default and does not fit, and neither does two:
+               # 6 columns rendered 7.49in against a 6.69in text block, i.e. the legend and not
+               # the panels was setting the plate width. rows=3 -> 4 columns, measured.
                ncol=row_ncol(_h2, rows=3), frameon=False, fontsize=FS["legend"], handlelength=1.5,
                handletextpad=0.5, labelspacing=0.3, columnspacing=1.1, borderpad=0.0,
                labelcolor=INK)
@@ -106,7 +123,9 @@ def build(height=5.5, left_frac=0.375):
 
 def main():
     fig = build()
-    save(fig, "fig_A", wide=True)
+    # NOT wide= any more: the plate is inside the text block, so the page-width
+    # check should police it like every other figure rather than be waived.
+    save(fig, "fig_A")
     plt.close(fig)
 
 
