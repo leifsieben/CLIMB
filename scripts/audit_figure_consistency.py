@@ -74,7 +74,13 @@ ESTIMAND = {
     "fig_D":     ("none drawn (matrix of per-cell lifts)", None),
     "fig_E":     ("+-1 SD across 3 pretraining seeds, propagated through the lift", "lift_sd_pct"),
     "fig_F":     ("+-1 SD across the seeds of that (task, feature set) cell", "std"),
-    "SI_fig_a":  ("+-1 SD of the panel's replicate unit", "sd"),
+    # Changed 2026-08-20 from "+-1 SD of the panel's replicate unit". The replicate unit was not
+    # the same quantity for every arm on that figure -- pretraining-seed spread for arms with three
+    # pretrainings, head-seed spread for CheMeleon, which has one by construction -- so the bars
+    # measured different sources of variation and looked like a precision difference. It now takes
+    # every interval from a2_errorbars.csv, one method per panel. The token is the COLUMN the
+    # figure reads, and it moved from `sd` to `lo`/`hi`, which is what made this check fire.
+    "SI_fig_a":  ("sampling CI of the evaluation units (bootstrap; Ames analytic)", "lo"),
     "SI_fig_b":  ("+-1 SD of the panel's replicate unit (5 CV folds / 3 eval seeds)", "sd"),
     "SI_fig_d":  ("+-1 SD across 3 pretraining seeds", "sd"),
     "SI_fig_e":  ("none drawn (absolute performance vs labelled size)", None),
