@@ -250,7 +250,21 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
     if n_tasks_done == len(tasks):
         (out_dir / "verified.json").write_text(json.dumps(
             {"track": track, "model": model, "featurizer": featurizer, "head": head,
-             "seeds": seeds, "n_tasks": n_tasks_done}))
+             "seeds": seeds, "n_tasks": n_tasks_done,
+             # RECORD THE FP VARIANT -- BUT ONLY FOR ARMS THAT HAVE A FINGERPRINT. "featurizer":
+             # "ecfp4" is written identically by a stereo-blind run and a stereo-aware one, so
+             # vintage was unrecoverable from the file: the MoleculeACE ecfp4 dir (2026-08-13,
+             # pre-stereo) and ecfp4_r3c (2026-08-19, r=3 counts) both claim featurizer "ecfp4".
+             # Only the S3 upload timestamp separated them, which is not provenance.
+             #
+             # The first version of this wrote FP_VARIANT unconditionally, which stamped
+             # "fp_variant": "ecfp4_stereo" onto chemeleon_frozen__xgb -- an arm with no fingerprint
+             # anywhere. Harmless to the numbers and a false claim in the artefact, which is exactly
+             # the failure this field exists to prevent. A field that describes a component the arm
+             # does not have is worse than no field, for the same reason "featurizer": "ecfp4"
+             # naming three featurizations was: it answers, so you stop asking.
+             **({"fp_variant": os.environ.get("FP_VARIANT", "ecfp4_stereo")}
+                if featurizer in ("ecfp4", "fp_desc") else {})}))
     print(f"[suite] wrote {res}  ({n_tasks_done}/{len(tasks)} tasks)", flush=True)
 
 
