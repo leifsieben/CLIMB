@@ -67,8 +67,8 @@ def main():
     # comment named and declined -- it costs page height for the legend row and buys back the
     # alignment.
     RIGHT = 0.995            # E, F, and the page
-    F_TOP, F_BOT = 0.600, 0.170
-    fig = plt.figure(figsize=(STYLE["col2"], 6.55))
+    F_TOP, F_BOT = 0.600, 0.145
+    fig = plt.figure(figsize=(STYLE["col2"], 6.45))
     # width_ratios [1.0, 1.45] is fig_E's own: panel b carries five series per group and panel a
     # only two, so b needs the extra width to keep the ladder legible.
     # ONE right edge for both halves. The legend is right-aligned to the SAME number, which is
@@ -97,7 +97,7 @@ def main():
     # needs no swatch. Four entries fit one row comfortably at the full text-block width, which is
     # the house default (figures/style.row_ncol) and what the gutter version could never do.
     _h = F.legend_handles(skip_anchor=True, wrap=False)
-    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.5, F_BOT - 0.098),
+    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.5, F_BOT - 0.072),
                ncol=row_ncol(_h), fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.4,
                labelspacing=0.3, borderpad=0.0, frameon=False)
     save(fig, "fig_E+F")

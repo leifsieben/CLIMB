@@ -67,24 +67,35 @@ def build(height=HEIGHT, top_frac=0.62):
     rows against 2 rows of panels.
     """
     fig = plt.figure(figsize=(WIDTH, height))
-    # hspace is generous because (a)'s legend sits in the gap between the two halves rather than
-    # at the foot of the figure -- a key three panels away from the marks it explains is a key the
-    # reader has to hold in their head.
-    outer = fig.add_gridspec(2, 1, height_ratios=[top_frac, 1 - top_frac], hspace=0.20,
-                             left=0.185, right=0.995, top=0.972, bottom=0.075)
+    # TWO GRIDSPECS WITH DIFFERENT LEFT MARGINS, because the two halves need different amounts of
+    # room OUTSIDE their axes and the reader sees the ink, not the axes box.
+    #
+    # Sharing one margin looked wrong and measured wrong: (a)'s two-line arm names reach out to
+    # x=0.009 while (b)'s y-labels stop at x=0.128, so with both axes starting at 0.185 the lower
+    # half sat 0.118 of the figure width inside the upper one -- a finger of white space down the
+    # left of (b) and two blocks that plainly did not line up. (b) now starts far enough left that
+    # its Y-LABEL lands where (a)'s row names do. Its axes are therefore WIDER than (a)'s, which is
+    # the point: the alignment a reader checks is the outer edge of the block.
+    A_LEFT, B_LEFT, RIGHT = 0.185, 0.0665, 0.995
+    TOP, BOT = 0.972, 0.075
+    split = BOT + (1 - top_frac) * (TOP - BOT)      # the boundary between the two halves
+    gsA = fig.add_gridspec(1, 1, left=A_LEFT, right=RIGHT, top=TOP, bottom=split + 0.075)
+    # The gap under (a) holds its suite key: a legend three panels from the marks it explains is
+    # one the reader has to carry in their head.
+    gsB = fig.add_gridspec(2, 3, left=B_LEFT, right=RIGHT, top=split - 0.030, bottom=BOT,
+                           hspace=0.42, wspace=0.32)
 
-    axT = fig.add_subplot(outer[0, 0])
+    axT = fig.add_subplot(gsA[0, 0])
     A1.draw(axT, compact=True)
     # Sentence case, matching every other title in the set ("Supervised: permuted targets",
     # "Lift by similarity group", "Transfer vs chemical similarity") and standard journal style.
     axT.set_title("Mean rank, four suites equally weighted", fontsize=FS["title"],
                   fontweight="bold", color=INK, pad=6)
 
-    gs = outer[1, 0].subgridspec(2, 3, hspace=0.42, wspace=0.32)
     bot_axes = []
     for r, row in enumerate(PANEL_GRID):
         for c, p in enumerate(row):
-            ax = fig.add_subplot(gs[r, c])
+            ax = fig.add_subplot(gsB[r, c])
             A2.draw_panel(ax, p, compact=True)
             bot_axes.append(ax)
 
@@ -123,7 +134,7 @@ def build(height=HEIGHT, top_frac=0.62):
                # makes worse use of the page, not better. The labels are what cost the width
                # ("CheMeleon, frozen XGBoost", "no pretrain, random, reference"); shortening them
                # would buy a fifth column and is the only lever left if 4 is ever not enough.
-               ncol=row_ncol(_h2, rows=3), frameon=False, fontsize=FS["legend"], handlelength=1.1,
+               ncol=row_ncol(_h2, rows=4), frameon=False, fontsize=FS["legend"], handlelength=1.1,
                handletextpad=0.35, labelspacing=0.3, columnspacing=0.75, borderpad=0.0,
                labelcolor=INK)
     return fig
