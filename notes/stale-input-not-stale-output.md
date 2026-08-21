@@ -80,3 +80,27 @@ never fall back to.
 
 Preserved rather than deleted because "verify before terminating" does not mean "verify it is
 valuable" — it means verify it exists somewhere else first, and then decide.
+
+### The directory-level scan was not enough
+
+That first pass compared DIRECTORY names against S3 and found four. Comparing every result FILE
+by path and size against an S3 manifest found **33 files existing in exactly one place** — 255
+files on one box and 8 on the other were absent from S3, of which 227 and 3 had byte-identical
+local copies. A directory can exist on S3 while a file inside it does not.
+
+Two of the 33 were 165 MB encoders, which is the kind of finding worth stopping for. Both turned
+out to be byte-identical duplicates of encoders already on S3 — checked by md5 against a
+downloaded copy, NOT inferred from size, because all 139 encoders in the bucket are exactly
+165,684,152 bytes. Size is not identity when every file of a kind has the same size; that is the
+same property that let `aws s3 sync` skip the stale predictions above.
+
+Genuinely unique, and pushed before termination: `_chemeleon_extend.npz` (61 MB),
+`_chemeleon_lipo.npz` (17 MB) and their index files — expensive to recompute and the only copy
+anywhere — plus `_task_smiles_head.json`, 12 `reference_scoring.json` markers, and the canonical
+SI fig c timing vintage, which was local-only.
+
+Every size MISMATCH was the box being stale relative to S3, including
+`chemeleon_frozen__xgb_s2/verified.json`, where the box still carried the stray `fp_variant` that
+had been removed on S3. Stale-on-the-box is the safe direction.
+
+Both instances were terminated with zero files existing only there.
