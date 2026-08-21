@@ -349,7 +349,13 @@ ARMS = {
         # partly an environment measurement -- a larger perturbation than the 0.95%
         # cross-architecture difference we already thought worth documenting.
         no_replicates_on=("MoleculeACE", "Ames", "BACE", "Tox21", "QM7", "HIV", "CBS"),
-        src=dict(mace="unsup_8M__xgb", mol=["unsup_8M__xgb"])),
+        # mol is a LITERAL list -- unlike `mace`, which _seed_dirs expands from a stem. A
+        # single-element list here is the trap that has now bitten this repo four times:
+        # it reads as "this arm has one dir" and _molnet silently drops anything not listed,
+        # so replicate dirs land on disk and never reach the figure. Listed ahead of the
+        # MolNet+CBS replicate run (2026-08-21); missing dirs are filtered until they exist.
+        src=dict(mace="unsup_8M__xgb",
+                 mol=["unsup_8M__xgb", "unsup_8M__xgb_s1", "unsup_8M__xgb_s2"])),
     "sup_dense_xgb": dict(
         label="supervised, desc XGBoost probe", short="sup, desc XGBoost", family="sup",
         color=SHADES["sup"][6], probe="xgb", pretrain_replicates=False, in_ablation=False,
@@ -371,7 +377,14 @@ ARMS = {
         # partly an environment measurement -- a larger perturbation than the 0.95%
         # cross-architecture difference we already thought worth documenting.
         no_replicates_on=("MoleculeACE", "Ames", "BACE", "Tox21", "QM7", "HIV", "CBS"),
-        src=dict(mace="skip_dense_8M__xgb", mol=["skip_dense_8M__xgb"])),
+        # mol is a LITERAL list -- unlike `mace`, which _seed_dirs expands from a stem. A
+        # single-element list here is the trap that has now bitten this repo four times:
+        # it reads as "this arm has one dir" and _molnet silently drops anything not listed,
+        # so replicate dirs land on disk and never reach the figure. Listed ahead of the
+        # MolNet+CBS replicate run (2026-08-21); missing dirs are filtered until they exist.
+        src=dict(mace="skip_dense_8M__xgb",
+                 mol=["skip_dense_8M__xgb", "skip_dense_8M__xgb_s1",
+                      "skip_dense_8M__xgb_s2"])),
 
     # ---- controls ---------------------------------------------------------------------------
     "random_encoder": dict(
