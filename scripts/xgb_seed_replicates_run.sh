@@ -19,7 +19,17 @@ mkdir -p analysis figure_data
 LOG=analysis/xgb_seed_replicates.log
 S3=s3://climb-s3-bucket/experiments
 PY=~/venvs/climb/bin/python
-IID=$(curl -fs --max-time 5 http://169.254.169.254/latest/meta-data/instance-id || echo "")
+# IMDSv2 FIRST. The v1 unauthenticated form returns nothing on a box with IMDSv2 enforced, and
+# an empty instance id collapses every box's log onto s3://.../jobs/.log -- so this failed closed
+# on the first launch rather than logging into a shared key. Token first, v1 only as a fallback.
+IMDS_TOKEN=$(curl -fs --max-time 5 -X PUT http://169.254.169.254/latest/api/token \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || echo "")
+if [ -n "$IMDS_TOKEN" ]; then
+  IID=$(curl -fs --max-time 5 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+      http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "")
+else
+  IID=$(curl -fs --max-time 5 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "")
+fi
 say () { echo "[xgbseed] $* $(date -u +%FT%TZ)" | tee -a "$LOG"; }
 
 # The instance id must be non-empty before it is used as a log key: an empty one collapses every
