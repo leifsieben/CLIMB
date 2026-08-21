@@ -51,7 +51,19 @@ df -Pk . | awk 'NR==2 && $4 < 20000000 {print "FATAL disk <20GB"; exit 1}' | gre
 say "preflight OK"
 
 # inputs: encoders, tokenizer, suite data
-aws s3 cp "$S3/_tokenizer" figure_data/_tokenizer --recursive --only-show-errors
+# THE TOKENIZER IS NOT UNDER experiments/. It lives at s3://climb-s3-bucket/tokenizer_10M --
+# scripts/head_comparison_run.sh has always fetched it from there. Copying the wrong prefix
+# SUCCEEDS and copies nothing (an empty prefix is not an error), so the run reached the featurizer
+# with an empty tokenizer dir and died 12 times on a null vocab_file. Assert the file, because the
+# missing-input path and the success path are otherwise indistinguishable.
+aws s3 sync s3://climb-s3-bucket/tokenizer_10M figure_data/_tokenizer --only-show-errors
+[ -s figure_data/_tokenizer/tokenizer.json ] || { say "FATAL tokenizer.json absent after staging"; exit 2; }
+$PY -c "
+from transformers import PreTrainedTokenizerFast
+t = PreTrainedTokenizerFast.from_pretrained('figure_data/_tokenizer')
+assert t.vocab_size > 0, 'tokenizer loaded with empty vocab'
+print(f'[preflight] tokenizer OK, vocab={t.vocab_size}')" >> "$LOG" 2>&1 \
+  || { say "FATAL tokenizer will not load"; exit 2; }
 for e in unsup_8M unsup_8M_s1 unsup_8M_s2 skip_dense_8M skip_dense_8M_s1 skip_dense_8M_s2; do
   aws s3 cp "$S3/climb_v2_phase2/$e/encoder" "figure_data/climb_v2_phase2/$e/encoder" \
       --recursive --only-show-errors
@@ -63,6 +75,11 @@ say "inputs staged"
 # arm -> encoder stem. The output dir is <stem>__xgb<suffix>, the name the figures resolve.
 ARMS="unsup_8M skip_dense_8M"
 SEEDS="42 117 709"
+
+# COMPLETION IS COUNTED TASKS -- AND THE TWO TRACKS COUNT DIFFERENT FILES. See
+# scripts/count_cell_tasks.py for why Polaris must count finite predictions and not results.csv.
+cell_tasks () { $PY scripts/count_cell_tasks.py "$1" "$2" 2>/dev/null || echo 0; }
+want_tasks () { [ "$1" = moleculeace ] && echo 30 || echo 28; }
 
 suite_cell () {           # $1 stem  $2 suffix  $3 track  $4 outdir-override(optional)
   local stem=$1 sfx=$2 track=$3 out=${4:-}
@@ -99,26 +116,23 @@ fi
 rm -rf figure_data/chemeleon_suite/*/unsup_8M__xgb__ENVTEST
 
 # ---------------------------------------------------------------- stage 1: the cells
+# A LITERAL SPACE CANNOT CARRY THE BASE THROUGH WORD-SPLITTING. `SUFFIXES=" _s1 _s2"` splits to
+# exactly two tokens, so the `[ "$sfx" = " " ]` arm never fired and REBUILD_BASE=1 silently did
+# NOT rebuild the base -- the one case the whole env test exists to handle. Use a real sentinel.
 SUFFIXES="_s1 _s2"
-[ "$REBUILD_BASE" = "1" ] && SUFFIXES=" _s1 _s2"
+[ "$REBUILD_BASE" = "1" ] && SUFFIXES="BASE _s1 _s2"
 for stem in $ARMS; do
   for sfx in $SUFFIXES; do
-    [ "$sfx" = " " ] && sfx=""
+    [ "$sfx" = "BASE" ] && sfx=""
     for track in moleculeace polaris; do
       d="figure_data/chemeleon_suite/$track/${stem}__xgb${sfx}"
-      want=$([ "$track" = moleculeace ] && echo 30 || echo 28)
-      have=$($PY -c "
-import csv,sys
-try: print(len({r['task'] for r in csv.DictReader(open('$d/results.csv'))}))
-except Exception: print(0)" 2>/dev/null)
+      want=$(want_tasks "$track")
+      have=$(cell_tasks "$d" "$track")
       if [ "${have:-0}" -ge "$want" ]; then say "SKIP $track ${stem}__xgb${sfx} (has $have/$want)"; continue; fi
       say "RUN  $track ${stem}__xgb${sfx}"
       suite_cell "$stem" "$sfx" "$track"
       # COMPLETION IS ACHIEVED WORK, NOT A FILE. results.csv appears for a partial run too.
-      have=$($PY -c "
-import csv
-try: print(len({r['task'] for r in csv.DictReader(open('$d/results.csv'))}))
-except Exception: print(0)" 2>/dev/null)
+      have=$(cell_tasks "$d" "$track")
       if [ "${have:-0}" -ge "$want" ]; then
         aws s3 cp --recursive "$d" "$S3/chemeleon_suite/$track/${stem}__xgb${sfx}" --only-show-errors
         say "DONE $track ${stem}__xgb${sfx} ($have/$want tasks, uploaded)"
@@ -135,11 +149,8 @@ MISSING=0
 for stem in $ARMS; do
   for sfx in "" _s1 _s2; do
     for track in moleculeace polaris; do
-      want=$([ "$track" = moleculeace ] && echo 30 || echo 28)
-      have=$($PY -c "
-import csv
-try: print(len({r['task'] for r in csv.DictReader(open('figure_data/chemeleon_suite/$track/${stem}__xgb${sfx}/results.csv'))}))
-except Exception: print(0)" 2>/dev/null)
+      want=$(want_tasks "$track")
+      have=$(cell_tasks "figure_data/chemeleon_suite/$track/${stem}__xgb${sfx}" "$track")
       [ "${have:-0}" -ge "$want" ] || { say "MISSING $track ${stem}__xgb${sfx} ($have/$want)"; MISSING=$((MISSING+1)); }
     done
   done
