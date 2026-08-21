@@ -29,7 +29,14 @@ def count(d: str, track: str) -> int:
     with open(f"{d}/results.csv") as fh:
         return len({r["task"] for r in csv.DictReader(fh)})
 
+# The expected task count per track, in ONE place. Two callers that disagree about how many
+# tasks a track has is the same class of bug as two gates that disagree about "done".
+WANT = {"moleculeace": 30, "polaris": 28}
+
 if __name__ == "__main__":
+    if sys.argv[1] == "--want":
+        print(WANT[sys.argv[2]])
+        raise SystemExit(0)
     try:
         print(count(sys.argv[1], sys.argv[2]))
     except Exception:

@@ -27,6 +27,34 @@ from finetune_e2e_v2 import finetune_predict  # noqa: E402
 from chemeleon_suite_run import load_task, task_list, reg_metrics, clf_metrics, _rmse  # noqa: E402
 
 
+def _flush(out_dir, tasks, rows, pred_rows, track, model, suffix, seeds, encoder_path):
+    """Write the dir's artifacts from what is finished SO FAR, and return the completed-task count.
+
+    Called after every task, not only at the end. The original wrote both CSVs once the whole
+    grid was done, so an interruption at task 57 of 58 -- hours of GPU -- left nothing on disk
+    at all. Rewriting the two files each task is milliseconds against a fine-tune.
+
+    verified.json is written ONLY at full coverage, and it names the dir it actually is. It used
+    to hardcode f"{model}_e2e" regardless of --suffix, so every replicate dir would have claimed
+    to be the base: unsup_8M_e2e_s1 stamped "model": "unsup_8M_e2e". The encoder is recorded too,
+    because for these arms the replicate axis IS the encoder (pretraining seed) and nothing else
+    in the dir says which one produced it.
+    """
+    with (out_dir / "results.csv").open("w", newline="") as f:
+        w = csv.writer(f); w.writerow(["task", "seed", "subset", "metric", "value", "n_test"]); w.writerows(rows)
+    with (out_dir / "test_predictions.csv").open("w", newline="") as f:
+        w = csv.writer(f); w.writerow(["task", "seed", "test_index", "smiles", "y_pred"]); w.writerows(pred_rows)
+    n_done = len({r[0] for r in pred_rows})
+    vj = out_dir / "verified.json"
+    if n_done == len(tasks):
+        vj.write_text(json.dumps({"track": track, "model": f"{model}{suffix}", "mode": "e2e",
+                                  "seeds": seeds, "n_tasks": n_done,
+                                  "encoder": str(encoder_path)}))
+    elif vj.exists():
+        vj.unlink()          # never let a stale full-coverage claim outlive a partial rerun
+    return n_done
+
+
 def run(track, model, encoder_path, tokenizer_path, seeds, lr=None, epochs=None, patience=None,
         only_tasks=None, suffix="_e2e"):
     from transformers import PreTrainedTokenizerFast
@@ -80,15 +108,9 @@ def run(track, model, encoder_path, tokenizer_path, seeds, lr=None, epochs=None,
                     if (~ct).any():
                         rows.append([task, seed, "noncliff", "rmse", _rmse(yte[~ct], pred[~ct]), int((~ct).sum())])
             print(f"[e2e] {track}/{model} {task} seed{seed}: done ({len(te)} test)", flush=True)
+        _flush(out_dir, tasks, rows, pred_rows, track, model, suffix, seeds, encoder_path)
 
-    with (out_dir / "results.csv").open("w", newline="") as f:
-        w = csv.writer(f); w.writerow(["task", "seed", "subset", "metric", "value", "n_test"]); w.writerows(rows)
-    with (out_dir / "test_predictions.csv").open("w", newline="") as f:
-        w = csv.writer(f); w.writerow(["task", "seed", "test_index", "smiles", "y_pred"]); w.writerows(pred_rows)
-    n_done = len({r[0] for r in pred_rows})
-    if n_done == len(tasks):
-        (out_dir / "verified.json").write_text(json.dumps({"track": track, "model": f"{model}_e2e",
-                                                           "mode": "e2e", "seeds": seeds, "n_tasks": n_done}))
+    n_done = _flush(out_dir, tasks, rows, pred_rows, track, model, suffix, seeds, encoder_path)
     print(f"[e2e] wrote {out_dir} ({n_done}/{len(tasks)} tasks)", flush=True)
 
 
