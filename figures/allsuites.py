@@ -178,10 +178,12 @@ def _polaris_summary():
 def _polaris(dirs, man):
     """{task: mean of the task's primary metric over eval seeds}."""
     per = collections.defaultdict(lambda: collections.defaultdict(list))
+    present = []
     for d in dirs:
         f = FD / "chemeleon_suite" / "polaris" / d / "polaris_scores.csv"
         if not f.exists():
             continue
+        present.append(d)
         for r in csv.DictReader(open(f)):
             per[r["task"]][r["metric"]].append(float(r["value"]))
     out = {}
@@ -189,12 +191,13 @@ def _polaris(dirs, man):
         pm = man.get(t, {}).get("primary_metric")
         if pm in m:
             out[t] = st.mean(m[pm])
-    if len(dirs) == 1 and len(out) < len(man):
+    if len(present) <= 1 and len(out) < len(man):
         summ = _polaris_summary()          # clobbered-file recovery: fill MISSING tasks only
         for t, meta in man.items():
             pm = meta.get("primary_metric")
-            if t not in out and (dirs[0], t, pm) in summ:
-                out[t] = summ[(dirs[0], t, pm)]
+            key = (present[0] if present else dirs[0], t, pm)
+            if t not in out and key in summ:
+                out[t] = summ[key]
     return out
 
 
@@ -265,10 +268,15 @@ def wide_table(arms=None):
             for t, v in _moleculeace(mace_dirs).items():
                 vals[f"MolACE:{t}"] = v
                 meta[f"MolACE:{t}"] = ("MoleculeACE", "rmse", False)
-            # Polaris has no pretraining-seed replicates, so the base dir alone -- but `mace` may
-            # already be an explicit list (s2u_dense), in which case wrapping it in another list
-            # produced a PosixPath / list TypeError.
-            pol_dirs = list(src["mace"]) if isinstance(src["mace"], (list, tuple)) else [src["mace"]]
+            # Polaris uses the SAME pretraining-seed dirs as MoleculeACE. It did not always: the
+            # line here used to be `[src["mace"]]` with a comment asserting "Polaris has no
+            # pretraining-seed replicates". That was true when written and silently stopped being
+            # true -- 70 polaris/*_s1,_s2 dirs now exist, each with a full 249-row
+            # polaris_scores.csv. The stale comment cost 2 of every 3 seeds on 28 of the 65
+            # ranking datasets (43%), while MoleculeACE, MolNet and CBS all averaged 3. Restoring
+            # them swaps the #1 and #2 arms, so this was deciding the headline. _seed_dirs already
+            # handles the explicit-list case (s2u_dense).
+            pol_dirs = _seed_dirs(src["mace"])
             for t, v in _polaris(pol_dirs, man).items():
                 pm = man[t]["primary_metric"]
                 vals[f"Polaris:{t.split('/')[-1]}"] = v
