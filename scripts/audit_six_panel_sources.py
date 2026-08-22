@@ -28,11 +28,30 @@ def note(sev, arm, panel, msg):
 
 
 def molnet_dir(prefix):
-    for r in MOLNET_ROOTS:
-        p = FD / r / prefix / "moleculenet_cv" / "moleculenet_summary.csv"
-        if p.exists():
-            return p
-    return None
+    """Delegate to the FIGURE's resolver instead of reimplementing it.
+
+    This required moleculenet_summary.csv. figures.allsuites.molnet_dir accepts EITHER that or
+    suite_summary.json, because e2e-style runners (chemeleon_e2e) write only the JSON -- its
+    docstring records that requiring the CSV made those arms read as "not run" on all 7 MolNet
+    datasets, and fig_A1 admits arms by coverage COUNT, so a loader gap silently decided which
+    arms appear in the ranking. This audit was still reproducing exactly that fixed bug and
+    reporting 6 phantom MISSING rows for an arm the figures read at full depth.
+
+    An audit that reimplements the loader can only ever check its own copy of the rule. Delegate,
+    and return the summary CSV path when there is one so the row-level checks below still work.
+    """
+    from figures.allsuites import molnet_dir as _fig_molnet_dir
+    d = _fig_molnet_dir(prefix)
+    if d is None:
+        return None
+    csv_path = d / "moleculenet_summary.csv"
+    return csv_path if csv_path.exists() else None
+
+
+def molnet_dir_exists(prefix):
+    """True when the FIGURE can read this dir at all, CSV or JSON."""
+    from figures.allsuites import molnet_dir as _fig_molnet_dir
+    return _fig_molnet_dir(prefix) is not None
 
 
 def audit_molnet(arm, spec):
@@ -41,23 +60,57 @@ def audit_molnet(arm, spec):
     for d in dirs:
         p = molnet_dir(d)
         if p is None:
-            note("MISSING", arm, "molnet", f"seed dir '{d}' has no moleculenet_summary.csv in any root")
+            if molnet_dir_exists(d):
+                # Readable by the figure via suite_summary.json; only the per-fold CSV that the
+                # row-level checks below need is absent. Not a data gap -- state the limit rather
+                # than reporting the arm as missing, which is what this audit did until 2026-08-21.
+                note("INFO", arm, "molnet",
+                     f"seed dir '{d}' has suite_summary.json but no per-fold CSV "
+                     f"-- figure reads it; fold/seed checks below cannot")
+            else:
+                note("MISSING", arm, "molnet",
+                     f"seed dir '{d}' is unreadable by the figure resolver in any root")
             continue
         found.append(d)
-        for r in csv.DictReader(open(p)):
-            ds, mm, hs = r["dataset"], r["main_metric"], r["head_seed"]
-            if hs in ("MEAN", "STD") or r["main_value"] in ("", "nan"):
-                continue
-            for panel, metric in MOL_PANELS.items():
-                if ds == panel and mm == f"{metric}_cell":
+        # READ EACH PANEL FROM THE SUBDIR THE FIGURE READS IT FROM, not from moleculenet_cv for
+        # everything. Tox21 resolves through moleculenet_cv_tox21fixed and QM7 through
+        # qm7clamped/qm7native; scanning only moleculenet_cv reported "0 cells / 0 distinct folds"
+        # for dirs that carry the data in the corrected subdir -- 10 phantom FOLDS findings
+        # against ecfp, ecfp_desc and chemeleon_frozen, all of which the figures read at depth 3.
+        from figures.allsuites import NATIVE_SUBDIRS, molnet_dir as _fig_dir
+        for panel, metric in MOL_PANELS.items():
+            for sub in NATIVE_SUBDIRS.get(panel, ("moleculenet_cv",)):
+                fd = _fig_dir(d, sub)
+                if fd is None:
+                    continue
+                f = fd / "moleculenet_summary.csv"
+                if not f.exists():
+                    continue
+                hit = False
+                for r in csv.DictReader(f.open()):
+                    if r["dataset"] != panel or r["main_metric"] != f"{metric}_cell":
+                        continue
+                    hs = r["head_seed"]
+                    if hs in ("MEAN", "STD") or r["main_value"] in ("", "nan"):
+                        continue
                     cells[(panel, d)].append((hs, float(r["main_value"])))
+                    hit = True
+                if hit:
+                    break
     if dirs and len(found) < 3 and not arm.startswith(("ecfp", "chemeleon")):
         note("SEEDS", arm, "molnet", f"only {len(found)}/3 pretraining-seed dirs present: {found}")
     for panel in MOL_PANELS:
         per_seed = {d: cells.get((panel, d), []) for d in found}
         tot = sum(len(v) for v in per_seed.values())
         if tot == 0:
-            note("MISSING", arm, panel, "no _cell rows in any seed dir")
+            # NOT a data gap. `_cell` rows are the per-head-seed un-ensembled metrics, written
+            # only so a seed-decomposed spread CAN be computed; allsuites._molnet takes the
+            # ENSEMBLE fold row as the point estimate and explicitly refuses `_cell` as a
+            # substitute. No published interval comes from them either -- those are the cluster
+            # bootstrap in a2_errorbars.csv. So their absence limits THIS audit's fold check and
+            # nothing a figure draws.
+            note("INFO", arm, panel, "no _cell rows -- per-seed spread not checkable here; "
+                                     "point estimate and interval are unaffected")
             continue
         for d, v in per_seed.items():
             folds = {h.split("_fold")[-1] for h, _ in v if "_fold" in h}
@@ -65,9 +118,25 @@ def audit_molnet(arm, spec):
                 note("FOLDS", arm, panel, f"{d}: {len(v)} cells / {len(folds)} distinct folds (want 15 / 5)")
         vals = [x for v in per_seed.values() for _, x in v]
         mean = st.mean(vals)
-        if panel in CONST_PREDICTOR and mean > CONST_PREDICTOR[panel]:
-            note("SANITY", arm, panel,
-                 f"mean {mean:.1f} WORSE than constant predictor ({CONST_PREDICTOR[panel]:.1f})")
+        if panel in CONST_PREDICTOR:
+            # Compare the PUBLISHED value, not the `_cell` mean. They are different quantities:
+            # `_cell` rows are per-head-seed and un-ensembled, live only in moleculenet_cv, and
+            # allsuites._molnet documents that averaging them understates performance -- while the
+            # figure takes the ENSEMBLE fold row from the corrected subdir (qm7clamped for QM7).
+            # Judging the published bar by the `_cell` mean called chemeleon_frozen QM7 276.0
+            # "worse than a constant predictor" when the number actually drawn is 211.5, better
+            # than the 228.7 baseline.
+            from figures.allsuites import _molnet as _fig_molnet
+            pub = _fig_molnet(found).get(panel)
+            if pub is not None and pub > CONST_PREDICTOR[panel]:
+                note("SANITY", arm, panel,
+                     f"published {pub:.1f} WORSE than constant predictor "
+                     f"({CONST_PREDICTOR[panel]:.1f})")
+            elif pub is not None and mean > CONST_PREDICTOR[panel]:
+                note("INFO", arm, panel,
+                     f"_cell mean {mean:.1f} exceeds the constant predictor "
+                     f"({CONST_PREDICTOR[panel]:.1f}) but the PUBLISHED value is {pub:.1f} -- "
+                     f"un-ensembled cells in the uncorrected subdir, not what the figure draws")
         # per-fold divergence within the panel
         byfold = collections.defaultdict(list)
         for v in per_seed.values():
@@ -134,11 +203,21 @@ def audit_cbs(arm, spec):
         return
     hit = [r for r in csv.DictReader(open(f)) if r["arm"] == src and r["metric"] == "nef1"]
     if not hit:
-        note("MISSING", arm, "CBS", f"arm '{src}' not in cbs_nef1_summary.csv")
+        # The file being checked is DEPRECATED and read by no figure -- this function's own
+        # docstring says so, and arms.py records that its `arm` list silently omits whole waves.
+        # The CBS panel the figures draw comes from allsuites._cbs_value via the arm's `mol`
+        # dirs. Reporting absence from a deprecated artefact as MISSING put 4 permanent false
+        # positives in front of every real finding.
+        note("INFO", arm, "CBS", f"arm '{src}' absent from the DEPRECATED cbs_nef1_summary.csv "
+                                 f"-- no figure reads it; CBS comes from the mol dirs")
         return
     n = int(hit[0]["n_seeds"])
     if n < 3 and not arm.startswith(("ecfp", "chemeleon")):
-        note("SEEDS", arm, "CBS", f"n_seeds={n} (want 3)")
+        # Counted from the DEPRECATED cbs_nef1_summary.csv, which no figure reads -- the CBS
+        # panel comes from allsuites._cbs_value over the arm's `mol` dirs, where audit check 19
+        # confirms depth 3. Reported as INFO so a real CBS gap would not be buried beside it.
+        note("INFO", arm, "CBS", f"deprecated cbs_nef1_summary.csv shows n_seeds={n}; the CBS "
+                                 f"panel the figures draw comes from the mol dirs")
 
 
 def main():
