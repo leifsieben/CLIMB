@@ -33,6 +33,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 os.chdir(ROOT)
+# sys.path[0] is scripts/ when this is run as `python3 scripts/anchor_seed_replicates.py`, so the
+# repo root has to be added explicitly or `from figures.allsuites import ...` cannot resolve.
+# chdir alone does NOT put the cwd on the import path.
+sys.path.insert(0, str(ROOT))
 PY = sys.executable
 P2 = Path("figure_data/climb_v2_phase2")
 CBS = Path("figure_data/cbs_benchmark")
@@ -62,7 +66,11 @@ ANCHORS = {
     # chemprop needs Python >=3.11, deepchem 2.8.0 -- which defines our Tox21 parse -- has no 3.12
     # wheel, so the two cannot share an interpreter. Splitting featurization keeps every scoring
     # decision in the reference environment instead of accepting a cross-environment offset.
-    "chemeleon_frozen": dict(feat="chemeleon", head="mlp", ds=["BACE", "Tox21", "HIV"],  merge=True,
+    # BBBP and ESOL added 2026-08-21: _s1/_s2 carry neither, so those two cells read one seed
+    # against three everywhere else (audit check 19). ESOL routes to moleculenet_cv_regnative via
+    # target_subdir, with its standardize read from that same row -- see base_settings.
+    "chemeleon_frozen": dict(feat="chemeleon", head="mlp",
+                             ds=["BACE", "Tox21", "HIV", "BBBP", "ESOL"], merge=True,
                              npz="figure_data/_chemeleon_features.npz"),
 }
 
@@ -70,20 +78,48 @@ ANCHORS = {
 VALID_POOL = ("cls", "mean", "cls_mean")
 
 
-def base_settings(base: str) -> list:
+def target_subdir(base: str, ds: str) -> str:
+    """The subdir the RESOLVER will actually read this (arm, dataset) from.
+
+    The declared SUBDIR map is global, and for ESOL it is wrong for all three anchors. ESOL lives
+    in moleculenet_cv_regnative (native units) AND in moleculenet_cv (z-scored); figures.allsuites
+    prefers regnative, so a replicate written to moleculenet_cv is silently DROPPED and the seed
+    gap stays open with every directory count passing. Resolve the same way the figure does --
+    first subdir in the resolver's own preference order that the BASE actually has the dataset in.
+    """
+    from figures.allsuites import NATIVE_SUBDIRS
+    for sub in NATIVE_SUBDIRS.get(ds, ("moleculenet_cv",)):
+        f = P2 / base / sub / "moleculenet_summary.csv"
+        if f.exists() and any(r["dataset"] == ds for r in csv.DictReader(f.open())):
+            if sub != SUBDIR.get(ds):
+                print(f"[anchor] {base}/{ds}: writing to {sub}, NOT the declared "
+                      f"SUBDIR {SUBDIR.get(ds)} -- that is where the resolver reads it", flush=True)
+            return sub
+    return SUBDIR[ds]
+
+
+def base_settings(base: str, sub: str = "moleculenet_cv", ds: str | None = None) -> list:
     """Read pool/standardize off the base run so a replicate cannot drift from it.
+
+    MUST be read from the SAME subdir the replicate will be written to, and from that DATASET's
+    own row. ESOL is the case that forces it: moleculenet_cv says standardize=zscore (value
+    1.9356) and moleculenet_cv_regnative says native (1.8022). Taking the setting from
+    moleculenet_cv while writing into regnative puts z-scored folds beside native ones -- the QM7
+    129.9 failure, reproduced on ESOL, and landing in a subdir a correct arm already depends on.
 
     eval_v2 writes "-" in the pool column for every non-encoder featurizer (there is no pooling
     to record), and "-" is not a value the CLI accepts back -- so it is dropped rather than
     echoed, letting the default stand exactly as it did for the base run.
     """
-    f = P2 / base / "moleculenet_cv" / "moleculenet_summary.csv"
+    f = P2 / base / sub / "moleculenet_summary.csv"
     for r in csv.DictReader(f.open()):
+        if ds and r["dataset"] != ds:
+            continue
         args = ["--standardize", r["standardize"]]
         if r["pool"] in VALID_POOL:
             args += ["--pool", r["pool"]]
         return args
-    raise SystemExit(f"no rows in {f}")
+    raise SystemExit(f"no {ds or 'rows'} in {f}")
 
 
 def run(args, label) -> bool:
@@ -156,10 +192,9 @@ def main(only=None) -> int:
     for base, cfg in ANCHORS.items():
         if only and base not in only:
             continue
-        common = ["--featurizer", cfg["feat"], "--head", cfg["head"],
-                  "--cv_folds", "5"] + base_settings(base)
+        common0 = ["--featurizer", cfg["feat"], "--head", cfg["head"], "--cv_folds", "5"]
         if cfg.get("npz"):
-            common += ["--features_npz", cfg["npz"]]
+            common0 += ["--features_npz", cfg["npz"]]
         for suf, seeds in REPLICATES.items():
             # ANCHOR_TAG keeps a second featurizer variant in its OWN dirs, so the orthodox
             # ECFP4 anchor and the max-information Morgan variant can be produced concurrently
@@ -167,7 +202,9 @@ def main(only=None) -> int:
             name = base + suf + os.environ.get("ANCHOR_TAG", "")
             seed_args = ["--head_seeds"] + [str(s) for s in seeds]
             for ds in (ds_filter or cfg["ds"]):
-                dest_dir = P2 / name / SUBDIR[ds]
+                sub = target_subdir(base, ds)
+                common = common0 + base_settings(base, sub, ds)
+                dest_dir = P2 / name / sub
                 if cfg["merge"]:
                     tmp = Path(tempfile.mkdtemp(prefix="anchorrep-"))
                     ok = run(common + seed_args + ["--datasets", ds, "--output_dir", str(tmp)],
@@ -190,7 +227,11 @@ def main(only=None) -> int:
             # CBS lives in its own tree and uses the benchmark's OWN fold column
             if not run_cbs:
                 continue
-            ok = run(common + seed_args + ["--task_csv", CBS_CSV, "--task_name", "cbs",
+            # CBS takes its OWN settings, not whatever the dataset loop left in `common`.
+            # Since settings became per-dataset (ESOL forced it), reusing the loop variable here
+            # would hand CBS the last dataset's standardize -- native, if ESOL ran last.
+            cbs_common = common0 + base_settings(base, "moleculenet_cv")
+            ok = run(cbs_common + seed_args + ["--task_csv", CBS_CSV, "--task_name", "cbs",
                                            "--task_type", "classification", "--cv_scheme", "provided",
                                            "--output_dir", str(CBS / name / "moleculenet_cv")],
                      f"{name} cbs")
