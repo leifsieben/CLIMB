@@ -448,7 +448,19 @@ ARMS = {
         # chemeleon_frozen_part1/_part2 exist too and are DELIBERATELY EXCLUDED: they use fold
         # partitions 1 and 2, so pooling them would give this one bar a different estimand from the
         # other 17. They support the robustness statement in the caption only.
-        # _s1/_s2 carry QM7 only, so BACE/Tox21 correctly stay at the base dir alone.
+        # WHAT _s1/_s2 ACTUALLY CARRY, measured 2026-08-21 through the resolver rather than
+        # asserted: BACE, HIV, Tox21 and QM7 -- NOT "QM7 only", and BACE/Tox21 do NOT "stay at the
+        # base dir alone", which is what this comment claimed until the dirs grew content after it
+        # was written. Tox21 and QM7 arrive via moleculenet_cv_tox21fixed and
+        # moleculenet_cv_qm7clamped, which _s1/_s2 have.
+        # The pooling argument above generalises unchanged -- more head seeds on the same folds is
+        # a better estimate of the same quantity -- so this is fine where it happens. What is NOT
+        # fine is that BBBP and ESOL get one dir while the other four get three: ESOL resolves
+        # through moleculenet_cv_regnative and BBBP through plain moleculenet_cv, neither of which
+        # _s1/_s2 carry. Audit check 19 reports it. Closing it means running those two datasets at
+        # the same two extra head-seed sets, queued with the compute session and deliberately held
+        # until the chemeleon featurizer is shown to reproduce across environments -- building them
+        # in a drifted env would make two of the six cells an environment measurement.
         src=dict(mace="chemeleon_frozen",
                  mol=["chemeleon_frozen", "chemeleon_frozen_s1", "chemeleon_frozen_s2"],
                  cbs_legacy_label="chemeleon_frozen")),
