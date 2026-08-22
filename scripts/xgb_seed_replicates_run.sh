@@ -41,6 +41,13 @@ say "start on $IID"
 
 # ---------------------------------------------------------------- preflight (refuse, don't hope)
 [ -x "$PY" ] || { say "FATAL no python at $PY"; exit 2; }
+# THE AMI HAS NO XGBOOST -- confirmed on climb-v2-worker, not inferred. Preflight refusing is the
+# right behaviour, but every box then needs a hand. Install the same pin everywhere: all six dirs
+# of this rebuild must share one library set or the spread measures the fleet, not the pretraining.
+$PY -c "import xgboost" 2>/dev/null || {
+  say "xgboost absent (expected on this AMI) -- installing pinned 2.1.4"
+  $PY -m pip install -q "xgboost==2.1.4" >> "$LOG" 2>&1 || { say "FATAL xgboost install failed"; exit 2; }
+}
 $PY - <<'PYEOF' >> "$LOG" 2>&1 || { say "FATAL preflight imports failed"; exit 2; }
 import torch, transformers, xgboost, sklearn, rdkit, numpy
 print(f"[preflight] torch={torch.__version__} transformers={transformers.__version__} "
@@ -73,7 +80,19 @@ aws s3 cp "$S3/chemeleon_suite/data" chemeleon_suite/data --recursive --only-sho
 say "inputs staged"
 
 # arm -> encoder stem. The output dir is <stem>__xgb<suffix>, the name the figures resolve.
-ARMS="unsup_8M skip_dense_8M"
+# ONE DIR PER BOX, SET FROM THE LAUNCH ENVIRONMENT. Stage 0 came back "base does NOT reproduce"
+# (630 shared cells, max |delta| 0.234), which expanded this job from 4 cells to 12 -- the whole
+# trio for both arms, so that all three dirs of a spread share one environment. Serially that is
+# ~8h at the 41 min/cell this box measured. The 12 cells are independent, so they are split across
+# boxes instead, each owning one (arm, suffix) and both its tracks.
+#
+# EVERY BOX MUST BE THE SAME INSTANCE TYPE. That is the whole point of the rebuild: c5 is Intel
+# with AVX-512 and g5 is AMD without it, and reduction order follows the instruction set. Spreading
+# this across mixed types would reintroduce exactly the environment variance we are rebuilding to
+# remove, and the spread would measure the fleet instead of the pretraining.
+ARMS=${ARMS:-"unsup_8M skip_dense_8M"}
+FORCE_SFX=${FORCE_SUFFIXES:-}
+SKIP_STAGE0=${SKIP_STAGE0:-0}
 SEEDS="42 117 709"
 
 # COMPLETION IS COUNTED TASKS -- AND THE TWO TRACKS COUNT DIFFERENT FILES. See
@@ -91,6 +110,11 @@ suite_cell () {           # $1 stem  $2 suffix  $3 track  $4 outdir-override(opt
 }
 
 # ---------------------------------------------------------------- stage 0: is the base reproducible?
+# The verdict is already in from the first box -- do not spend 41 minutes re-deriving it.
+if [ "$SKIP_STAGE0" = "1" ]; then
+  REBUILD_BASE=${REBUILD_BASE:-1}
+  say "stage 0 SKIPPED by request -- REBUILD_BASE=$REBUILD_BASE carried in from the first box's verdict"
+else
 say "stage 0: rebuilding unsup_8M__xgb MoleculeACE into a scratch dir to test env equivalence"
 aws s3 cp "$S3/chemeleon_suite/moleculeace/unsup_8M__xgb/results.csv" /tmp/base_ref.csv --only-show-errors
 suite_cell unsup_8M "" moleculeace "unsup_8M__xgb__ENVTEST"
@@ -113,6 +137,7 @@ PYEOF
 else
   REBUILD_BASE=1; say "stage 0: could not compare (missing file) -- rebuilding the whole trio"
 fi
+fi
 rm -rf figure_data/chemeleon_suite/*/unsup_8M__xgb__ENVTEST
 
 # ---------------------------------------------------------------- stage 1: the cells
@@ -121,6 +146,7 @@ rm -rf figure_data/chemeleon_suite/*/unsup_8M__xgb__ENVTEST
 # NOT rebuild the base -- the one case the whole env test exists to handle. Use a real sentinel.
 SUFFIXES="_s1 _s2"
 [ "$REBUILD_BASE" = "1" ] && SUFFIXES="BASE _s1 _s2"
+[ -n "$FORCE_SFX" ] && SUFFIXES="$FORCE_SFX"
 for stem in $ARMS; do
   for sfx in $SUFFIXES; do
     [ "$sfx" = "BASE" ] && sfx=""
@@ -146,8 +172,11 @@ done
 # ---------------------------------------------------------------- verify, then and only then stop
 say "verifying the full grid from achieved work"
 MISSING=0
+# VERIFY ONLY WHAT THIS BOX WAS ASSIGNED. Checking all six dirs on a box that owns one would
+# report five permanent MISSING and the shutdown gate would never clear.
 for stem in $ARMS; do
-  for sfx in "" _s1 _s2; do
+  for sfx in $SUFFIXES; do
+    [ "$sfx" = "BASE" ] && sfx=""
     for track in moleculeace polaris; do
       want=$(want_tasks "$track")
       have=$(cell_tasks "figure_data/chemeleon_suite/$track/${stem}__xgb${sfx}" "$track")

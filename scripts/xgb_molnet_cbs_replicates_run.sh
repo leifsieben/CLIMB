@@ -26,6 +26,10 @@ cd /home/ec2-user/CLIMB
 mkdir -p analysis figure_data
 
 ARM=${ARM:?ARM must be set (unsup_8M | skip_dense_8M)}
+# "BASE" IS THE SENTINEL FOR THE EMPTY SUFFIX. SUFFIXES="" collapses to zero loop iterations and
+# the job would do nothing while exiting clean; a literal space cannot survive word splitting
+# either (that bug cost the suite runner its whole rebuild branch). Set SUFFIXES="BASE" to build
+# <arm>__xgb from encoder <arm>, which is what an in-env base rebuild needs.
 SUFFIXES=${SUFFIXES:-"_s1 _s2"}
 LOG="analysis/xgb_molnet_cbs_${ARM}.log"
 S3=s3://climb-s3-bucket/experiments
@@ -44,6 +48,14 @@ say "start on $IID -- arm $ARM, suffixes $SUFFIXES, head seeds 0 1 2"
 
 # ---------------------------------------------------------------- preflight
 [ -x "$PY" ] || { say "FATAL no python at $PY"; exit 2; }
+# THE AMI HAS NO XGBOOST. climb-v2-worker ships torch/deepchem/sklearn but not xgboost, so a
+# fresh box refuses at preflight -- correct, but it means every launch needs a hand. Install the
+# pin that the box already under env-test carries (2.1.4), so the replicate cells and the cells
+# they will be compared against come out of the same library set. Version-matched, then asserted.
+$PY -c "import xgboost" 2>/dev/null || {
+  say "xgboost absent (expected on this AMI) -- installing pinned 2.1.4"
+  $PY -m pip install -q "xgboost==2.1.4" >> "$LOG" 2>&1 || { say "FATAL xgboost install failed"; exit 2; }
+}
 $PY - <<'PYEOF' >> "$LOG" 2>&1 || { say "FATAL preflight imports"; exit 2; }
 import torch, transformers, xgboost, sklearn, rdkit, numpy, deepchem
 print(f"[preflight] torch={torch.__version__} xgboost={xgboost.__version__} "
@@ -67,6 +79,7 @@ aws s3 cp s3://climb-s3-bucket/datasets/cbs.csv data/cbs.csv --only-show-errors
 [ -s data/cbs.csv ] || { say "FATAL data/cbs.csv absent -- CBS cells would die 5 folds in"; exit 2; }
 
 for sfx in $SUFFIXES; do
+  [ "$sfx" = "BASE" ] && sfx=""
   aws s3 cp "$S3/climb_v2_phase2/${ARM}${sfx}/encoder" "figure_data/climb_v2_phase2/${ARM}${sfx}/encoder" \
       --recursive --only-show-errors
   [ -s "figure_data/climb_v2_phase2/${ARM}${sfx}/encoder/model.safetensors" ] \
@@ -82,6 +95,7 @@ say "inputs staged"
 
 # ---------------------------------------------------------------- the eight cells
 for sfx in $SUFFIXES; do
+  [ "$sfx" = "BASE" ] && sfx=""
   ENC="figure_data/climb_v2_phase2/${ARM}${sfx}/encoder"
   TAG="${ARM}__xgb${sfx}"
 
@@ -115,6 +129,7 @@ done
 say "verifying row counts and parse identity against the base"
 MISSING=0
 for sfx in $SUFFIXES; do
+  [ "$sfx" = "BASE" ] && sfx=""
   TAG="${ARM}__xgb${sfx}"
   for spec in "climb_v2_phase2:220:/tmp/base_mn_${ARM}.csv" "cbs_benchmark:44:/tmp/base_cbs_${ARM}.csv"; do
     tree=${spec%%:*}; rest=${spec#*:}; want=${rest%%:*}; ref=${rest#*:}
