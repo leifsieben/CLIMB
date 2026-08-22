@@ -85,24 +85,40 @@ def audit_molnet(arm, spec):
 
 
 def audit_mace(arm, spec):
+    """Validate EVERY MoleculeACE dir the figure actually pools, not just the base.
+
+    This crashed with `PosixPath / list` for the whole life of the list-valued `mace` (s2u_dense
+    names _s0/_s1/_s2 rather than base/_s1/_s2), which meant the entire audit aborted on the first
+    such arm and reported nothing about any arm after it. An audit that cannot run is not a
+    weaker audit, it is no audit -- and this one carried the note that would have flagged unread
+    replicate dirs. Resolve through _seed_dirs so the audit follows the figure rather than
+    reimplementing its rule.
+    """
     src = spec["src"].get("mace")
     if not src:
         return
-    p = FD / "chemeleon_suite" / "moleculeace" / src / "results.csv"
-    if not p.exists():
-        note("MISSING", arm, "MoleculeACE", f"'{src}/results.csv' absent")
-        return
-    rows = [r for r in csv.DictReader(open(p)) if r["metric"] == "rmse" and r["subset"] == "overall"]
-    tasks = {r["task"] for r in rows}
-    seeds = {r["seed"] for r in rows}
-    if len(tasks) != 30:
-        note("TASKS", arm, "MoleculeACE", f"{len(tasks)}/30 targets")
-    if len(seeds) != 3:
-        note("SEEDS", arm, "MoleculeACE", f"{len(seeds)} eval seeds (want 3): {sorted(seeds)}")
-    # pretraining-seed replicates (the top-up)
-    reps = [d for d in (FD / "chemeleon_suite" / "moleculeace").glob(f"{src}_s*") if d.is_dir()]
-    if reps:
-        note("INFO", arm, "MoleculeACE", f"{len(reps)} pretraining-seed replicate dir(s) exist but src reads only '{src}'")
+    from figures.allsuites import _seed_dirs
+    dirs = _seed_dirs(src)
+    present = 0
+    for d in dirs:
+        p = FD / "chemeleon_suite" / "moleculeace" / d / "results.csv"
+        if not p.exists():
+            continue
+        present += 1
+        rows = [r for r in csv.DictReader(open(p))
+                if r["metric"] == "rmse" and r["subset"] == "overall"]
+        tasks = {r["task"] for r in rows}
+        seeds = {r["seed"] for r in rows}
+        if len(tasks) != 30:
+            note("TASKS", arm, "MoleculeACE", f"{d}: {len(tasks)}/30 targets")
+        if len(seeds) != 3:
+            note("SEEDS", arm, "MoleculeACE",
+                 f"{d}: {len(seeds)} eval seeds (want 3): {sorted(seeds)}")
+    if not present:
+        note("MISSING", arm, "MoleculeACE", f"none of {dirs} has results.csv")
+    elif present < 3:
+        note("SEEDS", arm, "MoleculeACE",
+             f"{present}/3 pretraining-seed dir(s) present: {dirs}")
 
 
 def audit_cbs(arm, spec):

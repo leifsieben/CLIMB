@@ -1182,27 +1182,30 @@ def check_featurizer_homogeneity():
     return bad
 
 
-def _instrument_read_depth(arms):
-    """{(arm, suite): how many dirs wide_table actually handed that suite's resolver}.
+def _actual_dirs(arms):
+    """{(arm, suite): the dir list wide_table REALLY handed that suite's resolver}.
 
-    Wraps the resolvers rather than reading the source, so it stays true if the call sites move.
+    Instrumented rather than re-derived. An audit that recomputes the dirs it thinks the figure
+    should use cannot see the figure using different ones -- which is precisely the bug class here,
+    so a census built that way is blind to exactly what it exists to catch. Wrapping the resolvers
+    also survives the call sites moving.
     """
     import figures.allsuites as A
     seen, cur = {}, {"arm": None}
+    saved = {}
 
-    def wrap(name, suite, argno=0):
+    def wrap(name, suite):
         orig = getattr(A, name)
+        saved[name] = orig
 
-        def f(*a, **k):
-            dirs = a[argno]
-            n = len([d for d in dirs]) if isinstance(dirs, (list, tuple)) else 1
-            seen[(cur["arm"], suite)] = n
-            return orig(*a, **k)
+        def f(dirs, *a, **k):
+            seen[(cur["arm"], suite)] = list(dirs)
+            return orig(dirs, *a, **k)
         setattr(A, name, f)
-        return orig
 
-    saved = {n: wrap(n, s) for n, s in
-             (("_moleculeace", "MoleculeACE"), ("_polaris", "Polaris"), ("_molnet", "MolNet"))}
+    for n, sui in (("_moleculeace", "MolACE"), ("_polaris", "Polaris"),
+                   ("_molnet", "MolNet"), ("_cbs_value", "CBS")):
+        wrap(n, sui)
     try:
         for a in arms:
             cur["arm"] = a
@@ -1214,67 +1217,68 @@ def _instrument_read_depth(arms):
 
 
 def check_suite_replication_depth():
-    """Within ONE arm, every suite must be averaged over the SAME number of replicate dirs.
+    """Per DATASET, how many dirs the figure ACTUALLY takes a number from.
 
-    Check 11 asks whether all arms in a PANEL rest on equally many dirs. It is panel-shaped, and
-    the panel set contains exactly one Polaris task (Ames). So the other 27 Polaris datasets --
-    43% of the 65-dataset ranking universe -- were never parity-checked by anything, and on
-    2026-08-21 they were all being read from a single dir per arm while MoleculeACE, MolNet and
-    CBS averaged three. The mean rank that fig_A1 reports was three-quarters 3-seed and
-    one-quarter 1-seed, and restoring the missing seeds swapped #1 and #2.
+    Three separate 1-of-3 bugs have hidden behind checks that count DIRECTORIES:
 
-    The cause was a comment ("Polaris has no pretraining-seed replicates") that was true when
-    written and quietly stopped being true as dirs were added -- the same failure family this file
-    keeps finding, a confident statement that stops you looking. A comment cannot be audited, so
-    this counts dirs on disk instead: for each ranked arm, how many dirs actually carry a scored
-    artefact in each suite. Unequal depth ACROSS SUITES WITHIN AN ARM is the finding.
+      * Polaris (2026-08-21): three scored dirs on disk, wide_table handed the resolver one.
+      * Ames (2026-08-18): same shape, fixed in six_panel_aggregate.polaris_cells; STATUS.md had
+        faithfully reported "Ames n_seeds=1" as a fact about the data when it was a reader gap.
+      * chemeleon_frozen BBBP/ESOL: three dirs, all present, but _s1/_s2 carry no BBBP rows and
+        lack the moleculenet_cv_regnative subdir ESOL resolves through -- dir count 3,
+        contributing count 1.
 
-    An arm short in every suite alike (a genuinely 1-seed arm) is not a finding here -- that is
-    check 11's job. This check is only about an arm being deeper in one suite than another.
+    So this needs BOTH properties, and an earlier version of this check had only one of each in
+    turn. A dir census misses Polaris; a per-dataset census that re-derives the dir list ALSO
+    misses Polaris, because it helpfully computes the dirs the figure ought to be using. The dirs
+    come from instrumentation and the depth is per dataset.
+
+    Uneven depth WITHIN an arm is the finding. An arm 1-seed everywhere alike is honestly 1-seed
+    and belongs to check 11.
     """
-    print(f"\n{'='*94}\n19. REPLICATION DEPTH IS EQUAL ACROSS SUITES WITHIN AN ARM\n{'='*94}")
+    print(f"\n{'='*94}\n19. PER-DATASET REPLICATION DEPTH WITHIN AN ARM\n{'='*94}")
     from figures.arms import ARMS, ARM_ORDER
-    from figures.allsuites import _seed_dirs
-    FD = ROOT / "figure_data"
+    from figures.allsuites import (_molnet, _cbs_value, _polaris, _polaris_manifest,
+                                   _moleculeace, MOLNET)
+    man = _polaris_manifest()
     ranked = [a for a in ARM_ORDER if ARMS[a].get("in_ranking", True)]
+    used = _actual_dirs(ranked)
     bad = 0
-    read_depth = _instrument_read_depth(ranked)
     for arm in ranked:
-        src = ARMS[arm]["src"]
         depth = {}
-        mace = src.get("mace")
-        if mace:
-            dirs = _seed_dirs(mace)
-            depth["MoleculeACE"] = sum(
-                (FD / "chemeleon_suite/moleculeace" / d / "results.csv").is_file() for d in dirs)
-            # Polaris results.csv is header-only BY DESIGN; the scored artefact is
-            # polaris_scores.csv. Counting results.csv here would report every Polaris cell as
-            # present and measure nothing.
-            depth["Polaris"] = sum(
-                (FD / "chemeleon_suite/polaris" / d / "polaris_scores.csv").is_file() for d in dirs)
-        mol = src.get("mol") or []
-        if mol:
-            depth["MolNet"] = sum((FD / "climb_v2_phase2" / d / "moleculenet_cv").is_dir()
-                                  for d in mol)
-            depth["CBS"] = sum((FD / "cbs_benchmark" / d / "moleculenet_cv").is_dir() for d in mol)
+        mol = used.get((arm, "MolNet")) or []
+        for ds in MOLNET:
+            n = sum(1 for d in mol if ds in _molnet([d]))
+            if n:
+                depth[f"MolNet:{ds}"] = n
+        for d in [used.get((arm, "CBS"))]:
+            if d:
+                n = sum(1 for x in d if _cbs_value([x]) is not None)
+                if n:
+                    depth["CBS:cbs"] = n
+        mace = used.get((arm, "MolACE")) or []
+        for t in (_moleculeace(mace) if mace else {}):
+            depth[f"MolACE:{t}"] = sum(1 for d in mace if t in _moleculeace([d]))
+        pol = used.get((arm, "Polaris")) or []
+        for t in (_polaris(pol, man) if pol else {}):
+            depth[f"Polaris:{t.split('/')[-1]}"] = sum(1 for d in pol if t in _polaris([d], man))
         depth = {k: v for k, v in depth.items() if v}
-        if len(set(depth.values())) > 1:
-            print(f"  FAIL  {arm}: " + ", ".join(f"{k}={v}" for k, v in sorted(depth.items()))
-                  + " - deeper in one suite than another; the mean rank mixes seed counts")
+        if not depth:
+            continue
+        top = max(depth.values())
+        shallow = sorted(k for k, v in depth.items() if v < top)
+        if shallow:
+            by = {}
+            for k in shallow:
+                by.setdefault(depth[k], []).append(k)
+            detail = "; ".join(
+                f"{n}-seed on {len(v)} ({', '.join(v[:4])}{'...' if len(v) > 4 else ''})"
+                for n, v in sorted(by.items()))
+            print(f"  FAIL  {arm}: {top}-seed on {len(depth) - len(shallow)} dataset(s) but "
+                  f"{detail} - the mean rank averages uneven seed counts")
             bad += 1
-
-        # ON DISK IS NOT THE SAME QUESTION AS ACTUALLY READ, and the 2026-08-21 bug lived in the
-        # gap between them: three scored Polaris dirs sat on disk and wide_table passed exactly
-        # one of them to the resolver. A disk census sees 3 and reports OK. So instrument the
-        # resolvers and compare what they were HANDED against what exists.
-        for suite, n_disk in depth.items():
-            n_read = read_depth.get((arm, suite))
-            if n_read is not None and n_read < n_disk:
-                print(f"  FAIL  {arm} ({suite}): {n_disk} scored dir(s) on disk but wide_table "
-                      f"reads {n_read} - available replicates are being discarded")
-                bad += 1
-    print(f"  OK - all {len(ranked)} ranked arms are averaged over equally many dirs in every suite"
-          if not bad else f"  {bad} arm(s) mix replication depth across suites")
+    print(f"  OK - all {len(ranked)} ranked arms are equally deep on every dataset they cover"
+          if not bad else f"  {bad} arm(s) mix seed depth across datasets")
     return bad
 
 
