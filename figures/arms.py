@@ -336,19 +336,15 @@ ARMS = {
         # half of each pair is declared out. The arms stay defined because SI fig f is built
         # from the pair and needs both ends of every slope.
         in_ranking=True,
-        # NO REPLICATES ON ANY PANEL, BY DECISION (2026-08-20), declared so the parity audit
-        # reports it rather than counting it as an open gap. Two reasons, both checked
-        # rather than assumed -- and NARROWED to one on 2026-08-21, when Leif admitted this arm
-        # to the ranking. The reason that lapsed: "no figure draws an interval for it, and it is
-        # unranked". fig_A1 does draw an SE on its mean rank now, though that is an SE across the
-        # four SUITE means, not the per-panel replicate spread a replicate dir would tighten.
-        # THE REASON THAT STILL HOLDS: the suite BASE was built
-        # in a venv that no longer exists on any box (chemeleon_suite_run.py has no
-        # --features_npz path, so it cannot use the pinned reference env the MolNet and
-        # CBS cells use). Replicates from a different library SET would make the spread
-        # partly an environment measurement -- a larger perturbation than the 0.95%
-        # cross-architecture difference we already thought worth documenting.
-        no_replicates_on=("MoleculeACE", "Ames", "BACE", "Tox21", "QM7", "HIV", "CBS"),
+        # DECLARATION REMOVED 2026-08-22, all three of its reasons dead. It said this arm was
+        # unranked (Leif ranked it), that no figure drew an interval for it (fig_A1 does), and
+        # that its suite base came from a venv existing on no box -- which was true and is now
+        # resolved: the whole trio was rebuilt in ONE environment, so the spread is a pretraining
+        # measurement rather than partly an environment one. Measured cost of NOT doing that:
+        # 0.235 max |delta| on 630 shared cells between the old base and an in-env rebuild.
+        # Kept as a note rather than deleted silently, because this declaration expired on an
+        # EVENT and nothing was watching -- see check 19, which tests the condition instead of
+        # quoting it.
         # mol is a LITERAL list -- unlike `mace`, which _seed_dirs expands from a stem. A
         # single-element list here is the trap that has now bitten this repo four times:
         # it reads as "this arm has one dir" and _molnet silently drops anything not listed,
@@ -364,19 +360,15 @@ ARMS = {
         # half of each pair is declared out. The arms stay defined because SI fig f is built
         # from the pair and needs both ends of every slope.
         in_ranking=True,
-        # NO REPLICATES ON ANY PANEL, BY DECISION (2026-08-20), declared so the parity audit
-        # reports it rather than counting it as an open gap. Two reasons, both checked
-        # rather than assumed -- and NARROWED to one on 2026-08-21, when Leif admitted this arm
-        # to the ranking. The reason that lapsed: "no figure draws an interval for it, and it is
-        # unranked". fig_A1 does draw an SE on its mean rank now, though that is an SE across the
-        # four SUITE means, not the per-panel replicate spread a replicate dir would tighten.
-        # THE REASON THAT STILL HOLDS: the suite BASE was built
-        # in a venv that no longer exists on any box (chemeleon_suite_run.py has no
-        # --features_npz path, so it cannot use the pinned reference env the MolNet and
-        # CBS cells use). Replicates from a different library SET would make the spread
-        # partly an environment measurement -- a larger perturbation than the 0.95%
-        # cross-architecture difference we already thought worth documenting.
-        no_replicates_on=("MoleculeACE", "Ames", "BACE", "Tox21", "QM7", "HIV", "CBS"),
+        # DECLARATION REMOVED 2026-08-22, all three of its reasons dead. It said this arm was
+        # unranked (Leif ranked it), that no figure drew an interval for it (fig_A1 does), and
+        # that its suite base came from a venv existing on no box -- which was true and is now
+        # resolved: the whole trio was rebuilt in ONE environment, so the spread is a pretraining
+        # measurement rather than partly an environment one. Measured cost of NOT doing that:
+        # 0.235 max |delta| on 630 shared cells between the old base and an in-env rebuild.
+        # Kept as a note rather than deleted silently, because this declaration expired on an
+        # EVENT and nothing was watching -- see check 19, which tests the condition instead of
+        # quoting it.
         # mol is a LITERAL list -- unlike `mace`, which _seed_dirs expands from a stem. A
         # single-element list here is the trap that has now bitten this repo four times:
         # it reads as "this arm has one dir" and _molnet silently drops anything not listed,
