@@ -14,8 +14,30 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 S3B = "s3://climb-s3-bucket/experiments"
-WAVES = ["climb_v2_phase2", "climb_v2_h1", "climb_v2_ablation_dedup", "climb_v2_vocab",
-         "climb_v2_expA", "climb_v2_expB", "climb_v2_lrsweep", "cbs_benchmark"]
+# A HAND-WRITTEN WAVE LIST IS AN ABSENCE CLAIM, AND IT WENT STALE SILENTLY. This listed 8 trees
+# while S3 held ~30, so the audit printed "complete -- nothing missing" while saying NOTHING about
+# chemeleon_suite -- the tree holding MoleculeACE and Polaris, i.e. 58 of the 65 ranking datasets.
+# All 595 of its files were absent from HF and no check anywhere reported it. Same for six_panel_e2e,
+# climb_v2_labeleff*, climb_v2_headline and climb_v2.
+#
+# Trees are now DISCOVERED from S3 and only explicitly-excluded ones are skipped, so a new wave is
+# audited the day it appears rather than the day someone remembers to add it here.
+SKIP_TREES = {
+    "_logs", "_scripts", "_quarantine", "_pending_verdict", "_bench",   # infrastructure
+    "climb_v1", "climb_v2_ablation",                                    # superseded, kept for history
+    "robust_matrix", "robust_matrix_v2",                                # 350k files, DEEP_ARCHIVE
+}
+
+
+def waves() -> list:
+    """Every result tree on S3 except the explicitly excluded ones."""
+    out = subprocess.run(["aws", "s3", "ls", S3B + "/"], capture_output=True, text=True).stdout
+    found = [l.split()[-1].rstrip("/") for l in out.splitlines()
+             if l.strip().startswith("PRE")]
+    return sorted(w for w in found if w not in SKIP_TREES)
+
+
+WAVES = waves()
 
 
 def local_runs() -> dict:

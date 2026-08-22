@@ -26,11 +26,18 @@ ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
 RESULTS_REPO = "lsieben/climb-results"
 ENCODER_REPO = "lsieben/climb-encoders"
-WAVES = ["climb_v2_phase2", "climb_v2_h1", "climb_v2_ablation_dedup", "climb_v2_vocab",
-         "climb_v2_expA", "climb_v2_expB", "climb_v2_lrsweep", "cbs_benchmark"]
+# Discovered, not hand-listed -- see the note in audit_hf_backup.py. A hand-written list here
+# meant chemeleon_suite was never pushed at all.
+from audit_hf_backup import WAVES  # noqa: E402
+# results.csv AND polaris_scores.csv WERE BOTH ABSENT FROM THIS SET, and they are where the
+# scores live: results.csv carries every MoleculeACE cell, and polaris_scores.csv carries the
+# Polaris ones (whose results.csv is header-only by design, since Polaris withholds test labels).
+# So even once chemeleon_suite reached the wave list, the two files holding the actual numbers
+# would still have been filtered out on the way to HF.
 RESULT_NAMES = {"moleculenet_summary.csv", "suite_summary.json", "test_predictions.csv",
-                "per_fold.csv", "metrics.jsonl", "config.yaml", "metadata.json",
-                "verified.json", "reference_scoring.json"}
+                "per_fold.csv", "per_fold_cells.csv", "metrics.jsonl", "config.yaml",
+                "metadata.json", "verified.json", "reference_scoring.json",
+                "results.csv", "polaris_scores.csv"}
 ENCODER_NAMES = {"model.safetensors", "config.json", "tokenizer.json", "tokenizer_config.json",
                  "special_tokens_map.json"}
 # Quarantined copies and smoke-test stubs must never reach the public mirror: the first
