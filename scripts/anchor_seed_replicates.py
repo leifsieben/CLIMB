@@ -54,6 +54,9 @@ _want = os.environ.get("ANCHOR_REPL", "").strip()
 REPLICATES = ({_ALIAS.get(k, k): _ALL_REPL[_ALIAS.get(k, k)] for k in _want.split(",")} if _want
               else {"_s1": _ALL_REPL["_s1"], "_s2": _ALL_REPL["_s2"]})
 # dataset -> output subdir, matching what the base run already writes
+# Subdirs that are DERIVED from a run's predictions by their own script, never written by
+# eval_v2. target_subdir must not route to these -- see its docstring.
+DERIVED_SUBDIRS = {"moleculenet_cv_regnative"}
 SUBDIR = {"BACE": "moleculenet_cv", "Tox21": "moleculenet_cv_tox21fixed",
           "QM7": "moleculenet_cv_qm7native", "HIV": "moleculenet_cv",
           "BBBP": "moleculenet_cv", "ESOL": "moleculenet_cv"}
@@ -81,14 +84,22 @@ VALID_POOL = ("cls", "mean", "cls_mean")
 def target_subdir(base: str, ds: str) -> str:
     """The subdir the RESOLVER will actually read this (arm, dataset) from.
 
-    The declared SUBDIR map is global, and for ESOL it is wrong for all three anchors. ESOL lives
-    in moleculenet_cv_regnative (native units) AND in moleculenet_cv (z-scored); figures.allsuites
-    prefers regnative, so a replicate written to moleculenet_cv is silently DROPPED and the seed
-    gap stays open with every directory count passing. Resolve the same way the figure does --
-    first subdir in the resolver's own preference order that the BASE actually has the dataset in.
+    Resolve the same way the figure does -- first subdir in the resolver's own preference order
+    that the BASE actually has the dataset in -- but NEVER route to a DERIVED subdir.
+
+    moleculenet_cv_regnative is derived, not written: scripts/regression_native_rebuild.py
+    recomputes native-unit RMSE from each run's OWN prediction dump. "native" is a LABEL that
+    script writes, not a --standardize choice eval_v2 accepts, so routing here produced
+    `invalid choice: 'native'` and ESOL failed for both replicates. The correct sequence is to run
+    ESOL z-scored into moleculenet_cv like any other dataset and then re-run the native rebuild,
+    which writes regnative for EVERY dir holding the dataset -- its docstring calls out this exact
+    hazard, that a base with regnative beside replicates without it silently drops the arm from 3
+    seeds to 1.
     """
     from figures.allsuites import NATIVE_SUBDIRS
     for sub in NATIVE_SUBDIRS.get(ds, ("moleculenet_cv",)):
+        if sub in DERIVED_SUBDIRS:
+            continue
         f = P2 / base / sub / "moleculenet_summary.csv"
         if f.exists() and any(r["dataset"] == ds for r in csv.DictReader(f.open())):
             if sub != SUBDIR.get(ds):
