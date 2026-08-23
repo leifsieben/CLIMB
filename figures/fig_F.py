@@ -227,13 +227,17 @@ ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S, EMB_CHE]
 # experiment in both families and stay unnamespaced, where the duplicate check turns them into a
 # free cross-family reproducibility read.
 MORDRED_KEY = "mdesc"
+# FOUR TICKS, NOT FIVE (Leif 2026-08-22). Mordred enters as an ALTERNATIVE descriptor block beside
+# RDKit, not as a second family to be crossed with ECFP4. A five-tick version carrying
+# ECFP4+Mordred as well was built first and dropped: it answers "does the fingerprint add to
+# Mordred", which is a different question from the one this figure asks, and it cost 4 more bars
+# per panel across 6 panels to do it.
 GROUPS = [(tick, base, [(base if r is NO_EMB else f"{base}+{ROLE_SUFFIX[r]}", r)
                         for r in ROLE_ORDER])
-          for tick, base in (("RDKit desc", "desc"),
+          for tick, base in (("desc", "desc"),
                              ("Mordred", MORDRED_KEY),
                              ("ECFP4", "fp"),
-                             ("ECFP4+RDKit", "fp+desc"),
-                             ("ECFP4+Mordred", f"fp+{MORDRED_KEY}"))]
+                             ("desc+ECFP4", "fp+desc"))]
 FEATURES = [(k, role, ROLE_COLOR[role]) for _, _, mem in GROUPS for k, role in mem if k]
 BASE = "fp+desc"
 # TWO HEADLINE DELTAS, NOT ONE (user 2026-08-20: "it'll become two numbers yes, everywhere report
