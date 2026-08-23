@@ -211,9 +211,29 @@ ROLE_COLOR = {NO_EMB: SHADES["anchor"][0], EMB_CLM_U: SHADES["unsup"][0],
 # supervised concat run must write; it is named here so the request and the reader agree.
 ROLE_SUFFIX = {NO_EMB: None, EMB_CLM_U: "CLM", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
 ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S, EMB_CHE]
+
+# TWO DESCRIPTOR FAMILIES ON ONE AXIS (Leif 2026-08-22). RDKit was the only descriptor block here.
+# Mordred earns its own ticks because CheMeleon is a D-MPNN pretrained to regress exactly the 1,613
+# Mordred 2D descriptors -- so "CheMeleon is redundant to fp+desc" against RDKit compares two
+# unrelated feature families and is merely suggestive, while against MORDRED it is the sharp claim:
+# if the embedding adds nothing on top of its OWN pretraining target, it compressed that target
+# rather than learning past it.
+#
+# THE KEYS COLLIDE AND THAT IS THE TRAP. Both families' tables call the descriptor block "desc",
+# so concatenating them keys "desc"/"fp+desc"/"desc+CLM" identically and load()'s drop_duplicates
+# would keep whichever landed first and silently discard the other family ENTIRELY -- while every
+# bar still drew and nothing failed. Mordred rows are therefore namespaced to `mdesc` on read; see
+# _tag_family(). Blocks with no descriptor in them (fp, fp+CLM, the bare embeddings) are the same
+# experiment in both families and stay unnamespaced, where the duplicate check turns them into a
+# free cross-family reproducibility read.
+MORDRED_KEY = "mdesc"
 GROUPS = [(tick, base, [(base if r is NO_EMB else f"{base}+{ROLE_SUFFIX[r]}", r)
                         for r in ROLE_ORDER])
-          for tick, base in (("desc", "desc"), ("ECFP4", "fp"), ("desc+ECFP4", "fp+desc"))]
+          for tick, base in (("RDKit desc", "desc"),
+                             ("Mordred", MORDRED_KEY),
+                             ("ECFP4", "fp"),
+                             ("ECFP4+RDKit", "fp+desc"),
+                             ("ECFP4+Mordred", f"fp+{MORDRED_KEY}"))]
 FEATURES = [(k, role, ROLE_COLOR[role]) for _, _, mem in GROUPS for k, role in mem if k]
 BASE = "fp+desc"
 # TWO HEADLINE DELTAS, NOT ONE (user 2026-08-20: "it'll become two numbers yes, everywhere report
@@ -239,6 +259,28 @@ assert not _undeclared, f"fig_F: {_undeclared} have a feature suffix but no sour
 SOURCES = [RIGOR / f"concat_{kind}_{ROLE_SRC_STEM[r]}_v2.csv"
            for r in ROLE_ORDER if ROLE_SUFFIX[r]
            for kind in ("redundancy", "panels")]
+
+# --- the Mordred axis, and the same-environment rule it depends on ------------------------------
+#
+# The Mordred tables were computed tonight; the published RDKit tables were not. Measured on the
+# one block that shares identical code and contains neither descriptors nor an embedding -- plain
+# `fp` -- the environment term is 0.01 to 0.22 fold SD (QM7 rmse 216.1573 tonight vs 216.6266
+# published). That is ~10x below the BBBP effect the figure would be used to read, so it does not
+# threaten the finding -- but it would sit inside EVERY RDKit-vs-Mordred difference drawn here,
+# and this figure's whole logic is "change exactly one thing". Descriptor family AND environment
+# is two.
+#
+# So the rule is: Mordred is drawn ONLY against an RDKit arm regenerated in the same environment.
+# If those tables are absent the Mordred groups draw as "not run" rather than being compared
+# across environments -- refusing the comparison is the honest state, and it is visible on the
+# canvas instead of buried in a caveat nobody reads.
+MORDRED_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
+MORDRED_SOURCES = [RIGOR / f"concat_mordred_{MORDRED_TAGS[r]}.csv"
+                   for r in ROLE_ORDER if ROLE_SUFFIX[r]]
+RDKIT_SAMEENV_SOURCES = [RIGOR / f"concat_rdkit_sameenv_{MORDRED_TAGS[r]}.csv"
+                         for r in ROLE_ORDER if ROLE_SUFFIX[r]]
+MORDRED_READY = (all(f.exists() for f in MORDRED_SOURCES)
+                 and all(f.exists() for f in RDKIT_SAMEENV_SOURCES))
 
 # ---------------------------------------------------------------------------------------------
 # THE AXIS: percent of the classical anchor, so all six panels share one unit
@@ -287,11 +329,23 @@ def compute():
     # figure that refuses to draw until every cell exists cannot show progress. Cells with no
     # source render as the declared "not run" slot, which is the honest state.
     parts = []
-    for f in SOURCES:
+    rdkit_sources = RDKIT_SAMEENV_SOURCES if MORDRED_READY else SOURCES
+    if MORDRED_READY:
+        print("  fig_F: Mordred axis ON - RDKit read from the same-environment tables so the "
+              "family comparison changes exactly one thing")
+    else:
+        missing = [f.name for f in MORDRED_SOURCES + RDKIT_SAMEENV_SOURCES if not f.exists()]
+        print(f"  fig_F: Mordred axis OFF, {len(missing)} table(s) absent "
+              f"({', '.join(missing[:3])}{'...' if len(missing) > 3 else ''}). "
+              f"Its groups draw as 'not run'; RDKit stays on the published tables.")
+    for f in rdkit_sources:
         if f.exists():
             parts.append(pd.read_csv(f))
         else:
             print(f"  fig_F: {f.name} absent - its cells will draw as 'not run'")
+    if MORDRED_READY:
+        for f in MORDRED_SOURCES:
+            parts.append(_tag_family(pd.read_csv(f)))
     if not parts:
         raise FileNotFoundError("fig_F: no concat source table found")
     d = pd.concat(parts, ignore_index=True)
@@ -317,6 +371,27 @@ def compute():
 # each (user 2026-08-19: "some go to 1 others don't, seems inconsistent"). Panels on different
 # metrics cannot share one -- macro RMSE, NEF1% and kcal/mol are not commensurable -- so the rule is
 # per metric, not global. Computed from the drawn data rather than hardcoded.
+def _tag_family(df):
+    """Namespace a MORDRED table's descriptor keys, and align its embedding tag with ours.
+
+    Two independent renames, both of which are silent corruption if skipped:
+
+    * `desc` -> `mdesc`. Both families name the block "desc", so without this the two tables key
+      identically on (task, features, metric) and load()'s drop_duplicates keeps ONE of them and
+      drops the other family whole -- with every bar still drawn. Only keys that actually contain
+      a descriptor are renamed; `fp`, `fp+<emb>` and the bare embeddings are the same experiment
+      in both families and are left alone so the duplicate check reads them as a cross-family
+      reproducibility check.
+    * `CLMunsup` -> `CLM`. The Mordred run tags the unsupervised arm CLMunsup where the published
+      tables use CLM; it is the same encoder (climb_v2_phase2/unsup_8M) under a different string,
+      and ROLE_SUFFIX keys on that string directly. CLMsup and CheMel already agree.
+    """
+    df = df.copy()
+    df["features"] = (df["features"].str.replace("CLMunsup", "CLM", regex=False)
+                                    .str.replace("desc", MORDRED_KEY, regex=False))
+    return df
+
+
 def shared_ylims(d):
     """{metric: (lo, hi)} over every canonical panel scored on that metric."""
     import collections
