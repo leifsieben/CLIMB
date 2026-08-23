@@ -49,6 +49,19 @@ TOK = "figure_data/_tokenizer"
 # re-running one dataset in the SAME environment and checking the value is bit-identical. That
 # separates a recipe change from environment-level float nondeterminism, which is the actual
 # question when two tables disagree by less than their own fold spread.
+# CONCAT_DESC selects WHICH descriptor block "desc" means: the ~200 RDKit descriptors (default,
+# what every published fig_F cell used) or the 1,613 Mordred 2D descriptors.
+#
+# WHY MORDRED IS THE INTERESTING ONE. CheMeleon is a D-MPNN pretrained to regress exactly these
+# 1,613 Mordred descriptors. Against RDKit descriptors, "CheMeleon adds nothing" is a statement
+# about two different feature families. Against MORDRED, it is the sharp version: if CheMeleon
+# adds nothing on top of its own pretraining target, it compressed that target rather than
+# learning structure beyond it. Calculator(descriptors, ignore_3D=True) is 1613 descriptors --
+# that set exactly, not an approximation of it.
+DESC_KIND = os.environ.get("CONCAT_DESC", "rdkit")
+if DESC_KIND not in ("rdkit", "mordred"):
+    raise SystemExit(f"CONCAT_DESC must be rdkit|mordred, got {DESC_KIND!r}")
+MORDRED_NPZ = os.environ.get("CONCAT_MORDRED_NPZ", "figure_data/_mordred_features.npz")
 _TASK_SEL = os.environ.get("CONCAT_TASKS", "").split()
 TASKS = [("ESOL", "regression"), ("QM7", "regression"), ("BBBP", "classification"),
          ("BACE", "classification"), ("Tox21", "classification"), ("HIV", "classification")]
@@ -101,6 +114,31 @@ def _chemeleon_from_npz(smiles):
     return np.asarray([_FEATURE_TABLE[str(s)] for s in smiles], dtype=np.float32)
 
 
+_MORDRED_TABLE = None
+def _mordred_from_npz(smiles):
+    """Strict lookup into the precomputed Mordred table. A miss RAISES.
+
+    Mean-filling a missing molecule would fabricate its descriptor vector and quietly change the
+    score -- the same failure the CheMeleon table refuses. The table is built by
+    scripts/compute_mordred.py from SMILES exported by the reference environment, so a miss means
+    the two disagree about the molecule set and that is worth stopping for.
+    """
+    global _MORDRED_TABLE
+    if _MORDRED_TABLE is None:
+        z = np.load(MORDRED_NPZ, allow_pickle=True)
+        # HOIST. npz members decode lazily; z["X"][i] inside a comprehension re-reads the whole
+        # member per molecule. That wedged a box for 38 minutes once.
+        X, S = z["X"], z["smiles"]
+        _MORDRED_TABLE = {str(s): X[i] for i, s in enumerate(S)}
+        print(f"[concat] {len(_MORDRED_TABLE)} precomputed Mordred vectors "
+              f"({X.shape[1]}d) from {MORDRED_NPZ}", flush=True)
+    miss = [s for s in smiles if str(s) not in _MORDRED_TABLE]
+    if miss:
+        raise KeyError(f"{len(miss)} SMILES absent from the Mordred table, e.g. {miss[:2]} -- "
+                       "refusing to mean-fill, which would fabricate a molecule's descriptors")
+    return np.asarray([_MORDRED_TABLE[str(s)] for s in smiles], dtype=np.float32)
+
+
 def feature_sets(smiles):
     """All seven blocks, so a figure can pick CONTROLLED PAIRS rather than a feature-set parade.
 
@@ -110,7 +148,11 @@ def feature_sets(smiles):
     figure can be re-cut without another box.
     """
     fp = np.asarray(ecfp4_features(smiles), dtype=np.float32)
-    d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32); d[~np.isfinite(d)] = np.nan
+    if DESC_KIND == "mordred":
+        d = _mordred_from_npz(list(smiles))
+    else:
+        d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
+    d = np.asarray(d, dtype=np.float32); d[~np.isfinite(d)] = np.nan
     if EMB == "climb":
         emb = E._encoder_features(encoder, tok, list(smiles), device, "mean", ML).astype(np.float32)
     else:

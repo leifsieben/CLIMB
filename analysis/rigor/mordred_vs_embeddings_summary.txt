@@ -1,0 +1,24 @@
+DELTA FROM ADDING THE EMBEDDING (positive = embedding helps)
+
+task     Mordred base |CLMunsup onto Mord  CLMsup onto Mord  CheMel onto Mord
+ESOL           0.7220 |  -0.0325 (-0.6sd)  -0.0020 (-0.0sd)  -0.0144 (-0.3sd)
+QM7          188.6941 |  +0.0652 (+0.0sd)  +0.5189 (+0.1sd)  -0.2794 (-0.1sd)
+BBBP           0.8970 |  +0.0561 (+1.8sd)  +0.0504 (+1.6sd)  +0.0028 (+0.1sd)
+BACE           0.8747 |  -0.0051 (-0.4sd)  -0.0065 (-0.5sd)  -0.0024 (-0.2sd)
+Tox21          0.8054 |  -0.0052 (-0.1sd)  -0.0028 (-0.1sd)  +0.0044 (+0.1sd)
+HIV            0.8024 |  +0.0031 (+0.1sd)  +0.0072 (+0.2sd)  +0.0056 (+0.2sd)
+
+SAME, ON TOP OF fp+Mordred
+
+task     fp+Mord base |          CLMunsup            CLMsup            CheMel
+ESOL           0.7343 |  -0.0046 (-0.1sd)  -0.0140 (-0.3sd)  +0.0012 (+0.0sd)
+QM7          186.6553 |  -1.6256 (-0.4sd)  -0.7425 (-0.2sd)  -0.7594 (-0.2sd)
+BBBP           0.8987 |  +0.0536 (+1.8sd)  +0.0493 (+1.6sd)  +0.0004 (+0.0sd)
+BACE           0.8700 |  +0.0027 (+0.2sd)  +0.0033 (+0.3sd)  +0.0075 (+0.7sd)
+Tox21          0.8073 |  -0.0030 (-0.1sd)  -0.0030 (-0.1sd)  +0.0035 (+0.1sd)
+HIV            0.8096 |  -0.0039 (-0.1sd)  +0.0007 (+0.0sd)  +0.0069 (+0.2sd)
+
+HOW OFTEN DID THE EMBEDDING HELP (of 6 tasks)
+  CLMunsup  onto Mordred 3/6   onto fp+Mordred 2/6
+  CLMsup    onto Mordred 3/6   onto fp+Mordred 3/6
+  CheMel    onto Mordred 3/6   onto fp+Mordred 5/6
