@@ -387,6 +387,17 @@ def _tag_family(df):
       and ROLE_SUFFIX keys on that string directly. CLMsup and CheMel already agree.
     """
     df = df.copy()
+    # THE CONTRACT IS TESTED, NOT TRUSTED. Agreed with the compute session 2026-08-22: every table
+    # it hands over says `desc`, MolNet and panels alike, and the rename lives HERE and nowhere
+    # else. Two components independently "fixing" the same thing is the failure both halves of this
+    # project hit today from opposite sides -- so if a table ever arrives pre-namespaced, this
+    # fails loudly instead of silently no-opping and leaving the ownership question unresolved.
+    already = sorted(f for f in df["features"].unique() if MORDRED_KEY in f)
+    assert not already, (
+        f"fig_F: Mordred table already namespaced ({already[:3]}). The rename is owned by "
+        f"_tag_family; a source that pre-namespaces means both halves are doing it.")
+    assert any("desc" in f for f in df["features"].unique()), \
+        "fig_F: Mordred table has no `desc` key -- the agreed source format changed"
     df["features"] = (df["features"].str.replace("CLMunsup", "CLM", regex=False)
                                     .str.replace("desc", MORDRED_KEY, regex=False))
     return df
