@@ -279,10 +279,22 @@ SOURCES = [RIGOR / f"concat_{kind}_{ROLE_SRC_STEM[r]}_v2.csv"
 # across environments -- refusing the comparison is the honest state, and it is visible on the
 # canvas instead of buried in a caveat nobody reads.
 MORDRED_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
-MORDRED_SOURCES = [RIGOR / f"concat_mordred_{MORDRED_TAGS[r]}.csv"
-                   for r in ROLE_ORDER if ROLE_SUFFIX[r]]
-RDKIT_SAMEENV_SOURCES = [RIGOR / f"concat_rdkit_sameenv_{MORDRED_TAGS[r]}.csv"
-                         for r in ROLE_ORDER if ROLE_SUFFIX[r]]
+# ONE DIRECTORY, ONE ENVIRONMENT. Every table drawn on the Mordred axis lives under figF/ and came
+# off a single AWS box. The 2026-08-21 laptop Mordred tables are NOT here -- they are quarantined
+# in superseded_local_mordred_20260821/ because that box parses Tox21 as 7,831 molecules where the
+# laptop parses 7,823, so pooling them would change the molecule set mid-figure while every count
+# still passed. A path that still resolves is a path something eventually reads.
+#
+# Each family needs BOTH halves: the MolNet six and the panels top-up carrying MoleculeACE and
+# Ames. Missing the panels half is five-sixths of a panel set, which is exactly the four-of-six
+# hole this axis was extended to close.
+FIGF = RIGOR / "figF"
+MORDRED_SOURCES = [FIGF / f"{pre}_mordred_{MORDRED_TAGS[r]}.csv"
+                   for r in ROLE_ORDER if ROLE_SUFFIX[r]
+                   for pre in ("concat", "concat_panels")]
+RDKIT_SAMEENV_SOURCES = [FIGF / f"{pre}_rdkit_sameenv_{MORDRED_TAGS[r]}.csv"
+                         for r in ROLE_ORDER if ROLE_SUFFIX[r]
+                         for pre in ("concat", "concat_panels")]
 MORDRED_READY = (all(f.exists() for f in MORDRED_SOURCES)
                  and all(f.exists() for f in RDKIT_SAMEENV_SOURCES))
 
@@ -344,7 +356,7 @@ def compute():
               f"Its groups draw as 'not run'; RDKit stays on the published tables.")
     for f in rdkit_sources:
         if f.exists():
-            parts.append(pd.read_csv(f))
+            parts.append(_align_tags(pd.read_csv(f)) if MORDRED_READY else pd.read_csv(f))
         else:
             print(f"  fig_F: {f.name} absent - its cells will draw as 'not run'")
     if MORDRED_READY:
@@ -368,13 +380,31 @@ def compute():
         print(f"  fig_F: {len(w)} embedding-free cell(s) present in both tables; "
               f"max disagreement {w['rel'].max():.2f}% "
               f"({', '.join(f'{i[0]}/{i[1]} {r.rel:.2f}%' for i, r in worst.iterrows())})")
-    return d.drop_duplicates(key, keep="first").reset_index(drop=True)
+    return _fill_ames_se(d.drop_duplicates(key, keep="first").reset_index(drop=True))
 
 
 # Panels that share a METRIC share a y-RANGE, so a bar of a given height means the same thing in
 # each (user 2026-08-19: "some go to 1 others don't, seems inconsistent"). Panels on different
 # metrics cannot share one -- macro RMSE, NEF1% and kcal/mol are not commensurable -- so the rule is
 # per metric, not global. Computed from the drawn data rather than hardcoded.
+def _align_tags(df):
+    """CLMunsup -> CLM, for EVERY figF table regardless of descriptor family.
+
+    The tag rename belongs to the SOURCE PIPELINE, not to one family: both the mordred and the
+    rdkit_sameenv tables come off the same box and both label the unsupervised arm CLMunsup, where
+    ROLE_SUFFIX and therefore every drawn key says CLM. Doing it only inside _tag_family left the
+    RDKit half untouched, so desc+CLM / fp+CLM / fp+desc+CLM resolved to nothing and three of the
+    four bars in three of the four ticks silently vanished from all six panels.
+
+    It surfaced as a NaN axis limit rather than as blank bars, which is the only reason it was
+    caught on sight -- the same absence would have drawn as "not run" in a slightly different code
+    path and looked deliberate.
+    """
+    df = df.copy()
+    df["features"] = df["features"].str.replace("CLMunsup", "CLM", regex=False)
+    return df
+
+
 def _tag_family(df):
     """Namespace a MORDRED table's descriptor keys, and align its embedding tag with ours.
 
@@ -390,7 +420,7 @@ def _tag_family(df):
       tables use CLM; it is the same encoder (climb_v2_phase2/unsup_8M) under a different string,
       and ROLE_SUFFIX keys on that string directly. CLMsup and CheMel already agree.
     """
-    df = df.copy()
+    df = _align_tags(df)
     # THE CONTRACT IS TESTED, NOT TRUSTED. Agreed with the compute session 2026-08-22: every table
     # it hands over says `desc`, MolNet and panels alike, and the rename lives HERE and nowhere
     # else. Two components independently "fixing" the same thing is the failure both halves of this
@@ -402,9 +432,38 @@ def _tag_family(df):
         f"_tag_family; a source that pre-namespaces means both halves are doing it.")
     assert any("desc" in f for f in df["features"].unique()), \
         "fig_F: Mordred table has no `desc` key -- the agreed source format changed"
-    df["features"] = (df["features"].str.replace("CLMunsup", "CLM", regex=False)
-                                    .str.replace("desc", MORDRED_KEY, regex=False))
+    df["features"] = df["features"].str.replace("desc", MORDRED_KEY, regex=False)
     return df
+
+
+def _fill_ames_se(d):
+    """Ames carries a mean and no spread; give it the analytic AUC SE instead of nothing.
+
+    Polaris withholds the Ames test labels, so there is ONE held-out evaluation and no fold
+    variance to report -- every Ames row arrives with std = NaN. That is not a defect in the
+    tables, it is the shape of the benchmark.
+
+    Hanley & McNeil (1982) gives the SE of an AUC from the AUC and the two class counts alone, so
+    this panel can carry a real interval without labels. The definition lives in
+    scripts/merge_concat_ames_panels.py and is imported rather than copied: the earlier version of
+    this figure coerced the missing std to 0.0, which drew a zero-length capped whisker that read
+    as PERFECT PRECISION on the one panel with no replicates at all. Leif caught it on sight
+    ("barely visible, that's a bit sus"). A second hand-written copy of the formula is how that
+    kind of thing comes back.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_ames_se", ROOT / "scripts" / "merge_concat_ames_panels.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    ames = (d.task == "Ames") & (d.metric == "roc_auc") & (~np.isfinite(d["std"]))
+    n = int(ames.sum())
+    if n:
+        d.loc[ames, "std"] = d.loc[ames, "mean"].map(m.hanley_mcneil_se)
+        print(f"  fig_F: Ames has no fold spread by construction (labels withheld); "
+              f"{n} cell(s) given the Hanley-McNeil analytic AUC SE "
+              f"(n1={m.N_POS}, n0={m.N_NEG})")
+    return d
 
 
 def shared_ylims(d):
