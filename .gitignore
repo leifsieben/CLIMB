@@ -93,3 +93,7 @@ figures_vocab/
 # Polaris scoring virtualenv (772MB) -- an environment, not a result. scripts/*polaris* are run
 # with .venv_polaris/bin/python; recreate it rather than versioning it.
 .venv_polaris/
+
+# Mordred needs a modern numpy; deepchem 2.8.0 pins an old one. Separate venv, recreate rather
+# than version it -- same reasoning as .venv_polaris above.
+.venv_mordred/

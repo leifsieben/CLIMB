@@ -165,6 +165,25 @@ def feature_sets(smiles):
             f"fp+desc+{TAG}": np.concatenate([fp, d, emb], 1)}
 
 
+# CONCAT_BLOCKS restricts which feature blocks are FIT, without changing which are computed.
+# fig_F draws four ticks -- RDKit | Mordred | ECFP4 | RDKit+ECFP4 -- each with and without the
+# embedding. That is 6 of the 7 blocks from the RDKit family and only 2 from the Mordred family
+# (Mordred's fp+desc combination is not drawn). Each block is 5 XGBoost fits per dataset, so
+# fitting only what is drawn gets the figure its data far sooner; the surplus blocks are run
+# afterwards into the same files so the CSV record stays complete and the figure can be re-cut.
+# Empty/unset = all blocks, so every existing invocation is unchanged.
+_BLOCK_SEL = [b for b in os.environ.get("CONCAT_BLOCKS", "").split(",") if b]
+
+
+def _select(F):
+    if not _BLOCK_SEL:
+        return F
+    missing = [b for b in _BLOCK_SEL if b not in F]
+    if missing:
+        raise SystemExit(f"CONCAT_BLOCKS names unknown blocks {missing}; have {sorted(F)}")
+    return {k: v for k, v in F.items() if k in _BLOCK_SEL}
+
+
 
 rows = []
 for ds, tt in TASKS:
@@ -175,6 +194,7 @@ for ds, tt in TASKS:
     n_out = y_all.shape[1]
     print(f"\n[{ds}] {len(s_all)} molecules, {n_out} output(s) — featurizing…", flush=True)
     F = feature_sets(s_all)
+    F = _select(F)
     folds = E._scaffold_kfold_indices(s_all, K, 0)
     for name, X in F.items():
         fm, fn = [], []
