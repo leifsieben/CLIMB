@@ -53,16 +53,20 @@ start from, and return to, a low baseline.}
 
 % ---------------------------------------------------------------- Fig F
 \caption{\textbf{Are the learned embeddings redundant given classical features?}
-The same XGBoost, the same scaffold 5-fold CV and the same task, given three classical feature
-bases (descriptors, ECFP4, both) with and without a 512-d frozen embedding concatenated on.
-Raw features are concatenated without standardisation (XGBoost is scale-invariant). Error bars
-are $\pm1$ SD over the panel's replicate unit --- targets on MoleculeACE, folds elsewhere ---
-and analytic (Hanley--McNeil) on Ames, whose test labels are withheld.
-Adding either CLIMB embedding to descriptors+ECFP4 fails to beat its own spread on any of the
-six panels and costs 0.036 macro RMSE on MoleculeACE and 0.021 ROC-AUC on Ames; adding
-CheMeleon on the identical bases gains 0.013 on Ames. The CLIMB representations are therefore
-informationally redundant given fingerprints and descriptors, which is a stronger statement
-than scoring lower.}
+The same XGBoost, the same scaffold 5-fold CV and the same task, given four classical feature
+bases --- RDKit descriptors, Mordred descriptors, ECFP4, and RDKit+ECFP4 --- with and without a
+512-d frozen embedding concatenated on. Raw features are concatenated without standardisation
+(XGBoost is scale-invariant). Error bars are $\pm1$ SD over the panel's replicate unit ---
+targets on MoleculeACE, folds elsewhere --- and analytic (Hanley--McNeil) on Ames, whose test
+labels are withheld. Every cell comes from one environment, including the RDKit arm, which was
+regenerated so that a Mordred-vs-RDKit difference changes only the descriptor family.
+Adding either CLIMB embedding to RDKit+ECFP4 fails to beat its own spread on any of the six
+panels and costs 0.024 macro RMSE on MoleculeACE and 0.024 ROC-AUC on Ames.
+Mordred is the informative comparison for CheMeleon, which is a D-MPNN pretrained to regress the
+1{,}613 Mordred 2D descriptors: on Ames it gains 0.016 ROC-AUC over RDKit descriptors but
+0.001 --- nothing --- over Mordred. The CLIMB representations are therefore informationally
+redundant given fingerprints and descriptors, and CheMeleon is redundant given its own
+pretraining target, which is a stronger statement than scoring lower.}
 
 % ---------------------------------------------------------------- Fig G
 \caption{\textbf{Does the representation respond when the chemistry changes?}
