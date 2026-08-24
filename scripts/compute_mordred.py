@@ -94,8 +94,12 @@ def main() -> int:
         sl = smiles[a.shard::a.shards]
         t = time.time()
         kept, X = compute(sl)
+    # SAVE SMILES AS '<U', NOT object. An object array is pickled, and a pickle written by
+    # numpy 2.x references numpy._core, which the numpy 1.23.5 pinned on every CLIMB box
+    # cannot import -- so the table becomes unreadable exactly where it is used, failing as
+    # a ModuleNotFoundError deep inside an unrelated job. Plain unicode needs no pickle.
         np.savez_compressed(f"{a.out}.shard{a.shard}",
-                            smiles=np.array(kept, dtype=object), X=X)
+                            smiles=np.asarray([str(x) for x in kept]), X=X)
         print(f"[shard {a.shard}] {len(kept)}/{len(sl)} in {time.time()-t:.0f}s", flush=True)
         return 0
 
@@ -123,7 +127,7 @@ def main() -> int:
     if len(S) != len(X):
         print(f"FATAL {len(S)} smiles vs {len(X)} vectors")
         return 1
-    np.savez_compressed(a.out, smiles=np.array(S, dtype=object), X=X)
+    np.savez_compressed(a.out, smiles=np.asarray([str(x) for x in S]), X=X)
     for i in range(a.shards):
         os.unlink(f"{a.out}.shard{i}.npz")
     dropped = len(smiles) - len(S)

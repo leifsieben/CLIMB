@@ -29,7 +29,11 @@ def main(inp: str, out: str) -> int:
         vecs.append(np.asarray(fp(ok[i:i + BATCH]), dtype=np.float32))
         print(f"  {min(i + BATCH, len(ok))}/{len(ok)}", flush=True)
     X = np.concatenate(vecs, axis=0)
-    np.savez_compressed(out, smiles=np.array(ok, dtype=object), X=X)
+    # SAVE SMILES AS '<U', NOT object. An object array is pickled, and a pickle written by
+    # numpy 2.x references numpy._core, which the numpy 1.23.5 pinned on every CLIMB box
+    # cannot import -- so the table becomes unreadable exactly where it is used, failing as
+    # a ModuleNotFoundError deep inside an unrelated job. Plain unicode needs no pickle.
+    np.savez_compressed(out, smiles=np.asarray([str(x) for x in ok]), X=X)
     print(f"wrote {out}: {X.shape}")
     return 0
 

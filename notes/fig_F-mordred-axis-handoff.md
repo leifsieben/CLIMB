@@ -89,3 +89,74 @@ different molecule set.
 NaN overall. XGBoost consumes NaN natively, as the RDKit block already relies on.
 
 Nothing here is wired into any figure yet.
+
+
+---
+
+# PASS A COMPLETE — 2026-08-24 01:00 UTC
+
+All twelve tables, all six fig_F panels, **one environment** (box `i-05dafbb7bd11cdc7f`, m5.8xlarge).
+
+    s3://climb-s3-bucket/experiments/_figF/
+      concat_{rdkit_sameenv,mordred}_{CLMunsup,CLMsup,CheMel}.csv          6 MolNet datasets
+      concat_panels_{rdkit_sameenv,mordred}_{CLMunsup,CLMsup,CheMel}.csv   MoleculeACE + Ames
+
+Verified 12/12 by counted tasks. Every table says `desc` in both families — the rename to `mdesc`
+belongs to the figures session alone.
+
+## One environment, proved rather than asserted
+
+`fp` and `desc` contain no embedding, so within a descriptor family they must be identical across
+all three tags. They are, bit-for-bit:
+
+| family | scope | shared cells | disagree |
+|---|---|---|---|
+| rdkit_sameenv | MolNet | 20 | **0** |
+| rdkit_sameenv | panels | 4 | **0** |
+| mordred | MolNet | 10 | **0** |
+| mordred | panels | 2 | **0** |
+
+This is the check that *failed* at 0.22 fold SD between the published tables and a fresh run, which
+is why the RDKit arm was regenerated rather than reused.
+
+## The sharpest form of the result — Ames
+
+| | RDKit desc | Mordred desc |
+|---|---|---|
+| baseline | 0.8430 | 0.8628 |
+| + CLIMB unsup | 0.8211 | 0.8543 |
+| + CLIMB sup | 0.8283 | 0.8507 |
+| **+ CheMeleon** | **0.8586** | **0.8619** |
+
+CheMeleon adds **+0.0156** on top of RDKit descriptors and **+0.0009** — nothing — on top of
+Mordred. Same model, same panel, same folds. It carries information beyond RDKit descriptors and
+essentially none beyond its own pretraining target. This result only exists because Mordred is on
+the axis.
+
+## Two bugs fixed mid-run
+
+**Ames predictions were overwriting each other.** The panels script keyed its prediction directory
+on the embedding *family* (`concat_climb`), not the table, so all four CLIMB panel runs wrote the
+same file. Confirmed by inspection — the survivor held only `['desc','desc+CLMunsup']`. Every table
+still written, every count still passing. Fixed at source (directory is now 1:1 with the output
+table); lost predictions regenerated.
+
+**The completion gate used `want=2` for panels.** Ames yields no in-process rows because Polaris
+withholds test labels, so the gate called *complete* tables incomplete and refused to upload them —
+the same "header-only by design" trap that withheld six finished Polaris dirs earlier that day. The
+true count went 4/12 → 10/12 on fixing the **check**, with no change to the data.
+
+## Caveats for the figure
+
+- **15 molecules (0.015%) have all-NaN CheMeleon vectors.** The chemprop venv's newer RDKit rejects
+  them — exotic organometallics, Al/Ge/B at unusual valences — while the loader's RDKit accepts
+  them. Dropping them would have given the CheMeleon arm a *different molecule set* from the CLIMB
+  arms, so they are NaN (XGBoost consumes as missing) and listed in
+  `figure_data/_chemeleon_nan_molecules.json`.
+- **Tox21 parses as 7,831 here vs 7,823 on the laptop.** Expected, and harmless because every
+  fig_F cell now comes from this one box — but it is why local tables must not be mixed in.
+
+## Pass B
+
+Surplus blocks are running into `*_EXTRA.csv`, which cannot touch what the figure reads. Nothing in
+the figure depends on them.

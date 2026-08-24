@@ -35,6 +35,14 @@ EMB = os.environ.get("CONCAT_EMB", "climb")
 # the figure's cell name -- a mapping layer here is one more list to go stale.
 TAG = os.environ.get("CONCAT_TAG") or {"climb": "CLM", "chemeleon": "CheMel"}[EMB]
 PANELS = os.environ.get("CONCAT_PANELS", "MoleculeACE CBS Ames").split()
+# CONCAT_DESC picks WHICH descriptor block "desc" means -- the ~200 RDKit descriptors (default,
+# every published cell) or the 1,613 Mordred 2D descriptors. Mordred is the sharp comparator for
+# CheMeleon, which was pretrained to regress exactly that set. Mirrors concat_redundancy.py so the
+# MolNet and panel halves of fig_F cannot drift apart in what "desc" means.
+DESC_KIND = os.environ.get("CONCAT_DESC", "rdkit")
+if DESC_KIND not in ("rdkit", "mordred"):
+    raise SystemExit(f"CONCAT_DESC must be rdkit|mordred, got {DESC_KIND!r}")
+MORDRED_NPZ = os.environ.get("CONCAT_MORDRED_NPZ", "figure_data/_mordred_features.npz")
 ENC = os.environ.get("CONCAT_ENC", "figure_data/climb_v2_phase2/unsup_8M/encoder")
 TOK = "figure_data/_tokenizer"
 SEEDS = [0]
@@ -88,6 +96,25 @@ def embed(smiles):
     return np.asarray(E._chemeleon_features(list(smiles), device), dtype=np.float32)
 
 
+_MORDRED_TABLE = None
+def _mordred_from_npz(smiles):
+    """Strict lookup into the precomputed Mordred table. A miss RAISES rather than mean-filling,
+    which would fabricate a molecule's descriptors and quietly change the score."""
+    global _MORDRED_TABLE
+    if _MORDRED_TABLE is None:
+        z = np.load(MORDRED_NPZ, allow_pickle=True)
+        # HOIST: npz members decode lazily; z["X"][i] in a comprehension re-reads the whole member
+        # per molecule. That wedged this very script's box for 38 minutes once.
+        X, S = z["X"], z["smiles"]
+        _MORDRED_TABLE = {str(s): X[i] for i, s in enumerate(S)}
+        print(f"[panels] {len(_MORDRED_TABLE)} precomputed Mordred vectors "
+              f"({X.shape[1]}d) from {MORDRED_NPZ}", flush=True)
+    miss = [s for s in smiles if str(s) not in _MORDRED_TABLE]
+    if miss:
+        raise KeyError(f"{len(miss)} SMILES absent from the Mordred table, e.g. {miss[:2]}")
+    return np.asarray([_MORDRED_TABLE[str(s)] for s in smiles], dtype=np.float32)
+
+
 def feature_sets(smiles):
     """All seven blocks, so a figure can pick CONTROLLED PAIRS rather than a feature-set parade.
 
@@ -97,7 +124,11 @@ def feature_sets(smiles):
     figure can be re-cut without another box.
     """
     fp = np.asarray(ecfp4_features(smiles), dtype=np.float32)
-    d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32); d[~np.isfinite(d)] = np.nan
+    if DESC_KIND == "mordred":
+        d = _mordred_from_npz(list(smiles))
+    else:
+        d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
+    d = np.asarray(d, dtype=np.float32); d[~np.isfinite(d)] = np.nan
     if EMB == "climb":
         emb = embed(smiles)
     else:
@@ -106,6 +137,25 @@ def feature_sets(smiles):
             f"fp+{TAG}": np.concatenate([fp, emb], 1),
             f"desc+{TAG}": np.concatenate([d, emb], 1),
             f"fp+desc+{TAG}": np.concatenate([fp, d, emb], 1)}
+
+
+# CONCAT_BLOCKS restricts which feature blocks are FIT, without changing which are computed.
+# fig_F draws four ticks -- RDKit | Mordred | ECFP4 | RDKit+ECFP4 -- each with and without the
+# embedding. That is 6 of the 7 blocks from the RDKit family and only 2 from the Mordred family
+# (Mordred's fp+desc combination is not drawn). Each block is 5 XGBoost fits per dataset, so
+# fitting only what is drawn gets the figure its data far sooner; the surplus blocks are run
+# afterwards into the same files so the CSV record stays complete and the figure can be re-cut.
+# Empty/unset = all blocks, so every existing invocation is unchanged.
+_BLOCK_SEL = [b for b in os.environ.get("CONCAT_BLOCKS", "").split(",") if b]
+
+
+def _select(F):
+    if not _BLOCK_SEL:
+        return F
+    missing = [b for b in _BLOCK_SEL if b not in F]
+    if missing:
+        raise SystemExit(f"CONCAT_BLOCKS names unknown blocks {missing}; have {sorted(F)}")
+    return {k: v for k, v in F.items() if k in _BLOCK_SEL}
 
 
 
@@ -133,6 +183,7 @@ if "MoleculeACE" in PANELS:
         rng = np.random.default_rng(0); perm = rng.permutation(len(tr))
         nv = max(1, int(0.1 * len(tr))); va, tr2 = tr[perm[:nv]], tr[perm[nv:]]
         F = feature_sets(smi)
+        F = _select(F)
         for name, X in F.items():
             p = fit_predict(X, y, tr2, te, va, "regression", 1)
             per_feat.setdefault(name, []).append(float(np.sqrt(np.mean((p - y[te]) ** 2))))
@@ -150,6 +201,7 @@ if "CBS" in PANELS:
     y = np.array([[float(r["y"])] for r in recs])
     fold = np.array([int(r["fold"]) for r in recs])
     F = feature_sets(smi)
+    F = _select(F)
     for name, X in F.items():
         nefs, rocs = [], []
         for f in sorted(set(fold.tolist())):
@@ -176,6 +228,7 @@ if "Ames" in PANELS:
     for i in tr_i:
         y[i, 0] = float(recs[i]["y"])
     F = feature_sets(smi)
+    F = _select(F)
     pred_rows = []
     for name, X in F.items():
         rng = np.random.default_rng(0); perm = rng.permutation(len(tr_i))
@@ -186,7 +239,12 @@ if "Ames" in PANELS:
             pred_rows.append(dict(task="tdcommons/ames", seed=name, test_index=j,
                                   smiles=smi[i], y_pred=float(p[j])))
         print(f"  Ames {name:18} predictions written (score off-box via Polaris)", flush=True)
-    d = ROOT / "figure_data" / "chemeleon_suite" / "polaris" / f"concat_{EMB}"
+    # KEY THE PREDICTION DIR TO THE TABLE, NOT TO THE EMBEDDING FAMILY. It was f"concat_{EMB}",
+    # so every run sharing an EMB wrote the same file: CLMunsup and CLMsup, and the RDKit and
+    # Mordred families, all landed on concat_climb/test_predictions.csv and silently overwrote
+    # each other. Only the last run's Ames predictions survived, with every table still written
+    # and every count still passing. The output stem is 1:1 with the table, so this cannot alias.
+    d = ROOT / "figure_data" / "chemeleon_suite" / "polaris" / f"concat_{Path(OUTFILE).stem}"
     d.mkdir(parents=True, exist_ok=True)
     with (d / "test_predictions.csv").open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["task", "seed", "test_index", "smiles", "y_pred"])
