@@ -227,18 +227,50 @@ ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S, EMB_CHE]
 # experiment in both families and stay unnamespaced, where the duplicate check turns them into a
 # free cross-family reproducibility read.
 MORDRED_KEY = "mdesc"
-# FOUR TICKS, NOT FIVE (Leif 2026-08-22). Mordred enters as an ALTERNATIVE descriptor block beside
-# RDKit, not as a second family to be crossed with ECFP4. A five-tick version carrying
-# ECFP4+Mordred as well was built first and dropped: it answers "does the fingerprint add to
-# Mordred", which is a different question from the one this figure asks, and it cost 4 more bars
-# per panel across 6 panels to do it.
-GROUPS = [(tick, base, [(base if r is NO_EMB else f"{base}+{ROLE_SUFFIX[r]}", r)
-                        for r in ROLE_ORDER])
-          for tick, base in (("desc", "desc"),
-                             ("Mordred", MORDRED_KEY),
-                             ("ECFP4", "fp"),
-                             ("desc+ECFP4", "fp+desc"))]
-FEATURES = [(k, role, ROLE_COLOR[role]) for _, _, mem in GROUPS for k, role in mem if k]
+
+# ---------------------------------------------------------------------------------------------
+# THE AXIS IS LIFT OVER A REFERENCE, AND EACH TICK IS A DIFFERENT REFERENCE (Leif 2026-08-22)
+# ---------------------------------------------------------------------------------------------
+# The question this figure exists to answer is "what ORTHOGONAL information does an embedding
+# carry", and the previous layout made the reader answer it by subtracting two bars by eye. Now
+# the reference block IS the zero line -- it is not drawn as a bar at all -- and every bar is what
+# one addition buys on top of it. A redundant addition sits ON the line; an orthogonal one rises
+# off it. The CheMeleon-vs-Mordred result becomes a bar of height ~0 next to a bar of visible
+# height, in the same panel, instead of two absolute values a reader must difference.
+#
+# THE CLASSICAL ADDITIONS ARE NOT DECORATION, THEY ARE THE POSITIVE CONTROL. On the ECFP4 tick,
+# "+ RDKit desc" and "+ Mordred" show that descriptors DO carry information ECFP4 lacks. Without
+# them a flat embedding bar is unreadable: it is equally consistent with "the embedding is
+# redundant" and with "nothing helps on this task". They are also what makes the pair legible --
+# Mordred lifts ECFP4, and CheMeleon lifts ECFP4, but CheMeleon does not lift Mordred.
+#
+# Additions differ per reference because the experiment ran what it ran; a tick shows every
+# addition that exists for it rather than padding to a uniform width.
+REF_ORDER = [("ECFP4", "fp"), ("RDKit desc", "desc"),
+             ("Mordred", MORDRED_KEY), ("ECFP4+desc", "fp+desc")]
+CLASSICAL_ADD = {
+    "fp":        [("fp+desc", "+ RDKit desc", SHADES["anchor"][0]),
+                  (f"fp+{MORDRED_KEY}", "+ Mordred", SHADES["anchor"][2])],
+    "desc":      [("fp+desc", "+ ECFP4", SHADES["anchor"][1])],
+    MORDRED_KEY: [(f"fp+{MORDRED_KEY}", "+ ECFP4", SHADES["anchor"][1])],
+    "fp+desc":   [],
+}
+EMB_ROLES = [r for r in ROLE_ORDER if ROLE_SUFFIX[r]]
+
+
+def additions(ref_key):
+    """[(feature_key, label, colour)] for one reference -- classical first, then the embeddings."""
+    out = list(CLASSICAL_ADD.get(ref_key, []))
+    out += [(f"{ref_key}+{ROLE_SUFFIX[r]}", r, ROLE_COLOR[r]) for r in EMB_ROLES]
+    return out
+
+
+GROUPS = [(tick, ref, additions(ref)) for tick, ref in REF_ORDER]
+# every key the panel touches, reference keys included -- shared_ylims and the source audit read it
+FEATURES = [(ref, None, None) for _, ref in REF_ORDER] + \
+           [(k, lab, c) for _, _, adds in GROUPS for k, lab, c in adds]
+
+
 BASE = "fp+desc"
 # TWO HEADLINE DELTAS, NOT ONE (user 2026-08-20: "it'll become two numbers yes, everywhere report
 # supervised and unsupervised"). The concatenation test is run separately for each CLIMB arm, so
@@ -291,12 +323,36 @@ MORDRED_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
 FIGF = RIGOR / "figF"
 MORDRED_SOURCES = [FIGF / f"{pre}_mordred_{MORDRED_TAGS[r]}.csv"
                    for r in ROLE_ORDER if ROLE_SUFFIX[r]
-                   for pre in ("concat", "concat_panels")]
+                   for pre in ("concat", "concat_panels")] + \
+    [FIGF / f"{pre}_mordred_{MORDRED_TAGS[r]}_EXTRA.csv"
+     for r in ROLE_ORDER if ROLE_SUFFIX[r]
+     for pre in ("concat", "concat_panels")]
 RDKIT_SAMEENV_SOURCES = [FIGF / f"{pre}_rdkit_sameenv_{MORDRED_TAGS[r]}.csv"
                          for r in ROLE_ORDER if ROLE_SUFFIX[r]
-                         for pre in ("concat", "concat_panels")]
+                         for pre in ("concat", "concat_panels")] + \
+    [FIGF / f"{pre}_rdkit_sameenv_{MORDRED_TAGS[r]}_EXTRA.csv"
+     for r in ROLE_ORDER if ROLE_SUFFIX[r]
+     for pre in ("concat", "concat_panels")]
 MORDRED_READY = (all(f.exists() for f in MORDRED_SOURCES)
                  and all(f.exists() for f in RDKIT_SAMEENV_SOURCES))
+
+# PAIRED ERROR BARS NEED PER-FOLD VALUES, WHICH THE AGGREGATE TABLES DO NOT CARRY.
+#
+# A bar here is a DIFFERENCE between two arms that saw the SAME folds, so its uncertainty is the
+# spread of the per-fold difference -- in which fold difficulty, the dominant term, cancels. The
+# marginal SD each table reports is the spread of one arm's absolute score, which does NOT cancel
+# it: measured on fp+desc -> fp+desc+CLM it runs 2.0x the lift on BACE and 7.8x on Tox21. Drawing
+# those on a difference would put the wrong uncertainty on the wrong quantity and make a real
+# effect look unmeasurable.
+#
+# concat_redundancy.py computes the per-fold values (`fm` in its fold loop) and keeps only
+# mean/std, so they cannot be recovered from what exists -- the compute session is re-running to
+# emit them. Until those land the bars draw WITHOUT intervals and the panel says so, which is the
+# honest state: no error bar reads as "not shown", a wrong one reads as measured.
+PERFOLD_SOURCES = [FIGF / f"perfold_{fam}_{MORDRED_TAGS[r]}.csv"
+                   for r in ROLE_ORDER if ROLE_SUFFIX[r]
+                   for fam in ("mordred", "rdkit_sameenv")]
+PAIRED_READY = all(f.exists() for f in PERFOLD_SOURCES)
 
 # ---------------------------------------------------------------------------------------------
 # THE AXIS: percent of the classical anchor, so all six panels share one unit
@@ -316,6 +372,9 @@ MORDRED_READY = (all(f.exists() for f in MORDRED_SOURCES)
 # error bars answer "how well is this feature set measured", not "is it distinguishable from the
 # anchor" -- that second question is what the delta column of fig_F.csv is for.
 PCT_YLABEL = "% of ECFP4+desc"
+# Every panel is a percentage lift over ITS OWN tick reference, so one label serves all six
+# and the number is comparable across panels in a way the raw metrics never were.
+LIFT_YLABEL = "lift over reference (%)"
 PCT_YLIM = (0, 132)
 
 
@@ -519,7 +578,10 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
     # answered the wrong question, since the comparison that matters here is base vs base+embedding
     # WITHIN a group, and that is a like-for-like pair already. Labelled in every panel including
     # the compact assembly, where it used to be dropped and left the bars unlabelled.
-    ax.set_ylabel(meta["metric_short"], fontsize=FS["annot"] - (1 if compact else 0), color=INK)
+    # ONE UNIT ACROSS ALL SIX PANELS, because every bar is now a relative lift rather than a raw
+    # metric. The raw metric name moved into the panel title's arrow, which still says which
+    # direction is better; the axis says what the bar measures.
+    ax.set_ylabel(LIFT_YLABEL, fontsize=FS["annot"] - (1 if compact else 0), color=INK)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     for sp in ("top", "right"):
@@ -551,55 +613,56 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         # guard is what stops the next panel with no spread from claiming perfect precision.
         return v, (float("nan") if not np.isfinite(e) else e)
 
-    # x positions: two groups of three with a gap between, so the eye reads "base, +CLIMB,
-    # +CheMeleon" twice rather than six unrelated bars.
+    # LIFT, NOT LEVEL. Each bar is what its addition buys over the tick's reference; the
+    # reference is the zero line and is never drawn as a bar. Signed so POSITIVE ALWAYS MEANS
+    # BETTER, which for RMSE means the reference minus the arm rather than the other way round --
+    # otherwise the best bar would point down in two of the six panels.
+    def lift_pct(ref_key, add_key):
+        v0, _ = cell(ref_key)
+        v1, _ = cell(add_key)
+        if v0 is None or v1 is None or not np.isfinite(v0) or v0 == 0:
+            return None
+        gain = (v0 - v1) if metric in LOWER_BETTER_METRIC else (v1 - v0)
+        return 100.0 * gain / abs(v0)
+
     GAP = 0.8
-    xs, ys, es, cs, present = [], [], [], [], []
+    xs, ys, cs, present, labels = [], [], [], [], []
     xi = 0.0
     group_centres = []
-    for _, _, members in GROUPS:
+    for _, ref_key, adds in GROUPS:
         start = xi
-        for k, role in members:
-            if k is None:
-                # "no classical, no embedding" is the empty feature set -- it holds a slot so the
-                # three colours stay in the same order in every group, and draws nothing.
-                xi += 1.0
-                continue
-            v, e = cell(k)
-            xs.append(xi); ys.append(v); es.append(e)
-            cs.append(ROLE_COLOR[role]); present.append(v is not None)
+        for k, lab, colour in adds:
+            xs.append(xi)
+            ys.append(lift_pct(ref_key, k))
+            cs.append(colour)
+            labels.append(lab)
+            present.append(ys[-1] is not None)
+            xi += 1.0
+        if xi == start:            # a reference with no addition present at all
             xi += 1.0
         group_centres.append((start + xi - 1.0) / 2.0)
         xi += GAP
     x = np.array(xs)
+    # no paired per-fold data yet -> no intervals, and the panel says so rather than borrowing the
+    # marginal SDs, which describe a different quantity (see PAIRED_READY).
+    es = [float("nan")] * len(ys)
 
-    base_v = None      # desc+ECFP4 is a BAR again, not a reference line
+    base_v = 0.0               # the reference line, by construction
     drawn = [v for v in ys if v is not None]
-    if not drawn and base_v is None:
+    if not drawn:
         ax.text(0.5, 0.5, "concatenation test\nnot run", transform=ax.transAxes,
                 ha="center", va="center", fontsize=FS["annot"], color=INK)
         ax.set_xticks([]); ax.set_yticks([])
-        # DECLARED empty, so style.check_no_empty_panels passes this one and still fails on any
-        # panel that is empty because a key was resolved wrongly. Ames is the live case: its
-        # concat run emits PREDICTIONS rather than scores, because Polaris withholds test labels,
-        # so the panel waits on an off-box scoring step rather than on a GPU run.
         mark_empty(ax, f"{p}: concatenation test not run on this panel")
         return
 
-    # y range first: the placeholders need a height to sit in, and the range must not depend on
-    # which arms happen to have landed -- otherwise the axis moves as data arrives and two
-    # printings of "the same" figure disagree.
-    # Include the ERROR BARS, not just the means: sizing to the means alone let MoleculeACE's
-    # whisker run off the top of the panel.
-    span_vals = [v + e for v, e in zip(ys, es) if v is not None]
-    span_vals += [v - e for v, e in zip(ys, es) if v is not None]
-    span_vals += [base_v] if base_v is not None else []
-    lo, hi = min(span_vals), max(span_vals)
-    pad = 0.42 * max(hi - lo, 1e-9)
+    # y range spans the drawn lifts and always includes zero, since zero is the claim being read
+    # against and a panel whose axis excluded it would hide the sign of every bar.
+    lo, hi = min(drawn + [0.0]), max(drawn + [0.0])
+    pad = 0.28 * max(hi - lo, 1e-9)
     y0, y1 = lo - pad, hi + pad
-    if meta["metric"] == "roc_auc":
-        y1 = min(y1, 1.0)
     ax.set_ylim(y0, y1)
+
 
     bw = bw if bw is not None else (0.62 if compact else 0.74)
     for xi_, v, e, c, ok in zip(x, ys, es, cs, present):
@@ -659,7 +722,19 @@ def legend_handles(skip_anchor=False, wrap=False):
     """
     # Driven by ROLE_ORDER, so adding or renaming an embedding cannot leave the legend behind --
     # this line was a literal tuple and broke the moment the second CLIMB arm was added.
-    return [Patch(facecolor=ROLE_COLOR[r], edgecolor=INK, lw=0.8, label=r) for r in ROLE_ORDER]
+    # THE CLASSICAL ADDITIONS NEED NAMING TOO, now that the amber bars are "+ RDKit desc",
+    # "+ Mordred" and "+ ECFP4" rather than the single "no embedding" base. Built by walking
+    # GROUPS and keeping first sight of each (label, colour), so a legend entry cannot exist for a
+    # bar the figure does not draw, nor a bar go unnamed -- the failure the literal tuple had.
+    seen, out = set(), []
+    for _, _, adds in GROUPS:
+        for _, lab, colour in adds:
+            key = (str(lab), colour)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(Patch(facecolor=colour, edgecolor=INK, lw=0.8, label=str(lab)))
+    return out
 
 
 def main():
@@ -713,7 +788,14 @@ def main():
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
                borderpad=0.0, frameon=False, labelcolor=INK)
-    fig.tight_layout(rect=(0, 0.045, 1, 1))
+    # SAY THAT THE INTERVALS ARE MISSING, ON THE CANVAS. Bars with no whiskers read as precise;
+    # bars with a stated reason read as pending. The uncertainty on a lift is the spread of the
+    # PER-FOLD DIFFERENCE, which the aggregate tables cannot express -- see PAIRED_READY.
+    if not PAIRED_READY:
+        fig.text(0.5, 0.062, "intervals pending: a lift needs the spread of the per-fold "
+                             "difference, not either arm's own SD",
+                 ha="center", va="bottom", fontsize=FS["legend"] - 1, color=INK, alpha=0.75)
+    fig.tight_layout(rect=(0, 0.045 + (0.022 if not PAIRED_READY else 0), 1, 1))
     # COMPONENT of fig_E+F, so it belongs in panels/ with fig_C1/C2/D and fig_A1/A2 --
     # figures_v2/ proper should hold only what goes in the paper. It is still rendered
     # standalone for review.
