@@ -1,0 +1,11 @@
+task,features,metric,mean,std
+ESOL,CLMsup,rmse,1.1267,0.1271
+QM7,CLMsup,rmse,201.0008,5.138
+BBBP,CLMsup,roc_auc,0.9404,0.0103
+BBBP,CLMsup,nef1,1.0,0.0
+BACE,CLMsup,roc_auc,0.8334,0.0135
+BACE,CLMsup,nef1,1.0,0.0
+Tox21,CLMsup,roc_auc,0.7548,0.0574
+Tox21,CLMsup,nef1,0.5399,0.1285
+HIV,CLMsup,roc_auc,0.7687,0.0308
+HIV,CLMsup,nef1,0.6458,0.0455

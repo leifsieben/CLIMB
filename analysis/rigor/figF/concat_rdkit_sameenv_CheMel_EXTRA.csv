@@ -1,0 +1,11 @@
+task,features,metric,mean,std
+ESOL,CheMel,rmse,0.8413,0.0636
+QM7,CheMel,rmse,197.7819,3.4194
+BBBP,CheMel,roc_auc,0.8863,0.0416
+BBBP,CheMel,nef1,1.0,0.0
+BACE,CheMel,roc_auc,0.8554,0.0199
+BACE,CheMel,nef1,1.0,0.0
+Tox21,CheMel,roc_auc,0.7951,0.0428
+Tox21,CheMel,nef1,0.6674,0.1517
+HIV,CheMel,roc_auc,0.7927,0.023
+HIV,CheMel,nef1,0.6627,0.0719
