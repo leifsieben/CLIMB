@@ -88,7 +88,9 @@ def _chemeleon_from_npz(smiles):
 
 
 def embed(smiles):
-    if EMB == "climb":
+    if _BLOCK_SEL and not any(TAG in b for b in _BLOCK_SEL):
+        emb = None
+    elif EMB == "climb":
         return E._encoder_features(_enc, _tok, list(smiles), device, "mean", 256).astype(np.float32)
     pre = _chemeleon_from_npz(list(smiles))
     if pre is not None:
@@ -133,6 +135,8 @@ def feature_sets(smiles):
         emb = embed(smiles)
     else:
         emb = embed(smiles)
+    if emb is None:
+        return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1)}
     return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1), TAG: emb,
             f"fp+{TAG}": np.concatenate([fp, emb], 1),
             f"desc+{TAG}": np.concatenate([d, emb], 1),
@@ -168,6 +172,7 @@ def fit_predict(X, y, tr, te, va, tt, n_out):
 
 
 rows = []
+fold_rows = []
 
 # ---------------- MoleculeACE: 30 provided-split tasks, macro-mean RMSE ----------------
 if "MoleculeACE" in PANELS:
@@ -186,7 +191,10 @@ if "MoleculeACE" in PANELS:
         F = _select(F)
         for name, X in F.items():
             p = fit_predict(X, y, tr2, te, va, "regression", 1)
-            per_feat.setdefault(name, []).append(float(np.sqrt(np.mean((p - y[te]) ** 2))))
+            rmse = float(np.sqrt(np.mean((p - y[te]) ** 2)))
+            per_feat.setdefault(name, []).append(rmse)
+            fold_rows.append(dict(task="MoleculeACE", features=name, metric="rmse",
+                                  fold=task, value=round(rmse, 6)))
         if ti % 5 == 0:
             print(f"  MoleculeACE {ti}/{len(tasks)}", flush=True)
     for name, v in per_feat.items():
@@ -211,6 +219,10 @@ if "CBS" in PANELS:
             p = fit_predict(X, y, tr, te, va, "classification", 1)
             nefs.append(compute_nef(p.reshape(-1, 1), y[te]))
             rocs.append(compute_metric(p, y[te], "classification"))
+            fold_rows.append(dict(task="CBS", features=name, metric="nef1", fold=f,
+                                  value=round(float(nefs[-1]), 6)))
+            fold_rows.append(dict(task="CBS", features=name, metric="roc_auc", fold=f,
+                                  value=round(float(rocs[-1]), 6)))
         rows.append(dict(task="CBS", features=name, metric="nef1",
                          mean=round(float(np.mean(nefs)), 4), std=round(float(np.std(nefs)), 4)))
         rows.append(dict(task="CBS", features=name, metric="roc_auc",
@@ -251,4 +263,9 @@ if "Ames" in PANELS:
         w.writeheader(); w.writerows(pred_rows)
 
 pd.DataFrame(rows).to_csv(OUTFILE, index=False)
-print(f"\nDONE -> {OUTFILE}", flush=True)
+# Ames contributes NO per-fold rows and that is correct, not a gap: Polaris withholds the test
+# labels, so there is one held-out evaluation and no fold axis to pair on. The figure carries the
+# Hanley-McNeil analytic SE there instead, and must show it as a different kind of interval.
+FOLDFILE = str(OUTFILE).replace(".csv", "_folds.csv")
+pd.DataFrame(fold_rows).to_csv(FOLDFILE, index=False)
+print(f"\nDONE -> {OUTFILE}  (+ {FOLDFILE}, {len(fold_rows)} per-fold rows)", flush=True)

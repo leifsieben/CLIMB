@@ -153,12 +153,19 @@ def feature_sets(smiles):
     else:
         d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
     d = np.asarray(d, dtype=np.float32); d[~np.isfinite(d)] = np.nan
-    if EMB == "climb":
+    # SKIP THE EMBEDDING when nothing selected needs it. fp/desc/fp+desc are identical across all
+    # three tags -- proven bit-for-bit over 48 cells -- so they are computed ONCE per family rather
+    # than three times, and that shared run should not pay for an encoder forward pass it discards.
+    if _BLOCK_SEL and not any(TAG in b for b in _BLOCK_SEL):
+        emb = None
+    elif EMB == "climb":
         emb = E._encoder_features(encoder, tok, list(smiles), device, "mean", ML).astype(np.float32)
     else:
         emb = _chemeleon_from_npz(list(smiles))
         if emb is None:
             emb = np.asarray(E._chemeleon_features(list(smiles), device), dtype=np.float32)
+    if emb is None:
+        return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1)}
     return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1), TAG: emb,
             f"fp+{TAG}": np.concatenate([fp, emb], 1),
             f"desc+{TAG}": np.concatenate([d, emb], 1),
@@ -186,6 +193,7 @@ def _select(F):
 
 
 rows = []
+fold_rows = []
 for ds, tt in TASKS:
     s_all, y_all = E._load_moleculenet_full(ds)
     y_all = np.asarray(y_all, dtype=np.float64)
@@ -218,7 +226,22 @@ for ds, tt in TASKS:
         if fn:
             rows.append(dict(task=ds, features=name, metric="nef1",
                              mean=round(float(np.mean(fn)), 4), std=round(float(np.std(fn)), 4)))
+        # PER-FOLD ROWS. fig_F's y-axis is now LIFT over a reference block, and the honest error
+        # bar on a paired lift is the SD of the per-fold DIFFERENCE: both arms see the same folds,
+        # so fold difficulty is a common term that cancels when you pair and does not cancel when
+        # you subtract two independently-computed SDs. That is why the aggregate SDs run 2-8x the
+        # lifts they sit on. These lists already existed here and were discarded at aggregation;
+        # the fold INDEX is what makes them pairable, so it is emitted rather than the order relied
+        # upon. Folds are E._scaffold_kfold_indices(s_all, K, 0) -- seeded and deterministic from
+        # the molecule list -- so fold j means the same molecules across separate runs, which is
+        # what lets a shared-block file pair against a per-tag one.
+        for j, v in enumerate(fm):
+            fold_rows.append(dict(task=ds, features=name, metric=met, fold=j, value=round(float(v), 6)))
+        for j, v in enumerate(fn):
+            fold_rows.append(dict(task=ds, features=name, metric="nef1", fold=j, value=round(float(v), 6)))
         print(f"  {name:12} {met}={np.mean(fm):.4f}±{np.std(fm):.4f}", flush=True)
 
 pd.DataFrame(rows).to_csv(OUT / OUTFILE, index=False)
-print(f"\nDONE -> analysis/rigor/{OUTFILE}", flush=True)
+FOLDFILE = OUTFILE.replace(".csv", "_folds.csv")
+pd.DataFrame(fold_rows).to_csv(OUT / FOLDFILE, index=False)
+print(f"\nDONE -> analysis/rigor/{OUTFILE}  (+ {FOLDFILE}, {len(fold_rows)} per-fold rows)", flush=True)
