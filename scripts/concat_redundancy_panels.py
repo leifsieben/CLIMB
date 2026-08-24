@@ -88,9 +88,7 @@ def _chemeleon_from_npz(smiles):
 
 
 def embed(smiles):
-    if _BLOCK_SEL and not any(TAG in b for b in _BLOCK_SEL):
-        emb = None
-    elif EMB == "climb":
+    if EMB == "climb":
         return E._encoder_features(_enc, _tok, list(smiles), device, "mean", 256).astype(np.float32)
     pre = _chemeleon_from_npz(list(smiles))
     if pre is not None:
@@ -131,10 +129,13 @@ def feature_sets(smiles):
     else:
         d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
     d = np.asarray(d, dtype=np.float32); d[~np.isfinite(d)] = np.nan
-    if EMB == "climb":
-        emb = embed(smiles)
-    else:
-        emb = embed(smiles)
+    # SKIP THE EMBEDDING when no selected block names the tag. fp/desc/fp+desc are identical
+    # across all three tags, so the shared run computes them once and must not pay for -- or
+    # depend on -- an embedding it discards. This belongs HERE and not in embed(): embed() is
+    # asked for a specific arm's vectors and should always produce them; feature_sets is what
+    # knows which blocks were selected. Putting it in embed() made the shared panels cell import
+    # chemprop, which this venv does not have, and it died in twelve seconds.
+    emb = None if (_BLOCK_SEL and not any(TAG in b for b in _BLOCK_SEL)) else embed(smiles)
     if emb is None:
         return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1)}
     return {"fp": fp, "desc": d, "fp+desc": np.concatenate([fp, d], 1), TAG: emb,
