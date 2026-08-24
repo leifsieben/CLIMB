@@ -52,21 +52,22 @@ floor, so the gains do come from chemistry rather than from optimisation alone -
 start from, and return to, a low baseline.}
 
 % ---------------------------------------------------------------- Fig F
-\caption{\textbf{Are the learned embeddings redundant given classical features?}
-The same XGBoost, the same scaffold 5-fold CV and the same task, given four classical feature
-bases --- RDKit descriptors, Mordred descriptors, ECFP4, and RDKit+ECFP4 --- with and without a
-512-d frozen embedding concatenated on. Raw features are concatenated without standardisation
-(XGBoost is scale-invariant). Error bars are $\pm1$ SD over the panel's replicate unit ---
-targets on MoleculeACE, folds elsewhere --- and analytic (Hanley--McNeil) on Ames, whose test
-labels are withheld. Every cell comes from one environment, including the RDKit arm, which was
-regenerated so that a Mordred-vs-RDKit difference changes only the descriptor family.
-Adding either CLIMB embedding to RDKit+ECFP4 fails to beat its own spread on any of the six
-panels and costs 0.024 macro RMSE on MoleculeACE and 0.024 ROC-AUC on Ames.
-Mordred is the informative comparison for CheMeleon, which is a D-MPNN pretrained to regress the
-1{,}613 Mordred 2D descriptors: on Ames it gains 0.016 ROC-AUC over RDKit descriptors but
-0.001 --- nothing --- over Mordred. The CLIMB representations are therefore informationally
-redundant given fingerprints and descriptors, and CheMeleon is redundant given its own
-pretraining target, which is a stronger statement than scoring lower.}
+\caption{\textbf{What orthogonal information do the embeddings carry?}
+Each tick is a REFERENCE feature block; the reference itself is the zero line, and every bar is
+the percentage lift one addition buys on top of it, signed so positive is always better. The same
+XGBoost, the same scaffold 5-fold CV, and every cell from one environment --- the RDKit arm was
+regenerated alongside Mordred so that a family difference changes only the descriptor set.
+Descriptors are demonstrably orthogonal to fingerprints, which is the positive control that makes
+a flat embedding bar readable: adding descriptors to ECFP4 gains $1.4$--$13.2\%$ across panels
+(BACE alone is flat). Both CLIMB embeddings are redundant given classical features --- negative on
+most references --- while CheMeleon carries real information beyond ECFP4 ($0$--$8.2\%$).
+The Mordred tick is the sharp test, because CheMeleon is a D-MPNN pretrained to regress the
+$1{,}613$ Mordred 2D descriptors: on five of six panels its lift over Mordred lies within
+$\pm0.6\%$, i.e. it has compressed its pretraining target rather than learned past it.
+MoleculeACE is the exception at $+3.6\%$ and is the one panel where that reading does not hold.
+Intervals are pending: the uncertainty on a lift is the spread of the per-fold DIFFERENCE, in
+which fold difficulty cancels, and the aggregate tables report only each arm's marginal SD ---
+which runs $2$--$8\times$ the lift and describes a different quantity.}
 
 % ---------------------------------------------------------------- Fig G
 \caption{\textbf{Does the representation respond when the chemistry changes?}
