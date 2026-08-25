@@ -188,11 +188,21 @@ def main() -> int:
         "sanity_off_diagonal_cosine": round(off, 4),
         "sanity_median_dim_sd": round(float(np.median(sd)), 6),
     }
-    if "c3" in a.hf_model:
+    # THE NUMBER IN THE NAME IS PRETRAINING DATA, NOT PARAMETERS -- for BOTH families, and the
+    # gap is not small. Measured here:
+    #     ChemBERTa-77M-MTR      3.4M params   (77M   = pretraining molecules)
+    #     MoLFormer-c3-1.1B     44.4M params   (1.1B  = pretraining molecules)
+    #     selfies-ted          358.1M params   (no number in the name)
+    # So the names imply 77M < 1.1B while the models run 3.4M < 44M < 358M, and a reader taking the
+    # names as parameter counts gets the size ordering of the ranking exactly backwards.
+    import re as _re
+    _m = _re.search(r"-(\d+(?:\.\d+)?)([MB])\b", a.hf_model)
+    if _m:
         meta["naming_note"] = (
-            "MoLFormer-c3-1.1B: the 1.1B is the PRETRAINING DATA scale (molecules), NOT parameters. "
-            f"This checkpoint is {meta['n_params_M']}M parameters. Reported as a parameter count it "
-            "would turn a data-scale comparison into a fabricated scaling result.")
+            f"'{_m.group(0).lstrip('-')}' in the checkpoint name is the PRETRAINING DATA scale "
+            f"(molecules), NOT parameters. This checkpoint is {meta['n_params_M']}M parameters. "
+            "Reported as a parameter count it would turn a data-scale comparison into a fabricated "
+            "scaling result.")
     np.savez_compressed(a.out, smiles=np.asarray([str(s) for s in kept]), X=X,
                         meta=np.asarray(json.dumps(meta)))
     print(f"[extract] meta: {json.dumps(meta)}", flush=True)
