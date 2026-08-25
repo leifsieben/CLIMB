@@ -1,0 +1,1 @@
+{"track": "moleculeace", "model": "molformer", "featurizer": "hf_encoder", "head": "mlp", "seeds": [42, 117, 709], "n_tasks": 30}
