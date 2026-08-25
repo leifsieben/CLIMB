@@ -109,7 +109,12 @@ def main() -> int:
     #
     # Unencodable molecules get an all-NaN row: present in the table, visibly absent as data, and
     # imputed at read time rather than silently fabricated here.
-    unencodable = [s for s in smiles if s not in set(kept)]
+    # HOIST THE SET. Written as `if s not in set(kept)` this rebuilds a 177,613-element set for
+    # every one of 177,922 molecules -- O(n^2), and it turned a 7m37s extraction into one still
+    # running at 34 minutes with the GPU idle at 0% and Python pinned at 100%. Same shape as the
+    # lazy-npz member access that had to be hoisted in compute_mordred.py.
+    _kept = set(kept)
+    unencodable = [s for s in smiles if s not in _kept]
     if a.selfies:
         print(f"[extract] selfies: {len(kept)}/{len(smiles)} encodable, "
               f"{len(unencodable)} kept as all-NaN rows", flush=True)
