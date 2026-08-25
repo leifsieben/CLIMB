@@ -1,0 +1,9 @@
+task,features,metric,mean,std
+MoleculeACE,CLMunsup,macro_rmse,0.8228,0.0909
+MoleculeACE,fp+CLMunsup,macro_rmse,0.7621,0.0822
+MoleculeACE,desc+CLMunsup,macro_rmse,0.7559,0.0875
+MoleculeACE,fp+desc+CLMunsup,macro_rmse,0.7298,0.0762
+Ames,CLMunsup,roc_auc,0.7821,
+Ames,desc+CLMunsup,roc_auc,0.8316,
+Ames,fp+CLMunsup,roc_auc,0.8024,
+Ames,fp+desc+CLMunsup,roc_auc,0.8374,

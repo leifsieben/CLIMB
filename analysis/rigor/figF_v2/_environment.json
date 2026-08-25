@@ -1,0 +1,33 @@
+{
+  "set": "figF_v2",
+  "why": "per-fold values for the lift figure; v1 is a DIFFERENT environment and must not be mixed",
+  "git_commit": "558a04fa172715d5783e3efd5d0437cc4d2c428d",
+  "instance_type": "m5.8xlarge",
+  "instance_id": "i-0bad233198a94150e",
+  "ami_id": "ami-0578780bc4c87a97a",
+  "cpu": "x86_64",
+  "python": "3.9.25",
+  "packages": {
+    "xgboost": "2.1.4",
+    "numpy": "1.23.5",
+    "deepchem": "2.8.0",
+    "torch": "2.8.0+cu128",
+    "transformers": "4.57.3",
+    "scikit-learn": "1.6.1",
+    "scipy": "1.13.1",
+    "pandas": "2.3.3",
+    "rdkit_EFFECTIVE": "2022.09.5",
+    "rdkit_pip_rdkit": "2025.9.2",
+    "rdkit_pip_rdkit-pypi": "2022.9.5"
+  },
+  "mordred_n_descriptors": 1613,
+  "xgboost_note": "NOT pinned anywhere in the repo. The v1 box pip-installed it and the version was never recorded; that box is terminated. 2.1.4 was chosen here. Measured v1->v2 shift on the 30 embedding-free cells: 27 of 30 differ, median 0.38 fold SD, max 1.82 -- against lifts of 0.1-0.4 fold SD.",
+  "seeds": {
+    "xgboost_seeds": [
+      0
+    ],
+    "fold_seed": 0,
+    "folds": "eval_v2._scaffold_kfold_indices(smiles, K, 0), deterministic in the molecule list"
+  },
+  "rdkit_note": "TWO rdkit distributions are installed: rdkit 2025.9.2 and rdkit-pypi 2022.9.5. The one that actually IMPORTS is rdkit-pypi, so the EFFECTIVE version -- the one that computed every ECFP4 fingerprint and RDKit descriptor here -- is 2022.09.5, not the 2025.9.2 that pip list shows first. Recorded because a reader checking pip list would write down the wrong number. This comes from the AMI, so v1 shared it; it is NOT part of the v1->v2 shift."
+}

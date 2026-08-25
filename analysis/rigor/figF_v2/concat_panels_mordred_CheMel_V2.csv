@@ -1,0 +1,9 @@
+task,features,metric,mean,std
+MoleculeACE,CheMel,macro_rmse,0.7021,0.0745
+MoleculeACE,fp+CheMel,macro_rmse,0.6956,0.0727
+MoleculeACE,desc+CheMel,macro_rmse,0.698,0.0736
+MoleculeACE,fp+desc+CheMel,macro_rmse,0.6925,0.0715
+Ames,CheMel,roc_auc,0.864,
+Ames,desc+CheMel,roc_auc,0.8761,
+Ames,fp+CheMel,roc_auc,0.8724,
+Ames,fp+desc+CheMel,roc_auc,0.8812,
