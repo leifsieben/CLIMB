@@ -6,11 +6,11 @@ Full A4 text-block width, and as short as the content allows: one row per model,
 panel. The six per-dataset panels that used to sit underneath are fig_A2's job; repeating them
 here cost most of a page and said nothing the ranking did not.
 
-WHAT IS RANKED. Thirteen models. Each is ranked WITHIN every individual dataset (1 = best of the
-thirteen), those per-dataset ranks are averaged within each of four task categories, and the four
+WHAT IS RANKED. Thirteen models, every one of them a FROZEN representation with a trained head. Each is ranked WITHIN every individual dataset (1 = best of the
+field), those per-dataset ranks are averaged within each of four task categories, and the four
 category means are averaged with EQUAL WEIGHT. Ranking per dataset is what makes the pooling
 legal: the metrics are heterogeneous (RMSE, ROC-AUC, PR-AUC, NEF1%, Pearson r, Spearman rho) and
-cannot be averaged. A dataset scored on only k of the thirteen is rescaled from [1..k] to [1..13]
+cannot be averaged. A dataset scored on only k of the field is rescaled to the full field
 so a missing model cannot flatter the rest.
 
     coloured tick mean of the four category ranks
@@ -37,8 +37,7 @@ TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-
 
 MISSING DATA IS DRAWN, NOT OMITTED. Three arms and two datasets are commissioned and not yet
 back. An arm with no results is a labelled empty row, not an absent row: dropping it would make
-the plate look finished and quietly renumber the field from thirteen to ten, which changes every
-rank on the page. The rank field is fixed at len(ARMS_13) for the same reason.
+the plate look finished and quietly renumber the field, which changes every rank on the page.
 
 Run:  python3 -m figures.fig_A
 """
@@ -55,15 +54,21 @@ from figures import tasksuites as T
 check_font()
 INK = "#000000"
 
-# ---------------------------------------------------------------- the thirteen -----------------
-# ASSUMED SUBSET, stated here rather than inferred: two classical anchors at XGBoost, the six
-# mainline CLIMB objectives plus two no-pretraining controls at frozen+MLP, and the three
-# literature CLMs. Changing the field is a one-line edit here; it is deliberately NOT derived from
-# arms.in_ranking, which admits all 22 arms including fig_A2's ablation ladder.
-ARMS_13 = ["ecfp", "ecfp_desc",
-           "unsup", "sup_dense", "u2s_dense", "s2u_dense", "unsup_e2e", "sup_dense_e2e",
-           "random_encoder", "e2e_no_pretrain",
-           "chemberta_mtr", "molformer_c3", "selfies_ted"]
+# ---------------------------------------------------------------- the ranked field --------------
+# The CLIMB seven are Leif's list (2026-08-25). Changing the field is a one-line edit here; it is
+# deliberately NOT derived from arms.in_ranking, which admits all 22 arms including fig_A2's
+# ablation ladder.
+#
+# EVERY ARM ON THIS PLATE IS NOW A FROZEN REPRESENTATION WITH A TRAINED HEAD. The list drops all
+# four end-to-end arms, which is a real improvement rather than a cosmetic cut: fine-tuning the
+# whole network is the largest single effect in this benchmark, so a table mixing frozen probes
+# with fine-tuned networks ranks two protocols at once and an end-to-end row placing high says
+# something about fine-tuning rather than about pretraining. fig_A1 carries that comparison, with
+# its own end-to-end key.
+RANKED_ARMS = ["ecfp", "ecfp_desc",
+               "sup_dense", "sup_sparse", "sup_mixed",
+               "unsup", "u2s_dense", "u2s_sparse", "s2u_dense", "random_encoder",
+               "chemberta_mtr", "molformer_c3", "selfies_ted"]
 
 # Arms with no entry in arms.py because their results have not landed. They are promoted into
 # arms.py -- colour, label, replicate convention -- when the run comes back; until then they are
@@ -81,12 +86,12 @@ PENDING_ARMS = {
 }
 assert not (set(PENDING_ARMS) & set(ARMS)), \
     "an arm is declared PENDING here and also present in arms.py -- promote it and delete it here"
-assert set(ARMS_13) - set(ARMS) == set(PENDING_ARMS), \
-    f"ARMS_13 names arms that are neither in arms.py nor declared pending: " \
-    f"{sorted(set(ARMS_13) - set(ARMS) - set(PENDING_ARMS))}"
+assert set(RANKED_ARMS) - set(ARMS) == set(PENDING_ARMS), \
+    f"RANKED_ARMS names arms that are neither in arms.py nor declared pending: " \
+    f"{sorted(set(RANKED_ARMS) - set(ARMS) - set(PENDING_ARMS))}"
 
-N = len(ARMS_13)
-HAVE = [a for a in ARMS_13 if a in ARMS]
+N = len(RANKED_ARMS)
+HAVE = [a for a in RANKED_ARMS if a in ARMS]
 
 
 def _meta(a):
@@ -106,7 +111,7 @@ def compute():
     """
     out, cat, R = T.wide_ranks(HAVE)
     missing = [a for a in HAVE if a not in out.index]
-    assert not missing, f"fig_A: arms in ARMS_13 with no row in the score table: {missing}"
+    assert not missing, f"fig_A: arms in RANKED_ARMS with no row in the score table: {missing}"
     avail = {k: int((cat == k).sum()) for k in T.CATEGORIES}
     return out, avail
 
@@ -116,7 +121,7 @@ BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plat
 
 def main():
     out, avail = compute()
-    order = list(out.sort_values("mean_rank").index) + [a for a in ARMS_13 if a not in HAVE]
+    order = list(out.sort_values("mean_rank").index) + [a for a in RANKED_ARMS if a not in HAVE]
     nfield = len(HAVE)
 
     # One row per model. Thirteen rows plus axis and legend inside 3.4in, roughly a third of A4's
@@ -126,8 +131,10 @@ def main():
     # figsize wide: an axes box that leaves slack renders narrower than the text block and LaTeX
     # then scales every font in it up relative to the rest of the set. This layout is authored to
     # fill the canvas and measured at 6.73in against a 6.69in text block. Re-measure if the axes
-    # fractions below change -- the first version, with slack on both sides, rendered 5.58in.
-    fig = plt.figure(figsize=(STYLE["col2"] * 6.69 / 6.31, 3.45))
+    # fractions below change, AND when the row labels change: the multiplier is the ratio of the
+    # canvas to the crop, and the crop is set by the widest label in the left column, so shortening
+    # the arm list moved it. First version, with slack on both sides, rendered 5.58in.
+    fig = plt.figure(figsize=(STYLE["col2"] * 1.115, 3.45))
     # Row pitch is set by the axes HEIGHT, and it has two lines of text to hold rather than one
     # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 2.83in over 13 rows
     # is 0.218in per row; at the previous 2.50in the bold line and its subtitle nearly touched the
@@ -200,9 +207,18 @@ def main():
     # NO KEY FOR THE TICK (Leif 2026-08-25). The x-axis already reads "mean rank over four task
     # categories" and the tick is the only filled mark on a row of open ones, so the entry
     # restated the axis and cost the legend a slot.
-    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.517, 0.004),
-               ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
-               columnspacing=1.4, borderpad=0.3, **LEGEND_BOX)
+    # CENTRED ON THE PLATE, MEASURED. Chasing this by nudging the anchor does not converge: the
+    # saved plate is a tight crop, so moving the legend moves the crop, and the crop's centre moves
+    # with it. The stable reference is the AXES tight bbox -- axes, tick labels, the hand-drawn row
+    # labels and the x-label, everything except the legend -- which is what sets the crop whenever
+    # the legend is the narrower of the two. Measure that after a draw, then place the legend on
+    # its centre. Also re-centres itself when the arm list changes the width of the label column.
+    leg = fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.004),
+                     ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
+                     columnspacing=1.4, borderpad=0.3, **LEGEND_BOX)
+    fig.canvas.draw()
+    bb = ax.get_tightbbox(fig.canvas.get_renderer()).transformed(fig.transFigure.inverted())
+    leg.set_bbox_to_anchor((0.5 * (bb.x0 + bb.x1), 0.004), transform=fig.transFigure)
 
     save(fig, "fig_A")
     plt.close(fig)
@@ -210,17 +226,18 @@ def main():
 
 
 def report(out, avail, order):
-    print(f"\nFig A — {len(HAVE)} of {len(ARMS_13)} arms scored, "
+    print(f"\nFig A — {len(HAVE)} of {len(RANKED_ARMS)} arms scored, "
           f"{out.attrs['n_datasets_total']} datasets in four categories\n")
-    print(f"   {'model':<26}" + "".join(f"{T.CAT_SHORT[k]:>9}" for k in T.CATEGORIES)
+    print(f"   {'model':<34}" + "".join(f"{T.CAT_SHORT[k]:>9}" for k in T.CATEGORIES)
           + f"{'mean':>8}{'SE':>7}{'n_ds':>6}")
     for a in order:
-        lab = _meta(a)[0]
+        _sys, _sub, _ = _meta(a)
+        lab = f"{_sys} {_sub}"
         if a not in HAVE:
-            print(f"   {lab:<26}" + f"{'awaiting results':>39}")
+            print(f"   {lab:<34}" + f"{'awaiting results':>39}")
             continue
         r = out.loc[a]
-        print(f"   {lab:<26}" + "".join(f"{r[k]:>9.2f}" for k in T.CATEGORIES)
+        print(f"   {lab:<34}" + "".join(f"{r[k]:>9.2f}" for k in T.CATEGORIES)
               + f"{r['mean_rank']:>8.2f}{r['se_rank']:>7.2f}{int(r['n_datasets']):>6}")
     print(f"\n   datasets per category: "
           + ", ".join(f"{k} {avail[k]}" for k in T.CATEGORIES))
