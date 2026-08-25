@@ -3,9 +3,9 @@
 ONE script, ONE figure: figures_v2/SI_fig_a.png / .pdf
 
 The same pretrained encoder used two ways at FULL downstream data: frozen (encoder fixed, probe
-trained on the labels) versus end-to-end (whole network fine-tuned). Three encoders — `unsupervised`,
-`supervised, desc`, and the external comparator `CheMeleon` — on each of the six canonical panels.
-Thirty-six points, no holes.
+trained on the labels) versus end-to-end (whole network fine-tuned). Two encoders — `unsupervised`
+and `supervised, desc` — on each of the six canonical panels. The pairs are RETIRED-filtered
+through arms.E2E_PAIRS, which is what removed the third (CheMeleon, 2026-08-23).
 
 ONE WAVE, ONE ESTIMATOR (rebuilt 2026-08-20). Both properties were missing and both mattered:
 
@@ -13,13 +13,12 @@ ONE WAVE, ONE ESTIMATOR (rebuilt 2026-08-20). Both properties were missing and b
   its 100% fraction on BACE/Tox21/QM7. That was a historical accident: when it was chosen the
   end-to-end CLIMB arms had no MolNet runs. They have them now, so every point comes from the
   mainline wave. The offsets this removes are large — the same ECFP4+desc anchor reads 0.8712 on
-  BACE in one wave and 0.7836 in the other — and it fills three real holes, since CheMeleon was
-  frozen-only on BACE and Tox21 and absent from QM7.
+  BACE in one wave and 0.7836 in the other.
 
   ESTIMATOR. Error bars were "±1 SD of that panel's replicate unit", and the replicate unit was not
   the same thing for every arm — pretraining-seed spread where an arm has three pretrainings,
-  head-seed spread for CheMeleon, which has one pretraining by construction. Different estimands on
-  one axis look like a precision difference and are not. Every interval is now a 95% resampling
+  head-seed spread for an arm with one pretraining by construction. Different estimands on one axis
+  look like a precision difference and are not. Every interval is now a 95% resampling
   interval from the same file fig_A2 draws from, and every arm WITHIN a panel shares one method:
   scaffold cluster bootstrap on the MolNet panels, target cluster bootstrap on MoleculeACE (whose
   value is a macro-mean over 30 separate tasks, so targets are the resampling unit), and an
@@ -30,16 +29,16 @@ ONE WAVE, ONE ESTIMATOR (rebuilt 2026-08-20). Both properties were missing and b
 
   Intervals are ASYMMETRIC because the bootstrap distribution is, and they are drawn that way.
 
-WHICH CHEMELEON. The frozen half is the XGBOOST probe. The paper reports exactly two CheMeleon
-models — frozen+XGBoost and end-to-end-from-foundation (Leif 2026-08-20) — and this is the same
-convention fig_A1 uses: each representation at the head that suits it, a preference SI fig f
-measures as a property in its own right. The honest consequence, stated in the caption: CheMeleon's
-line changes head between its ends (XGBoost probe → fine-tuned D-MPNN) while the CLIMB lines do
-not. Reporting its MLP probe instead would match heads at the cost of drawing a configuration the
-paper never otherwise mentions, and would understate the arm by 0.185 macro RMSE on MoleculeACE.
+BOTH ENDS OF EVERY LINE NOW SHARE A HEAD. With the external comparator retired, the two remaining
+encoders are frozen+MLP at one end and the same network fine-tuned at the other, so a line's slope
+is the fine-tuning effect and nothing else. The retired arm changed head between its ends (XGBoost
+probe -> fine-tuned D-MPNN), which needed a caption clause to stay honest; that clause is gone with
+it rather than left behind describing a line that is no longer drawn.
 
-WHAT THE FIGURE SAYS, AND IT IS WEAKER THAN THE PREVIOUS VERSION CLAIMED. End-to-end is ahead in 12
-of the 18 cells, but NOT ONE of the eighteen frozen/end2end interval pairs is disjoint. The old
+WHAT THE FIGURE SAYS, AND IT IS WEAKER THAN THE PREVIOUS VERSION CLAIMED. End-to-end is ahead in 10
+of the 12 cells, but NOT ONE of the twelve frozen/end2end interval pairs is disjoint. (18 cells and
+"12 of 18" was the three-encoder figure; retiring the external comparator on 2026-08-23 took it to
+two encoders x six panels without anyone updating the count here or in the caption.) The old
 figure reported 8 of 12 cells "clearing the combined SD"; that bar was a spread over seed
 replicates, which measures how reproducible a number is and not how well the test set pins it down.
 A cluster bootstrap over test scaffolds includes the sampling variation the seed SD omits, and it
@@ -164,7 +163,7 @@ def main():
     #
     # The resolver it replaces was not academic. It was written as
     # `{r.panel: str(r.protocol) for r in DF.itertuples()}` -- last row per panel wins -- which
-    # was fine until the CheMeleon rows were appended last and flipped every panel's protocol to
+    # was fine until an extra arm's rows were appended last and flipped every panel's protocol to
     # "mainline", which in turn drew the MAINLINE anchor on three label-efficiency panels. The
     # anchor gap there is 8.8 points on BACE, larger than the spread between arms.
     _waves = sorted(set(DF.protocol.astype(str))) if len(DF) else []

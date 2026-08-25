@@ -17,70 +17,41 @@ as a SLOPE: left is the MLP, right is XGBoost (user 2026-08-20), one line per re
 lines CROSS. Parallel means the head is a level shift and the ranking of representations is
 head-independent -- which is what the rest of the paper assumes.
 
-THE LINES CROSS ON EVERY PANEL (6 of 6, complete 2026-08-20). The ranking of the four representations is NOT the same under the two heads
-anywhere:
+THE HEAD PREFERENCE IS REPRESENTATION-DEPENDENT, and that is the whole finding. Delta is
+XGBoost minus MLP, signed so that better-under-XGBoost is positive:
 
-  MoleculeACE  ECFP4+desc leads under both heads, but CheMeleon goes from SECOND under XGBoost
-               (0.688) to LAST under the MLP (0.826), crossing both CLIMB arms
-  Ames         CheMeleon leads under XGBoost (0.873) and is THIRD under the MLP (0.831); both
-               CLIMB arms improve under the MLP while both classical/external arms get worse
-  BACE         XGBoost puts CheMeleon first, the MLP puts ECFP4+desc first
-  Tox21        XGBoost puts ECFP4+desc first, the MLP puts CheMeleon first
-  QM7          XGBoost puts ECFP4+desc first by 8 kcal/mol; under the MLP it is third and
-               CheMeleon falls from second to LAST (195.3 -> 211.5, +16.2)
-  HIV          the top two hold but the CLIMB arms swap, and CheMeleon loses 0.063 NEF1
+                        MolACE     HIV    BACE    Ames   Tox21     QM7    prefers
+  ECFP4+desc            +.0645  +.0192  -.0027  +.0620  +.0077  +10.02    XGBoost, 5 of 6
+  CLIMB unsupervised    -.0298  -.0425  -.0043  -.0046  -.0150   -4.15    MLP,     6 of 6
+  CLIMB supervised      -.0198  -.0113  +.0079  -.0017  -.0170   -3.61    MLP,     5 of 6
 
-The size of the effect is the point: CheMeleon moves 16.2 kcal/mol on QM7, 0.063 NEF1 on HIV and
-0.138 macro-RMSE on MoleculeACE between heads, which is larger than most differences this paper
-reports BETWEEN representations. It is the same arm every time, and always in the direction of
-preferring the tree ensemble.
+A 2048-bit sparse fingerprint plus 217 descriptors suits a tree ensemble; a 512-d dense embedding
+suits an MLP. Neither is a small effect where it matters: ECFP4+desc gains 0.065 macro RMSE on
+MoleculeACE and 10.0 kcal/mol on QM7 by switching head, which is wider than the gap between any
+two representations on those panels under a single head.
 
-STATE IT ONCE AS A PROPERTY OF THE REPRESENTATION, NOT SIX TIMES AS A SURPRISE. Counting the
-head swap MLP -> XGBoost panel by panel, the direction is not mixed, it is opposite by arm:
+THIS IS THE EVIDENCE FOR fig_A's PROBE RULE. fig_A scores each representation at the head that
+suits it -- ECFP4 arms at XGBoost, every CLM at frozen+MLP -- rather than forcing one head on
+all. That rule is only defensible because the preference is measured and representation-dependent
+rather than assumed, and this figure is the measurement. Forcing a single head does not remove the
+confound, it just picks which representation to handicap.
 
-  CheMeleon frozen   XGBoost is better on 5 of 6 panels
-                     MoleculeACE -0.138 macro RMSE, QM7 -16.2 kcal/mol, HIV +0.063 NEF1,
-                     Ames +0.042, BACE +0.006; only Tox21 goes the other way (-0.010)
-  CLIMB unsup.       XGBoost is WORSE on 5 of 6 (MoleculeACE +0.052 RMSE, QM7 +4.4, Ames -0.035,
-                     HIV -0.016, Tox21 -0.012; BACE flat at +0.0003)
-  CLIMB sup., desc   XGBoost is worse on 4 of 6
+WHAT THAT DOES AND DOES NOT LICENCE. A frozen-probe number is a property of the PAIR
+(representation, head) and must not be quoted as a property of the representation alone, so any
+single-head statement of the form "embedding X beats embedding Y" needs this figure beside it. It
+does not overturn fig_A: the classical anchor leads under BOTH heads on five of the six panels
+here, so its position is not an artefact of the head it is given.
 
-And it is not confined to this figure: in fig_A1 the same swap moves CheMeleon frozen from 14th of
-25 to 3rd, while both CLIMB arms LOSE 2-4 positions. Five independent measurements, one direction.
+THE EXPOSURE THIS FIGURE CANNOT CLOSE. It measures three representations. fig_A also ranks three
+literature CLMs (ChemBERTa-2, MoLFormer, SELFIES-TED) at frozen+MLP that have NEVER been measured
+at XGBoost, so their head is assumed to suit them rather than measured to.
+notes/figA-seed-axis-is-not-uniform.md records that decision and its magnitude.
 
-The honest reading is that CheMeleon's 512-d representation suits a tree ensemble and CLIMB's does
-not, which is a statement about the geometry of the two embeddings rather than about either
-model's quality. It also means no single-head ranking of these representations is protocol-free:
-whichever head is chosen, one family is being read through the probe that suits it least.
-
-COMPARE DOWN A COLUMN, NEVER ACROSS THE DIAGONAL. CheMeleon-under-XGBoost (0.688 on MoleculeACE)
-beats ECFP4+desc-under-the-MLP (0.738), which invites "CheMeleon is the best representation on
-MoleculeACE". WITHIN the XGBoost column ECFP4+desc leads at 0.676; the cross-head pairing flatters
-CheMeleon only because of the head swap this figure exists to expose. The same trap runs the other
-way on Ames, where CheMeleon-XGBoost (0.873) against ECFP4+desc-MLP (0.807) looks like a wide win
-and the within-column gap is 0.873 vs 0.870 -- a tie.
-
-AND THE SHARPER SENTENCE, ON MoleculeACE, ALL UNDER XGBoost: bare ECFP4 with no descriptors reads
-0.6877 against CheMeleon-frozen's 0.6875. A 2048-bit fingerprint matches a molecular foundation
-model to three decimals under the same probe, and the descriptor and R3FP variants beat both
-(ECFP4+desc 0.6757, R3FP 0.6721, R3FP+desc 0.6676). Ames is the counterweight and is why neither
-"CheMeleon is strong" nor "classical wins" survives a single panel: there CheMeleon and ECFP4+desc
-tie at the top under XGBoost while both CLIMB arms sit 0.07-0.11 below.
-
-WHAT THAT DOES AND DOES NOT LICENCE. It does not overturn fig_A1: that figure scores every arm
-through the head each is normally used with, which is the honest engineering comparison, and the
-classical anchors lead it under both heads here. What it does mean is that a frozen-probe number
-is a property of the PAIR (representation, head) and must not be quoted as a property of the
-representation alone -- so any single-head statement of the form "embedding X beats embedding Y"
-needs this figure beside it. The two arms whose ordering is most head-sensitive are exactly the two
-external/classical ones, not the CLIMB pair.
-
-WHICH HALF OF EACH PAIR IS NEW. Three of the four representations are normally scored with an MLP
+WHICH HALF OF EACH PAIR IS NEW. Two of the three representations are normally scored with an MLP
 probe and the classical anchor with XGBoost, so this figure needs the OTHER half of each pair:
     ECFP4+desc          has XGBoost (mainline)      needs MLP
     CLIMB unsupervised  has MLP (mainline)          needs XGBoost
     CLIMB supervised    has MLP (mainline)          needs XGBoost
-    CheMeleon frozen    has MLP (mainline)          needs XGBoost
 The existing half is read from the mainline table so it is the SAME number the other figures draw;
 the new half is read from <tag>__<head>/ written by scripts/head_comparison_run.sh.
 
@@ -117,14 +88,12 @@ XTICKS = ["MLP", "XGBoost"]
 
 # (arm key in arms.py, run tag used by head_comparison_run.sh, which head the MAINLINE half is)
 #
-# CheMeleon MUST BE THE FROZEN VARIANT HERE (user 2026-08-19), never chemeleon_e2e. The question
-# is whether the PROBE HEAD changes the ranking of frozen representations, so every line has to be
-# a frozen embedding scored through a head. chemeleon_e2e fine-tunes its whole network on each
-# task, which is not a probe at all -- putting it on this axis would compare a fine-tune against
-# three probes and answer nothing. It is also why audit check 7 lets this figure name CheMeleon:
-# frozen-vs-frozen carries none of the protocol confound the rule exists to prevent.
-# RETIRED-filtered: CheMeleon left the paper 2026-08-23 and its series would otherwise still be
-# drawn and labelled here.
+# EVERY LINE MUST BE A FROZEN EMBEDDING SCORED THROUGH A HEAD. The question is whether the probe
+# head changes the ranking of frozen representations, so a fine-tuned arm on this axis would
+# compare a fine-tune against probes and answer nothing -- which is what the assert below tests.
+# The RETIRED filter is what removed CheMeleon (2026-08-23); the entry stays in the literal so the
+# filter has something to act on and so the line is not silently re-added by someone reading a
+# shorter list. `chemeleon_suite` further down is the shared RESULTS TREE, not the arm.
 SERIES = [s for s in [("ecfp_desc",        "fp_desc_anchor",   "xgb"),
                       ("unsup",            "unsup_8M",         "mlp"),
                       ("sup_dense",        "skip_dense_8M",    "mlp"),
@@ -268,10 +237,9 @@ def main():
         ax.set_ylim(lo - pad, hi + pad)
 
     # EACH LINE IS A REPRESENTATION, so the legend names the representation and NOT its probe --
-    # the probe is the x-axis. series_label() is what strips it: ARMS[...]["label"] for the
-    # CheMeleon arm is "frozen, MLP probe", which as a legend entry both omits the model's name and
-    # contradicts the axis by pinning it to one head. arms.py's labels are written for fig_A1,
-    # where system() supplies "CheMeleon" on the line above; here nothing does.
+    # the probe is the x-axis. series_label() is what strips it: arms.py's labels are written for
+    # fig_A1's two-line rows, where system() supplies the model name above and the label may pin a
+    # probe below. Used raw here, such a label would both omit the model and contradict the axis.
     handles = [Line2D([], [], color=ARMS[a]["color"], marker="o", ms=5.0, lw=1.4,
                       label=series_label(a)) for a, _, _ in SERIES]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052), ncol=row_ncol(handles),
