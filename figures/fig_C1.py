@@ -109,7 +109,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from figures.style import STYLE, FS, save, title, check_font
+from figures.style import STYLE, FS, save, title, check_font, LEGEND_BOX
 from figures.arms import ARMS, SHADES, LIFT_YLABEL
 
 check_font()
@@ -445,7 +445,7 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     # x=0.40, which runs down to -5.5 (user 2026-08-19). The floor is also dropped to open a clean
     # band beneath the data rather than letting the box sit on it. "per bin" is what the x-axis
     # already says, so the shortened label loses nothing.
-    ax1.legend(loc="lower right", fontsize=FS["legend"] - 0.5, frameon=False,
+    ax1.legend(loc="lower right", fontsize=FS["legend"] - 0.5, **LEGEND_BOX,
                handletextpad=0.35, labelspacing=0.22, borderaxespad=0.3)
     lo1, hi1 = ax1.get_ylim()
     ax1.set_ylim(lo1 - 0.20 * (hi1 - lo1), hi1)

@@ -57,7 +57,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from figures.style import STYLE, FS, save, check_font, row_ncol
+from figures.style import STYLE, FS, save, check_font, row_ncol, LEGEND_BOX
 from figures.arms import ARMS, PANELS, PANEL_ORDER, system, label, RETIRED
 from figures.sixpanel import load_mainline, ROOT
 
@@ -309,8 +309,8 @@ def build():
     fig.tight_layout(rect=(0, 0.085, 1, 1))
     _h = legend_handles()
     fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.5, 0.075), ncol=row_ncol(_h),
-               frameon=False, fontsize=FS["legend"], handlelength=1.5, handletextpad=0.5,
-               labelspacing=0.35, columnspacing=1.1, borderpad=0.0, labelcolor=INK)
+               **LEGEND_BOX, fontsize=FS["legend"], handlelength=1.5, handletextpad=0.5,
+               labelspacing=0.35, columnspacing=1.1, borderpad=0.30, labelcolor=INK)
     return fig
 
 

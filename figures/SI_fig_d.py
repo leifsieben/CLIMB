@@ -46,7 +46,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, row_ncol
+from figures.style import STYLE, FS, save, check_font, row_ncol, LEGEND_BOX
 from figures.arms import PANELS, PANEL_ORDER, SHADES
 from figures.sixpanel import ROOT
 
@@ -124,7 +124,7 @@ def main():
                for lab, c, m in MODES]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.064),
                ncol=row_ncol(handles), fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
-               columnspacing=1.2, borderpad=0.0, frameon=False, labelcolor=INK)
+               columnspacing=1.2, borderpad=0.30, **LEGEND_BOX, labelcolor=INK)
     # Axes -> shared x-label -> legend, each about one text-height apart (user 2026-08-19:
     # "too much white space"). The legend is anchored just BELOW the x-label rather than
     # near the canvas floor: with loc="upper center" a low anchor hangs the legend body off

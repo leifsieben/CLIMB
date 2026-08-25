@@ -107,7 +107,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, title, check_font
+from figures.style import STYLE, FS, save, title, check_font, LEGEND_BOX
 from figures.arms import ARMS, ARM_ORDER, system, label
 from figures.allsuites import wide_ranks, wide_table, SUITES
 
@@ -297,7 +297,7 @@ def draw(ax, compact=False):
         _h = suite_handles()
         ax.legend(handles=_h, loc="upper center",
                   bbox_to_anchor=(0.5, -0.058), ncol=len(_h), fontsize=FS["legend"], handletextpad=0.4, labelspacing=0.25,
-                  columnspacing=1.4, borderpad=0.0, frameon=False, labelcolor=INK)
+                  columnspacing=1.4, borderpad=0.30, **LEGEND_BOX, labelcolor=INK)
 
 
 def build():

@@ -77,7 +77,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
+from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol, LEGEND_BOX
 from figures.arms import ARMS, PANELS, PANEL_ORDER, E2E_PAIRS, series_label
 from figures.sixpanel import ROOT
 
@@ -271,7 +271,7 @@ def main():
     # until it runs past the text block, and these entries do not.
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.068), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
-               borderpad=0.0, frameon=False, labelcolor=INK)
+               borderpad=0.30, **LEGEND_BOX, labelcolor=INK)
     # Legend sits one text-height under the tick labels; see the SI b/d/e note.
     fig.tight_layout(rect=(0, 0.088, 1, 1), w_pad=0.35)
     save(fig, "SI_fig_a")

@@ -28,7 +28,7 @@ Run:  python3 -m figures.fig_A_horizontal
 from __future__ import annotations
 import matplotlib.pyplot as plt
 
-from figures.style import STYLE, FS, save, check_font, row_ncol
+from figures.style import STYLE, FS, save, check_font, row_ncol, LEGEND_BOX
 import figures.fig_A1 as A1
 import figures.fig_A2 as A2
 from figures.arms import PANEL_ORDER
@@ -93,8 +93,8 @@ def build(height=5.5, left_frac=0.375):
     _h1 = A1.suite_handles(with_dagger=True)
     fig.legend(handles=_h1, loc="upper center",
                bbox_to_anchor=((lp.x0 + lp.x1) / 2, lp.y0 - 0.085),
-               ncol=row_ncol(_h1), frameon=False, fontsize=FS["legend"], handletextpad=0.4,
-               labelspacing=0.3, columnspacing=1.2, borderpad=0.0, labelcolor=INK)
+               ncol=row_ncol(_h1), **LEGEND_BOX, fontsize=FS["legend"], handletextpad=0.4,
+               labelspacing=0.3, columnspacing=1.2, borderpad=0.30, labelcolor=INK)
     _h2 = A2.legend_handles()
     fig.legend(handles=_h2, loc="upper center",
                bbox_to_anchor=((r_x0 + r_x1) / 2, r_bot - 0.042),
@@ -102,8 +102,8 @@ def build(height=5.5, left_frac=0.375):
                # than assumed: one row took this plate from 10.85in to 13.96in, past even a
                # landscape A4 text block. rows=3 balances 12 into 4x3 -- the same three rows the
                # old ncol=5 produced, but even instead of 5/5/2.
-               ncol=row_ncol(_h2, rows=3), frameon=False, fontsize=FS["legend"], handlelength=1.5,
-               handletextpad=0.5, labelspacing=0.3, columnspacing=1.1, borderpad=0.0,
+               ncol=row_ncol(_h2, rows=3), **LEGEND_BOX, fontsize=FS["legend"], handlelength=1.5,
+               handletextpad=0.5, labelspacing=0.3, columnspacing=1.1, borderpad=0.30,
                labelcolor=INK)
     return fig
 

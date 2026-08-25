@@ -109,7 +109,7 @@ import matplotlib.ticker as ticker
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
+from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol, LEGEND_BOX
 from figures.arms import PANELS, PANEL_ORDER, SHADES
 
 check_font()
@@ -846,7 +846,7 @@ def main():
     handles = legend_handles()
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
-               borderpad=0.0, frameon=False, labelcolor=INK)
+               borderpad=0.30, **LEGEND_BOX, labelcolor=INK)
     # SAY THAT THE INTERVALS ARE MISSING, ON THE CANVAS. Bars with no whiskers read as precise;
     # bars with a stated reason read as pending. The uncertainty on a lift is the spread of the
     # PER-FOLD DIFFERENCE, which the aggregate tables cannot express -- see PAIRED_READY.

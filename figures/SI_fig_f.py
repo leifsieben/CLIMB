@@ -101,7 +101,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
+from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol, LEGEND_BOX
 from figures.arms import ARMS, series_label, PANELS, PANEL_ORDER, RETIRED
 
 check_font()
@@ -276,7 +276,7 @@ def main():
                       label=series_label(a)) for a, _, _ in SERIES]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.4,
-               borderpad=0.0, frameon=False, labelcolor=INK)
+               borderpad=0.30, **LEGEND_BOX, labelcolor=INK)
     fig.tight_layout(rect=(0, 0.105, 1, 1), w_pad=0.35)
     save(fig, "SI_fig_f")
     plt.close(fig)

@@ -85,7 +85,7 @@ from matplotlib.lines import Line2D
 from figures.sixpanel import (suite_run_mean, suite_wave_mean, canonical_value,
                               canonical_lift, crosswave_safe, report_crosswave,
                               joint_molnet_subdirs)
-from figures.style import STYLE, FS, save, title, check_font
+from figures.style import STYLE, FS, save, title, check_font, LEGEND_BOX
 from figures.arms import ARMS, SHADES, LIFT_YLABEL
 
 check_font()
@@ -314,7 +314,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     # after the floor change both lines sit lower on the right-hand side and the box landed on the
     # bioassay markers. The left edge is the emptiest corner now: the property group has two
     # points against the bioassay group's ten.
-    axS.legend(handles=handles, loc="lower left", frameon=False, fontsize=FS["legend"],
+    axS.legend(handles=handles, loc="lower left", **LEGEND_BOX, fontsize=FS["legend"],
                handletextpad=0.4, borderaxespad=0.4, labelspacing=0.3)
     axS.axhline(0, color=SHADES["random"][0], lw=0.6, zorder=1)
     axS.set_xlim(-0.38, 1.38)
