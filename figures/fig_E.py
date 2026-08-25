@@ -82,8 +82,12 @@ PANELS = [
 ]
 
 
-def _lim(sub, pad_lo=0.08, pad_hi=0.30):
-    """Per-panel y-range. Module scope so figures/fig_E_plus_F.py reuses the identical rule."""
+def _lim(sub, pad_lo=0.08, pad_hi=0.22):
+    """Per-panel y-range. Module scope so figures/fig_E_plus_F.py reuses the identical rule.
+
+    `pad_hi` is headroom for the in-axes legend, so it comes down with the legend: at one column
+    panel b's five series needed 30% of the span held empty, which is height spent on nothing.
+    Two columns is three rows, and 22% clears it with the box still off the top spine."""
     lo = min((sub.lift_pct - sub.lift_sd_pct.fillna(0)).min(), 0)
     hi = (sub.lift_pct + sub.lift_sd_pct.fillna(0)).max()
     sp = hi - lo
@@ -135,8 +139,17 @@ def draw(fig, ax, d, series, tag, subtitle, ylim, compact=False):
                   handletextpad=0.4, columnspacing=0.8, borderpad=0.30, labelspacing=0.2,
                   handlelength=1.2, **LEGEND_BOX)
     else:
-        ax.legend(loc="upper right", fontsize=FS["legend"],
-                  ncol=1, handletextpad=0.5, borderpad=0.45, labelspacing=0.25, **LEGEND_BOX)
+        # TWO COLUMNS (Leif 2026-08-25: match fig_C+D's proportions). The legend is inside the
+        # axes, so its row count sets how much empty headroom `_lim` has to reserve above the
+        # tallest bar -- five rows in panel b was 30% of the panel's height held back for a
+        # legend. Halving the rows is what actually shortens the plate; the figsize change alone
+        # would just have squashed the bars.
+        # ncol follows the series count, it is not a constant. Panel a has two entries and panel
+        # b five; at a flat ncol=2 panel a's box is WIDER than its own axes and hangs off the left
+        # edge, over the top y-tick label. Two rows in a, three in b, neither wider than its panel.
+        ax.legend(loc="upper right", fontsize=FS["legend"], ncol=(1 if len(series) <= 2 else 2),
+                  handletextpad=0.4, columnspacing=0.9, borderpad=0.35, labelspacing=0.22,
+                  handlelength=1.3, **LEGEND_BOX)
 
 
 def main():
@@ -155,14 +168,14 @@ def main():
     # a NARROWER, b WIDER (Leif 2026-08-23). fig_E is now a standalone paper figure rather than the
     # left half of the E+F assembly, so it no longer has to share a canvas with six other panels --
     # and b, which carries the per-task detail, is what benefits from the room.
-    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.35),
+    fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 2.76),
                              gridspec_kw=dict(width_ratios=[1.0, 2.05], wspace=0.24))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
         draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylims[panel])
     axes[0].set_ylabel("Lift over " + ARMS["random_encoder"]["label"])
     axes[1].set_ylabel("Lift over " + ARMS["random_encoder"]["label"])
 
-    fig.subplots_adjust(top=0.905, bottom=0.155, left=0.078, right=0.995)
+    fig.subplots_adjust(top=0.888, bottom=0.185, left=0.082, right=0.995)
     # PAPER FIGURE as of 2026-08-23, not a component. fig_E+F was split into two standalone
     # figures, so this belongs in figures_v2/ proper alongside fig_A/fig_B/fig_G rather than in
     # panels/, which holds only the pieces that other figures assemble.
