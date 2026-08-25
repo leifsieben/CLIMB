@@ -3,7 +3,3 @@ MoleculeACE,CheMel,macro_rmse,0.7021,0.0745
 MoleculeACE,fp+CheMel,macro_rmse,0.6956,0.0727
 MoleculeACE,desc+CheMel,macro_rmse,0.6956,0.0713
 MoleculeACE,fp+desc+CheMel,macro_rmse,0.6896,0.0759
-Ames,CheMel,roc_auc,0.864,
-Ames,desc+CheMel,roc_auc,0.8641,
-Ames,fp+CheMel,roc_auc,0.8724,
-Ames,fp+desc+CheMel,roc_auc,0.8674,

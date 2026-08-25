@@ -152,8 +152,11 @@ def main():
     # With the per-bar labels gone, panel b no longer needs extra width to keep them apart, so the
     # ratio is set by what panel a needs for its six task labels ("MoleculeACE"/"Tox21" collide below
     # ~2.5in of axes width).
+    # a NARROWER, b WIDER (Leif 2026-08-23). fig_E is now a standalone paper figure rather than the
+    # left half of the E+F assembly, so it no longer has to share a canvas with six other panels --
+    # and b, which carries the per-task detail, is what benefits from the room.
     fig, axes = plt.subplots(1, 2, figsize=(STYLE["col2"], 3.35),
-                             gridspec_kw=dict(width_ratios=[1.0, 1.45], wspace=0.26))
+                             gridspec_kw=dict(width_ratios=[1.0, 2.05], wspace=0.24))
     for ax, (panel, tag, subtitle, series) in zip(axes, PANELS):
         draw(fig, ax, d[d.panel == panel], series, tag, subtitle, ylims[panel])
     axes[0].set_ylabel("Lift over " + ARMS["random_encoder"]["label"])

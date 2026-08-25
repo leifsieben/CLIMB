@@ -58,7 +58,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 from figures.style import STYLE, FS, save, check_font, row_ncol
-from figures.arms import ARMS, PANELS, PANEL_ORDER, system, label
+from figures.arms import ARMS, PANELS, PANEL_ORDER, system, label, RETIRED
 from figures.sixpanel import load_mainline, ROOT
 
 check_font()
@@ -78,8 +78,13 @@ CLIMB_HATCH = "...."          # small black dots mark the CLIMB models (density 
 # than being scattered through the CLIMB arms. r3fp/r3fp_desc are missing MoleculeACE and Ames
 # until the peer session's suite runs land; those two panels draw a gap for them rather than a
 # zero, which is the honest rendering of "not run yet".
-MODELS = ["ecfp", "ecfp_desc", "r3fp", "r3fp_desc", "sup_dense", "unsup", "u2s_dense",
-          "e2e_no_pretrain", "random_encoder", "chemeleon_frozen_xgb", "chemeleon_e2e"]
+# Filtered through RETIRED so a name dropped from the paper cannot survive in a literal list --
+# CheMeleon was retired 2026-08-23 and both its entries here would otherwise have kept drawing as
+# empty rows, which is worse than absent: a reader sees the model was tried and reads the dashes as
+# a failure rather than a removal.
+MODELS = [m for m in ["ecfp", "ecfp_desc", "r3fp", "r3fp_desc", "sup_dense", "unsup", "u2s_dense",
+                      "e2e_no_pretrain", "random_encoder", "chemeleon_frozen_xgb", "chemeleon_e2e"]
+          if m not in RETIRED]
 # 2026-08-20: the frozen CheMeleon bar is the XGBOOST probe, not the MLP probe. Leif fixed the
 # paper's CheMeleon vocabulary that day -- the only two CheMeleon models the paper mentions are
 # frozen+XGBoost and end-to-end-from-foundation; the MLP-probe arm was run for our own

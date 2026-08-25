@@ -1036,7 +1036,20 @@ def check_source_coverage():
         return 1
     claimed = {Path(f).name for f in figF.SOURCES}
     on_disk = {f.name for f in RIG.glob("concat_*_v2.csv")}
-    orphan = sorted(on_disk - claimed)
+    # A table belonging to a RETIRED arm is unread ON PURPOSE, and the check TESTS that rather than
+    # taking a declared exemption: the stem is matched against figures.arms.RETIRED, so if an arm
+    # is ever un-retired its tables go straight back to being reported as orphans. Retiring
+    # CheMeleon (2026-08-23) left concat_{redundancy,panels}_chemeleon_v2.csv on disk and unread,
+    # which is the correct state and not a gap.
+    from figures.arms import RETIRED
+    retired_stems = {a.split("_")[0] for a in RETIRED}
+    def _is_retired(fname):
+        return any(f"_{stem}_v2.csv" in fname for stem in retired_stems)
+    retired_on_disk = sorted(f for f in on_disk if _is_retired(f))
+    orphan = sorted(f for f in (on_disk - claimed) if not _is_retired(f))
+    if retired_on_disk:
+        print(f"  OK    {len(retired_on_disk)} table(s) unread because their arm is RETIRED: "
+              f"{', '.join(retired_on_disk)}")
     if orphan:
         bad += len(orphan)
         for f in orphan:

@@ -458,8 +458,24 @@ ARMS = {
                  cbs_legacy_label="chemeleon_frozen")),
 }
 
+# RETIRED FROM THE PAPER (Leif 2026-08-23): "remove Chemeleon from all figures. If it appears
+# anywhere else it must be removed."
+#
+# The DEFINITIONS stay. Retiring here rather than deleting the entries keeps every source path,
+# label and replicate list intact, so the CheMeleon results remain reproducible from this repo and
+# the notes that cite them do not become dangling -- the decision is about the paper's narrative,
+# not about the validity of the runs. What changes is that no figure DRAWS them.
+#
+# Excluded at ARM_ORDER, which is what every figure iterates, so one edit retires the arm
+# everywhere instead of twelve edits that can disagree. Anything naming a CheMeleon key directly
+# -- E2E_PAIRS below, fig_F's embedding roles, A2_ARMS in the bootstrap -- is fixed at its own
+# site, because a name that is written down is not reached by a filter.
+RETIRED = {"chemeleon_frozen", "chemeleon_frozen_xgb", "chemeleon_e2e"}
+_missing = RETIRED - set(ARMS)
+assert not _missing, f"arms.py: RETIRED names an arm that does not exist: {_missing}"
+
 # display order: anchors, supervised, unsupervised, unsup->sup, controls, comparator
-ARM_ORDER = list(ARMS)
+ARM_ORDER = [a for a in ARMS if a not in RETIRED]
 
 # --------------------------------------------------------------------------------------------
 # the canonical 6 panels
@@ -573,9 +589,12 @@ def color(arm_key: str) -> str:
 # run for our own understanding and is not reported). That matches fig_A1's convention of showing
 # each representation at the head that suits it -- SI fig f measures that preference as a property
 # in its own right -- so the two figures agree on what "CheMeleon, frozen" names.
-E2E_PAIRS = [("unsup", "unsup_e2e"),
-             ("sup_dense", "sup_dense_e2e"),
-             ("chemeleon_frozen_xgb", "chemeleon_e2e")]
+# the CheMeleon pair is gone with the arm (RETIRED); built from ARM_ORDER membership so a retired
+# arm cannot leave a dangling half-pair behind
+E2E_PAIRS = [p for p in [("unsup", "unsup_e2e"),
+                         ("sup_dense", "sup_dense_e2e"),
+                         ("chemeleon_frozen_xgb", "chemeleon_e2e")]
+             if not (set(p) & RETIRED)]
 
 
 def series_label(frozen_arm: str) -> str:

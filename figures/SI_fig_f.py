@@ -102,7 +102,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font, mark_empty, row_ncol
-from figures.arms import ARMS, series_label, PANELS, PANEL_ORDER
+from figures.arms import ARMS, series_label, PANELS, PANEL_ORDER, RETIRED
 
 check_font()
 ROOT = Path(__file__).resolve().parent.parent
@@ -123,10 +123,13 @@ XTICKS = ["MLP", "XGBoost"]
 # task, which is not a probe at all -- putting it on this axis would compare a fine-tune against
 # three probes and answer nothing. It is also why audit check 7 lets this figure name CheMeleon:
 # frozen-vs-frozen carries none of the protocol confound the rule exists to prevent.
-SERIES = [("ecfp_desc",        "fp_desc_anchor",   "xgb"),
-          ("unsup",            "unsup_8M",         "mlp"),
-          ("sup_dense",        "skip_dense_8M",    "mlp"),
-          ("chemeleon_frozen", "chemeleon_frozen", "mlp")]
+# RETIRED-filtered: CheMeleon left the paper 2026-08-23 and its series would otherwise still be
+# drawn and labelled here.
+SERIES = [s for s in [("ecfp_desc",        "fp_desc_anchor",   "xgb"),
+                      ("unsup",            "unsup_8M",         "mlp"),
+                      ("sup_dense",        "skip_dense_8M",    "mlp"),
+                      ("chemeleon_frozen", "chemeleon_frozen", "mlp")]
+          if s[0] not in RETIRED]
 assert all(a != "chemeleon_e2e" for a, _, _ in SERIES), \
     "SI fig f compares PROBE HEADS on frozen embeddings; chemeleon_e2e is a fine-tune, not a probe"
 

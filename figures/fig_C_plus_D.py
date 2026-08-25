@@ -53,33 +53,48 @@ def main():
     # 2.4 x 6.69/8.9 = 1.80in. Laying it out at 6.69 natively gives ~1.75in panels at 1:1. The
     # earlier "cramped at 6.69" finding (2026-08-17) was at the OLD height; the fix is to buy the
     # room back vertically rather than horizontally, since fonts now render at their authored size.
-    fig = plt.figure(figsize=(STYLE["col2"] * 0.962, 4.55))
-    row1, row2 = fig.subfigures(2, 1, height_ratios=[1.0, 1.04], hspace=0.05)
+    # ONE ROW, FOUR PANELS (Leif 2026-08-23). The two-row a-f assembly was overloaded; this keeps
+    # the four panels that carry the argument and drops b (the C1 trend, whose claim panel a
+    # already states) and d (the D bar summary, which the e matrix contains in full).
+    #
+    # Order is the argument's order: molecular similarity for the UNSUPERVISED objective, then for
+    # the SUPERVISED one, then task similarity twice. The two group titles sit ABOVE their pair
+    # rather than rotated at the left edge, so the reader gets the grouping before the panels
+    # instead of after.
+    # THREE PANELS (Leif 2026-08-23). The a-f two-row assembly was overloaded; four was still
+    # tight. What survives is one panel per question: molecular similarity for the UNSUPERVISED
+    # objective, the same for the SUPERVISED one, then the task-similarity matrix.
+    #
+    # Dropped, and why each is safe to drop: b (the C1 trend) restated panel a's claim as a
+    # continuous version of the same lift; d (the D bar summary) is the row-means of the matrix
+    # that is still drawn; f (the dense-vs-sparse slope) is one cut of that same matrix. Every
+    # dropped panel remains in its standalone figure, so nothing is lost from the record.
+    fig = plt.figure(figsize=(7.0, 2.85))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.00, 1.20, 1.34], wspace=0.42,
+                          left=0.075, right=0.988, top=0.760, bottom=0.235)
+    ax_a = fig.add_subplot(gs[0, 0])
+    ax_b = fig.add_subplot(gs[0, 1])
+    ax_c = fig.add_subplot(gs[0, 2])
 
-    # both rows share ONE left-to-right width and the same column ratios, so the upper and lower
-    # halves start/end at the same x (user 2026-08-17; possible since c's legend moved inside and
-    # d's long parenthetical labels were dropped)
-    # --- top row: molecular similarity ---------------------------------------------------------
-    gs1 = row1.add_gridspec(1, 3, width_ratios=[1.05, 1.20, 1.25], wspace=0.38,
-                            left=0.125, right=0.985, top=0.90, bottom=0.16)
-    a1 = row1.add_subplot(gs1[0, 0])
-    a2 = row1.add_subplot(gs1[0, 1])
-    a3 = row1.add_subplot(gs1[0, 2])
-    fig_C1.draw(a1, a2, d1, tags=("a", "b"), compact=True)
-    fig_C2.draw(a3, d2, tag="c", compact=True)
+    # fig_C1.draw and fig_D.draw render their panels as a set, and those signatures are shared with
+    # the standalone figures -- changing them to render subsets would put this layout's needs into
+    # scripts that answer to a different one. The unwanted panels go to a scratch canvas that is
+    # closed immediately, which costs one wasted render and keeps the shared entry points intact.
+    scratch = plt.figure(figsize=(4, 6))
+    unused = [scratch.add_subplot(3, 1, i) for i in (1, 2, 3)]
 
-    # --- bottom row: task similarity -----------------------------------------------------------
-    gs2 = row2.add_gridspec(1, 3, width_ratios=[1.05, 1.20, 1.25], wspace=0.38,
-                            left=0.125, right=0.985, top=0.90, bottom=0.19)
-    b1 = row2.add_subplot(gs2[0, 0])
-    b2 = row2.add_subplot(gs2[0, 1])
-    b3 = row2.add_subplot(gs2[0, 2])
-    fig_D.draw(b1, b2, b3, d3, tags=("d", "e", "f"), compact=True)
+    fig_C1.draw(ax_a, unused[0], d1, tags=("a", ""), compact=True)
+    fig_C2.draw(ax_b, d2, tag="b", compact=True)
+    fig_D.draw(unused[1], ax_c, unused[2], d3, tags=("", "c", ""), compact=True)
+    plt.close(scratch)
 
-    # row group labels: rotated, at the very left edge of the figure (user 2026-08-17)
-    fig.text(0.002, 0.755, "Molecular Similarity", rotation=90, va="center", ha="center",
+    def _span(axes):
+        xs = [ax.get_position().x0 for ax in axes] + [ax.get_position().x1 for ax in axes]
+        return (min(xs) + max(xs)) / 2.0
+
+    fig.text(_span([ax_a, ax_b]), 0.950, "Molecular Similarity", ha="center", va="center",
              fontsize=FS["panel_tag"], fontweight="bold")
-    fig.text(0.002, 0.260, "Task Similarity", rotation=90, va="center", ha="center",
+    fig.text(_span([ax_c]), 0.950, "Task Similarity", ha="center", va="center",
              fontsize=FS["panel_tag"], fontweight="bold")
 
     save(fig, "fig_C+D")

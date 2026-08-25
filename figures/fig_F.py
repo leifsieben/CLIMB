@@ -165,6 +165,8 @@ PANEL_TASK = {"MoleculeACE": "MoleculeACE", "HIV": "HIV", "BACE": "BACE",
 PRIMARY = {"MoleculeACE": "macro_rmse", "HIV": "nef1", "BACE": "roc_auc",
            "Ames": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse"}
 LOWER_BETTER_METRIC = {"rmse", "macro_rmse"}
+# panel metric -> the metric the PER-FOLD dumps record for it
+FOLD_METRIC = {"macro_rmse": "rmse"}
 # every task in the sources, for the CSV record (superset of the canonical panels)
 ALL_TASKS = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "ESOL": "rmse", "QM7": "rmse",
              "BACE": "roc_auc", "BBBP": "roc_auc", "Ames": "roc_auc", "Tox21": "roc_auc",
@@ -210,7 +212,10 @@ ROLE_COLOR = {NO_EMB: SHADES["anchor"][0], EMB_CLM_U: SHADES["unsup"][0],
 # role -> the suffix its feature key carries in the source tables. "CLMsup" is the tag the
 # supervised concat run must write; it is named here so the request and the reader agree.
 ROLE_SUFFIX = {NO_EMB: None, EMB_CLM_U: "CLM", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
-ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S, EMB_CHE]
+# CheMeleon RETIRED from the paper (Leif 2026-08-23) -- see figures/arms.py RETIRED. Its role
+# constant and colour stay defined so the concat tables, which still carry CheMel blocks, load
+# without special-casing; it is simply not drawn.
+ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S]
 
 # TWO DESCRIPTOR FAMILIES ON ONE AXIS (Leif 2026-08-22). RDKit was the only descriptor block here.
 # Mordred earns its own ticks because CheMeleon is a D-MPNN pretrained to regress exactly the 1,613
@@ -246,14 +251,16 @@ MORDRED_KEY = "mdesc"
 #
 # Additions differ per reference because the experiment ran what it ran; a tick shows every
 # addition that exists for it rather than padding to a uniform width.
-REF_ORDER = [("ECFP4", "fp"), ("RDKit desc", "desc"),
-             ("Mordred", MORDRED_KEY), ("ECFP4+desc", "fp+desc")]
+# MORDRED RETIRED FROM THIS FIGURE (Leif 2026-08-23), to shorten the narrative -- NOT because the
+# result was wrong. The Mordred axis showed CheMeleon adding +0.0009 over the 1,613 descriptors it
+# was pretrained to regress, which is a real finding and stays in the tables and in
+# notes/fig_F-mordred-axis-handoff.md. With CheMeleon out of the paper the comparison it existed to
+# sharpen has no arm left to sharpen, so drawing it would cost a tick and answer nothing.
+REF_ORDER = [("ECFP4", "fp"), ("RDKit desc", "desc"), ("ECFP4+desc", "fp+desc")]
 CLASSICAL_ADD = {
-    "fp":        [("fp+desc", "+ RDKit desc", SHADES["anchor"][0]),
-                  (f"fp+{MORDRED_KEY}", "+ Mordred", SHADES["anchor"][2])],
-    "desc":      [("fp+desc", "+ ECFP4", SHADES["anchor"][1])],
-    MORDRED_KEY: [(f"fp+{MORDRED_KEY}", "+ ECFP4", SHADES["anchor"][1])],
-    "fp+desc":   [],
+    "fp":      [("fp+desc", "+ RDKit desc", SHADES["anchor"][0])],
+    "desc":    [("fp+desc", "+ ECFP4", SHADES["anchor"][1])],
+    "fp+desc": [],
 }
 EMB_ROLES = [r for r in ROLE_ORDER if ROLE_SUFFIX[r]]
 
@@ -310,49 +317,28 @@ SOURCES = [RIGOR / f"concat_{kind}_{ROLE_SRC_STEM[r]}_v2.csv"
 # If those tables are absent the Mordred groups draw as "not run" rather than being compared
 # across environments -- refusing the comparison is the honest state, and it is visible on the
 # canvas instead of buried in a caveat nobody reads.
-MORDRED_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
-# ONE DIRECTORY, ONE ENVIRONMENT. Every table drawn on the Mordred axis lives under figF/ and came
-# off a single AWS box. The 2026-08-21 laptop Mordred tables are NOT here -- they are quarantined
-# in superseded_local_mordred_20260821/ because that box parses Tox21 as 7,831 molecules where the
-# laptop parses 7,823, so pooling them would change the molecule set mid-figure while every count
-# still passed. A path that still resolves is a path something eventually reads.
+# ---------------------------------------------------------------------------------------------
+# V2: ONE ENVIRONMENT, RECORDED, AND PER-FOLD VALUES
+# ---------------------------------------------------------------------------------------------
+# v1 and v2 are two environments and are MUTUALLY UNMIXABLE. Measured on the 30 embedding-free
+# cells they share: 27 of 30 differ, median 0.38 fold SD and max 1.82, against lifts of 0.1-0.4
+# fold SD -- the shift is as large as the effect. The cause is that no v1 artifact recorded its
+# own environment (the AMI pins deepchem/numpy/torch/rdkit but not xgboost or mordred). v2 is the
+# first set that does: analysis/rigor/figF_v2/_environment.json carries the instance type, AMI and
+# package versions. v1 is preserved under figF/ and is NOT read here.
 #
-# Each family needs BOTH halves: the MolNet six and the panels top-up carrying MoleculeACE and
-# Ames. Missing the panels half is five-sixths of a panel set, which is exactly the four-of-six
-# hole this axis was extended to close.
-FIGF = RIGOR / "figF"
-MORDRED_SOURCES = [FIGF / f"{pre}_mordred_{MORDRED_TAGS[r]}.csv"
-                   for r in ROLE_ORDER if ROLE_SUFFIX[r]
-                   for pre in ("concat", "concat_panels")] + \
-    [FIGF / f"{pre}_mordred_{MORDRED_TAGS[r]}_EXTRA.csv"
-     for r in ROLE_ORDER if ROLE_SUFFIX[r]
-     for pre in ("concat", "concat_panels")]
-RDKIT_SAMEENV_SOURCES = [FIGF / f"{pre}_rdkit_sameenv_{MORDRED_TAGS[r]}.csv"
-                         for r in ROLE_ORDER if ROLE_SUFFIX[r]
-                         for pre in ("concat", "concat_panels")] + \
-    [FIGF / f"{pre}_rdkit_sameenv_{MORDRED_TAGS[r]}_EXTRA.csv"
-     for r in ROLE_ORDER if ROLE_SUFFIX[r]
-     for pre in ("concat", "concat_panels")]
-MORDRED_READY = (all(f.exists() for f in MORDRED_SOURCES)
-                 and all(f.exists() for f in RDKIT_SAMEENV_SOURCES))
-
-# PAIRED ERROR BARS NEED PER-FOLD VALUES, WHICH THE AGGREGATE TABLES DO NOT CARRY.
-#
-# A bar here is a DIFFERENCE between two arms that saw the SAME folds, so its uncertainty is the
-# spread of the per-fold difference -- in which fold difficulty, the dominant term, cancels. The
-# marginal SD each table reports is the spread of one arm's absolute score, which does NOT cancel
-# it: measured on fp+desc -> fp+desc+CLM it runs 2.0x the lift on BACE and 7.8x on Tox21. Drawing
-# those on a difference would put the wrong uncertainty on the wrong quantity and make a real
-# effect look unmeasurable.
-#
-# concat_redundancy.py computes the per-fold values (`fm` in its fold loop) and keeps only
-# mean/std, so they cannot be recovered from what exists -- the compute session is re-running to
-# emit them. Until those land the bars draw WITHOUT intervals and the panel says so, which is the
-# honest state: no error bar reads as "not shown", a wrong one reads as measured.
-PERFOLD_SOURCES = [FIGF / f"perfold_{fam}_{MORDRED_TAGS[r]}.csv"
-                   for r in ROLE_ORDER if ROLE_SUFFIX[r]
-                   for fam in ("mordred", "rdkit_sameenv")]
-PAIRED_READY = all(f.exists() for f in PERFOLD_SOURCES)
+# The embedding-free blocks live in a SHARED table rather than being recomputed per tag -- they
+# contain no embedding, so they are identical across tags by construction, and computing them once
+# is what makes that a fact rather than a hope.
+FIGF_V2 = RIGOR / "figF_v2"
+V2_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup"}
+V2_STEMS = ["SHARED"] + [V2_TAGS[r] for r in ROLE_ORDER if ROLE_SUFFIX[r]]
+SOURCES_V2 = [FIGF_V2 / f"{pre}_rdkit_sameenv_{stem}_V2.csv"
+              for stem in V2_STEMS for pre in ("concat", "concat_panels")]
+FOLD_SOURCES = [FIGF_V2 / f"{pre}_rdkit_sameenv_{stem}_V2_folds.csv"
+                for stem in V2_STEMS for pre in ("concat", "concat_panels")]
+V2_READY = all(f.exists() for f in SOURCES_V2)
+PAIRED_READY = V2_READY and all(f.exists() for f in FOLD_SOURCES)
 
 # ---------------------------------------------------------------------------------------------
 # THE AXIS: percent of the classical anchor, so all six panels share one unit
@@ -404,23 +390,15 @@ def compute():
     # figure that refuses to draw until every cell exists cannot show progress. Cells with no
     # source render as the declared "not run" slot, which is the honest state.
     parts = []
-    rdkit_sources = RDKIT_SAMEENV_SOURCES if MORDRED_READY else SOURCES
-    if MORDRED_READY:
-        print("  fig_F: Mordred axis ON - RDKit read from the same-environment tables so the "
-              "family comparison changes exactly one thing")
-    else:
-        missing = [f.name for f in MORDRED_SOURCES + RDKIT_SAMEENV_SOURCES if not f.exists()]
-        print(f"  fig_F: Mordred axis OFF, {len(missing)} table(s) absent "
-              f"({', '.join(missing[:3])}{'...' if len(missing) > 3 else ''}). "
-              f"Its groups draw as 'not run'; RDKit stays on the published tables.")
-    for f in rdkit_sources:
-        if f.exists():
-            parts.append(_align_tags(pd.read_csv(f)) if MORDRED_READY else pd.read_csv(f))
-        else:
-            print(f"  fig_F: {f.name} absent - its cells will draw as 'not run'")
-    if MORDRED_READY:
-        for f in MORDRED_SOURCES:
-            parts.append(_tag_family(pd.read_csv(f)))
+    if not V2_READY:
+        missing = [f.name for f in SOURCES_V2 if not f.exists()]
+        raise FileNotFoundError(
+            f"fig_F: v2 tables absent ({len(missing)}), e.g. {missing[:2]}. v1 under figF/ is a "
+            f"DIFFERENT environment and is not a fallback -- 27 of its 30 shared cells differ from "
+            f"v2 by a median 0.38 fold SD against lifts of 0.1-0.4 SD.")
+    print(f"  fig_F: v2 tables, one recorded environment ({FIGF_V2 / '_environment.json'})")
+    for f in SOURCES_V2:
+        parts.append(_align_tags(pd.read_csv(f)))
     if not parts:
         raise FileNotFoundError("fig_F: no concat source table found")
     d = pd.concat(parts, ignore_index=True)
@@ -525,6 +503,30 @@ def _fill_ames_se(d):
     return d
 
 
+def fold_table():
+    """{(task, features, metric): {fold: value}} from the v2 per-fold dumps.
+
+    This is what makes a paired error bar possible. A bar in this figure is a DIFFERENCE between
+    two arms that saw the SAME folds, so its uncertainty is the spread of the per-fold difference,
+    in which fold difficulty -- the dominant term -- cancels. The marginal SD each summary row
+    reports does NOT cancel it: measured on fp+desc -> fp+desc+CLM it ran 2.0x the lift on BACE and
+    7.8x on Tox21, which is why this figure drew no intervals at all until the per-fold values
+    existed.
+
+    MoleculeACE keys its `fold` column on the TARGET name rather than an index; the arithmetic is
+    identical, the pairing is per target. Ames emits no fold rows at all -- Polaris withholds the
+    labels, so there is one evaluation and no spread to pair.
+    """
+    import collections
+    out = collections.defaultdict(dict)
+    for f in FOLD_SOURCES:
+        if not f.exists():
+            continue
+        for r in _align_tags(pd.read_csv(f)).itertuples():
+            out[(r.task, r.features, r.metric)][str(r.fold)] = float(r.value)
+    return out
+
+
 def shared_ylims(d):
     """{metric: (lo, hi)} over every canonical panel scored on that metric."""
     import collections
@@ -597,6 +599,7 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         mark_empty(ax, f"{p}: concatenation test not run on this panel")
         return
     metric = PRIMARY[task]
+    FOLDS = fold_table()
     g = d[(d.task == task) & (d.metric == metric)].set_index("features")
 
     def cell(k):
@@ -643,9 +646,32 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         group_centres.append((start + xi - 1.0) / 2.0)
         xi += GAP
     x = np.array(xs)
-    # no paired per-fold data yet -> no intervals, and the panel says so rather than borrowing the
-    # marginal SDs, which describe a different quantity (see PAIRED_READY).
-    es = [float("nan")] * len(ys)
+    # PAIRED interval: the SD of the per-fold LIFT, not of either arm's absolute score.
+    def lift_sd(ref_key, add_key):
+        if not PAIRED_READY:
+            return float("nan")
+        # MoleculeACE's panel metric is macro_rmse -- the MEAN over its 30 targets -- while the
+        # per-fold dump records plain `rmse` per target, because a macro average has no per-fold
+        # decomposition. The replicate unit there is the TARGET, which is what the rest of this
+        # figure set already uses for MoleculeACE, so pairing per target is the same estimand.
+        # Without this the lookup missed on every MoleculeACE cell and the panel silently drew no
+        # intervals while every other panel had them.
+        fmetric = FOLD_METRIC.get(metric, metric)
+        r0 = FOLDS.get((task, ref_key, fmetric), {})
+        r1 = FOLDS.get((task, add_key, fmetric), {})
+        shared = sorted(set(r0) & set(r1))
+        if len(shared) < 2:
+            return float("nan")          # Ames: one evaluation, nothing to pair
+        per = []
+        for f in shared:
+            v0, v1 = r0[f], r1[f]
+            if not np.isfinite(v0) or v0 == 0:
+                continue
+            gain = (v0 - v1) if fmetric in LOWER_BETTER_METRIC else (v1 - v0)
+            per.append(100.0 * gain / abs(v0))
+        return float(np.std(per, ddof=1)) if len(per) > 1 else float("nan")
+
+    es = [lift_sd(rk, k) for _, rk, adds in GROUPS for k, _, _ in adds]
 
     base_v = 0.0               # the reference line, by construction
     drawn = [v for v in ys if v is not None]
@@ -658,7 +684,10 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
 
     # y range spans the drawn lifts and always includes zero, since zero is the claim being read
     # against and a panel whose axis excluded it would hide the sign of every bar.
-    lo, hi = min(drawn + [0.0]), max(drawn + [0.0])
+    span = [v for v in drawn] + [0.0]
+    span += [v + e for v, e in zip(ys, es) if v is not None and np.isfinite(e)]
+    span += [v - e for v, e in zip(ys, es) if v is not None and np.isfinite(e)]
+    lo, hi = min(span), max(span)
     pad = 0.28 * max(hi - lo, 1e-9)
     y0, y1 = lo - pad, hi + pad
     ax.set_ylim(y0, y1)
