@@ -27,13 +27,18 @@ run () {  # $1 out  $2 hf id  $3 extra args...
   # raise a KeyError halfway through MolNet, after the cheap datasets were already paid for.
   if [ -s "$out" ]; then
     local have
+    # SKIP ONLY IF IT IS BOTH COMPLETE AND SELF-DESCRIBING. Coverage alone was the wrong test: a
+    # table extracted before the meta blob existed covers every molecule and still cannot say what
+    # produced it, so a coverage-only check would keep an unprovenanced table forever.
     have=$($NEW -c "
 import numpy as np, json
-z=np.load('$out'); have={str(s) for s in z['smiles']}
+z=np.load('$out', allow_pickle=False)
+have={str(s) for s in z['smiles']}
 want=set(json.load(open('$SM'))['_all_unique'])
-print(len(want-have))")
-    if [ "$have" = "0" ]; then say "SKIP $out (covers all $n)"; return 0; fi
-    say "RE-EXTRACT $out ($have molecules short of the universe)"
+missing=len(want-have)
+print('OK' if (missing==0 and 'meta' in z.files) else f'{missing}:{\"meta\" in z.files}')")
+    if [ "$have" = "OK" ]; then say "SKIP $out (complete and carries meta)"; return 0; fi
+    say "RE-EXTRACT $out (missing:has_meta = $have)"
     mv "$out" "figure_data/_superseded/$(basename "$out" .npz)_partial.npz" 2>/dev/null
   fi
   say "extract $hf -> $out"
