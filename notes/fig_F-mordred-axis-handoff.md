@@ -160,3 +160,61 @@ true count went 4/12 → 10/12 on fixing the **check**, with no change to the da
 
 Surplus blocks are running into `*_EXTRA.csv`, which cannot touch what the figure reads. Nothing in
 the figure depends on them.
+
+---
+
+# V2 — 2026-08-24 23:04 UTC — READ BEFORE RE-RENDERING fig_F
+
+Box `i-0bad233198a94150e` (m5.8xlarge), 16 cells, self-terminated with all five gates green.
+Tables in `analysis/rigor/figF_v2/`, S3 `experiments/_figF_v2/`, environment recorded in
+`_figF_v2/_environment.json` and `figure_data/_figF_v2_environment.json`.
+
+## v1 and v2 CANNOT BE MIXED
+
+Measured on the 30 embedding-free cells, which contain no embedding and must therefore be equal:
+
+    27 of 30 differ.  median 0.38 fold SD, max 1.82 (BBBP fp roc_auc 0.8475 -> 0.8822)
+    the lifts fig_F draws:  0.1 - 0.4 fold SD
+
+The environment shift is the same size as or larger than the effect being plotted. **Re-render
+everything from v2** — means, SDs, per-fold, Ames. Do not pair v2 folds against v1 means.
+
+Nothing about the experiment changed. `eval_v2.py`, `heads_v2.py`, `descriptors_v2.py` are
+byte-identical between the runs; same folds (seed 0, deterministic), same seeds, same npz tables,
+same encoders, same S3 objects. The one uncontrolled variable is the **xgboost version**, unpinned
+anywhere in the repo and pip-installed on a box that no longer exists.
+
+## The v1 Ames headline does not replicate
+
+|  CheMeleon lift over descriptors | RDKit | Mordred |
+|---|---|---|
+| v1 (published, in the caption) | +0.0156 | +0.0009 |
+| **v2** | **+0.0052** | **+0.0075** |
+| one Hanley–McNeil SE | 0.0097 | 0.0097 |
+
+v1 read as *"real information beyond RDKit, essentially none beyond its own pretraining target"* —
+a 17× asymmetry. In v2 the two lifts are the same size, in the opposite order, and **both sit
+inside one standard error**. That sentence was not measuring CheMeleon; it was measuring the gap
+between two environments. **It must come out of the caption.**
+
+## What v2 adds
+
+- **2,400 per-fold rows** in `*_folds.csv` — one row per (task, features, metric, fold). MoleculeACE
+  keys on the TARGET name, its actual replicate unit. Ames emits none, correctly.
+- **The Ames ECFP4+desc ticks v1 lost with its box.** On `fp+desc`, CheMeleon adds +0.0041 (RDKit)
+  and **+0.0138 (Mordred)** while both CLIMB arms subtract. The Mordred figure is above one SE.
+- **Full 15-block grid in both families**, `fp+desc+<TAG>` included.
+
+## v2 is one environment, proved
+
+`fp` is plain ECFP4 and must be identical across descriptor families: **11 shared cells, 0
+disagreements.** On Ames the family-independent blocks agree exactly as well (fp 0.8378, CheMel
+0.8640, fp+CheMel 0.8724 in both).
+
+## Provenance gotcha worth carrying forward
+
+**Two rdkit distributions are installed** — `rdkit 2025.9.2` and `rdkit-pypi 2022.9.5` — and the
+one that *imports* is `rdkit-pypi`. Every ECFP4 fingerprint and RDKit descriptor came from
+**2022.09.5** while `pip list` leads with 2025.9.2. Recorded as `rdkit_EFFECTIVE`. It comes from
+the AMI so v1 shared it — not part of the v1→v2 shift — but anyone reconstructing either
+environment from `pip list` would write down the wrong version and conclude they matched.
