@@ -86,6 +86,14 @@ def _pdf_width_in(path):
     return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
 
 
+# ONE LEGEND FRAME FOR THE WHOLE SET. A legend that sits ON the data needs an opaque box or the
+# points behind it show through and the labels stop being readable; fig_C2 had one and fig_E did
+# not, so the same object looked like two different conventions across the paper. Defined here and
+# imported rather than restated per figure, because two hand-written copies of "the same" frame is
+# how they drift.
+LEGEND_BOX = dict(frameon=True, framealpha=1.0, edgecolor=STYLE["ink"], facecolor="white")
+
+
 def row_ncol(handles, rows=1):
     """Column count that lays `handles` out in ONE ROW. The paper's default (user 2026-08-20:
     "always have this as the default").

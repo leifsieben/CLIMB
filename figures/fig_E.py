@@ -57,7 +57,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.transforms import ScaledTranslation
 
-from figures.style import STYLE, FS, save, check_font
+from figures.style import STYLE, FS, save, check_font, LEGEND_BOX
 from figures.arms import SHADES, ARMS
 
 check_font()
@@ -131,12 +131,12 @@ def draw(fig, ax, d, series, tag, subtitle, ylim, compact=False):
     if compact:
         # INSIDE the axes, two columns, with extra headroom bought by the caller's ylim -- a legend
         # below the axes collided with the assembled figure's own bottom legend.
-        ax.legend(loc="upper left", ncol=2, frameon=False, fontsize=FS["legend"] - 1,
-                  handletextpad=0.4, columnspacing=0.8, borderpad=0.0, labelspacing=0.2,
-                  handlelength=1.2)
+        ax.legend(loc="upper left", ncol=2, fontsize=FS["legend"] - 1,
+                  handletextpad=0.4, columnspacing=0.8, borderpad=0.30, labelspacing=0.2,
+                  handlelength=1.2, **LEGEND_BOX)
     else:
-        ax.legend(loc="upper right", frameon=False, fontsize=FS["legend"],
-                  ncol=1, handletextpad=0.5, borderpad=0.2, labelspacing=0.25)
+        ax.legend(loc="upper right", fontsize=FS["legend"],
+                  ncol=1, handletextpad=0.5, borderpad=0.45, labelspacing=0.25, **LEGEND_BOX)
 
 
 def main():

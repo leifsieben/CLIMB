@@ -92,7 +92,7 @@ from matplotlib.lines import Line2D
 from figures.sixpanel import (suite_run_mean, suite_wave_mean, canonical_value,
                               canonical_lift, crosswave_safe, report_crosswave,
                               joint_molnet_subdirs)
-from figures.style import STYLE, FS, save, title, check_font
+from figures.style import STYLE, FS, save, title, check_font, LEGEND_BOX
 from figures.arms import ARMS, SHADES, TASK_COLORS, LIFT_YLABEL
 
 check_font()
@@ -290,8 +290,8 @@ def draw(ax, data, tag=None, compact=False):
     loc = empty[0]
     # BOXED and untitled (user 2026-08-19): on the same axes as the scatter an unframed legend's
     # markers read as data points. This is the only boxed legend in the set, for that reason.
-    kw = dict(handles=task_handles, loc=loc, frameon=True, framealpha=1.0,
-              edgecolor=STYLE["ink"], facecolor="white")
+    # the shared frame, not a local copy -- see figures.style.LEGEND_BOX
+    kw = dict(handles=task_handles, loc=loc, **LEGEND_BOX)
     if compact:
         ax.legend(ncol=3, fontsize=FS["legend"] - 0.5, handletextpad=0.25, borderaxespad=0.35,
                   borderpad=0.3, labelspacing=0.22, columnspacing=0.6, handlelength=0.9, **kw)
