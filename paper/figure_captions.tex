@@ -58,8 +58,11 @@ percentage lift one addition buys on top of it, signed so positive is always bet
 XGBoost and the same scaffold 5-fold CV throughout, with every cell computed in one recorded
 environment. Error bars are $\pm1$ SD of the PER-FOLD lift --- both arms see the same folds, so
 fold difficulty cancels in the difference; the marginal SD of either arm alone runs $2$--$8\times$
-the lift and describes a different quantity. Ames carries the analytic Hanley--McNeil AUC SE and no
-paired interval, because Polaris withholds its labels and there is a single evaluation to pair.
+the lift and describes a different quantity. Ames has no replicate axis at all --- Polaris withholds its labels, so there is one scored
+evaluation per feature block --- and its interval is instead the analytic Hanley--McNeil AUC SE
+propagated through the lift. That is a CONSERVATIVE bound: both arms are scored on the same test
+set and their AUC estimates are therefore positively correlated, so the true SE of their difference
+is smaller. The correlated form requires the label vector, which is what is withheld.
 Descriptors are demonstrably orthogonal to fingerprints, which is the positive control that makes a
 flat embedding bar readable: adding descriptors to ECFP4 gains $12.8\%$ on QM7 and $6.2\%$ on
 Tox21, and is flat on BACE and HIV.

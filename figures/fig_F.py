@@ -666,7 +666,25 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
         r1 = FOLDS.get((task, add_key, fmetric), {})
         shared = sorted(set(r0) & set(r1))
         if len(shared) < 2:
-            return float("nan")          # Ames: one evaluation, nothing to pair
+            # AMES HAS NO REPLICATE AXIS AT ALL -- Polaris withholds the labels, so there is one
+            # scored evaluation per feature block and nothing to pair. Propagate the two analytic
+            # Hanley-McNeil AUC SEs through the lift instead of drawing nothing, because a bar with
+            # no whisker reads as precise rather than as unmeasured.
+            #
+            # This is a CONSERVATIVE bound and is labelled as one. The two arms are scored on the
+            # SAME test set, so their AUC estimates are positively correlated and the true SE of
+            # their difference is smaller than independent propagation gives. The correlated form
+            # (DeLong) needs the label vector, which is exactly what is withheld -- so an upper
+            # bound is the strongest honest statement available here.
+            v0, _ = cell(ref_key)
+            v1, _ = cell(add_key)
+            g0 = g.loc[ref_key, "std"] if ref_key in g.index else float("nan")
+            g1 = g.loc[add_key, "std"] if add_key in g.index else float("nan")
+            if None in (v0, v1) or not all(np.isfinite(x) for x in (v0, v1, g0, g1)) or v0 == 0:
+                return float("nan")
+            # lift = 100*(v1-v0)/v0  ->  partials 100/v0 and -100*v1/v0**2
+            var = (100.0 / v0) ** 2 * float(g1) ** 2 + (100.0 * v1 / v0 ** 2) ** 2 * float(g0) ** 2
+            return float(np.sqrt(var))
         per = []
         for f in shared:
             v0, v1 = r0[f], r1[f]
