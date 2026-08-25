@@ -49,7 +49,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX, row_ncol
-from figures.arms import ARMS, SHADES
+from figures.arms import ARMS, SHADES, system, label as arm_label
 from figures import tasksuites as T
 
 check_font()
@@ -68,10 +68,16 @@ ARMS_13 = ["ecfp", "ecfp_desc",
 # Arms with no entry in arms.py because their results have not landed. They are promoted into
 # arms.py -- colour, label, replicate convention -- when the run comes back; until then they are
 # declared here so the figure can show the row it is waiting for.
+# `system` is the bold first line (the model doing the predicting), `label` the second (what it
+# is fed / how it was pretrained) -- the same split arms.system()/arms.label() make for every
+# other arm, so the two-line rule has no exceptions on this plate.
 PENDING_ARMS = {
-    "chemberta_mtr":  dict(label="ChemBERTa-2 (MTR)", color=SHADES["unsup"][1]),
-    "molformer_c3":   dict(label="MoLFormer-c3",      color=SHADES["unsup"][2]),
-    "selfies_ted":    dict(label="SELFIES-TED",       color=SHADES["sup"][1]),
+    "chemberta_mtr": dict(system="ChemBERTa-2", label="MTR pretraining",
+                          color=SHADES["unsup"][1]),
+    "molformer_c3":  dict(system="MoLFormer",   label="c3, linear attention",
+                          color=SHADES["unsup"][2]),
+    "selfies_ted":   dict(system="SELFIES-TED", label="SELFIES, enc-dec",
+                          color=SHADES["sup"][1]),
 }
 assert not (set(PENDING_ARMS) & set(ARMS)), \
     "an arm is declared PENDING here and also present in arms.py -- promote it and delete it here"
@@ -84,9 +90,11 @@ HAVE = [a for a in ARMS_13 if a in ARMS]
 
 
 def _meta(a):
+    """(bold first line, second line, colour) for one row."""
     if a in ARMS:
-        return ARMS[a]["label"], ARMS[a]["color"]
-    return PENDING_ARMS[a]["label"], PENDING_ARMS[a]["color"]
+        return system(a), arm_label(a), ARMS[a]["color"]
+    p = PENDING_ARMS[a]
+    return p["system"], p["label"], p["color"]
 
 
 def compute():
@@ -119,11 +127,12 @@ def main():
     # then scales every font in it up relative to the rest of the set. This layout is authored to
     # fill the canvas and measured at 6.73in against a 6.69in text block. Re-measure if the axes
     # fractions below change -- the first version, with slack on both sides, rendered 5.58in.
-    fig = plt.figure(figsize=(STYLE["col2"], 3.40))
-    ax = fig.add_axes([0.192, 0.150, 0.800, 0.762])
+    fig = plt.figure(figsize=(STYLE["col2"] * 6.69 / 6.31, 3.14))
+    ax = fig.add_axes([0.232, 0.194, 0.760, 0.795])
 
+    ytrans = ax.get_yaxis_transform()          # x in axes coords, y in data coords
     for yi, a in enumerate(order):
-        label, c = _meta(a)
+        sysname, sub, c = _meta(a)
         pending = a not in HAVE
         if yi % 2 == 0:
             ax.axhspan(yi - 0.5, yi + 0.5, color=BAND, lw=0, zorder=0)
@@ -149,12 +158,23 @@ def main():
             ax.text(right + 0.28, yi, f"{r['mean_rank']:.2f}", va="center", ha="left",
                     fontsize=FS["annot"] - 0.5, color=INK, zorder=5)
 
-    ax.set_yticks(range(len(order)))
-    ax.set_yticklabels([_meta(a)[0] for a in order], fontsize=FS["tick"] - 0.5)
-    for tick, a in zip(ax.get_yticklabels(), order):
-        if a not in HAVE:
-            tick.set_color("#7A7A7A"); tick.set_style("italic")
-    ax.set_ylim(len(order) - 0.5, -0.5)
+    # TWO-LINE ROW LABEL, drawn by hand rather than as tick text because matplotlib cannot mix
+    # weights inside one tick string: the predicting model in bold, what it is fed underneath.
+    # Offsets are +-0.21 as in fig_A1, and that is a constraint rather than a preference -- at
+    # +-0.26 the within-row gap (0.52) exceeds the between-row gap (0.48) and every second line
+    # reads as though it belongs to the arm BELOW it. Within-row must stay tighter than
+    # between-row whatever the row pitch.
+    for yi, a in enumerate(order):
+        sysname, sub, _ = _meta(a)
+        grey = "#7A7A7A" if a not in HAVE else INK
+        st = "italic" if a not in HAVE else "normal"
+        ax.text(-0.012, yi - 0.21, sysname, transform=ytrans, ha="right", va="center",
+                fontsize=FS["tick"] - 0.4, fontweight="bold", color=grey, style=st)
+        ax.text(-0.012, yi + 0.21, sub, transform=ytrans, ha="right", va="center",
+                fontsize=FS["tick"] - 1.3, color=grey, style=st)
+    ax.set_yticks(range(len(order))); ax.set_yticklabels([])
+    ax.tick_params(axis="y", length=0)
+    ax.set_ylim(len(order) - 0.42, -0.62)
     ax.set_xlim(0.4, nfield + 1.6)
     ax.set_xticks(range(1, nfield + 1, 2))
     ax.set_xlabel(f"mean rank over four task categories, equally weighted "
@@ -162,7 +182,7 @@ def main():
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     ax.tick_params(axis="x", labelsize=FS["tick"] - 0.5)
-    for sp in ("top", "right"):
+    for sp in ("top", "right", "left"):
         ax.spines[sp].set_visible(False)
 
     # The legend carries the DATASET count per category, and the count still owed. Virtual
@@ -173,11 +193,12 @@ def main():
     h = [Line2D([], [], ls="none", marker=T.CAT_MARKER[k], mfc="none", mec=INK, mew=0.9, ms=3.8,
                 label=f"{k} ({avail[k]}" + (f"+{pend[k]} pending)" if pend[k] else ")"))
          for k in T.CATEGORIES]
-    h.append(Line2D([], [], ls="none", marker="|", ms=9.0, mew=2.0, color="#555555",
-                    label="mean of the four"))
-    fig.legend(handles=h, loc="upper center", bbox_to_anchor=(0.52, 1.005),
+    # NO KEY FOR THE TICK (Leif 2026-08-25). The x-axis already reads "mean rank over four task
+    # categories" and the tick is the only filled mark on a row of open ones, so the entry
+    # restated the axis and cost the legend a slot.
+    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.53, 0.004),
                ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
-               columnspacing=1.0, borderpad=0.3, **LEGEND_BOX)
+               columnspacing=1.4, borderpad=0.3, **LEGEND_BOX)
 
     save(fig, "fig_A")
     plt.close(fig)
