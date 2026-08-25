@@ -550,7 +550,8 @@ def shared_ylims(d):
     return out
 
 
-def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=None, bw=None):
+def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=None, bw=None,
+               ylabel=True):
     """Draw ONE canonical panel onto an existing axes.
 
     `compact` narrows the bars and drops the y-label, for the assembled fig_E+F where six panels
@@ -583,7 +584,11 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
     # ONE UNIT ACROSS ALL SIX PANELS, because every bar is now a relative lift rather than a raw
     # metric. The raw metric name moved into the panel title's arrow, which still says which
     # direction is better; the axis says what the bar measures.
-    ax.set_ylabel(LIFT_YLABEL, fontsize=FS["annot"] - (1 if compact else 0), color=INK)
+    # ONE y-label per ROW, not per panel. All six read the same string, so five of them were
+    # spending width to repeat the sixth -- and width is what buys a shorter figure at fixed A4
+    # text-block width. `ylabel` is passed False by the callers that already have one to their left.
+    if ylabel:
+        ax.set_ylabel(LIFT_YLABEL, fontsize=FS["annot"] - (1 if compact else 0), color=INK)
     ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     for sp in ("top", "right"):
@@ -717,8 +722,12 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
     ax.set_xticks(group_centres)
     # Rotated in BOTH layouts: "desc+ECFP4" beside "ECFP4" needs ~0.9in horizontally and the
     # widest panel in this set gives ~0.55in per group.
-    ax.set_xticklabels([g for g, _, _ in GROUPS], fontsize=FS["annot"] - 1, rotation=30,
-                       ha="right", rotation_mode="anchor")
+    # HORIZONTAL tick labels. With Mordred retired there are three references, not five, and their
+    # names fit side by side at this panel width -- the 30-degree rotation was costing roughly a
+    # third of an inch of PAGE HEIGHT per row for labels that no longer need it, which is the
+    # scarce direction. If a longer reference name is ever added this needs revisiting; the check
+    # is whether the labels collide, not whether they look tight.
+    ax.set_xticklabels([g for g, _, _ in GROUPS], fontsize=FS["annot"] - 1)
     ax.tick_params(axis="x", length=0)
     ax.xaxis.set_minor_locator(ticker.NullLocator())
     ax.tick_params(axis="x", which="minor", bottom=False)
@@ -809,12 +818,15 @@ def main():
         w.writerows(rows)
 
     # ---- the figure: canonical six ----
-    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 5.1))
-    for ax, p in zip(axes.ravel(), PANEL_ORDER):
-        draw_panel(ax, d, p)
+    # SHORTER, AT THE SAME A4 WIDTH (Leif 2026-08-23: page length is the scarce resource, width is
+    # free). 5.1in -> 3.95in. The room comes from dropping five repeated y-labels and tightening
+    # the legend gap, not from shrinking the panels: the bars keep their height.
+    fig, axes = plt.subplots(2, 3, figsize=(STYLE["col2"], 3.45))
+    for i, (ax, p) in enumerate(zip(axes.ravel(), PANEL_ORDER)):
+        draw_panel(ax, d, p, ylabel=(i % 3 == 0))
 
     handles = legend_handles()
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.015), ncol=row_ncol(handles),
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.052), ncol=row_ncol(handles),
                fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3, columnspacing=1.2,
                borderpad=0.0, frameon=False, labelcolor=INK)
     # SAY THAT THE INTERVALS ARE MISSING, ON THE CANVAS. Bars with no whiskers read as precise;
@@ -824,7 +836,7 @@ def main():
         fig.text(0.5, 0.062, "intervals pending: a lift needs the spread of the per-fold "
                              "difference, not either arm's own SD",
                  ha="center", va="bottom", fontsize=FS["legend"] - 1, color=INK, alpha=0.75)
-    fig.tight_layout(rect=(0, 0.045 + (0.022 if not PAIRED_READY else 0), 1, 1))
+    fig.tight_layout(rect=(0, 0.055 + (0.022 if not PAIRED_READY else 0), 1, 1), h_pad=0.9, w_pad=1.0)
     # PAPER FIGURE as of 2026-08-23, not a component. fig_E+F was split into two standalone
     # figures, so this belongs in figures_v2/ proper alongside fig_A/fig_B/fig_G rather than in
     # panels/, which holds only the pieces that other figures assemble.
