@@ -69,9 +69,15 @@ def main():
     # continuous version of the same lift; d (the D bar summary) is the row-means of the matrix
     # that is still drawn; f (the dense-vs-sparse slope) is one cut of that same matrix. Every
     # dropped panel remains in its standalone figure, so nothing is lost from the record.
-    fig = plt.figure(figsize=(7.0, 2.85))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.00, 1.20, 1.34], wspace=0.42,
-                          left=0.075, right=0.988, top=0.760, bottom=0.235)
+    # A4 TEXT BLOCK EXACTLY (Leif 2026-08-23). STYLE["col2"] is that width, so the figure arrives
+    # at 1:1 under \includegraphics[width=\textwidth] and its fonts print at the size every other
+    # script authored them at. At 7.0in it was 5% over and LaTeX silently scaled it down.
+    fig = plt.figure(figsize=(STYLE["col2"], 3.05))
+    # The gridspec span is deliberately narrower than the canvas: the two-pass balancer below
+    # keeps axes WIDTHS and only repositions them, so the room for the gaps has to exist before
+    # it runs. At the full span the panels packed to a 0.011 gap and read as one block.
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.00, 1.18, 1.30], wspace=0.46,
+                          left=0.078, right=0.912, top=0.775, bottom=0.325)
     ax_a = fig.add_subplot(gs[0, 0])
     ax_b = fig.add_subplot(gs[0, 1])
     ax_c = fig.add_subplot(gs[0, 2])
@@ -88,9 +94,84 @@ def main():
     fig_D.draw(unused[1], ax_c, unused[2], d3, tags=("", "c", ""), compact=True)
     plt.close(scratch)
 
+    # TWO-PASS LAYOUT, because these three panels carry very different decorations and a uniform
+    # wspace cannot balance them. Measured on the one-pass version: panels b and c OVERLAPPED by
+    # 0.027 of the figure width -- b's x-label ran past its axes into c's row labels -- while the
+    # left and right margins were 0.022 and 0.012. That is what "c is a bit off" was.
+    #
+    # So: draw once, measure each panel's DRAWN extent (tight bbox, decorations included), then
+    # reposition the axes so the two outer margins are equal and the two gaps are equal. Deriving
+    # the geometry from what was actually rendered means it stays balanced when a label changes
+    # length, which a hand-tuned wspace does not.
+    def _bbs():
+        fig.canvas.draw()
+        r = fig.canvas.get_renderer()
+        return [ax.get_tightbbox(r).transformed(fig.transFigure.inverted())
+                for ax in (ax_a, ax_b, ax_c)]
+
+    MARGIN = 0.014
+    panels = (ax_a, ax_b, ax_c)
+    bbs = _bbs()
+    drawn_total = sum(b.x1 - b.x0 for b in bbs)
+    gap = (1.0 - 2 * MARGIN - drawn_total) / (len(bbs) - 1)
+
+    # ATTACHED AXES MOVE WITH THEIR PANEL. fig_D builds the matrix colourbar with
+    # colorbar(im, ax=axM), which steals space from axM and places its own axes at CREATION time --
+    # matplotlib keeps no link afterwards, so set_position on the parent leaves the bar behind.
+    # First pass without this put the colourbar under the wrong x and the matrix's rotated column
+    # labels landed on top of it. Anything that is not one of the three panels is claimed by
+    # whichever panel currently spans its centre, and is shifted by the same dx.
+    others = [ax for ax in fig.axes if ax not in panels]
+    owner = {}
+    for ax in others:
+        cx = (ax.get_position().x0 + ax.get_position().x1) / 2.0
+        for i, pax in enumerate(panels):
+            pp = pax.get_position()
+            if pp.x0 - 0.05 <= cx <= pp.x1 + 0.05:
+                owner.setdefault(ax, i)
+                break
+
+    cursor, dxs = MARGIN, []
+    for ax, bb in zip(panels, bbs):
+        pos = ax.get_position()
+        pad_left = pos.x0 - bb.x0            # y-label, row labels: whatever sits left of the axes
+        new_x0 = cursor + pad_left
+        dxs.append(new_x0 - pos.x0)
+        ax.set_position([new_x0, pos.y0, pos.width, pos.height])
+        cursor += (bb.x1 - bb.x0) + gap
+    for ax, i in owner.items():
+        pos = ax.get_position()
+        ax.set_position([pos.x0 + dxs[i], pos.y0, pos.width, pos.height])
+
+    # AND DROP IT CLEAR OF THE ROTATED COLUMN LABELS, by the measured overlap rather than by a
+    # guessed pad. fig_D's colorbar pad is tuned for its own standalone layout, where the matrix is
+    # taller; in this row the rotated task names reach 0.059 of the figure BELOW the bar's top and
+    # printed straight through it. Measuring means this stays correct if the label set changes.
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    for ax, i in owner.items():
+        if i != 2:
+            continue
+        lab_bottom = min((t.get_window_extent(r).transformed(fig.transFigure.inverted()).y0
+                          for t in ax_c.get_xticklabels() if t.get_text()), default=None)
+        if lab_bottom is None:
+            continue
+        pos = ax.get_position()
+        overlap = pos.y1 - lab_bottom
+        if overlap > 0:
+            drop = overlap + 0.030
+            ax.set_position([pos.x0, pos.y0 - drop, pos.width, pos.height])
+            print(f"  fig_C+D: colourbar dropped {drop:.3f} clear of the rotated column labels")
+    print(f"  fig_C+D: balanced to margin {MARGIN:.3f}, equal gaps {gap:.3f}; "
+          f"{len(owner)} attached axes moved with their panel")
+
     def _span(axes):
-        xs = [ax.get_position().x0 for ax in axes] + [ax.get_position().x1 for ax in axes]
+        xs = []
+        for ax in axes:
+            bb = ax.get_tightbbox(fig.canvas.get_renderer()).transformed(fig.transFigure.inverted())
+            xs += [bb.x0, bb.x1]
         return (min(xs) + max(xs)) / 2.0
+    fig.canvas.draw()
 
     fig.text(_span([ax_a, ax_b]), 0.950, "Molecular Similarity", ha="center", va="center",
              fontsize=FS["panel_tag"], fontweight="bold")
