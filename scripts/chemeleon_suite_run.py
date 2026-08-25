@@ -101,6 +101,9 @@ def clf_metrics(yt, yp):
 
 # ---------------- featurization ----------------
 
+NPZ_META: dict = {}   # provenance read out of a precomputed feature table, if present
+
+
 def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_revision=None):
     import torch
     device = torch.device("cuda" if torch.cuda.is_available()
@@ -120,7 +123,17 @@ def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_
         # as a loud KeyError instead of a fabricated row.
         _table = eval_v2._load_feature_table(encoder_path)
         _dim = len(next(iter(_table.values())))
-        print(f"[npz] {encoder_path}: {len(_table)} molecules, dim {_dim}", flush=True)
+        # CARRY THE TABLE'S PROVENANCE INTO THE RESULT. Without this, verified.json records
+        # featurizer "npz" and a path -- less than the direct HF path records, so routing an arm
+        # through a precomputed table would quietly downgrade what the artifact knows about itself.
+        try:
+            _z = np.load(encoder_path, allow_pickle=False)
+            NPZ_META.update(json.loads(str(_z["meta"])) if "meta" in _z.files else {})
+        except Exception as _e:
+            print(f"[npz] WARNING: no meta in {encoder_path} ({_e}) -- provenance will be thin",
+                  flush=True)
+        print(f"[npz] {encoder_path}: {len(_table)} molecules, dim {_dim} "
+              f"model={NPZ_META.get('hf_model', 'UNRECORDED')}", flush=True)
     elif featurizer == "hf_encoder":
         # LITERATURE CLMs THROUGH THE SAME PROBE. The whole point of the fig_A ranking is to compare
         # REPRESENTATIONS, so these get the frozen encoder + masked-mean pooling + z-score + MLP that
@@ -301,6 +314,8 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path,
              # to identify. Absent for non-HF arms, which is meaningful rather than missing.
              **({"hf_model": hf_model} if hf_model else {}),
              **({"hf_revision": hf_revision} if hf_revision else {}),
+             **({"features_npz": encoder_path, "npz_provenance": NPZ_META}
+                if featurizer == "npz" else {}),
              # RECORD THE FP VARIANT -- BUT ONLY FOR ARMS THAT HAVE A FINGERPRINT. "featurizer":
              # "ecfp4" is written identically by a stereo-blind run and a stereo-aware one, so
              # vintage was unrecoverable from the file: the MoleculeACE ecfp4 dir (2026-08-13,

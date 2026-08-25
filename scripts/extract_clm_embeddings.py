@@ -148,7 +148,31 @@ def main() -> int:
             f"whether --encoder_only is required. Refusing to write a table that would score as "
             f"a bad model rather than a broken input.")
 
-    np.savez_compressed(a.out, smiles=np.asarray([str(s) for s in kept]), X=X)
+    # THE TABLE CARRIES ITS OWN PROVENANCE. Routing an arm through --featurizer npz erased the
+    # model identity from verified.json -- it recorded featurizer "npz" and a file path, which is
+    # strictly less than the hf_model/hf_revision the direct path had just been fixed to write.
+    # A vector table that does not say what produced it is the fig_F v1 problem in miniature.
+    import transformers as _tf
+    meta = {
+        "hf_model": a.hf_model, "hf_revision": a.revision or "main",
+        "tokenizer_from": a.tokenizer_from or a.hf_model,
+        "tokenizer_revision": a.tokenizer_revision or a.revision or "main",
+        "pooling": "masked_mean", "encoder_only": bool(a.encoder_only),
+        "selfies_input": bool(a.selfies), "max_length": int(max_len),
+        "hidden_size": int(X.shape[1]), "n_molecules": int(X.shape[0]),
+        "n_params_M": round(sum(q.numel() for q in model.parameters()) / 1e6, 1),
+        "transformers": _tf.__version__, "torch": torch.__version__,
+        "sanity_off_diagonal_cosine": round(off, 4),
+        "sanity_median_dim_sd": round(float(np.median(sd)), 6),
+    }
+    if "c3" in a.hf_model:
+        meta["naming_note"] = (
+            "MoLFormer-c3-1.1B: the 1.1B is the PRETRAINING DATA scale (molecules), NOT parameters. "
+            f"This checkpoint is {meta['n_params_M']}M parameters. Reported as a parameter count it "
+            "would turn a data-scale comparison into a fabricated scaling result.")
+    np.savez_compressed(a.out, smiles=np.asarray([str(s) for s in kept]), X=X,
+                        meta=np.asarray(json.dumps(meta)))
+    print(f"[extract] meta: {json.dumps(meta)}", flush=True)
     print(f"[extract] wrote {a.out}: {X.shape}, {len(smiles) - len(kept)} dropped", flush=True)
     return 0
 
