@@ -113,6 +113,14 @@ def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_
         tok = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
         enc = ModernBertModel.from_pretrained(encoder_path, attn_implementation="sdpa",
                                               reference_compile=False).to(device).eval()
+    elif featurizer == "npz":
+        # PRECOMPUTED VECTORS from a model that will not load in this environment (MoLFormer-c3,
+        # selfies-ted). eval_v2._load_feature_table gives a STRICT {smiles: vector} lookup that
+        # raises on a miss rather than mean-filling, so a molecule the extractor dropped surfaces
+        # as a loud KeyError instead of a fabricated row.
+        _table = eval_v2._load_feature_table(encoder_path)
+        _dim = len(next(iter(_table.values())))
+        print(f"[npz] {encoder_path}: {len(_table)} molecules, dim {_dim}", flush=True)
     elif featurizer == "hf_encoder":
         # LITERATURE CLMs THROUGH THE SAME PROBE. The whole point of the fig_A ranking is to compare
         # REPRESENTATIONS, so these get the frozen encoder + masked-mean pooling + z-score + MLP that
@@ -149,6 +157,12 @@ def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_
             d = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
             d[~np.isfinite(d)] = np.nan
             return np.concatenate([fp, d], axis=1)
+        if featurizer == "npz":
+            missing = [x for x in smiles if x not in _table]
+            if missing:
+                raise KeyError(f"{len(missing)} molecules absent from {encoder_path}, "
+                               f"e.g. {missing[:3]} -- re-extract rather than impute")
+            return np.asarray([_table[x] for x in smiles], dtype=np.float32)
         if featurizer == "chemeleon":
             return eval_v2._chemeleon_features(smiles, device)
         return eval_v2._encoder_features(enc, tok, smiles, device, "mean", max_len)
@@ -305,7 +319,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--track", required=True, choices=["moleculeace", "polaris"])
     p.add_argument("--featurizer", required=True,
-               choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder"])
+               choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder", "npz"])
     p.add_argument("--hf_model", default=None, help="HF id for --featurizer hf_encoder")
     p.add_argument("--hf_revision", default=None,
                    help="PIN the checkpoint revision. MoLFormer's main-branch remote code "
