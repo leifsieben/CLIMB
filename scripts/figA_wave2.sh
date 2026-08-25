@@ -16,6 +16,18 @@ S3=s3://climb-s3-bucket/experiments/figA_clms
 LOG=analysis/figA_wave2.log
 say () { echo "[w2] $* $(date -u +%FT%TZ)" | tee -a "$LOG"; }
 
+# ONE INSTANCE ONLY. Two copies of this script ran concurrently once -- I relaunched the chain
+# without checking whether the previous wave was still alive -- and they raced on
+# chemberta_mtr_s1/moleculeace: one was mid-RUN while the other saw the half-written directory,
+# printed SKIP, and moved on. Neither uploaded it, and the directory no longer exists. The log
+# reads "RUN ... SKIP" with no DONE and no error anywhere.
+LOCK=analysis/.figA_wave2.lock
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  echo "[w2] another wave2 holds $LOCK -- refusing to run a second copy" | tee -a "$LOG"
+  exit 0
+fi
+
 for arm in chemberta_mtr molformer_c3 selfies_ted; do
   npz=figure_data/_${arm}.npz
   if [ ! -s "$npz" ]; then say "SKIP $arm -- $npz absent"; continue; fi
