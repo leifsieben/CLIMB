@@ -546,6 +546,15 @@ def evaluate(
     _feature_table = _load_feature_table(features_npz) if features_npz else None
 
     def _featurize(smiles):
+        # A PRECOMPUTED TABLE SUPERSEDES EVERY FEATURIZER, not just chemeleon. The flag's own help
+        # says "used instead of running the featurizer in-process", but the lookup was written
+        # inside the chemeleon branch when CheMeleon was the only split-environment arm. So
+        # --featurizer encoder --features_npz silently fell through to the encoder path and died
+        # on a None encoder -- an AttributeError three frames deep, nowhere near the cause.
+        # Behaviour is unchanged for every existing caller: they only ever pass --features_npz
+        # together with --featurizer chemeleon, which took this same lookup one branch later.
+        if _feature_table is not None:
+            return _lookup_features(_feature_table, smiles)
         if featurizer == "ecfp4":
             return np.asarray(ecfp4_features(smiles))
         if featurizer == "rdkit_desc":
