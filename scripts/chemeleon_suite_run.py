@@ -294,6 +294,13 @@ def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path,
         (out_dir / "verified.json").write_text(json.dumps(
             {"track": track, "model": model, "featurizer": featurizer, "head": head,
              "seeds": seeds, "n_tasks": n_tasks_done,
+             # RECORD THE HF CHECKPOINT AND ITS REVISION. The whole reason MoLFormer is pinned to
+             # 7b12d946c181 is that its main-branch code will not load under our transformers; a
+             # pin that is applied at runtime but not written down is unrecoverable from the
+             # artifact, which is the same gap that made every fig_F v1 number require a rebuild
+             # to identify. Absent for non-HF arms, which is meaningful rather than missing.
+             **({"hf_model": hf_model} if hf_model else {}),
+             **({"hf_revision": hf_revision} if hf_revision else {}),
              # RECORD THE FP VARIANT -- BUT ONLY FOR ARMS THAT HAVE A FINGERPRINT. "featurizer":
              # "ecfp4" is written identically by a stereo-blind run and a stereo-aware one, so
              # vintage was unrecoverable from the file: the MoleculeACE ecfp4 dir (2026-08-13,
