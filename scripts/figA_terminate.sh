@@ -17,8 +17,27 @@ LOG=analysis/figA_terminate.log
 say () { echo "[fin] $* $(date -u +%FT%TZ)" | tee -a "$LOG"; }
 abort () { say "ABORT -- $* -- BOX STAYS UP"; aws s3 cp "$LOG" "$S3/logs/figA_terminate.log" --only-show-errors; exit 1; }
 
-say "waiting for the work chain to drain"
-while pgrep -f "figA_wave|wong_run.py|fartdb_multiclass.py|chemeleon_suite_run.py|eval_v2.py" >/dev/null; do
+# EXCLUDE OUR OWN ANCESTORS. This script is launched as `bash -c "bash figA_wave3.sh; bash
+# figA_terminate.sh"`, so the PARENT'S COMMAND LINE CONTAINS figA_wave3.sh -- a bare
+# `pgrep -f figA_wave` matches that still-live parent and the wait never ends. The box would run
+# forever having done all its work. Same self-match that made an earlier chained waiter hang, one
+# level up: it is not the waiter's own cmdline this time, it is its parent's.
+ancestors=""
+_p=$$
+while [ "$_p" -gt 1 ]; do
+  ancestors="$ancestors $_p"
+  _p=$(ps -o ppid= -p "$_p" 2>/dev/null | tr -d ' ')
+  [ -n "$_p" ] || break
+done
+say "waiting for the work chain to drain (ignoring own ancestors:$ancestors)"
+while :; do
+  live=$(pgrep -f "figA_wave|wong_run.py|fartdb_multiclass.py|chemeleon_suite_run.py|eval_v2.py" 2>/dev/null)
+  rest=""
+  for q in $live; do
+    case " $ancestors " in *" $q "*) continue ;; esac
+    rest="$rest $q"
+  done
+  [ -z "$rest" ] && break
   sleep 60
 done
 say "no work processes remain"
