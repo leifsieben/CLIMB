@@ -122,8 +122,8 @@ TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "diff
 # ECFP4's 0.711, ring size 0.381 vs 0.108) is recoverable without re-running anything.
 SERIES = [("ECFP",      ARMS["ecfp"]["color"],      "ECFP4"),
           ("ECFP+d",    ARMS["ecfp_desc"]["color"], "ECFP4+desc"),
-          ("uns-ENUM",  SHADES["unsup"][0],         "CLIMB unsuperv., augmented"),
-          ("uns-CANON", SHADES["unsup"][2],         "CLIMB unsuperv., canonical"),
+          ("uns-ENUM",  SHADES["unsup"][0],         "CLIMB unsup., augmented"),
+          ("uns-CANON", SHADES["unsup"][2],         "CLIMB unsup., canonical"),
           ("sup",       ARMS["sup_dense"]["color"], "CLIMB supervised")]
 
 # (class, mode, two-line panel title). The class blocks are drawn as separate figures.
@@ -314,7 +314,12 @@ def main():
     # across gets both panels backwards. Keep that sentence in the caption if this figure is
     # ever re-cut.
 
-    # 4 columns, not 5. The legend -- not the axes -- sets this plate's width: savefig("tight")
+    # ONE ROW (Leif 2026-08-25). Five entries fit across the plate once "unsuperv." is shortened
+    # to "unsup."; the row does NOT widen the plate, which is still set by the axes at 6.74in.
+    # Dropping the second legend row and closing the band it left took the plate 3.40in -> 3.17in.
+    #
+    # Historical note, kept because it is the constraint that decides this: the legend -- not the
+    # axes -- sets this plate's width: savefig("tight")
     # grows the canvas to whatever hangs off it, so shrinking figsize does nothing here (tried:
     # 0.985 x col2 rendered to exactly the same 2040px). Spelling "frozen" into four labels
     # (user 2026-08-20) took the 5-column form to 6.80in against a 6.69in text block, and an
@@ -322,11 +327,11 @@ def main():
     # 4 columns x 3 rows is narrower than 5 x 2 and costs one line of height, which this figure
     # has to spare. Verified by measuring the rendered PNG, not by eye.
     _h = _legend_handles()
-    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.500, 0.185),
+    fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.500, 0.212),
                # 9 handles, and one row overran badly: 6.73in -> 10.84in, far past the 6.69in
                # text block, so the plate would be scaled DOWN in LaTeX and every font with it.
                # Measured, not guessed. rows=3 restores the previous 3x3 block.
-               ncol=row_ncol(_h, rows=2), fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
+               ncol=row_ncol(_h, rows=1), fontsize=FS["legend"], handletextpad=0.4, columnspacing=1.0,
                labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)

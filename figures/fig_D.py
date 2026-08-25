@@ -285,7 +285,10 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     # same quantity as every other lift panel, said the same way
     cb.set_label(LIFT_YLABEL if compact else LIFT_YLABEL + ", symlog", fontsize=FS["legend"])
     cb.ax.tick_params(labelsize=FS["annot"])
-    axM.set_title("SFT family \u2192 eval task", loc="left" if compact else "center",
+    # "Pretrain task -> Downstream task" rather than "SFT family -> eval task" (Leif 2026-08-25):
+    # the row's other two titles now name a pretraining, and "SFT family" is internal vocabulary
+    # for the same thing.
+    axM.set_title("Pretrain task \u2192 Downstream task", loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)
     if tags and tags[1]:
         axM.text(*((-0.14, 1.05) if compact else (-0.30, 1.03)), tags[1], transform=axM.transAxes,

@@ -378,9 +378,15 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
                  ("bottom\nquartile" if compact else
                   "most novel\n(bottom quartile)", nov, se_n, C_NOV)]
     xpos = list(range(len(bars)))
-    ax0.bar(xpos, [b[1] for b in bars], color=[b[3] for b in bars], width=0.6,
-            yerr=[b[2] for b in bars], capsize=STYLE["cap_size"],
-            error_kw=dict(lw=STYLE["lw_thin"]))
+    # Bar styling matches fig_E and fig_A2 (Leif 2026-08-25: panel a "seems a bit inconsistent"
+    # against the rest of the set). Three bars on their own axis had no reason to be 0.6 wide with
+    # no edge while every other bar chart in the paper draws a narrower bar with a solid black
+    # edge, and the difference read as two different kinds of quantity.
+    ax0.bar(xpos, [b[1] for b in bars], color=[b[3] for b in bars], width=0.45,
+            edgecolor=STYLE["ink"], linewidth=0.8,
+            yerr=[b[2] for b in bars], zorder=3,
+            error_kw=dict(elinewidth=1.0, capsize=2.2, capthick=1.1,
+                          ecolor=STYLE["ink"], zorder=6))
     for xi, b in zip(xpos, bars):
         ax0.text(xi, b[1] + b[2] + 0.6, f"{b[1]:+.1f}%", ha="center", fontsize=FS["annot"])
     ax0.axhline(0, color=SHADES["random"][0], lw=0.6)
@@ -407,7 +413,12 @@ def draw(ax0, ax1, data, tags=("a", "b"), compact=False):
     # IS lift; what the panel shows is that it does not depend on corpus similarity.
     # The compact title has to fit a ~2.2in panel; "Lift, but flat across similarity" ran into
     # panel (b)'s tag in the assembled figure ("similarityb").
-    ax0.set_title("Flat across similarity" if compact else
+    #
+    # In fig_C+D the three compact titles name WHICH PRETRAINING each panel is about rather than
+    # what each one found (Leif 2026-08-25) -- unsupervised, supervised, and the task-to-task
+    # matrix. The findings are in the caption; the titles are now the reader's map of the row.
+    # The standalone titles still state the finding, because standalone there is no row to map.
+    ax0.set_title("Unsupervised pretrain" if compact else
                   "The lift does not depend on corpus similarity, including on identical molecules",
                   loc="left" if compact else "center",
                   fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)

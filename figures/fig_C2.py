@@ -301,7 +301,8 @@ def draw(ax, data, tag=None, compact=False):
     print(f"   C2 legend -> {loc} at {pad:.2f} bottom padding ("
           + ", ".join(f"{n}:{len(q)}" for n, q in occupancy) + " points per corner)")
 
-    ax.set_title("Transfer vs chemical similarity" if compact else
+    # Compact title names the pretraining, matching fig_C+D's row (see fig_C1.draw).
+    ax.set_title("Supervised pretrain" if compact else
                  "Supervised pretraining: transfer vs chemical similarity",
                  loc="left" if compact else "center",
                  fontsize=FS["title"], fontweight="bold", pad=9 if compact else 4)

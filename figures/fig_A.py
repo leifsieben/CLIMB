@@ -207,17 +207,17 @@ def main():
     # NO KEY FOR THE TICK (Leif 2026-08-25). The x-axis already reads "mean rank over four task
     # categories" and the tick is the only filled mark on a row of open ones, so the entry
     # restated the axis and cost the legend a slot.
-    # CENTRED ON THE PLATE, MEASURED. Chasing this by nudging the anchor does not converge: the
-    # saved plate is a tight crop, so moving the legend moves the crop, and the crop's centre moves
-    # with it. The stable reference is the AXES tight bbox -- axes, tick labels, the hand-drawn row
-    # labels and the x-label, everything except the legend -- which is what sets the crop whenever
-    # the legend is the narrower of the two. Measure that after a draw, then place the legend on
-    # its centre. Also re-centres itself when the arm list changes the width of the label column.
+    # CENTRED ON THE X-AXIS, not on the plate (Leif 2026-08-25). The two are ~0.6in apart because
+    # the row-label column hangs off the left of the axes, and the legend keys describe marks that
+    # live inside the axes -- so the axes span is the thing they should line up with.
+    #
+    # Taken from ax.get_position(), the axes RECTANGLE, rather than get_tightbbox(), which would
+    # add the label column back in and put us where we started. Reading it rather than repeating
+    # the literal also means it follows the layout if the axes fractions change.
     leg = fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.004),
                      ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
                      columnspacing=1.4, borderpad=0.3, **LEGEND_BOX)
-    fig.canvas.draw()
-    bb = ax.get_tightbbox(fig.canvas.get_renderer()).transformed(fig.transFigure.inverted())
+    bb = ax.get_position()
     leg.set_bbox_to_anchor((0.5 * (bb.x0 + bb.x1), 0.004), transform=fig.transFigure)
 
     save(fig, "fig_A")
