@@ -29,6 +29,22 @@ def main() -> int:
                     if s: n.append(s)
         add(track, n)
 
+    # MOLNET AND CBS BELONG IN THE UNIVERSE TOO. The first version covered only the two suite
+    # tracks, which silently left the entire VIRTUAL SCREENING suite (CBS + HIV + Wong) and every
+    # MolNet classification/regression set out of the extracted tables -- 58 of 65 datasets, with
+    # no error anywhere because the arms that ran, ran fine.
+    mn = ROOT / "figure_data" / "_molnet_smiles.json"
+    if mn.exists():
+        add("molnet", json.loads(mn.read_text())["_all_unique"])
+    else:
+        print(f"WARNING: {mn} absent -- MolNet molecules NOT exported", file=sys.stderr)
+    cbs = ROOT / "data" / "cbs.csv"
+    if cbs.exists():
+        with cbs.open() as fh:
+            add("cbs", [r["smiles"] for r in csv.DictReader(fh)])
+    else:
+        print(f"WARNING: {cbs} absent -- CBS molecules NOT exported", file=sys.stderr)
+
     w = Path("/home/ec2-user/chempfn-data/eval/locked/wong_saureus/wong_saureus.csv")
     if not w.exists():
         w = ROOT / "chemeleon_suite/data/wong_saureus.csv"
