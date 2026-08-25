@@ -41,7 +41,9 @@ _CANON = os.environ.get("RESOLUTION_INPUT") == "canonical"
 PAIRS = OUT / ("pairs_canonical.csv" if _CANON else "pairs.csv")
 MOLS = OUT / ("molecules_canonical.txt" if _CANON else "molecules.txt")
 SUFFIX = "_canonical" if _CANON else ""
-BACKGROUND_N = 1000
+# 10,000, up from 1,000. sigma_j is estimated once per representation on this set and then
+# divides every reported number, so it is the cheapest precision in the whole measurement.
+BACKGROUND_N = 10000
 SEED = 0
 
 # (name, kind, spec) -- kind decides how the vectors are produced
@@ -52,7 +54,9 @@ EMBEDDINGS = [
     ("Morgan r3-cnt+desc", "fp",    dict(variant="morgan_r3_counts", desc=True)),
     ("CLIMB sup",        "encoder", "figure_data/climb_v2_phase2/skip_dense_8M/encoder"),
     ("CLIMB unsup",      "encoder", "figure_data/climb_v2_phase2/unsup_8M/encoder"),
-    ("CheMeleon",        "npz",     "figure_data/embedding_resolution/chemeleon_pairs.npz"),  # swapped below when canonical
+    # CheMeleon is RETIRED (figures.arms.RETIRED) and is not re-embedded here: its vectors need a
+    # chemprop>=2.2 host, and the stored npz covers only the superseded 100-pair molecule set. The
+    # old npz files are kept in figure_data/embedding_resolution/ rather than deleted.
     # CLIMB unsup pretrained WITH SMILES-enumeration augmentation. The mainline arms are
     # augmentation="canonical" (checked in their own config.yaml and metadata.json), so this is
     # the only encoder in the repo that saw randomized SMILES during pretraining -- it answers
@@ -71,9 +75,17 @@ def load_pairs():
     return list(csv.DictReader(PAIRS.open()))
 
 
-def background_smiles(rng, n):
+def background_smiles(rng, n, exclude):
+    """n molecules from the same pool, none of which appears in any reported pair.
+
+    Excluding the paired molecules matters: sigma_j is the per-dimension spread this measurement
+    divides by, so estimating it partly on the molecules under test would let an edit shrink its
+    own yardstick.
+    """
     import build_resolution_pairs as B          # same pool, same construction
-    pool = B.load_pool()
+    pool = [s for s in B.load_pool() if s not in exclude]
+    if len(pool) < n:
+        print(f"  [background] pool has {len(pool)} unpaired molecules, wanted {n}", flush=True)
     return rng.sample(pool, min(n, len(pool)))
 
 
@@ -85,12 +97,20 @@ def featurize(name, kind, spec, smiles):
         if spec["desc"]:
             from descriptors_v2 import rdkit_descriptors
             D = np.asarray(rdkit_descriptors(list(smiles)), dtype=np.float32)
-            D[~np.isfinite(D)] = 0.0
+            # Ipc overflows float32 for ~0.6% of drug-like molecules, and where it does not it
+            # still reaches 1.2e32 -- 28 orders of magnitude above every other descriptor. Zeroing
+            # the overflows and then standardizing on the raw column leaves sigma set by that one
+            # value, so every other molecule lands at z ~ 0 and the column is dead. Standardize on
+            # the finite entries and clip, matching descriptors_v2.normalize(clip=10).
+            D = np.where(np.isfinite(D), D, np.nan)
             # standardize the descriptor block before concatenating: raw descriptors span 20+
             # orders of magnitude, so an unstandardized concatenation is a descriptor-only
             # embedding wearing a fingerprint's name.
-            mu, sd = D.mean(0), D.std(0); sd[sd == 0] = 1.0
-            X = np.concatenate([X, (D - mu) / sd], axis=1)
+            mu = np.nanmean(D, axis=0); sd = np.nanstd(D, axis=0)
+            mu = np.where(np.isfinite(mu), mu, 0.0)
+            sd = np.where(np.isfinite(sd) & (sd > 1e-8), sd, 1.0)
+            Z = np.nan_to_num(np.clip((D - mu) / sd, -10.0, 10.0), nan=0.0)
+            X = np.concatenate([X, Z], axis=1)
         return X
     if kind == "encoder":
         import torch
@@ -135,14 +155,12 @@ def tanimoto(A, B):
 def main() -> int:
     rng = random.Random(SEED)
     pairs = load_pairs()
-    bg = background_smiles(rng, BACKGROUND_N)
     paired = {r["smiles_a"] for r in pairs} | {r["smiles_b"] for r in pairs}
-    if _CANON:
-        # the canonical molecule list is fixed on disk so it matches the CheMeleon npz row-for-row
-        uniq = MOLS.read_text().split("\n")
-        bg = [s for s in uniq if s not in paired][:BACKGROUND_N]
-    else:
-        uniq = sorted(paired | set(bg))
+    bg = background_smiles(rng, BACKGROUND_N, paired)
+    # Both branches now build the molecule list from the pairs and the background. It used to be
+    # read from a fixed file in the canonical branch so the rows lined up with the CheMeleon npz;
+    # CheMeleon is retired, and that coupling made the background un-growable.
+    uniq = sorted(paired | set(bg))
     idx = {s: i for i, s in enumerate(uniq)}
     print(f"{len(pairs)} pairs, {len(uniq)} unique molecules "
           f"(incl. {len(bg)} background)\n")
@@ -169,7 +187,7 @@ def main() -> int:
         d_cos = cosine(A, B)
         d_tan = tanimoto(A, B) if kind == "fp" else np.full(len(pairs), np.nan)
         exact = np.all(A == B, axis=1)
-        # background scale: median cosine from each anchor to 1,000 random molecules
+        # background scale: median cosine from each anchor to the BACKGROUND_N random molecules
         BG = X[ibg]
         nb = np.linalg.norm(BG, axis=1); nb[nb == 0] = 1.0
         BGn = BG / nb[:, None]

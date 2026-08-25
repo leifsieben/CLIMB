@@ -1,152 +1,207 @@
-"""Fig A — the headline result in one figure: overall standing (a) above the six panels (b).
+"""Fig A — overall standing across four TASK TYPES, ranking only.
 
 ONE script, ONE figure: figures_v2/fig_A.png / .pdf
 
-Layout: STACKED (user 2026-08-20). (a) is the 65-dataset ranking across the full text-block width;
-(b) is the six canonical panels as 2x3 beneath it, grouped by metric DIRECTION so a reader never
-has to re-orient between horizontal neighbours:
+Full A4 text-block width, and as short as the content allows: one row per model, no second
+panel. The six per-dataset panels that used to sit underneath are fig_A2's job; repeating them
+here cost most of a page and said nothing the ranking did not.
 
-    row 1   MoleculeACE ↓   QM7 ↓    HIV ↑
-    row 2   BACE ↑          Ames ↑   Tox21 ↑
+WHAT IS RANKED. Thirteen models. Each is ranked WITHIN every individual dataset (1 = best of the
+thirteen), those per-dataset ranks are averaged within each of four task categories, and the four
+category means are averaged with EQUAL WEIGHT. Ranking per dataset is what makes the pooling
+legal: the metrics are heterogeneous (RMSE, ROC-AUC, PR-AUC, NEF1%, Pearson r, Spearman rho) and
+cannot be averaged. A dataset scored on only k of the thirteen is rescaled from [1..k] to [1..13]
+so a missing model cannot flatter the rest.
 
-This was side-by-side at 11in wide — landscape, the one figure exempt from the page-width rule.
-The exemption cost more than it bought: a plate wider than the text block is either rotated or
-scaled down in LaTeX, and scaling down takes every font with it, so the authored point sizes stop
-being the sizes on the page. Stacked, the plate is 6.7 x 9.3in and goes in at 1:1.
+    coloured tick mean of the four category ranks
+    bar           +/-1 SE across the four category means, design-effect corrected
+    open marks    the four category means themselves
 
-Nothing is recomputed here. This composes `fig_A1.draw()` and `fig_A2.draw_panel()`, so the
-numbers, error bars and reference lines are by construction identical to the standalone figures —
-the same arrangement fig_C+D uses for C1/C2/D.
+EQUAL WEIGHT PER CATEGORY IS A CHOICE AND THE CAPTION MUST SAY SO. Activity cliffs holds 30
+datasets and virtual screening 3, so each VS dataset carries ~8.3% of the headline against ~0.83%
+for each MoleculeACE target -- a 10x ratio. The axis is task type, not benchmark size, so this is
+deliberate; it is not self-evident.
 
-The ranking panel is drawn with `compact=True`, which now costs only the per-point value labels:
-stacked, it has MORE horizontal room than it had at 37.5% of a landscape plate.
+TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-uniform.md):
+
+  1. "3 seeds" is one label over two estimands. CLIMB arms vary the PRETRAINING with head seeds
+     pinned; ECFP4 and the three literature CLMs have no pretraining stage to vary, so they carry
+     three disjoint HEAD-SEED triples instead. Do NOT write "three pretraining seeds" as a
+     property of the panel -- it is false for five of the thirteen rows.
+  2. The probe head is representation-dependent by design: ECFP4 arms at XGBoost, every CLM at a
+     frozen encoder plus MLP, because SI fig f shows the preference is representation-dependent
+     and a single head handicaps whichever representation it does not suit. The three literature
+     CLMs have NOT been measured at XGBoost, and CheMeleon -- the closest analogue -- prefers
+     XGBoost by 0.138 macro RMSE, wider than the whole ECFP4+desc-to-CLIMB span. Leif ruled no
+     ablation for now; the exposure is recorded rather than hidden.
+
+MISSING DATA IS DRAWN, NOT OMITTED. Three arms and two datasets are commissioned and not yet
+back. An arm with no results is a labelled empty row, not an absent row: dropping it would make
+the plate look finished and quietly renumber the field from thirteen to ten, which changes every
+rank on the page. The rank field is fixed at len(ARMS_13) for the same reason.
 
 Run:  python3 -m figures.fig_A
 """
 from __future__ import annotations
-import matplotlib.pyplot as plt
 
-from figures.style import STYLE, FS, save, check_font, row_ncol
-import figures.fig_A1 as A1
-import figures.fig_A2 as A2
-from figures.arms import PANEL_ORDER
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+from figures.style import STYLE, FS, save, check_font, LEGEND_BOX, row_ncol
+from figures.arms import ARMS, SHADES
+from figures import tasksuites as T
 
 check_font()
 INK = "#000000"
 
-# right-hand grid, grouped by metric direction (both "lower is better" panels share row 1)
-# The 2x3 arrangement is NOT PANEL_ORDER: it groups by metric so a reader scans one kind of number
-# per row -- top row the two regression panels plus the rare-active screen, bottom row the three
-# ROC-AUC panels. HIV took CBS's slot in the 2026-08-19 swap and this list was not updated with it,
-# which is why fig_A stopped rendering (KeyError: 'CBS') rather than silently drawing a stale
-# panel. The assert makes the next such swap fail at import instead of at draw time.
-PANEL_GRID = [["MoleculeACE", "QM7", "HIV"], ["BACE", "Ames", "Tox21"]]
-assert sorted(p for row in PANEL_GRID for p in row) == sorted(PANEL_ORDER), \
-    f"fig_A's grid {PANEL_GRID} has drifted from arms.PANEL_ORDER {PANEL_ORDER}"
+# ---------------------------------------------------------------- the thirteen -----------------
+# ASSUMED SUBSET, stated here rather than inferred: two classical anchors at XGBoost, the six
+# mainline CLIMB objectives plus two no-pretraining controls at frozen+MLP, and the three
+# literature CLMs. Changing the field is a one-line edit here; it is deliberately NOT derived from
+# arms.in_ranking, which admits all 22 arms including fig_A2's ablation ladder.
+ARMS_13 = ["ecfp", "ecfp_desc",
+           "unsup", "sup_dense", "u2s_dense", "s2u_dense", "unsup_e2e", "sup_dense_e2e",
+           "random_encoder", "e2e_no_pretrain",
+           "chemberta_mtr", "molformer_c3", "selfies_ted"]
+
+# Arms with no entry in arms.py because their results have not landed. They are promoted into
+# arms.py -- colour, label, replicate convention -- when the run comes back; until then they are
+# declared here so the figure can show the row it is waiting for.
+PENDING_ARMS = {
+    "chemberta_mtr":  dict(label="ChemBERTa-2 (MTR)", color=SHADES["unsup"][1]),
+    "molformer_c3":   dict(label="MoLFormer-c3",      color=SHADES["unsup"][2]),
+    "selfies_ted":    dict(label="SELFIES-TED",       color=SHADES["sup"][1]),
+}
+assert not (set(PENDING_ARMS) & set(ARMS)), \
+    "an arm is declared PENDING here and also present in arms.py -- promote it and delete it here"
+assert set(ARMS_13) - set(ARMS) == set(PENDING_ARMS), \
+    f"ARMS_13 names arms that are neither in arms.py nor declared pending: " \
+    f"{sorted(set(ARMS_13) - set(ARMS) - set(PENDING_ARMS))}"
+
+N = len(ARMS_13)
+HAVE = [a for a in ARMS_13 if a in ARMS]
 
 
-# STACKED, AND THEREFORE BACK INSIDE THE A4 TEXT BLOCK (user 2026-08-20).
-#
-# This was side-by-side at 11in wide -- landscape / full-bleed, the one figure exempt from the
-# page-width rule -- because the ranking panel is 22 rows tall and a full-width band of 22 rows
-# plus a 2x3 grid beneath it is most of a page. The exemption cost more than it bought: a plate
-# wider than the text block is either rotated or scaled down in LaTeX, and scaling down takes every
-# font with it, so the authored point sizes stop being the sizes on the page.
-#
-# Stacked, (a) spans the full text-block width and (b) sits under it as 2x3. The ranking gets MORE
-# horizontal room than it had at 37.5% of a landscape plate, not less, so `compact` now only drops
-# the per-point value labels rather than also fighting for width.
-WIDTH = STYLE["col2"]
-HEIGHT = 9.3                      # measured to sit inside A4's ~10.1in text height with margin
+def _meta(a):
+    if a in ARMS:
+        return ARMS[a]["label"], ARMS[a]["color"]
+    return PENDING_ARMS[a]["label"], PENDING_ARMS[a]["color"]
 
 
-def build(height=HEIGHT, top_frac=0.62):
-    """(a) the ranking, full width; (b) the six panels as 2x3 beneath it.
+def compute():
+    """Ranks over the thirteen-arm field, plus per-arm category coverage.
 
-    `top_frac` is the ranking's share of the vertical space. It needs the larger share: 22 model
-    rows against 2 rows of panels.
+    The field size passed to the ranker is len(HAVE), so the ranks returned run 1..len(HAVE). They
+    are NOT rescaled to 1..13 here: doing that would invent a position for three arms that have no
+    results, and the axis is drawn to len(HAVE) with the pending rows left empty instead.
     """
-    fig = plt.figure(figsize=(WIDTH, height))
-    # TWO GRIDSPECS WITH DIFFERENT LEFT MARGINS, because the two halves need different amounts of
-    # room OUTSIDE their axes and the reader sees the ink, not the axes box.
-    #
-    # Sharing one margin looked wrong and measured wrong: (a)'s two-line arm names reach out to
-    # x=0.009 while (b)'s y-labels stop at x=0.128, so with both axes starting at 0.185 the lower
-    # half sat 0.118 of the figure width inside the upper one -- a finger of white space down the
-    # left of (b) and two blocks that plainly did not line up. (b) now starts far enough left that
-    # its Y-LABEL lands where (a)'s row names do. Its axes are therefore WIDER than (a)'s, which is
-    # the point: the alignment a reader checks is the outer edge of the block.
-    A_LEFT, B_LEFT, RIGHT = 0.185, 0.0665, 0.995
-    TOP, BOT = 0.972, 0.075
-    split = BOT + (1 - top_frac) * (TOP - BOT)      # the boundary between the two halves
-    gsA = fig.add_gridspec(1, 1, left=A_LEFT, right=RIGHT, top=TOP, bottom=split + 0.075)
-    # The gap under (a) holds its suite key: a legend three panels from the marks it explains is
-    # one the reader has to carry in their head.
-    gsB = fig.add_gridspec(2, 3, left=B_LEFT, right=RIGHT, top=split - 0.030, bottom=BOT,
-                           hspace=0.42, wspace=0.32)
+    out, cat, R = T.wide_ranks(HAVE)
+    missing = [a for a in HAVE if a not in out.index]
+    assert not missing, f"fig_A: arms in ARMS_13 with no row in the score table: {missing}"
+    avail = {k: int((cat == k).sum()) for k in T.CATEGORIES}
+    return out, avail
 
-    axT = fig.add_subplot(gsA[0, 0])
-    A1.draw(axT, compact=True)
-    # Sentence case, matching every other title in the set ("Supervised: permuted targets",
-    # "Lift by similarity group", "Transfer vs chemical similarity") and standard journal style.
-    axT.set_title("Mean rank, four suites equally weighted", fontsize=FS["title"],
-                  fontweight="bold", color=INK, pad=6)
 
-    bot_axes = []
-    for r, row in enumerate(PANEL_GRID):
-        for c, p in enumerate(row):
-            ax = fig.add_subplot(gsB[r, c])
-            A2.draw_panel(ax, p, compact=True)
-            bot_axes.append(ax)
-
-    # Each key is centred on the half it describes and sits just under that half's x-axis, rather
-    # than being parked at the foot of the plate. Positions are measured from the REALISED axes, so
-    # they track any later change to the gridspec ratios instead of being re-tuned by hand.
-    fig.canvas.draw()
-    tp = axT.get_position()
-    # PANEL TAGS IN FIGURE COORDINATES, at ONE x. Placed per-axes they were not aligned: an
-    # offset given in axes-fraction is a different absolute distance for a full-width panel than
-    # for a third-width one, so "a" sat at the plate edge and "b" a centimetre inside it.
-    bp = [a.get_position() for a in bot_axes]
-    b_x0, b_x1 = min(q.x0 for q in bp), max(q.x1 for q in bp)
-    b_bot = min(q.y0 for q in bp)
-    TAG_X = 0.012
-    for tag, y in (("a", tp.y1), ("b", max(q.y1 for q in bp))):
-        fig.text(TAG_X, y + 0.006, tag, fontsize=FS["panel_tag"], fontweight="bold",
-                 va="bottom", ha="left", color=INK)
-
-    _h1 = A1.suite_handles(with_dagger=True)
-    fig.legend(handles=_h1, loc="upper center",
-               bbox_to_anchor=((tp.x0 + tp.x1) / 2, tp.y0 - 0.038),
-               ncol=row_ncol(_h1), frameon=False, fontsize=FS["legend"], handletextpad=0.4,
-               labelspacing=0.3, columnspacing=1.2, borderpad=0.0, labelcolor=INK)
-    _h2 = A2.legend_handles()
-    fig.legend(handles=_h2, loc="upper center",
-               bbox_to_anchor=((b_x0 + b_x1) / 2, b_bot - 0.030),
-               # TWO ROWS, SIX COLUMNS (user 2026-08-20: "two rows and way more columns").
-               #
-               # Six columns did NOT fit when this was first tried -- 7.21in against a 6.69in text
-               # block. What changed is not the legend: it is that panel (b) now starts at
-               # x=0.0665 instead of 0.185, so the figure's content already spans nearly the full
-               # width and a legend centred on 0.5 no longer overhangs it. The same key that set
-               # the plate width before is now narrower than the panels.
-               #
-               # Re-measured after the margin change:
-               #     5 columns -> 6.68 x 9.26in
-               #     6 columns -> 6.68 x 9.26in     <- two rows, and 0.12in shorter than 3x4
-               #     7 columns -> 7.70 x 9.14in     overhangs, plate width set by the key again
-               ncol=row_ncol(_h2, rows=2), frameon=False, fontsize=FS["legend"], handlelength=0.95,
-               handletextpad=0.28, labelspacing=0.3, columnspacing=0.45, borderpad=0.0,
-               labelcolor=INK)
-    return fig
+BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plates read alike
 
 
 def main():
-    fig = build()
-    # NOT wide= any more: the plate is inside the text block, so the page-width
-    # check should police it like every other figure rather than be waived.
+    out, avail = compute()
+    order = list(out.sort_values("mean_rank").index) + [a for a in ARMS_13 if a not in HAVE]
+    nfield = len(HAVE)
+
+    # One row per model. Thirteen rows plus axis and legend inside 3.4in, roughly a third of A4's
+    # text height -- the point of dropping the six-panel block.
+    #
+    # WIDTH IS SET BY MEASUREMENT. save() crops to the drawn content, so the rendered plate is NOT
+    # figsize wide: an axes box that leaves slack renders narrower than the text block and LaTeX
+    # then scales every font in it up relative to the rest of the set. This layout is authored to
+    # fill the canvas and measured at 6.73in against a 6.69in text block. Re-measure if the axes
+    # fractions below change -- the first version, with slack on both sides, rendered 5.58in.
+    fig = plt.figure(figsize=(STYLE["col2"], 3.40))
+    ax = fig.add_axes([0.192, 0.150, 0.800, 0.762])
+
+    for yi, a in enumerate(order):
+        label, c = _meta(a)
+        pending = a not in HAVE
+        if yi % 2 == 0:
+            ax.axhspan(yi - 0.5, yi + 0.5, color=BAND, lw=0, zorder=0)
+        if pending:
+            ax.text(0.5 * (1 + nfield), yi, "awaiting results", ha="center", va="center",
+                    fontsize=FS["annot"] - 0.5, color="#7A7A7A", style="italic", zorder=3)
+        else:
+            r = out.loc[a]
+            for k in T.CATEGORIES:
+                if np.isfinite(r[k]):
+                    ax.plot(r[k], yi, marker=T.CAT_MARKER[k], mfc="none", mec=c, mew=0.9,
+                            ms=3.8, ls="none", zorder=3)
+            ax.errorbar(r["mean_rank"], yi, xerr=r["se_rank"], fmt="none",
+                        ecolor=c, elinewidth=1.1, capsize=1.6, capthick=0.9, zorder=3)
+            # A TICK, not a dot (Leif 2026-08-25). The four category marks are already open
+            # outlines; a fifth filled outline in the same size class competed with them, and the
+            # tick reads as "the summary of this row" rather than as another category.
+            ax.plot(r["mean_rank"], yi, marker="|", ms=9.0, mew=2.0, color=c, zorder=4)
+            # The number goes on every row: a plot whose ranks must be read off a tick axis is
+            # not a ranking. Placed past the rightmost mark ON THIS ROW, not past the whisker.
+            right = np.nanmax([r["mean_rank"] + r["se_rank"]] +
+                              [r[k] for k in T.CATEGORIES if np.isfinite(r[k])])
+            ax.text(right + 0.28, yi, f"{r['mean_rank']:.2f}", va="center", ha="left",
+                    fontsize=FS["annot"] - 0.5, color=INK, zorder=5)
+
+    ax.set_yticks(range(len(order)))
+    ax.set_yticklabels([_meta(a)[0] for a in order], fontsize=FS["tick"] - 0.5)
+    for tick, a in zip(ax.get_yticklabels(), order):
+        if a not in HAVE:
+            tick.set_color("#7A7A7A"); tick.set_style("italic")
+    ax.set_ylim(len(order) - 0.5, -0.5)
+    ax.set_xlim(0.4, nfield + 1.6)
+    ax.set_xticks(range(1, nfield + 1, 2))
+    ax.set_xlabel(f"mean rank over four task categories, equally weighted "
+                  f"(1 = best of {nfield} scored)", fontsize=FS["label"])
+    ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="x", labelsize=FS["tick"] - 0.5)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+
+    # The legend carries the DATASET count per category, and the count still owed. Virtual
+    # screening currently rests on a single dataset, so its open diamonds are one rank rather than
+    # a mean -- a reader cannot see that from the marker, and it is the largest caveat on the
+    # plate right now.
+    pend = {k: sum(1 for v in T.PENDING_DATASETS.values() if v == k) for k in T.CATEGORIES}
+    h = [Line2D([], [], ls="none", marker=T.CAT_MARKER[k], mfc="none", mec=INK, mew=0.9, ms=3.8,
+                label=f"{k} ({avail[k]}" + (f"+{pend[k]} pending)" if pend[k] else ")"))
+         for k in T.CATEGORIES]
+    h.append(Line2D([], [], ls="none", marker="|", ms=9.0, mew=2.0, color="#555555",
+                    label="mean of the four"))
+    fig.legend(handles=h, loc="upper center", bbox_to_anchor=(0.52, 1.005),
+               ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
+               columnspacing=1.0, borderpad=0.3, **LEGEND_BOX)
+
     save(fig, "fig_A")
     plt.close(fig)
+    report(out, avail, order)
+
+
+def report(out, avail, order):
+    print(f"\nFig A — {len(HAVE)} of {len(ARMS_13)} arms scored, "
+          f"{out.attrs['n_datasets_total']} datasets in four categories\n")
+    print(f"   {'model':<26}" + "".join(f"{T.CAT_SHORT[k]:>9}" for k in T.CATEGORIES)
+          + f"{'mean':>8}{'SE':>7}{'n_ds':>6}")
+    for a in order:
+        lab = _meta(a)[0]
+        if a not in HAVE:
+            print(f"   {lab:<26}" + f"{'awaiting results':>39}")
+            continue
+        r = out.loc[a]
+        print(f"   {lab:<26}" + "".join(f"{r[k]:>9.2f}" for k in T.CATEGORIES)
+              + f"{r['mean_rank']:>8.2f}{r['se_rank']:>7.2f}{int(r['n_datasets']):>6}")
+    print(f"\n   datasets per category: "
+          + ", ".join(f"{k} {avail[k]}" for k in T.CATEGORIES))
+    pend = {k: v for k, v in T.PENDING_DATASETS.items()}
+    if pend:
+        print(f"   awaiting datasets: " + ", ".join(f"{k} -> {v}" for k, v in pend.items()))
 
 
 if __name__ == "__main__":

@@ -65,7 +65,10 @@ SUPERSEDED = [
 
 # what each figure is DECLARED to draw; check 4 verifies the script actually references it
 ESTIMAND = {
-    "fig_A":     ("sampling CI of the evaluation units (bootstrap; Ames analytic)", "a2_errorbars"),
+    # fig_A stopped composing fig_A2's panels on 2026-08-25: it is now ranking-only over four TASK
+    # categories and draws its own interval, the same estimand as fig_A1 but across the four
+    # category means rather than the four benchmark suites. Its token is the column it reads.
+    "fig_A":     ("+-1 SE across the four task-category means, design-effect corrected", "se_rank"),
     "fig_A1":    ("+-1 SE of the mean rank, design-effect corrected", "se_rank"),
     "fig_A2":    ("sampling CI of the evaluation units (bootstrap; Ames analytic)", "a2_errorbars"),
     "fig_B":     ("none drawn (sd_total available in scaling_ladders.csv)", None),

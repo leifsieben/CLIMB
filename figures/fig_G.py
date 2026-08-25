@@ -2,7 +2,7 @@
 
 ONE script, ONE figure: figures_v2/fig_G.png / .pdf   (panels a–j)
 
-Ten chemical changes, 100 molecule pairs each. In every one the two molecules are GENUINELY
+Ten chemical changes, 1,000 molecule pairs each. In every one the two molecules are GENUINELY
 DIFFERENT, so a usable representation has to respond. "Respond" is measured in a unit the reader
 can check on the same axis: the shift the change produces, divided by THAT MODEL'S OWN shift when
 you swap in a completely different compound of matched molecular weight. 1.00 therefore means "this
@@ -11,35 +11,60 @@ denominator is measured per model, so a 512-d transformer and a 2048-bit fingerp
 axis honestly. Panel (i) IS that reference and is 1.000 by construction — it stays in the grid so
 the unit is visible rather than asserted.
 
-INPUT IS RDKit-CANONICAL SMILES for every arm. Charging a sequence model for notation it never sees
-at inference would answer the wrong question; the notation question is class B, SI fig f. Under
-canonical input every representation here is deterministic — re-embedding reproduces the vectors
-bit for bit, 128/128 — so there is no significance question, only a size question, and this figure
-asks the size question.
+INPUT IS RDKit-CANONICAL SMILES for the class-A panels and AS WRITTEN for the class-B controls
+(k, l). Charging a sequence model for notation it never sees at inference would answer the wrong
+question in class A; class B IS the notation question, and canonicalizing it would collapse both
+controls to no-ops by construction. Nothing re-canonicalizes anything: the edits are applied to the
+RDKit mol object and written out once. Under canonical input every representation here is
+deterministic — re-embedding reproduces the vectors bit for bit, 128/128 — so there is no
+significance question, only a size question, and this figure asks the size question.
+
+THE UNIT WAS RE-EXAMINED ON 2026-08-25 and kept. A count of dimensions displaced past a threshold
+was proposed and measured on this data: it tracks how DENSE a representation is rather than how
+well it resolves an edit (ECFP4 moves 28 of 2048 bits for a completely different compound; CLIMB
+418 of 512), and it is threshold-critical exactly where the CLM arms live. Full measurement in
+notes/figG-resolution-metric.md.
 
 WHAT THE FIGURE SAYS
 --------------------
+1,000 matched pairs per edit; sigma_j estimated on 10,000 unedited molecules that appear in no
+pair. Whiskers are the INTERQUARTILE RANGE over the 1,000 pairs -- chemistry, not noise: every
+representation here is deterministic, so there is nothing for an error bar to describe. Arm-vs-arm
+claims below use the PAIRED contrast (resolution_contrasts.csv), where pair difficulty cancels.
+
 1. THE STEREO GAP SURVIVES THE FAIR SETUP. An inverted stereocentre moves the fingerprints
-   0.64–0.92 and the CLMs 0.006–0.030: twenty- to hundredfold, on canonical input, with no
-   threshold. E/Z is 0.95–1.06 against 0.013–0.059. Across the ten changes the CLMs sit at
-   0.006–0.49 where the fingerprints sit at 0.000–1.62. This is the mechanism behind fig_C1's bare
-   negative (unsupervised pretraining is worth −0.29% over a fine-tuned random init) rather than a
-   restatement of it: the representation barely moves when the chemistry does.
-2. MORGAN r3-COUNTS IS THE MOST CHEMICALLY RESPONSIVE REPRESENTATION TESTED, and it is not close
-   where ECFP4 is weakest: stereo 0.920 vs 0.679, ring size 0.388 vs 0.104. That is independent
-   support for the third XGBoost anchor from a measurement with no benchmark score in it.
-3. DESCRIPTORS DILUTE STRUCTURAL SIGNAL. Adding the descriptor block makes BOTH fingerprints
-   slightly worse on every class A mode (r3-counts stereo 0.920 → 0.856, ring size 0.388 → 0.362).
-   Same story as the gap-narrowing result in fig_A2, arrived at independently.
-4. AUGMENTATION DOES NOT BUY CHEMICAL SENSITIVITY. Against its matched canonical control, the
-   enumeration-augmented CLM is no better on stereo (0.027 vs 0.030) and WORSE on added methyl
-   (0.140 vs 0.234), added fluorine, ring size and matched descriptors. It buys notation-invariance
-   (SI fig f a: 0.243 vs 0.376) and pays for it in chemistry. A genuine negative, and only
-   measurable because that control exists.
-5. THE BLIND SPOTS ARE COMPLEMENTARY. Isotopes (f) are the one place the CLMs win outright —
-   0.18–0.27 against exactly 0.000 for both bare fingerprints and CheMeleon, because a [13C] token
-   changes the string while Morgan atom invariants ignore it. Ring size (g) is weak for everything
-   except the r3-counts pair.
+   0.652-0.823 and the CLMs 0.009-0.033: twenty- to ninetyfold, on canonical input, with no
+   threshold. E/Z is 0.874-0.963 against 0.013-0.063. The IQRs do not come close to touching
+   (ECFP4 [0.47, 0.85] against CLIMB sup [0.007, 0.011]). This is the mechanism behind fig_C1's
+   bare negative (unsupervised pretraining is worth -0.29% over a fine-tuned random init) rather
+   than a restatement of it: the representation barely moves when the chemistry does.
+2. R3FP IS THE MOST CHEMICALLY RESPONSIVE REPRESENTATION TESTED, and it is not close where ECFP4
+   is weakest: stereo 0.823 vs 0.711, ring size 0.381 vs 0.108. That is independent support for
+   the third XGBoost anchor from a measurement with no benchmark score in it.
+3. DESCRIPTORS DILUTE STRUCTURAL SIGNAL. Adding the descriptor block makes BOTH fingerprints worse
+   on every class A mode (R3FP stereo 0.823 -> 0.748, ring size 0.381 -> 0.349, C->N 0.901 ->
+   0.827). Same story as the gap-narrowing result in fig_A2, arrived at independently. The one
+   place it helps is isotopes (f): 0.000 -> 0.006, because the descriptor block carries exact
+   mass while Morgan atom invariants do not.
+4. AUGMENTATION DOES NOT BUY CHEMICAL SENSITIVITY -- and this is now a paired test, not a
+   comparison of two point estimates. Against its matched canonical control the enumeration-
+   augmented CLM is WORSE on eight of the ten class-A modes, every one of them at |t| > 7:
+   added methyl -0.074 +/- 0.002, added fluorine -0.068 +/- 0.001, regioisomer -0.060 +/- 0.002,
+   isotope -0.062 +/- 0.002, matched descriptors -0.105 +/- 0.003. It buys notation-invariance
+   (re-written SMILES -0.122 +/- 0.002, panel k) and pays for it in chemistry. The reference mode
+   itself comes out null (+0.004 +/- 0.004, t = 0.9), which is the internal check that the paired
+   machinery is not manufacturing differences: both arms are divided by their own matched-MW
+   median, so that one contrast MUST be zero.
+5. THE BLIND SPOTS ARE COMPLEMENTARY. Isotopes (f) are the one place the CLMs win outright --
+   0.205-0.279 against exactly 0.000 for both bare fingerprints -- because a [13C] token changes
+   the string while Morgan atom invariants ignore it. Ring size (g) is weak for everything except
+   the R3FP pair.
+6. THE KEKULE CONTROL IS THE WORST RESULT ON THE PLATE AND MUST NOT BE SOFTENED. Panel (l) is the
+   SAME molecule written aromatic or Kekule, so any response is an artefact. CLIMB supervised
+   moves 1.343 [1.20, 1.46] -- FURTHER than swapping in a completely different compound of matched
+   mass. The two unsupervised arms are 0.673-0.780. Both fingerprints are exactly 0.000. A reader
+   who carries the class-A reading across gets this panel backwards, which is why the caption has
+   to state the inversion explicitly.
 
 A COMPARABILITY CAVEAT THAT BELONGS IN THE CAPTION. The two CLIMB unsup arms are a MATCHED PAIR
 from climb_v2_h1 — both MLM, both 7,812 steps, differing only in augmentation — so point 4 is a
@@ -124,26 +149,44 @@ def compute():
     genuinely different molecule of matched MW, so 1.00 means "moves the embedding as far as
     swapping in a different compound" and the reference is measured PER MODEL -- which is what lets
     a 512-d transformer and a 2048-bit fingerprint share one axis honestly. Effect size itself is
-    the RMS per-dimension change in units of that dimension's spread over 1,000 background
-    molecules. No threshold anywhere.
+    the RMS per-dimension change in units of that dimension's spread over 10,000 background
+    molecules that appear in no reported pair. No threshold anywhere.
     """
-    d = pd.read_csv(SRC)
+    raw = pd.read_csv(SRC)
+    # The source carries BOTH input conventions for every mode, so the selection has to be made
+    # here -- and it has to be checked by counting what was selected, not by asking the frame what
+    # it contains after the selection, which can only ever agree with itself.
+    keep = []
+    arms = [a for a, _, _ in SERIES]
     for kl, want in INPUT_OF.items():
-        got = set(d.loc[d["klass"] == kl, "input"])
-        assert got == {want}, (
-            f"class {kl} must be measured on {want!r} input, found {sorted(got)}. Class A is a "
-            f"chemistry question (canonical); class B IS the notation question (as written). "
-            f"Drawing either on the other's input inverts the figure.")
+        sel = raw[(raw["klass"] == kl) & (raw["input"] == want) & (raw["short"].isin(arms))]
+        want_n = len(set(raw.loc[raw["klass"] == kl, "mode"])) * len(arms)
+        assert len(sel) == want_n, (
+            f"class {kl} on {want!r} input: {len(sel)} rows, expected {want_n} "
+            f"({want_n // len(arms)} modes x {len(arms)} arms). Class A is a chemistry question "
+            f"(canonical); class B IS the notation question (as written). Drawing either on the "
+            f"other's input inverts the figure, and a missing row would silently drop a bar.")
+        keep.append(sel)
+    d = pd.concat(keep, ignore_index=True)
     missing = {s for s, _, _ in SERIES} - set(d["short"])
-    assert not missing, f"SI fig f: arms missing from {SRC.name}: {sorted(missing)}"
-    return d.pivot_table(index=["klass", "mode"], columns="short", values="relative_response")
+    assert not missing, f"fig_G: arms missing from {SRC.name}: {sorted(missing)}"
+    n = sorted(set(d.loc[d["short"].isin([s for s, _, _ in SERIES]), "n"]))
+    assert n and min(n) >= 1000, f"fig_G: expected >=1000 pairs per cell, found n in {n[:5]}"
+    return {c: d.pivot_table(index=["klass", "mode"], columns="short", values=c)
+            for c in ("relative_response", "q1", "q3")}
+
+
+def _row(frame, kl, mode):
+    """One panel's bar values, in SERIES order, NaN where the cell is absent."""
+    return np.array([frame.loc[(kl, mode), lab] if (kl, mode) in frame.index else np.nan
+                     for lab, _, _ in SERIES], dtype=float)
 
 
 REF = 1.0             # the matched-MW reference: "as far as a different molecule"
 YMAX = 1.78           # must clear matched_descriptors / R3FP = 1.617, the global max
 
 
-def _panel(ax, vals, title, klass):
+def _panel(ax, vals, lo, hi, title, klass):
     """One mode. Bars are the response RELATIVE to swapping in a different molecule of matched MW.
 
     The reference line at 1.0 is the whole point of the unit: without it a reader has no way to
@@ -160,6 +203,18 @@ def _panel(ax, vals, title, klass):
     x = np.arange(len(SERIES))
     ax.bar(x, vals, width=0.80, color=[c for _, c, _ in SERIES],
            edgecolor=INK, linewidth=0.45, zorder=3)
+    # WHISKERS ARE THE INTERQUARTILE RANGE OVER THE 1,000 PAIRS, not a standard error. They are
+    # chemistry, not noise: an inverted stereocentre on a rigid ring is not the same edit as one on
+    # a flexible chain, and every representation here is deterministic, so there is no measurement
+    # noise for an error bar to describe. Arm-vs-arm claims use the PAIRED contrast
+    # (figure_data/embedding_resolution/resolution_contrasts.csv) -- every arm sees the identical
+    # pair list, so pair difficulty cancels there and these marginal ranges understate the
+    # separation. Reading whisker overlap as "not different" is therefore wrong, and the caption
+    # has to say so.
+    err = np.vstack([np.clip(np.asarray(vals) - np.asarray(lo), 0, None),
+                     np.clip(np.asarray(hi) - np.asarray(vals), 0, None)])
+    ax.errorbar(x, vals, yerr=err, fmt="none", ecolor=INK, elinewidth=0.55,
+                capsize=1.3, capthick=0.55, zorder=4)
     ax.axhline(REF, color=INK, ls=(0, (3, 2)), lw=0.7, zorder=4)
     for xi, v in zip(x, vals):
         if np.isfinite(v) and v == 0.0:
@@ -189,15 +244,17 @@ def _legend_handles():
 def report(R, modes, heading):
     """The printed table. Same resolution path as the bars, so the console cannot disagree."""
     print(f"\n{heading}\n")
-    print(f"   {'mode':<22}" + "".join(f"{lab:>12s}" for lab, _, _ in SERIES))
+    print(f"   {'mode':<22}" + "".join(f"{lab:>21s}" for lab, _, _ in SERIES))
     for kl, mode, _ in modes:
         row = f"   {mode:<22}"
-        for lab, _, _ in SERIES:
-            v = R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
-            row += (f"{v:>12.3f}" if np.isfinite(v) else f"{'—':>12}")
+        med, q1, q3 = (_row(R[c], kl, mode) for c in ("relative_response", "q1", "q3"))
+        for k in range(len(SERIES)):
+            row += (f"{med[k]:>7.3f}[{q1[k]:.2f},{q3[k]:.2f}]"
+                    if np.isfinite(med[k]) else f"{'—':>21}")
         print(row)
-    print("\n   1.000 = moves the embedding as far as a completely different compound of the same")
-    print("   molecular weight. matched_mw is that reference and is 1.000 by construction.")
+    print("\n   median [IQR] over 1,000 pairs. 1.000 = moves the embedding as far as a completely")
+    print("   different compound of the same molecular weight; matched_mw IS that reference, so")
+    print("   its median is 1.000 by construction and its IQR is the reference's own spread.")
 
 
 
@@ -227,10 +284,9 @@ def main():
     tags = "abcdefghij"
     for i, (kl, mode, title) in enumerate(A):
         ax = fig.add_subplot(gs[i // NCOL_A, i % NCOL_A])
-        rates = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
-                 for lab, _, _ in SERIES]
+        rates, q1, q3 = (_row(R[c], kl, mode) for c in ("relative_response", "q1", "q3"))
         assert np.isfinite(rates).any(), f"fig_G: no data for {mode}"
-        _panel(ax, rates, title, kl)
+        _panel(ax, rates, q1, q3, title, kl)
         ax.text(0.0, 1.30, tags[i], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
         if i % NCOL_A == 0:
@@ -239,10 +295,9 @@ def main():
     # the control column
     for j, (kl, mode, title) in enumerate(B):
         ax = fig.add_subplot(gs[j, NCOL_A])
-        vals = [R.loc[(kl, mode), lab] if (kl, mode) in R.index else np.nan
-                for lab, _, _ in SERIES]
+        vals, q1, q3 = (_row(R[c], kl, mode) for c in ("relative_response", "q1", "q3"))
         assert np.isfinite(vals).any(), f"fig_G: no data for control {mode}"
-        _panel(ax, vals, title, kl)
+        _panel(ax, vals, q1, q3, title, kl)
         ax.text(0.0, 1.30, "kl"[j], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
 

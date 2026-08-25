@@ -2,91 +2,91 @@
  {
   "klass": "A",
   "mode": "stereo_flip",
-  "n": 100,
-  "rejected": 0,
+  "n": 1000,
+  "rejected": 1,
   "description": "inverted stereocentre"
  },
  {
   "klass": "A",
   "mode": "ez_flip",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "flipped E/Z double bond"
  },
  {
   "klass": "A",
   "mode": "c_to_n",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "aromatic C -> N"
  },
  {
   "klass": "A",
   "mode": "add_methyl",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "+ one methyl"
  },
  {
   "klass": "A",
   "mode": "add_fluorine",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "+ one fluorine"
  },
  {
   "klass": "A",
   "mode": "isotope_13c",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "12C -> 13C, graph unchanged"
  },
  {
   "klass": "A",
   "mode": "ring_size",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "cyclopentyl <-> cyclohexyl"
  },
  {
   "klass": "A",
   "mode": "regioisomer",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "ortho vs meta"
  },
  {
   "klass": "A",
   "mode": "matched_mw",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "different molecule, same MW"
  },
  {
   "klass": "A",
   "mode": "matched_descriptors",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "different molecule, same 217 descriptors"
  },
  {
   "klass": "B",
   "mode": "smiles_enumeration",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "SAME molecule, re-written SMILES"
  },
  {
   "klass": "B",
   "mode": "kekule",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "SAME molecule, Kekule form"
  },
  {
   "klass": "B",
   "mode": "symmetry_equivalent",
-  "n": 100,
+  "n": 1000,
   "rejected": 0,
   "description": "SAME molecule, equivalent positions"
  }
