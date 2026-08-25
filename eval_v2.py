@@ -500,7 +500,15 @@ def evaluate(
                           else "cpu")
 
     encoder = tokenizer = None
-    if featurizer == "encoder":
+    # --features_npz SUPERSEDES the encoder: _featurize returns the precomputed lookup before it
+    # ever reaches the forward pass. Loading the encoder anyway made --featurizer encoder
+    # --features_npz unusable without also passing an --encoder/--tokenizer it would never call,
+    # and it failed as an opaque HuggingFace "None is not a local folder" from a path nobody set.
+    # This is how the literature CLM arms reach MolNet at all: their vectors come from a table
+    # built in another environment, exactly as the CheMeleon split described below intends.
+    if featurizer == "encoder" and features_npz:
+        print(f"[eval_v2] features_npz supplied -- skipping encoder/tokenizer load", flush=True)
+    elif featurizer == "encoder":
         from transformers import ModernBertModel, PreTrainedTokenizerFast
         tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
         # reference_compile=False: ModernBERT otherwise triggers torch.compile/triton,
