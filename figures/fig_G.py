@@ -32,20 +32,22 @@ pair. Whiskers are the INTERQUARTILE RANGE over the 1,000 pairs -- chemistry, no
 representation here is deterministic, so there is nothing for an error bar to describe. Arm-vs-arm
 claims below use the PAIRED contrast (resolution_contrasts.csv), where pair difficulty cancels.
 
-1. THE STEREO GAP SURVIVES THE FAIR SETUP. An inverted stereocentre moves the fingerprints
-   0.652-0.823 and the CLMs 0.009-0.033: twenty- to ninetyfold, on canonical input, with no
-   threshold. E/Z is 0.874-0.963 against 0.013-0.063. The IQRs do not come close to touching
+1. THE STEREO GAP SURVIVES THE FAIR SETUP. An inverted stereocentre moves ECFP4 0.652-0.711 and
+   the CLMs 0.009-0.033: twenty- to seventyfold, on canonical input, with no threshold. E/Z is
+   0.879-0.959 against 0.013-0.063. The IQRs do not come close to touching
    (ECFP4 [0.47, 0.85] against CLIMB sup [0.007, 0.011]). This is the mechanism behind fig_C1's
    bare negative (unsupervised pretraining is worth -0.29% over a fine-tuned random init) rather
    than a restatement of it: the representation barely moves when the chemistry does.
-2. R3FP IS THE MOST CHEMICALLY RESPONSIVE REPRESENTATION TESTED, and it is not close where ECFP4
-   is weakest: stereo 0.823 vs 0.711, ring size 0.381 vs 0.108. That is independent support for
-   the third XGBoost anchor from a measurement with no benchmark score in it.
-3. DESCRIPTORS DILUTE STRUCTURAL SIGNAL. Adding the descriptor block makes BOTH fingerprints worse
-   on every class A mode (R3FP stereo 0.823 -> 0.748, ring size 0.381 -> 0.349, C->N 0.901 ->
-   0.827). Same story as the gap-narrowing result in fig_A2, arrived at independently. The one
-   place it helps is isotopes (f): 0.000 -> 0.006, because the descriptor block carries exact
-   mass while Morgan atom invariants do not.
+2. DESCRIPTORS DILUTE STRUCTURAL SIGNAL. Adding the descriptor block makes ECFP4 worse on every
+   class A mode: stereo 0.711 -> 0.652, C->N 0.765 -> 0.708, added methyl 0.762 -> 0.700, ring
+   size 0.108 -> 0.103. Same story as the gap-narrowing result in fig_A2, arrived at
+   independently. The one place it helps is isotopes (f): 0.000 -> 0.006, because the descriptor
+   block carries exact mass while Morgan atom invariants do not.
+3. RING SIZE IS THE COMMON BLIND SPOT (g). Cyclopentyl to cyclohexyl moves ECFP4 0.108 and the
+   CLMs 0.043-0.072 -- the one class-A edit where no arm on this plate responds. Morgan r3-counts,
+   computed but not drawn here, is the exception at 0.381; that is the strongest argument for a
+   counts-based fingerprint in the whole measurement and it belongs in the SI rather than being
+   silently dropped with the row.
 4. AUGMENTATION DOES NOT BUY CHEMICAL SENSITIVITY -- and this is now a paired test, not a
    comparison of two point estimates. Against its matched canonical control the enumeration-
    augmented CLM is WORSE on eight of the ten class-A modes, every one of them at |t| > 7:
@@ -56,9 +58,8 @@ claims below use the PAIRED contrast (resolution_contrasts.csv), where pair diff
    machinery is not manufacturing differences: both arms are divided by their own matched-MW
    median, so that one contrast MUST be zero.
 5. THE BLIND SPOTS ARE COMPLEMENTARY. Isotopes (f) are the one place the CLMs win outright --
-   0.205-0.279 against exactly 0.000 for both bare fingerprints -- because a [13C] token changes
-   the string while Morgan atom invariants ignore it. Ring size (g) is weak for everything except
-   the R3FP pair.
+   0.205-0.279 against exactly 0.000 for bare ECFP4 -- because a [13C] token changes the string
+   while Morgan atom invariants ignore it.
 6. THE KEKULE CONTROL IS THE WORST RESULT ON THE PLATE AND MUST NOT BE SOFTENED. Panel (l) is the
    SAME molecule written aromatic or Kekule, so any response is an artefact. CLIMB supervised
    moves 1.343 [1.20, 1.46] -- FURTHER than swapping in a completely different compound of matched
@@ -114,10 +115,13 @@ TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "diff
 # Every CLIMB entry is now "CLIMB <objective>, <variant>" with no "frozen" -- it was on all three
 # and distinguished none of them, and this figure has no fine-tuned arm for it to contrast with.
 # CheMeleon dropped with the arm (figures.arms.RETIRED).
+# R3FP DROPPED FROM THIS PLATE (Leif 2026-08-25): it carries no narrative anywhere else in the
+# paper's main text. Its numbers are NOT deleted -- both variants are still computed and still
+# written to relative_response_figure.csv, so the SI can quote them and the claim they supported
+# (Morgan r3-counts is the most chemically responsive representation measured: stereo 0.823 vs
+# ECFP4's 0.711, ring size 0.381 vs 0.108) is recoverable without re-running anything.
 SERIES = [("ECFP",      ARMS["ecfp"]["color"],      "ECFP4"),
           ("ECFP+d",    ARMS["ecfp_desc"]["color"], "ECFP4+desc"),
-          ("r3fp",      ARMS["r3fp"]["color"],      "R3FP"),
-          ("r3fp+d",    ARMS["r3fp_desc"]["color"], "R3FP+desc"),
           ("uns-ENUM",  SHADES["unsup"][0],         "CLIMB unsuperv., augmented"),
           ("uns-CANON", SHADES["unsup"][2],         "CLIMB unsuperv., canonical"),
           ("sup",       ARMS["sup_dense"]["color"], "CLIMB supervised")]
@@ -183,7 +187,10 @@ def _row(frame, kl, mode):
 
 
 REF = 1.0             # the matched-MW reference: "as far as a different molecule"
-YMAX = 1.78           # must clear matched_descriptors / R3FP = 1.617, the global max
+# Must clear the largest DRAWN q3, not the largest median: with R3FP gone the tallest cell is
+# ECFP4 on matched_descriptors, median 1.329 with q3 1.50, and CLIMB supervised on Kekule at
+# q3 1.46. 1.78 was set for R3FP's 1.617 median and now wastes a fifth of every panel's height.
+YMAX = 1.62
 
 
 def _panel(ax, vals, lo, hi, title, klass):

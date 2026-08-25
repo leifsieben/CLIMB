@@ -73,15 +73,30 @@ which is a stronger statement than scoring lower.}
 
 % ---------------------------------------------------------------- Fig G
 \caption{\textbf{Does the representation respond when the chemistry changes?}
-Ten chemical edits, 100 molecule pairs each, in which the two molecules are genuinely different
-and a usable representation must respond. Response is the embedding shift the edit produces
-divided by \emph{that model's own} shift when a completely different compound of matched
-molecular weight is substituted, so $1.00$ means ``moves the representation as far as changing
-the molecule''. Panel (i) is that reference and is $1.000$ by construction. The per-model
-denominator lets a 512-d transformer and a 2048-bit fingerprint share one axis. All models
-receive RDKit-canonical SMILES.
-Notation-only edits (SMILES enumeration, Kekulisation) should score $0$; stereochemical and
-scaffold edits should not.}
+Ten chemical edits (a--j), 1{,}000 matched molecule pairs each, in which the two molecules are
+genuinely different and a usable representation must respond. Response is the embedding shift the
+edit produces divided by \emph{that model's own} shift when a completely different compound of
+matched molecular weight is substituted, so $1.00$ means ``moves the representation as far as
+changing the molecule''. Panel (i) is that reference and is $1.000$ by construction. The
+per-model denominator lets a 512-d transformer and a 2048-bit fingerprint share one axis; the
+shift itself is the RMS per-dimension change in units of that dimension's spread over 10{,}000
+unedited molecules that appear in no reported pair. No threshold is used anywhere.
+Bars are medians and whiskers the interquartile range \emph{across the 1{,}000 pairs}: every
+representation here is deterministic, so this is chemical variation between pairs rather than
+measurement noise, and arm-versus-arm claims in the text use the paired per-pair contrast, where
+pair difficulty cancels and the marginal ranges shown here overstate the overlap.
+Panels (a--j) are measured on RDKit-canonical SMILES, because charging a sequence model for
+notation it never sees at inference would answer the wrong question.
+\textbf{The two tinted panels (k, l) invert the reading}: they present the \emph{same} molecule
+written two ways, so they are measured as written and a \emph{high} bar is a failure, not a
+response. A third notation control, symmetry-equivalent atom orderings, is $0.000$ for every arm
+and is reported in the source data; it is what keeps (k) and (l) honest, since it shows the
+language models are not merely sensitive to any character-level edit.
+Exact zeros are labelled ``0'': a fingerprint cannot see a re-written string, and Morgan atom
+invariants cannot see an isotope, so an unlabelled flat baseline would be indistinguishable from
+a bar that was never drawn.
+Morgan radius-3 count fingerprints were measured throughout and are omitted from this plate for
+space; their numbers are in the source data.}
 
 % ---------------------------------------------------------------- SI Fig a
 \caption{\textbf{Is end-to-end fine-tuning necessary?}

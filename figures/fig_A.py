@@ -127,8 +127,12 @@ def main():
     # then scales every font in it up relative to the rest of the set. This layout is authored to
     # fill the canvas and measured at 6.73in against a 6.69in text block. Re-measure if the axes
     # fractions below change -- the first version, with slack on both sides, rendered 5.58in.
-    fig = plt.figure(figsize=(STYLE["col2"] * 6.69 / 6.31, 3.14))
-    ax = fig.add_axes([0.232, 0.194, 0.760, 0.795])
+    fig = plt.figure(figsize=(STYLE["col2"] * 6.69 / 6.31, 3.45))
+    # Row pitch is set by the axes HEIGHT, and it has two lines of text to hold rather than one
+    # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 2.83in over 13 rows
+    # is 0.218in per row; at the previous 2.50in the bold line and its subtitle nearly touched the
+    # rows above and below.
+    ax = fig.add_axes([0.232, 0.177, 0.760, 0.820])
 
     ytrans = ax.get_yaxis_transform()          # x in axes coords, y in data coords
     for yi, a in enumerate(order):
@@ -196,7 +200,7 @@ def main():
     # NO KEY FOR THE TICK (Leif 2026-08-25). The x-axis already reads "mean rank over four task
     # categories" and the tick is the only filled mark on a row of open ones, so the entry
     # restated the axis and cost the legend a slot.
-    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.53, 0.004),
+    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.517, 0.004),
                ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
                columnspacing=1.4, borderpad=0.3, **LEGEND_BOX)
 
