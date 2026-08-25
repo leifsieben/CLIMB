@@ -91,7 +91,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-from figures.style import STYLE, FS, save, check_font, row_ncol
+from figures.style import STYLE, FS, save, check_font, row_ncol, LEGEND_BOX
 from figures.arms import ARMS, SHADES
 
 check_font()
@@ -332,7 +332,7 @@ def main():
                # text block, so the plate would be scaled DOWN in LaTeX and every font with it.
                # Measured, not guessed. rows=3 restores the previous 3x3 block.
                ncol=row_ncol(_h, rows=1), fontsize=FS["legend"], handletextpad=0.4, columnspacing=1.0,
-               labelspacing=0.35, borderpad=0.0, frameon=False)
+               labelspacing=0.35, borderpad=0.30, **LEGEND_BOX)
     save(fig, "fig_G")
     plt.close(fig)
 
