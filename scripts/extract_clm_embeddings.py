@@ -44,7 +44,13 @@ def to_selfies(smiles: list[str]) -> tuple[list[str], list[str]]:
         except Exception:
             continue
         if e:
-            keep.append(s); out.append(e)
+            # SPACE-SEPARATE THE TOKENS. selfies-ted's tokenizer expects "[C] [C] [O]", not
+            # "[C][C][O]": fed the unspaced string it emits THREE tokens for any molecule and
+            # every embedding comes out identical -- measured off-diagonal cosine 1.0000 and
+            # per-dimension sd 0.0000. That arm scored 1.2171 macro RMSE on MoleculeACE, which
+            # reads as "selfies-ted is terrible" rather than "the input was destroyed". Spaced,
+            # the same molecules give 26 tokens, sd 0.24, cosine 0.62.
+            keep.append(s); out.append(e.replace("][", "] ["))
     return keep, out
 
 
@@ -57,6 +63,8 @@ def main() -> int:
     p.add_argument("--smiles", required=True, help="JSON with _all_unique, or .txt one per line")
     p.add_argument("--out", required=True)
     p.add_argument("--selfies", action="store_true", help="model consumes SELFIES (selfies-ted)")
+    p.add_argument("--encoder_only", action="store_true",
+                   help="use model.encoder rather than the full model. Required for BART-style\n                        encoder-decoders: AutoModel(...).last_hidden_state is the DECODER\n                        output, which is not the representation the model is meant to expose.")
     p.add_argument("--max_length", type=int, default=0, help="0 = take it from the checkpoint")
     p.add_argument("--batch_size", type=int, default=64)
     a = p.parse_args()
@@ -105,7 +113,8 @@ def main() -> int:
                       return_tensors="pt")
             ids = enc["input_ids"].to(dev)
             mask = enc["attention_mask"].to(dev)
-            out = model(input_ids=ids, attention_mask=mask)
+            mod = model.encoder if (a.encoder_only and hasattr(model, "encoder")) else model
+            out = mod(input_ids=ids, attention_mask=mask)
             h = out.last_hidden_state
             # MASKED MEAN -- the identical pooling eval_v2._encoder_features applies to the CLIMB
             # encoders. A different pooling here would make the ranking a pooling comparison.
@@ -117,6 +126,28 @@ def main() -> int:
                 print(f"[extract] {i}/{len(texts)}  {r:.0f} mol/s  "
                       f"eta {(len(texts) - i) / max(r, 1e-9) / 60:.1f} min", flush=True)
     X = np.concatenate(feats, 0).astype(np.float32)
+
+    # DEGENERACY TRIPWIRE. A featurizer that returns the SAME vector for every molecule produces a
+    # perfectly well-formed npz, a complete run, and a plausible-looking bad score -- there is no
+    # error anywhere. That is exactly what a mis-tokenised selfies-ted did. So test the condition
+    # rather than trust the pipeline: real embeddings separate molecules.
+    sd = X.std(axis=0)
+    n = min(512, len(X))
+    sub = X[np.linspace(0, len(X) - 1, n).astype(int)]
+    nrm = sub / np.maximum(np.linalg.norm(sub, axis=1, keepdims=True), 1e-9)
+    cos = nrm @ nrm.T
+    off = float((cos.sum() - np.trace(cos)) / (n * n - n))
+    print(f"[extract] sanity: median per-dim sd {np.median(sd):.4f}, "
+          f"dead dims {int((sd < 1e-6).sum())}/{X.shape[1]}, mean off-diagonal cosine {off:.4f}",
+          flush=True)
+    if off > 0.99 or np.median(sd) < 1e-4:
+        raise SystemExit(
+            f"FATAL degenerate embeddings: off-diagonal cosine {off:.4f}, median sd "
+            f"{np.median(sd):.2e}. The model is returning near-identical vectors for different "
+            f"molecules -- check tokenisation (selfies-ted needs SPACE-SEPARATED tokens) and "
+            f"whether --encoder_only is required. Refusing to write a table that would score as "
+            f"a bad model rather than a broken input.")
+
     np.savez_compressed(a.out, smiles=np.asarray([str(s) for s in kept]), X=X)
     print(f"[extract] wrote {a.out}: {X.shape}, {len(smiles) - len(kept)} dropped", flush=True)
     return 0
