@@ -101,9 +101,18 @@ def main() -> int:
           f"max_length={max_len} device={dev}", flush=True)
 
     kept, texts = (to_selfies(smiles) if a.selfies else (list(smiles), list(smiles)))
+    # KEEP THE MOLECULE SET IDENTICAL ACROSS ARMS. 309 of 177,922 molecules cannot be encoded as
+    # SELFIES. Dropping them would give selfies-ted a DIFFERENT molecule set from every other arm
+    # in the ranking -- a worse failure than 0.17% missing, and the same call fig_F made for the 15
+    # organometallics CheMeleon's featurizer rejected. It also makes full coverage unreachable, so
+    # a coverage gate would re-extract this table forever while reporting progress.
+    #
+    # Unencodable molecules get an all-NaN row: present in the table, visibly absent as data, and
+    # imputed at read time rather than silently fabricated here.
+    unencodable = [s for s in smiles if s not in set(kept)]
     if a.selfies:
         print(f"[extract] selfies: {len(kept)}/{len(smiles)} encodable, "
-              f"{len(smiles) - len(kept)} dropped", flush=True)
+              f"{len(unencodable)} kept as all-NaN rows", flush=True)
 
     feats, t0 = [], time.time()
     with torch.no_grad():
@@ -126,14 +135,22 @@ def main() -> int:
                 print(f"[extract] {i}/{len(texts)}  {r:.0f} mol/s  "
                       f"eta {(len(texts) - i) / max(r, 1e-9) / 60:.1f} min", flush=True)
     X = np.concatenate(feats, 0).astype(np.float32)
+    if unencodable:
+        pad = np.full((len(unencodable), X.shape[1]), np.nan, dtype=np.float32)
+        X = np.concatenate([X, pad], 0)
+        kept = list(kept) + list(unencodable)
+        Path(a.out + ".unencodable.json").write_text(json.dumps(unencodable))
+        print(f"[extract] added {len(unencodable)} all-NaN rows; listed in "
+              f"{a.out}.unencodable.json", flush=True)
 
     # DEGENERACY TRIPWIRE. A featurizer that returns the SAME vector for every molecule produces a
     # perfectly well-formed npz, a complete run, and a plausible-looking bad score -- there is no
     # error anywhere. That is exactly what a mis-tokenised selfies-ted did. So test the condition
     # rather than trust the pipeline: real embeddings separate molecules.
-    sd = X.std(axis=0)
-    n = min(512, len(X))
-    sub = X[np.linspace(0, len(X) - 1, n).astype(int)]
+    finite = X[np.isfinite(X).all(axis=1)]
+    sd = finite.std(axis=0)
+    n = min(512, len(finite))
+    sub = finite[np.linspace(0, len(finite) - 1, n).astype(int)]
     nrm = sub / np.maximum(np.linalg.norm(sub, axis=1, keepdims=True), 1e-9)
     cos = nrm @ nrm.T
     off = float((cos.sum() - np.trace(cos)) / (n * n - n))
@@ -160,6 +177,7 @@ def main() -> int:
         "pooling": "masked_mean", "encoder_only": bool(a.encoder_only),
         "selfies_input": bool(a.selfies), "max_length": int(max_len),
         "hidden_size": int(X.shape[1]), "n_molecules": int(X.shape[0]),
+        "n_all_nan_rows": len(unencodable),
         "n_params_M": round(sum(q.numel() for q in model.parameters()) / 1e6, 1),
         "transformers": _tf.__version__, "torch": torch.__version__,
         "sanity_off_diagonal_cosine": round(off, 4),

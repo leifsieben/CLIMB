@@ -175,7 +175,22 @@ def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_
             if missing:
                 raise KeyError(f"{len(missing)} molecules absent from {encoder_path}, "
                                f"e.g. {missing[:3]} -- re-extract rather than impute")
-            return np.asarray([_table[x] for x in smiles], dtype=np.float32)
+            M = np.asarray([_table[x] for x in smiles], dtype=np.float32)
+            # ALL-NaN ROWS are molecules the featurizer could not represent -- SELFIES cannot
+            # encode 309 of the 177,922. They are PRESENT so that every arm sees the same molecule
+            # set (fig_F made this call for CheMeleon's 15 organometallics), and imputed to the
+            # column mean here because the MLP head, unlike XGBoost, cannot consume NaN. Imputing
+            # to the mean gives the arm no information about those molecules rather than a
+            # fabricated one. Counted out loud so it can never be a silent zero.
+            bad = ~np.isfinite(M).all(axis=1)
+            if bad.any():
+                good = M[~bad]
+                fill = np.nanmean(good, axis=0) if len(good) else np.zeros(M.shape[1], np.float32)
+                M[bad] = fill
+                print(f"[npz] {int(bad.sum())}/{len(M)} molecules had no representation "
+                      f"({100 * bad.mean():.3f}%) -- imputed to the feature mean", flush=True)
+                NPZ_META["n_imputed_this_task"] = int(bad.sum())
+            return M
         if featurizer == "chemeleon":
             return eval_v2._chemeleon_features(smiles, device)
         return eval_v2._encoder_features(enc, tok, smiles, device, "mean", max_len)
