@@ -15,7 +15,7 @@ $\ge$60 of 65 datasets. Each representation is shown at the probe head that suit
 bootstrap intervals over test scaffolds (targets on MoleculeACE); Ames is analytic
 (Hanley--McNeil), since its test labels are withheld. Dotted line: untrained (random-init,
 frozen) encoder.
-Classical fingerprint baselines lead overall, with the CheMeleon foundation model next and the
+Classical fingerprint baselines lead overall, with the
 CLIMB encoders behind both.}
 
 % ---------------------------------------------------------------- Fig B
@@ -53,21 +53,20 @@ start from, and return to, a low baseline.}
 
 % ---------------------------------------------------------------- Fig F
 \caption{\textbf{What orthogonal information do the embeddings carry?}
-Each tick is a REFERENCE feature block; the reference itself is the zero line, and every bar is
-the percentage lift one addition buys on top of it, signed so positive is always better. The same
-XGBoost, the same scaffold 5-fold CV, and every cell from one environment --- the RDKit arm was
-regenerated alongside Mordred so that a family difference changes only the descriptor set.
-Descriptors are demonstrably orthogonal to fingerprints, which is the positive control that makes
-a flat embedding bar readable: adding descriptors to ECFP4 gains $1.4$--$13.2\%$ across panels
-(BACE alone is flat). Both CLIMB embeddings are redundant given classical features --- negative on
-most references --- while CheMeleon carries real information beyond ECFP4 ($0$--$8.2\%$).
-The Mordred tick is the sharp test, because CheMeleon is a D-MPNN pretrained to regress the
-$1{,}613$ Mordred 2D descriptors: on five of six panels its lift over Mordred lies within
-$\pm0.6\%$, i.e. it has compressed its pretraining target rather than learned past it.
-MoleculeACE is the exception at $+3.6\%$ and is the one panel where that reading does not hold.
-Intervals are pending: the uncertainty on a lift is the spread of the per-fold DIFFERENCE, in
-which fold difficulty cancels, and the aggregate tables report only each arm's marginal SD ---
-which runs $2$--$8\times$ the lift and describes a different quantity.}
+Each tick is a REFERENCE feature block; the reference itself is the zero line, and every bar is the
+percentage lift one addition buys on top of it, signed so positive is always better. The same
+XGBoost and the same scaffold 5-fold CV throughout, with every cell computed in one recorded
+environment. Error bars are $\pm1$ SD of the PER-FOLD lift --- both arms see the same folds, so
+fold difficulty cancels in the difference; the marginal SD of either arm alone runs $2$--$8\times$
+the lift and describes a different quantity. Ames carries the analytic Hanley--McNeil AUC SE and no
+paired interval, because Polaris withholds its labels and there is a single evaluation to pair.
+Descriptors are demonstrably orthogonal to fingerprints, which is the positive control that makes a
+flat embedding bar readable: adding descriptors to ECFP4 gains $12.8\%$ on QM7 and $6.2\%$ on
+Tox21, and is flat on BACE and HIV.
+Against that control, both CLIMB embeddings are redundant given classical features: added to
+ECFP4+descriptors they are negative on all six panels, from $-0.9\%$ on QM7 to $-5.4\%$ on
+MoleculeACE. The representations are informationally redundant given fingerprints and descriptors,
+which is a stronger statement than scoring lower.}
 
 % ---------------------------------------------------------------- Fig G
 \caption{\textbf{Does the representation respond when the chemistry changes?}
@@ -89,8 +88,7 @@ like-for-like within and across encoders in a panel. Intervals are 95\% resampli
 one method per panel: cluster bootstrap over test scaffolds, over targets on MoleculeACE, and
 analytic on Ames. Dotted line: XGBoost on ECFP4+descriptors.
 End-to-end is ahead in 12 of 18 cells, but no frozen/end-to-end interval pair is disjoint --- at
-this test-set size the data does not resolve any single one of these differences. CheMeleon is
-shown at its XGBoost probe, where freezing is ahead on four of six panels.}
+this test-set size the data does not resolve any single one of these differences.}
 
 % ---------------------------------------------------------------- SI Fig b
 \caption{\textbf{Tokenizer family and vocabulary size.}
@@ -124,6 +122,6 @@ pretrained encoder is most likely to pay: the small-data regime.}
 \caption{\textbf{The probe head is not neutral.}
 The same frozen representations scored through an MLP head and through XGBoost, everything else
 fixed. The preference is representation-dependent and consistent across panels: the CLIMB
-encoders do better with the MLP head, while fingerprints, descriptors and CheMeleon do better
+encoders do better with the MLP head, while fingerprints and descriptors do better
 with XGBoost. Comparing representations across different heads therefore confounds the two, and
 each representation is reported at its own best head in Fig.~1a.}

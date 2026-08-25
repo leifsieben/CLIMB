@@ -85,14 +85,17 @@ TINT = "#F0EDE6"          # class B panel background; warm, so it reads as "diff
 # (user 2026-08-19). "ECFP4" rather than "ECFP4+stereo" because arms.py -- the single source of
 # truth -- calls it ECFP4 everywhere else, and R3FP has chirality on too, so the suffix was
 # marking a property both fingerprints share.
-SERIES = [("ECFP",      ARMS["ecfp"]["color"],             "ECFP4"),
-          ("ECFP+d",    ARMS["ecfp_desc"]["color"],        "ECFP4+desc"),
-          ("r3fp",      ARMS["r3fp"]["color"],             "R3FP"),
-          ("r3fp+d",    ARMS["r3fp_desc"]["color"],        "R3FP+desc"),
-          ("uns-ENUM",  SHADES["unsup"][0],                "CLIMB frozen, unsuperv. augmented"),
-          ("uns-CANON", SHADES["unsup"][2],                "CLIMB frozen, unsuperv. canonical"),
-          ("sup",       ARMS["sup_dense"]["color"],        "CLIMB frozen, supervised"),
-          ("CheMel",    ARMS["chemeleon_frozen"]["color"], "CheMeleon frozen")]
+# SHORTER, CONSISTENT CLIMB LABELS (Leif 2026-08-23: "CLIMB unsuperv., augmented e.g. is enough").
+# Every CLIMB entry is now "CLIMB <objective>, <variant>" with no "frozen" -- it was on all three
+# and distinguished none of them, and this figure has no fine-tuned arm for it to contrast with.
+# CheMeleon dropped with the arm (figures.arms.RETIRED).
+SERIES = [("ECFP",      ARMS["ecfp"]["color"],      "ECFP4"),
+          ("ECFP+d",    ARMS["ecfp_desc"]["color"], "ECFP4+desc"),
+          ("r3fp",      ARMS["r3fp"]["color"],      "R3FP"),
+          ("r3fp+d",    ARMS["r3fp_desc"]["color"], "R3FP+desc"),
+          ("uns-ENUM",  SHADES["unsup"][0],         "CLIMB unsuperv., augmented"),
+          ("uns-CANON", SHADES["unsup"][2],         "CLIMB unsuperv., canonical"),
+          ("sup",       ARMS["sup_dense"]["color"], "CLIMB supervised")]
 
 # (class, mode, two-line panel title). The class blocks are drawn as separate figures.
 MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
@@ -177,10 +180,10 @@ def _panel(ax, vals, title, klass):
 
 def _legend_handles():
     """Shared with fig_G so the two figures cannot drift in arm order, colour, or label."""
-    h = [Patch(facecolor=c, edgecolor=INK, lw=0.6, label=lab) for _, c, lab in SERIES]
-    h.append(Line2D([], [], color=INK, ls=(0, (3, 2)), lw=0.7,
-                    label="= a different molecule (matched MW)"))
-    return h
+    # The dashed reference line has NO legend entry (Leif 2026-08-23). The y-axis already reads
+    # "response relative to a different molecule" and the line sits at 1.0 on it, so the entry
+    # restated the axis and cost the legend a row.
+    return [Patch(facecolor=c, edgecolor=INK, lw=0.6, label=lab) for _, c, lab in SERIES]
 
 
 def report(R, modes, heading):
@@ -261,7 +264,7 @@ def main():
                # 9 handles, and one row overran badly: 6.73in -> 10.84in, far past the 6.69in
                # text block, so the plate would be scaled DOWN in LaTeX and every font with it.
                # Measured, not guessed. rows=3 restores the previous 3x3 block.
-               ncol=row_ncol(_h, rows=3), fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
+               ncol=row_ncol(_h, rows=2), fontsize=FS["legend"], handletextpad=0.5, columnspacing=1.2,
                labelspacing=0.35, borderpad=0.0, frameon=False)
     save(fig, "fig_G")
     plt.close(fig)

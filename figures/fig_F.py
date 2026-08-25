@@ -825,10 +825,10 @@ def main():
                              "difference, not either arm's own SD",
                  ha="center", va="bottom", fontsize=FS["legend"] - 1, color=INK, alpha=0.75)
     fig.tight_layout(rect=(0, 0.045 + (0.022 if not PAIRED_READY else 0), 1, 1))
-    # COMPONENT of fig_E+F, so it belongs in panels/ with fig_C1/C2/D and fig_A1/A2 --
-    # figures_v2/ proper should hold only what goes in the paper. It is still rendered
-    # standalone for review.
-    save(fig, "fig_F", subdir="panels")
+    # PAPER FIGURE as of 2026-08-23, not a component. fig_E+F was split into two standalone
+    # figures, so this belongs in figures_v2/ proper alongside fig_A/fig_B/fig_G rather than in
+    # panels/, which holds only the pieces that other figures assemble.
+    save(fig, "fig_F")
     plt.close(fig)
 
     print("\nFig F — does concatenating CLIMB onto the classical features help?")

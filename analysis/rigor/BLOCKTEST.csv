@@ -1,0 +1,3 @@
+task,features,metric,mean,std
+ESOL,desc,rmse,0.7339,0.0325
+ESOL,desc+T,rmse,0.7512,0.0505

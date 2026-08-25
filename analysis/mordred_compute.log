@@ -1,0 +1,17 @@
+59665 SMILES over 10 shards
+/Users/lsieben/VSCode/CLIMB/.venv_mordred/lib/python3.9/site-packages/mordred/_matrix_attributes.py:251: RuntimeWarning: invalid value encountered in scalar power
+  s += (eig.vec[i, eig.max] * eig.vec[j, eig.max]) ** -0.5
+/Users/lsieben/VSCode/CLIMB/.venv_mordred/lib/python3.9/site-packages/mordred/_matrix_attributes.py:251: RuntimeWarning: invalid value encountered in scalar power
+  s += (eig.vec[i, eig.max] * eig.vec[j, eig.max]) ** -0.5
+[shard 3] 5967/5967 in 4555s
+[shard 0] 5967/5967 in 4646s
+[shard 8] 5966/5966 in 4666s
+[shard 4] 5967/5967 in 4721s
+[shard 9] 5966/5966 in 4729s
+[shard 1] 5967/5967 in 4745s
+[shard 2] 5967/5967 in 4758s
+[shard 6] 5966/5966 in 4758s
+[shard 7] 5966/5966 in 4777s
+[shard 5] 5966/5966 in 4801s
+wrote figure_data/_mordred_features.npz: (59665, 1613), 0 RDKit-unparseable dropped
+non-finite entries: 11.62% (kept as NaN; XGBoost consumes them natively)
