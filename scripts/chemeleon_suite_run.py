@@ -101,17 +101,44 @@ def clf_metrics(yt, yp):
 
 # ---------------- featurization ----------------
 
-def make_featurizer(featurizer, encoder_path, tokenizer_path):
+def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_revision=None):
     import torch
     device = torch.device("cuda" if torch.cuda.is_available()
                           else "mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
                           else "cpu")
     enc = tok = None
+    max_len = 256
     if featurizer == "encoder":
         from transformers import ModernBertModel, PreTrainedTokenizerFast
         tok = PreTrainedTokenizerFast.from_pretrained(tokenizer_path)
         enc = ModernBertModel.from_pretrained(encoder_path, attn_implementation="sdpa",
                                               reference_compile=False).to(device).eval()
+    elif featurizer == "hf_encoder":
+        # LITERATURE CLMs THROUGH THE SAME PROBE. The whole point of the fig_A ranking is to compare
+        # REPRESENTATIONS, so these get the frozen encoder + masked-mean pooling + z-score + MLP that
+        # the CLIMB arms get -- not each paper's own fine-tuning recipe. A fine-tuned arm measures the
+        # head; that confound is what made CheMeleon unreadable for a week, when its frozen-XGBoost
+        # bar beat its own fine-tuned bar.
+        from transformers import AutoModel, AutoTokenizer
+        kw = {"trust_remote_code": True}
+        if hf_revision:
+            kw["revision"] = hf_revision
+        tok = AutoTokenizer.from_pretrained(hf_model, **kw)
+        enc = AutoModel.from_pretrained(hf_model, **kw).to(device).eval()
+        # RESPECT THE MODEL'S OWN LIMIT. MoLFormer's positional embeddings stop at 202; feeding it
+        # our ModernBERT 256 would index past them. Take the smallest sane bound the checkpoint
+        # advertises rather than assuming ours applies to someone else's model.
+        cand = [256]
+        for attr in ("max_position_embeddings", "n_positions", "max_len"):
+            v = getattr(enc.config, attr, None)
+            if isinstance(v, int) and 0 < v < 4096:
+                cand.append(v)
+        mm = getattr(tok, "model_max_length", None)
+        if isinstance(mm, int) and 0 < mm < 4096:
+            cand.append(mm)
+        max_len = min(cand)
+        print(f"[hf_encoder] {hf_model} rev={hf_revision or 'main'} "
+              f"hidden={enc.config.hidden_size} max_length={max_len}", flush=True)
 
     def feat(smiles):
         if featurizer == "ecfp4":
@@ -124,7 +151,7 @@ def make_featurizer(featurizer, encoder_path, tokenizer_path):
             return np.concatenate([fp, d], axis=1)
         if featurizer == "chemeleon":
             return eval_v2._chemeleon_features(smiles, device)
-        return eval_v2._encoder_features(enc, tok, smiles, device, "mean", 256)
+        return eval_v2._encoder_features(enc, tok, smiles, device, "mean", max_len)
 
     std = "none" if featurizer in ("ecfp4", "fp_desc") else "zscore"
     return feat, std
@@ -132,10 +159,12 @@ def make_featurizer(featurizer, encoder_path, tokenizer_path):
 
 # ---------------- run ----------------
 
-def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path):
+def run(track, featurizer, model, head, seeds, encoder_path, tokenizer_path,
+        hf_model=None, hf_revision=None):
     out_dir = ROOT / "figure_data" / "chemeleon_suite" / track / model
     out_dir.mkdir(parents=True, exist_ok=True)
-    feat, std_method = make_featurizer(featurizer, encoder_path, tokenizer_path)
+    feat, std_method = make_featurizer(featurizer, encoder_path, tokenizer_path,
+                                       hf_model=hf_model, hf_revision=hf_revision)
     # MATCH THE HEAD, AND MATCH THIS ARM'S OWN MolNet CELL.
     #
     # make_featurizer returns std="none" for ecfp4/fp_desc because those arms were defined with an
@@ -275,7 +304,15 @@ SUBSAMPLE_SEED = 0
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--track", required=True, choices=["moleculeace", "polaris"])
-    p.add_argument("--featurizer", required=True, choices=["ecfp4", "fp_desc", "chemeleon", "encoder"])
+    p.add_argument("--featurizer", required=True,
+               choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder"])
+    p.add_argument("--hf_model", default=None, help="HF id for --featurizer hf_encoder")
+    p.add_argument("--hf_revision", default=None,
+                   help="PIN the checkpoint revision. MoLFormer's main-branch remote code "
+                        "imports create_bidirectional_mask, absent from the transformers 4.57.3 "
+                        "every CLIMB result is pinned to; revision 7b12d946c181 works. Upgrading "
+                        "transformers instead would move every other arm -- that is exactly how "
+                        "the fig_F v1/v2 mismatch happened.")
     p.add_argument("--train_fraction", type=float, default=None,
                    help="Label-efficiency sweep: keep this FRACTION of each task's own train split "
                         "(test untouched). Per-task, so points cannot collapse on small tasks.")
@@ -291,7 +328,10 @@ def main():
     if TRAIN_FRACTION is not None:
         print(f"[suite] label-efficiency: keeping {TRAIN_FRACTION:.0%} of each task's train split "
               f"(seed {SUBSAMPLE_SEED}); test split untouched", flush=True)
-    run(a.track, a.featurizer, a.model, a.head, a.seeds, a.encoder, a.tokenizer)
+    if a.featurizer == "hf_encoder" and not a.hf_model:
+        raise SystemExit("--featurizer hf_encoder requires --hf_model")
+    run(a.track, a.featurizer, a.model, a.head, a.seeds, a.encoder, a.tokenizer,
+        hf_model=a.hf_model, hf_revision=a.hf_revision)
 
 
 if __name__ == "__main__":
