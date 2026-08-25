@@ -30,7 +30,25 @@ print('yes' if 'meta' in z.files else 'no')")
     sfx=${spec%%:*}; seeds=${spec#*:}
     for track in moleculeace polaris; do
       d=figure_data/chemeleon_suite/$track/${arm}${sfx}
-      [ -s "$d/verified.json" ] && { say "SKIP ${arm}${sfx}/$track"; continue; }
+      # SKIP ONLY IF IT CAME FROM THE TABLE WE ARE USING NOW. "verified.json exists" is the wrong
+      # test and it silently preserved six stale base dirs: chemberta_mtr's base was built through
+      # --featurizer hf_encoder under transformers 4.57.3 while its own _s1/_s2 came from the npz
+      # under 5.15.1 -- an environment split WITHIN a single arm's replicate trio, which is the
+      # fig_F failure at its worst. molformer_c3 and selfies_ted bases came from the earlier
+      # 113,209-molecule tables. All three looked complete and verified.
+      fresh=$($PY -c "
+import json, numpy as np
+try:
+    v = json.load(open('$d/verified.json'))
+    p = v.get('npz_provenance') or {}
+    z = np.load('$npz', allow_pickle=False)
+    m = json.loads(str(z['meta']))
+    print('yes' if (p.get('hf_model') == m['hf_model']
+                    and p.get('n_molecules') == m['n_molecules']) else 'no')
+except Exception:
+    print('no')")
+      [ "$fresh" = "yes" ] && { say "SKIP ${arm}${sfx}/$track (matches current table)"; continue; }
+      [ -s "$d/verified.json" ] && say "STALE ${arm}${sfx}/$track -- rebuilding from the current table"
       say "RUN ${arm}${sfx} on $track (seeds $seeds)"
       $PY scripts/chemeleon_suite_run.py --track "$track" --featurizer npz --encoder "$npz" \
           --model "${arm}${sfx}" --head mlp --seeds $seeds \
