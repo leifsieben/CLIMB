@@ -39,6 +39,39 @@ INK = "#000000"
 
 DF = pd.read_csv(ROOT / "figure_data" / "six_panel" / "scaling_ladders.csv")
 
+# ---------------------------------------------------------------- unique molecules -------------
+# THE BASE CORPUS IS 12M MOLECULES. A rung above 12M forward passes is RE-READING it, so forward
+# passes (and therefore tokens) stop being a data axis there and become a repetition axis. Only the
+# two `unsup` big-corpus rungs draw from the 124M full corpus and keep seeing new molecules.
+# Measured across the whole table: sup_dense 0 of 5 rungs escape the cap, sup_dense_sparse 0 of 4,
+# sup_sparse 0 of 4, u2s_dense 0 of 4, unsup 2 of 6.
+# See notes/scaling-ladder-unique-molecule-confound.md -- plotting tokens alone puts
+# skip_dense_96M at 4.12B tokens far to the right while it holds the same 12M molecules as the
+# rung three positions to its left.
+CORPUS_12M = 12_000_000
+import re as _re
+
+
+def _fwd_passes(rung):
+    m = _re.search(r"(\d+)M", rung)
+    return int(m.group(1)) * 1_000_000 if m else np.nan
+
+
+def unique_molecules(rung, big_corpus):
+    fp = _fwd_passes(rung)
+    return fp if big_corpus else min(fp, CORPUS_12M)
+
+
+def epochs(rung, big_corpus):
+    """How many times the rung re-reads its corpus. 1.0 = every molecule seen once."""
+    fp = _fwd_passes(rung)
+    return 1.0 if big_corpus else fp / CORPUS_12M
+
+
+DF["uniq"] = [unique_molecules(r.rung, r.big_corpus) for r in DF.itertuples()]
+DF["epochs"] = [epochs(r.rung, r.big_corpus) for r in DF.itertuples()]
+DF["repeated"] = DF["epochs"] > 1.0
+
 # ladder display order + style: colour from arms.py (single source of truth), markers distinct
 LADDERS = ["sup_dense", "unsup", "u2s_dense"]
 MARKER = {"sup_dense": "o", "unsup": "D", "u2s_dense": "P"}
@@ -73,7 +106,17 @@ def _big_marker(ax, g, color):
                 ls="none", zorder=4)
 
 
-def _panels(banded):
+def _panels(banded, variant="marked"):
+    """variant:
+       "marked"  x = tokens, every rung drawn; rungs that RE-READ the corpus are hollow and
+                 carry their epoch count, so a reader can see which points add data and which
+                 only add passes.
+       "nodup"   x = tokens, but ONLY rungs that actually add unique molecules are plotted.
+                 The supervised ladders lose their top three rungs and keep two points, which
+                 is the honest extent of their data-scaling evidence.
+       "unique"  x = unique molecules. Repeated rungs collapse onto x = 12M, so the vertical
+                 stack there IS the confound, drawn.
+    """
     # 2x3 at FULL page width. One row of six was tried and reverted (user 2026-08-19: "too
     # extreme... they become super distorted") -- six panels across 6.69in leaves ~1.05in
     # each, taller than they are wide, which squashes the curves. 2x3 gives ~2.0in panels.
@@ -86,14 +129,36 @@ def _panels(banded):
         lo, hi = np.inf, -np.inf
         for ladder in LADDERS:
             g = ladder_df(ladder, p)
+            if variant == "nodup":
+                g = g[~g.repeated]
             if g.empty:
                 continue
+            xcol = "uniq" if variant == "unique" else "tokens"
+            g = g.sort_values(xcol)
             c = ARMS[ladder]["color"]
             if banded:
                 ax.fill_between(g.tokens, g.value - g.sd_total, g.value + g.sd_total,
                                 color=c, alpha=0.15, lw=0, zorder=2)
-            ax.plot(g.tokens, g.value, color=c, ls="-", lw=STYLE["lw"],
-                    marker=MARKER[ladder], ms=4.6, mec="white", mew=0.6, zorder=3)
+            if variant == "unique":
+                # Points that share an x are the SAME data read more times; join them with a
+                # thin vertical spine rather than a line that pretends to travel along x.
+                solid = g[~g.repeated]
+                ax.plot(solid[xcol], solid.value, color=c, ls="-", lw=STYLE["lw"],
+                        marker=MARKER[ladder], ms=4.6, mec="white", mew=0.6, zorder=3)
+                rep = g[g.repeated]
+                if len(rep):
+                    ax.plot(rep[xcol], rep.value, color=c, ls="none", marker=MARKER[ladder],
+                            ms=4.0, mfc="none", mew=1.0, zorder=3)
+                    ax.plot([CORPUS_12M] * 2, [rep.value.min(), rep.value.max()],
+                            color=c, ls=":", lw=0.9, zorder=2)
+            else:
+                ax.plot(g[xcol], g.value, color=c, ls="-", lw=STYLE["lw"],
+                        marker=MARKER[ladder], ms=4.6, mec="white", mew=0.6, zorder=3)
+            if variant == "marked":
+                rep = g[g.repeated]
+                for r in rep.itertuples():
+                    ax.plot(r.tokens, r.value, marker=MARKER[ladder], ms=4.6, mfc="white",
+                            mec=c, mew=1.1, ls="none", zorder=4)
             _big_marker(ax, g, c)
             lo = min(lo, (g.value - g.sd_total).min()); hi = max(hi, (g.value + g.sd_total).max())
         for a, ls in REF_LINES:
@@ -101,11 +166,16 @@ def _panels(banded):
                 ax.axhline(REF[a][p], color=ARMS[a]["color"], ls=ls, lw=1.1, zorder=1)
                 lo = min(lo, REF[a][p]); hi = max(hi, REF[a][p])
         ax.set_xscale("log")
-        ax.xaxis.set_major_locator(ticker.FixedLocator(XTICKS))
+        if variant == "unique":
+            ax.xaxis.set_major_locator(ticker.FixedLocator([2e6, 12e6, 100e6]))
+            ax.set_xlim(1.4e6, 1.7e8)
+            ax.axvline(CORPUS_12M, color=INK, ls=(0, (2, 2)), lw=0.7, zorder=1)
+        else:
+            ax.xaxis.set_major_locator(ticker.FixedLocator(XTICKS))
+            ax.set_xlim(6.5e7, 6.5e9)
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(_fmt_tokens))
         ax.xaxis.set_minor_locator(ticker.NullLocator())
         ax.tick_params(axis="x", which="minor", bottom=False)
-        ax.set_xlim(6.5e7, 6.5e9)
         pad = YMARGIN * max(hi - lo, 1e-9)
         y0, y1 = lo - pad, hi + pad
         if d["metric"] == "roc_auc":
@@ -123,10 +193,20 @@ def _panels(banded):
                       label=ARMS[l]["label"]) for l in LADDERS]
     handles.append(Line2D([], [], color=INK, marker="o", mfc="none", mew=1.0, ls="none",
                           label="larger corpus (unsup 50M/100M)"))
+    if variant == "marked":
+        handles.append(Line2D([], [], color=INK, marker="s", mfc="white", mew=1.1, ls="none",
+                              label="re-reads the 12M corpus (no new molecules)"))
+    if variant == "unique":
+        handles.append(Line2D([], [], color=INK, ls=(0, (2, 2)), lw=0.9,
+                              label="12M corpus ceiling"))
     for a, ls in REF_LINES:
         handles.append(Line2D([], [], color=ARMS[a]["color"], ls=ls, lw=1.2, label=ARMS[a]["label"]))
+    # ROWS BY HANDLE COUNT, measured not guessed: the "re-reads the corpus" key takes the
+    # marked variant to 6 handles, and one row rendered 8.91in against a 6.69in text block.
+    _rows = 1 if len(handles) <= 5 else 2
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.050),
-               ncol=row_ncol(handles), fontsize=FS["legend"], handletextpad=0.5, labelspacing=0.3,
+               ncol=row_ncol(handles, rows=_rows), fontsize=FS["legend"], handletextpad=0.5,
+               labelspacing=0.3,
                columnspacing=1.2, borderpad=0.30, **LEGEND_BOX, labelcolor=INK)
     # Axes -> shared x-label -> legend, each about one text-height apart (user 2026-08-19:
     # "too much white space"). The legend is anchored just BELOW the x-label rather than
@@ -134,17 +214,37 @@ def _panels(banded):
     # the canvas, and savefig("tight") then GROWS the image downward to contain it -- which
     # adds exactly the white band it looks like it should remove.
     fig.tight_layout(rect=(0, 0.112, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.068, "pretraining tokens", ha="center", va="bottom",
-             fontsize=FS["annot"], color=INK)
+    xlab = {"marked": "pretraining tokens  (hollow = corpus re-read, no new molecules)",
+            "nodup":  "pretraining tokens  (rungs that add unique molecules only)",
+            "unique": "unique molecules seen"}[variant]
+    fig.text(0.5, 0.068, xlab, ha="center", va="bottom", fontsize=FS["annot"], color=INK)
     return fig
 
 
 def main():
     # single clean variant (user decision 2026-08-17: no error display; sd_total stays
     # available in scaling_ladders.csv if a referee asks)
-    fig = _panels(banded=False)
-    save(fig, "fig_B")
-    plt.close(fig)
+    #
+    # THREE VARIANTS for review (Leif 2026-08-26). Tokens is the standard unit and v1 keeps it;
+    # v2 and v3 exist because tokens alone cannot show that the supervised ladders stop adding
+    # molecules after the 8M rung.
+    for name, variant in (("fig_B", "marked"), ("fig_B_v2_nodup", "nodup"),
+                          ("fig_B_v3_unique", "unique")):
+        fig = _panels(banded=False, variant=variant)
+        save(fig, name)
+        plt.close(fig)
+    report()
+
+
+def report():
+    d = DF.drop_duplicates("rung")[["ladder", "rung", "tokens", "uniq", "epochs", "repeated"]]
+    print("\nRung inventory -- what each point on fig_B actually represents:\n")
+    print(f"   {'ladder':<20}{'rung':<28}{'tokens':>9}{'unique mols':>13}{'epochs':>9}")
+    for lad, g in d.groupby("ladder"):
+        for r in g.sort_values("tokens").itertuples():
+            flag = "  re-read" if r.repeated else ""
+            print(f"   {lad:<20}{r.rung:<28}{r.tokens/1e9:>8.2f}B{r.uniq/1e6:>12.0f}M"
+                  f"{r.epochs:>9.1f}{flag}")
 
 
 if __name__ == "__main__":
