@@ -16,7 +16,15 @@ say () { echo "[figB:$RUN] $* $(date -u +%FT%TZ)" | tee -a "$LOG"; }
 abort () { say "ABORT -- $* -- BOX STAYS UP"; aws s3 cp "$LOG" "$S3/$RUN/figB_run.log" --only-show-errors; exit 1; }
 
 say "start on $(curl -s --max-time 2 http://169.254.169.254/latest/meta-data/instance-type || echo unknown)"
-git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux
+# A script that git-resets its OWN source is reading a file that changes underneath it: bash reads
+# lazily by byte offset, so an update that inserts lines makes it resume at the wrong place and
+# SKIP whatever moved past the offset. That is how the MTR gate silently did not run on the launch
+# that added it. Update, then re-exec once from the new file with a fresh offset.
+if [ "${FIGB_REEXEC:-0}" != "1" ]; then
+  git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux
+  say "code at $(git rev-parse --short HEAD) -- re-exec from updated source"
+  FIGB_REEXEC=1 exec bash "$0" "$@"
+fi
 say "code at $(git rev-parse --short HEAD)"
 
 # ---- fetch the TEMPLATE manifests: experiments/ is gitignored, so a fresh box has none ---------
