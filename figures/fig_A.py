@@ -6,7 +6,7 @@ Full A4 text-block width, and as short as the content allows: one row per model,
 panel. The six per-dataset panels that used to sit underneath are fig_A2's job; repeating them
 here cost most of a page and said nothing the ranking did not.
 
-WHAT IS RANKED. Thirteen models, every one of them a FROZEN representation with a trained head. Each is ranked WITHIN every individual dataset (1 = best of the
+WHAT IS RANKED. 14 models, every one of them a FROZEN representation with a trained head. Each is ranked WITHIN every individual dataset (1 = best of the
 field), those per-dataset ranks are averaged within each of four task categories, and the four
 category means are averaged with EQUAL WEIGHT. Ranking per dataset is what makes the pooling
 legal: the metrics are heterogeneous (RMSE, ROC-AUC, PR-AUC, NEF1%, Pearson r, Spearman rho) and
@@ -24,10 +24,13 @@ deliberate; it is not self-evident.
 
 TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-uniform.md):
 
-  1. "3 seeds" is one label over two estimands. CLIMB arms vary the PRETRAINING with head seeds
-     pinned; ECFP4 and the three literature CLMs have no pretraining stage to vary, so they carry
-     three disjoint HEAD-SEED triples instead. Do NOT write "three pretraining seeds" as a
-     property of the panel -- it is false for five of the thirteen rows.
+  1. "3 seeds" is one label over two estimands. Most CLIMB arms vary the PRETRAINING with head
+     seeds pinned. The two ECFP4 anchors and the three literature CLMs have no pretraining stage
+     to vary, and unsup_100M has exactly one pretraining and always will, so those five carry
+     three disjoint HEAD-SEED triples inside one directory instead. Do NOT write "three
+     pretraining seeds" as a property of the panel -- it is false for 6 of the 14 rows, and a
+     head-seed bar is TIGHTER than a pretraining-seed bar for a reason that has nothing to do
+     with the arm being more stable, so the two must not be read against each other.
   2. The probe head is representation-dependent by design: ECFP4 arms at XGBoost, every CLM at a
      frozen encoder plus MLP, because SI fig f shows the preference is representation-dependent
      and a single head handicaps whichever representation it does not suit. The three literature
@@ -35,11 +38,17 @@ TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-
      XGBoost by 0.138 macro RMSE, wider than the whole ECFP4+desc-to-CLIMB span. Leif ruled no
      ablation for now; the exposure is recorded rather than hidden.
 
-MISSING DATA IS DRAWN, NOT OMITTED. Wong (virtual screening) and FartDB (classification) are
-commissioned and not yet complete -- 4 of 13 and 2 of 13 arms respectively as of 2026-08-26 -- so
-they are absent from the counts in the legend rather than half-scored. An arm with no results at
-all gets a labelled empty row, not an absent row: dropping it would make the plate look finished
-and quietly renumber the field, which changes every rank on the page.
+MISSING DATA IS DRAWN, NOT OMITTED. Wong (virtual screening) and FartDB (classification) landed
+2026-08-26 and are in the counts; the one arm still short of them is unsup_100M, which is drawn
+with a * and a footnote naming exactly what it is missing rather than being quietly ranked on a
+smaller field. An arm with no results at all gets a labelled empty row, not an absent row:
+dropping it would make the plate look finished and quietly renumber the field, which changes
+every rank on the page.
+
+THE COUNTS ABOVE ARE TESTED, NOT TRANSCRIBED. _audit_docstring() below re-derives every number in
+this docstring from the arm table on each render and fails if one has drifted. Two captions in
+this repo have already shipped a count that was true when written and false when read; a number
+in prose cannot fail loudly on its own, so it is checked against the thing it describes.
 
 Run:  python3 -m figures.fig_A
 """
@@ -124,7 +133,7 @@ def _meta(a):
 
 
 def compute():
-    """Ranks over the thirteen-arm field, plus per-arm category coverage.
+    """Ranks over the full ranked field, plus per-arm category coverage.
 
     The field size passed to the ranker is len(HAVE), so the ranks returned run 1..len(HAVE). They
     are NOT rescaled to 1..13 here: doing that would invent a position for three arms that have no
@@ -166,6 +175,37 @@ def compute():
     return out, avail, short_prov, missing_ds
 
 
+def _audit_docstring():
+    """Re-derive every count this module's docstring states, and fail if one has drifted.
+
+    A caption number is the purest form of the failure this repo keeps hitting: it answers
+    confidently, it cannot fail on its own, and it stops the reader looking. Two have already
+    shipped stale here -- SI fig a claimed "12 of 18 cells" after a retirement made it 12, and
+    this docstring said "thirteen models" and "five of the thirteen rows" for a day after
+    unsup_100M was added. Neither was visible from inside the figure; both were arithmetic over
+    the arm table, which is right here.
+
+    So the docstring is a TESTED artefact, not prose. Each claim below names a phrase that must
+    appear verbatim, built from the arms as they actually are. Adding or dropping an arm breaks
+    the render until the sentence is true again.
+    """
+    head_seed = [a for a in RANKED_ARMS
+                 if a in ARMS and not ARMS[a].get("pretrain_replicates", True)]
+    claims = {
+        "field size":
+            f"WHAT IS RANKED. {len(RANKED_ARMS)} models,",
+        "head-seed row count":
+            f"it is false for {len(head_seed)} of the {len(RANKED_ARMS)} rows",
+    }
+    stale = {k: v for k, v in claims.items() if v not in (__doc__ or "")}
+    if stale:
+        raise AssertionError(
+            "fig_A: the module docstring is the caption source and it has gone stale. "
+            "Derived now: " + "; ".join(f"{k} -> {v!r}" for k, v in stale.items()) +
+            ". Fix the sentence in the docstring; do not weaken this check.")
+    return head_seed
+
+
 BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plates read alike
 
 # How a CATEGORY is summarised from its datasets: "mean" or "median" rank. The four category
@@ -194,11 +234,12 @@ SUMMARY = "mean"
 
 
 def main():
+    head_seed = _audit_docstring()
     out, avail, short_prov, missing_ds = compute()
     order = list(out.sort_values("mean_rank").index) + [a for a in RANKED_ARMS if a not in out.index]
     nfield = len(out)
 
-    # One row per model. Thirteen rows plus axis and legend inside 3.4in, roughly a third of A4's
+    # One row per model. Fourteen rows plus axis and legend inside 3.7in, roughly a third of A4's
     # text height -- the point of dropping the six-panel block.
     #
     # WIDTH IS SET BY MEASUREMENT. save() crops to the drawn content, so the rendered plate is NOT
@@ -210,9 +251,9 @@ def main():
     # the arm list moved it. First version, with slack on both sides, rendered 5.58in.
     fig = plt.figure(figsize=(STYLE["col2"] * 1.123, 3.66))
     # Row pitch is set by the axes HEIGHT, and it has two lines of text to hold rather than one
-    # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 2.83in over 13 rows
-    # is 0.218in per row; at the previous 2.50in the bold line and its subtitle nearly touched the
-    # rows above and below.
+    # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 0.750 x 3.66in =
+    # 2.75in over 14 rows is 0.196in per row; at the previous height the bold line and its
+    # subtitle nearly touched the rows above and below.
     # bottom margin holds a TWO-LINE x-label when a provisional footnote is present; at the
     # one-line spacing the legend sat on top of the second line.
     ax = fig.add_axes([0.232, 0.243, 0.760, 0.750])
@@ -310,10 +351,10 @@ def main():
 
     save(fig, "fig_A")
     plt.close(fig)
-    report(out, avail, order)
+    report(out, avail, order, head_seed, short_prov, missing_ds)
 
 
-def report(out, avail, order):
+def report(out, avail, order, head_seed, short_prov, missing_ds):
     print(f"\nFig A — {len(out)} of {len(RANKED_ARMS)} arms scored, "
           f"{out.attrs['n_datasets_total']} datasets in four categories\n")
     print(f"   {'model':<34}" + "".join(f"{T.CAT_SHORT[k]:>9}" for k in T.CATEGORIES)
@@ -332,6 +373,25 @@ def report(out, avail, order):
     pend = {k: v for k, v in T.PENDING_DATASETS.items()}
     if pend:
         print(f"   awaiting datasets: " + ", ".join(f"{k} -> {v}" for k, v in pend.items()))
+
+    # CAPTION FACTS. Printed rather than left for the caption writer to count, because every one
+    # of these is a number a reader will take on trust and none of them can fail on their own.
+    # Paste from here into the LaTeX \caption{}; do not re-derive them by eye from the plate.
+    print("\n   CAPTION FACTS (paste, do not re-count):")
+    print(f"     field                {len(RANKED_ARMS)} arms, {out.attrs['n_datasets_total']} "
+          f"datasets, four categories at equal weight "
+          f"({', '.join(f'{k} {avail[k]}' for k in T.CATEGORIES)})")
+    print(f"     replicate axis       {len(RANKED_ARMS) - len(head_seed)} arms replicate the "
+          f"PRETRAINING; {len(head_seed)} replicate the HEAD SEED inside one run "
+          f"({', '.join(head_seed)}).")
+    print( "                          A head-seed bar EXCLUDES pretraining variance and therefore "
+           "reads tighter for a")
+    print( "                          reason unrelated to the arm's stability. Say so; do not "
+           "write \"three seeds\" flat.")
+    for a, n in short_prov.items():
+        print(f"     provisional          {a} ranked on {n} of "
+              f"{int(out['n_datasets'].max())} datasets "
+              f"(no {', '.join(m.split(':')[0] for m in missing_ds[a])})")
 
 
 if __name__ == "__main__":
