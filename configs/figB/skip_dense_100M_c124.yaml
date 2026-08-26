@@ -1,0 +1,48 @@
+run_id: skip_dense_100M_c124
+tokenizer_path: s3://climb-s3-bucket/tokenizer_10M
+unsupervised_data_paths:
+- s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full_tokenized_pkl/
+unsupervised_raw_smiles_paths:
+- s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/
+supervised_tokenized_parquet_path: s3://climb-s3-bucket/tokenized/supervised_wide_parquet/
+descriptor_stats_path: configs/descriptor_stats.json
+model:
+  hidden_size: 512
+  num_hidden_layers: 12
+  num_attention_heads: 8
+  intermediate_size: 1536
+  max_position_embeddings: 256
+  vocab_size: 1000
+training:
+  learning_rate: 0.0002
+  batch_size: 256
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  mlm_probability: 0.3
+  train_max_length: 128
+  supervised_regression_loss: mae
+  mtr_loss: mse
+  uncertainty_weighting: true
+  seed: 42
+  bf16: true
+  log_every_steps: 50
+  dataloader_num_workers: 6
+evaluation:
+  pool: mean
+  standardize: zscore
+  head: mlp
+  max_length: 256
+  head_seeds:
+  - 0
+  - 1
+  - 2
+unsupervised_subset_fraction: null
+selection:
+  objectives:
+    mtr: 1.0
+  supervised_families: null
+  init_encoder_path: null
+  pretraining_seed: 0
+  total_forward_passes: 100000000
+  augmentation: canonical
+  unsupervised_subset_fraction: null
