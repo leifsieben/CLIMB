@@ -13,7 +13,14 @@ Parallelize across boxes with --shard_range (e.g. "0-3", "4-7", "8-11").
         --out_s3 s3://climb-s3-bucket/tokenized_sources/pubchem_descriptors/
 """
 from __future__ import annotations
-import argparse, subprocess, sys, tempfile
+import argparse, os, subprocess, sys, tempfile
+
+# One BLAS thread per process, BEFORE numpy loads OpenBLAS. This script is run one-process-per-core,
+# and rdkit's Ipc descriptor goes through numpy.dot: without the pin, 32 workers on a 32-vCPU box
+# each opened their own pool and the load average hit 333. Same fix as pretrain_v2.py, same reason,
+# and it has to live in the module because the launcher is not the only caller.
+for _v in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 from pathlib import Path
 import numpy as np
 
