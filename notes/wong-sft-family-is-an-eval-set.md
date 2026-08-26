@@ -75,3 +75,70 @@ Two questions for that measurement, in order:
 Related: [[absence-claims-go-stale-silently]] -- the blocklist is an absence claim ("no eval
 molecule is in training") that was true when written, cannot fail loudly, and stopped being true
 when the suite grew.
+
+---
+
+# The number: 88.5%, and the audit that followed it (2026-08-26)
+
+Measured by the compute session on canonical keys:
+
+    Wong        39,039 unique eval molecules
+                34,568 (88.5%) present in the WONG SFT family
+                 4.38% of them on eval_blocklist.json
+                => at least 84% were in skip_mixed_8M's SUPERVISED training data, WITH LABELS
+
+The blocklist mechanism WORKS -- pretrain_v2 loads it, passes it to data_v2, and prints how many
+molecules it drops from SFT. It covers 4.38% of Wong because it was built before Wong was an eval
+set. A working mechanism pointed at a stale target.
+
+So sup_mixed's 1st of 14 on Wong is training on the test set. It is out of fig_A as of e8a8263,
+replaced by sup_dense_sparse per Leif's decision, and it is now drawn in no paper figure.
+
+## It is not only Wong -- but the exposure that remains looks harmless, and that is measured
+
+Eval molecules overlapping SFT families, worst first (lower bounds; families are sampled at 400k):
+
+    Polaris:bioavailability-ma    62.2% L1000_MCF7   23.9% WONG   (78.4% blocked)
+    Polaris:dili                  51.6% L1000_MCF7   41.7% WONG   (59.0% blocked)
+    Polaris:half-life-obach       49.9% L1000_MCF7   22.4% WONG   (63.6% blocked)
+    Polaris:cyp2c9/2d6/3a4-sub    ~40%  L1000_MCF7   ~12%  WONG   (~55% blocked)
+    Polaris:bbb-martins           23.0% L1000_MCF7   11.1% WONG   (49.5% blocked)
+    Polaris:pgp-broccatelli       16.4% L1000_MCF7    7.6% WONG   (21.0% blocked)
+    MolNet/Polaris Ames            4.1% L1000_MCF7   18.2% PCBA   (28.2% blocked)
+    FartDB                         6.6% PCBA                      ( 7.7% blocked)
+    MoleculeACE                   <1%                             ( 1.0% blocked)
+    CBS                           <1%                             ( 0.5% blocked)
+
+CBS and MoleculeACE are CLEAN. Virtual screening does not collapse; it loses one of three datasets.
+
+L1000_MCF7 recurs because it is a drug-like compound panel and TDC's ADMET sets are drug
+molecules -- a shared-chemistry mechanism, not a name collision. The opposite of how Wong was found.
+
+## The control that bounds it, computed here
+
+Three ranked arms train on PCBA + L1000_MCF7 + L1000_VCAP: sup_sparse, u2s_sparse, and
+sup_dense_sparse (the arm that just replaced sup_mixed -- so the swap is NOT automatically clean).
+If residual leakage were buying them anything, they should do relatively better on the high-overlap
+datasets than elsewhere. Mean rank on the ten high-overlap sets vs the other 54:
+
+    arm             high-overlap    rest    delta
+    sup_sparse           10.50     11.39    -0.89
+    u2s_sparse           10.80     11.96    -1.16
+    sup_dense             4.30      6.15    -1.85     <- MTR only, CANNOT be leaked
+    unsup                 7.90      8.06    -0.16     <- MLM, cannot be leaked
+    ecfp_desc             3.50      1.56    +1.94
+
+THE ASSAY-TRAINED ARMS GAIN LESS THAN sup_dense DOES, and sup_dense has no assay exposure at all.
+So the apparent gain is a property of those datasets -- small, noisy Polaris tasks where the
+fingerprint anchor is weakest -- and not evidence of a leakage benefit. Consistent with the 50-78%
+block rates on exactly those tasks.
+
+This BOUNDS the concern; it does not close it. Absence of a detectable benefit is not proof of no
+leakage, and the decisive number is overlap MINUS blocklist per family, which is being recomputed.
+Wong needed no such subtlety: 88.5% overlap against 4.4% blocked is not a residual question.
+
+## The bigger question, which is Leif's and not ours
+
+24 phase-2 runs list WONG in supervised_families, and the blocklist is a build-time artefact of an
+eval suite that has grown five times since. Rebuilding it properly means rebuilding against the
+CURRENT suite and re-training every affected run. That is a wave, not a fix.
