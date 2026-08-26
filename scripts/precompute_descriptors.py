@@ -82,6 +82,19 @@ def main():
     for si in range(lo, hi + 1):
         f = "s3://" + files[si] if not files[si].startswith("s3://") else files[si]
         name = Path(files[si]).stem  # shard_00000
+        # Skip work already durably done -- but on the OBJECT'S SIZE, not its existence. A shard
+        # interrupted mid-upload leaves a short object, and "the file is there" would treat that as
+        # finished forever. Spot boxes make this the normal case, not the exceptional one.
+        dest = f"{args.out_s3.rstrip('/')}/descriptors_{name}.npy"
+        want_rows = pq.ParquetFile(f).metadata.num_rows
+        want_bytes = want_rows * len(stats["mean"]) * 2 + 128
+        have = subprocess.run(["aws", "s3", "ls", dest], capture_output=True, text=True).stdout.split()
+        if have and have[-2].isdigit() and int(have[-2]) == want_bytes:
+            print(f"[precompute] SKIP {name}: {want_bytes} bytes already on S3 for {want_rows} rows",
+                  flush=True)
+            print(f"[precompute] DONE {name}: wrote ({want_rows}, {len(stats['mean'])}) -> {args.out_s3}",
+                  flush=True)
+            continue
         tbl = pq.read_table(f, columns=[SMILES_COL])
         smiles = tbl.column(0).to_pylist()
         n = len(smiles)
