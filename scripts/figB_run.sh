@@ -66,6 +66,22 @@ pc=m['runs'][0]['pretrain_config']
 assert 'descriptor_precompute_dir' not in pc, 'descriptor_precompute_dir is set -- shard names collide across corpora'
 print('[figB] descriptor_precompute_dir correctly absent')" 2>&1 | tee -a "$LOG" || abort "descriptor precompute check failed"
 
+# ---- the MTR target space must be the one the TEMPLATE trained against -------------------------
+# This box came off an April AMI carrying rdkit-pypi 2022.9.5, which SHADOWED the rdkit 2025.9.2 the
+# July fleet used and exposes only 208 of the 217 descriptors. It surfaced as a broadcast error --
+# but only because the counts differed. Had a version merely REORDERED the list, every descriptor
+# would have been z-scored by another descriptor's mean and nothing would have raised. So check the
+# names in order, and check them against what the template run RECORDED, not against a constant.
+aws s3 cp "$S3/$TPL/metadata.json" analysis/tpl_meta.json --only-show-errors   || abort "cannot read template metadata -- no reference MTR width to check against"
+$PY -c "
+import json, descriptors_v2 as dv
+want = json.load(open('analysis/tpl_meta.json'))['mtr_n_desc']
+stats = json.load(open('configs/descriptor_stats.json'))
+cur = dv.descriptor_names()
+assert cur == stats['names'], f'descriptor names differ from the fitted stats ({len(cur)} vs {len(stats[\"names\"])}) -- this rdkit is not the fleet rdkit'
+assert len(cur) == want, f'MTR width {len(cur)} != template {want}'
+print(f'[figB] MTR target space matches template $TPL: {want} descriptors, names in order')" 2>&1 | tee -a "$LOG" || abort "MTR descriptor space does not match the template -- refusing to train an incomparable rung"
+
 # ---- train ------------------------------------------------------------------------------------
 say "launching wave"
 $PY scripts/launch_v2_wave.py --manifest "analysis/manifest_${RUN}.json" --worker_name "figB_${RUN}" \
