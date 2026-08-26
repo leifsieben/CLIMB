@@ -142,7 +142,10 @@ PROVISIONAL = {"unsup_100M"}
 # outlive the run that fills it: the day sup_dense_sparse's Wong and FartDB cells land, the render
 # fails until the name is removed, rather than drawing an empty row over real data forever. A
 # declaration that only ever removes things is the kind that goes stale silently.
-AWAITING_DATA = {"sup_dense_sparse"}
+# EMPTY as of 2026-08-26: sup_dense_sparse's Wong and FartDB cells landed and the guard below
+# REFUSED to render until this name came out -- which is the mechanism working, not a nuisance. The
+# declaration cannot outlive the run that fills it.
+AWAITING_DATA = set()
 
 N = len(RANKED_ARMS)
 HAVE = [a for a in RANKED_ARMS if a in ARMS and a not in AWAITING_DATA]
