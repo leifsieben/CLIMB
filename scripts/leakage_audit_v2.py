@@ -92,19 +92,27 @@ def main() -> int:
                "in_blocklist": len(keys & blocklist),
                "in_blocklist_pct": round(100 * len(keys & blocklist) / n, 2)}
         for f, fk in sft.items():
-            ov = len(keys & fk)
-            rec[f"{f}_overlap"] = ov
-            rec[f"{f}_pct"] = round(100 * ov / n, 2)
+            ov = keys & fk
+            # OVERLAP is not LEAKAGE. The blocklist drops its molecules from the SFT data at
+            # training time (pretrain_v2 -> data_v2's `blocklist` argument), so a molecule in both
+            # the eval set and an SFT family was still excluded if it was on the list. What leaked
+            # is the part the list did not cover -- which for the July-era list is everything an
+            # eval set added later contributed.
+            leaked = ov - blocklist
+            rec[f"{f}_overlap"] = len(ov)
+            rec[f"{f}_pct"] = round(100 * len(ov) / n, 2)
+            rec[f"{f}_leaked"] = len(leaked)
+            rec[f"{f}_leaked_pct"] = round(100 * len(leaked) / n, 2)
         report[name] = rec
         rows.append((name, rec))
 
     fams = list(sft)
-    print("\n==== EVAL TEST MOLECULES FOUND IN EACH SFT FAMILY ====")
+    print("\n==== EVAL TEST MOLECULES THAT LEAKED (in an SFT family, NOT on the blocklist) ====")
     print(f"{'eval set':22} {'uniq':>7} {'blocked':>8} " + " ".join(f"{f:>14}" for f in fams))
     for name, rec in rows:
         line = f"{name:22} {rec['n_unique']:>7} {rec['in_blocklist_pct']:>7.2f}% "
         for f in fams:
-            line += f"{rec[f'{f}_overlap']:>7}/{rec[f'{f}_pct']:>5.1f}%"
+            line += f"{rec[f'{f}_leaked']:>7}/{rec[f'{f}_leaked_pct']:>5.1f}%"
         print(line)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(report, indent=2))
