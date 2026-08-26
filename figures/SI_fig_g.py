@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX
-from figures.arms import ARMS, system, label as arm_label
+from figures.arms import ARMS, system, label as arm_label, assert_not_retired
 from figures import allsuites as A
 from figures import tasksuites as T
 
@@ -70,6 +70,8 @@ INK = "#000000"
 ARM_ORDER = ["ecfp", "ecfp_desc",
              "unsup_100M", "sup_dense_100M",
              "chemberta_mtr", "molformer_c3", "selfies_ted"]
+
+assert_not_retired(ARM_ORDER, "SI_fig_g.ARM_ORDER")
 
 # skip_dense_100M_c124 is in flight (the supervised counterpart of unsup_100M on the same 124M
 # corpus). It keeps a LABELLED GAP rather than being left out, for the same reason fig_A draws its

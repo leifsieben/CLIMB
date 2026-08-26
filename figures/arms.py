@@ -634,6 +634,33 @@ ARMS = {
                  cbs_legacy_label="chemeleon_frozen")),
 }
 
+def _wong_trained():
+    """Arms whose pretraining used the WONG label family, read from each run's own metadata.
+
+    WONG__Wong_SA__Active IS the Wong benchmark's target -- same assay, same molecules, 88.5% of
+    the eval set present in the family and only 4.4% of it on the blocklist. An arm trained on it
+    was trained to predict the evaluation label, which no amount of molecule-level deduplication
+    can undo, because the molecules are supposed to be there.
+
+    Computed rather than listed so a future arm with the same recipe is caught on registration.
+    Silent when the metadata is absent: the phase-2 tree is not on every machine, and an arm whose
+    provenance cannot be read here is left alone rather than retired on a guess.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    root = _Path(__file__).resolve().parent.parent
+    out = set()
+    for k, v in ARMS.items():
+        for d in (v.get("src", {}).get("mol") or [])[:1]:
+            f = root / "figure_data" / "climb_v2_phase2" / d / "metadata.json"
+            if not f.exists():
+                continue
+            fams = _json.loads(f.read_text()).get("supervised_families") or []
+            if any("WONG" in str(x).upper() for x in fams):
+                out.add(k)
+    return out
+
+
 # RETIRED FROM THE PAPER (Leif 2026-08-23): "remove Chemeleon from all figures. If it appears
 # anywhere else it must be removed."
 #
@@ -646,12 +673,41 @@ ARMS = {
 # everywhere instead of twelve edits that can disagree. Anything naming a CheMeleon key directly
 # -- E2E_PAIRS below, fig_F's embedding roles, A2_ARMS in the bootstrap -- is fixed at its own
 # site, because a name that is written down is not reached by a filter.
-RETIRED = {"chemeleon_frozen", "chemeleon_frozen_xgb", "chemeleon_e2e"}
+# ALSO RETIRED, 2026-08-26, FOR A DIFFERENT REASON (Leif: "never use sup_mixed anywhere!").
+# CheMeleon left the paper by editorial decision and its numbers remain valid. These four are
+# retired because they are INVALID for this benchmark suite: every one of them pretrains on the
+# WONG label family, whose `Wong_SA` column IS the target of the Wong virtual-screening dataset.
+# sup_mixed ranked 1 of 14 on Wong at 0.4583 while its uncontaminated sibling sup_dense_sparse
+# scores 0.3435 -- the gap is what training on the eval's own label was worth.
+#
+# The definitions stay for the same reason CheMeleon's do: the runs happened, the notes cite them,
+# and deleting the entries would make the record unreadable rather than clean. What changes is that
+# nothing draws them. See notes/wong-sft-family-is-an-eval-set.md.
+#
+# DERIVED, NOT LISTED. The four names are computed from each run's own supervised_families, so an
+# arm added later that also trains on WONG is retired the moment it is registered rather than the
+# moment somebody remembers. That is the difference between this and the blocklist.
+RETIRED = {"chemeleon_frozen", "chemeleon_frozen_xgb", "chemeleon_e2e"} | _wong_trained()
 _missing = RETIRED - set(ARMS)
 assert not _missing, f"arms.py: RETIRED names an arm that does not exist: {_missing}"
 
 # display order: anchors, supervised, unsupervised, unsup->sup, controls, comparator
 ARM_ORDER = [a for a in ARMS if a not in RETIRED]
+
+
+def assert_not_retired(names, where):
+    """Refuse a hand-written arm list that names a retired arm.
+
+    ARM_ORDER protects every figure that ITERATES the registry. It does nothing for a figure that
+    WRITES ITS OWN LIST, and the figures that matter most do exactly that -- fig_A's ranked field,
+    SI fig g's seven arms. A filter cannot reach a name someone typed, which is why CheMeleon's
+    retirement needed edits at four separate sites. This is that lesson made mechanical.
+    """
+    bad = sorted(set(names) & RETIRED)
+    assert not bad, (
+        f"{where} names RETIRED arm(s) {bad}. These are excluded from the paper -- the CheMeleon "
+        f"three by editorial decision, the WONG-trained four because their pretraining includes "
+        f"the target of the Wong benchmark. See notes/wong-sft-family-is-an-eval-set.md.")
 
 # --------------------------------------------------------------------------------------------
 # the canonical 6 panels

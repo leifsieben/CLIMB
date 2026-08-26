@@ -62,7 +62,7 @@ import json
 from pathlib import Path
 
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX, row_ncol
-from figures.arms import ARMS, SHADES, system, label as arm_label
+from figures.arms import ARMS, SHADES, system, label as arm_label, assert_not_retired
 from figures import tasksuites as T
 from figures.allsuites import wide_table as A_wide
 
@@ -112,6 +112,8 @@ RANKED_ARMS = ["ecfp", "ecfp_desc",
                # placement plainly; hedge the head-to-head.
                "unsup_100M",
                "chemberta_mtr", "molformer_c3", "selfies_ted"]
+
+assert_not_retired(RANKED_ARMS, "fig_A.RANKED_ARMS")
 
 # PENDING_ARMS is empty: the three literature CLMs landed 2026-08-26 and are now real entries in
 # arms.py (colour, label, replicate convention, measured parameter count). The mechanism stays
