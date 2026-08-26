@@ -26,6 +26,9 @@ SPEC = {
     "u2s_dense_from50M":    ("u2s_dense_from8M",  2_000_000,   f"{RESULTS_ROOT}/unsup_50M/encoder"),
     "u2s_dense_from100M":   ("u2s_dense_from8M",  2_000_000,   f"{RESULTS_ROOT}/unsup_100M/encoder"),
 }
+sys.path.insert(0, str(Path(__file__).parent))
+from precompute_descriptors import CORPORA  # one definition of corpus -> descriptor directory
+
 C124 = "s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full_tokenized_pkl/"
 R124 = "s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/"
 
@@ -72,11 +75,18 @@ def main() -> int:
     pc["run_id"] = a.run
     pc["unsupervised_data_paths"] = [C124]
     pc["unsupervised_raw_smiles_paths"] = [R124]
-    # DESCRIPTOR PRECOMPUTE MUST NOT BE SET for a 124M-corpus MTR run: both corpora name shards
-    # shard_00000.parquet upward and data_v2.py resolves descriptors_{stem}.npy, so it would attach
-    # pubchem_filtered's descriptor rows to pubchem_124m_full's molecules -- 43 of the first 5,000
-    # match. MTR would train against other compounds' targets and converge.
-    pc.pop("descriptor_precompute_dir", None)
+    # The descriptor directory must BELONG TO the corpus. Both corpora name shards
+    # shard_00000.parquet upward and data_v2.py resolves descriptors_{stem}.npy, so pointing a
+    # 124M-corpus run at pubchem_filtered's directory attaches that corpus's descriptor rows to
+    # these molecules -- 43 of the first 5,000 match, MTR trains against other compounds' targets,
+    # and it converges. That is why this used to POP the field outright.
+    #
+    # Popping it is no longer right. pubchem_124m_full now has its OWN precomputed directory, and
+    # leaving the field absent would put every c124 rung on the live pathway -- which is how the
+    # broken skip_dense_48M behaved, and a difference we are removing from the ladder rather than
+    # spreading. Set it from the same CORPORA table the precompute writes from, so the pairing has
+    # one definition. figB_run.sh verifies the directory is complete AND row-aligned before training.
+    pc["descriptor_precompute_dir"] = CORPORA["pubchem_124m_full"][1]
     for sel in (entry.get("selection"), pc.get("selection")):
         if not sel:
             continue

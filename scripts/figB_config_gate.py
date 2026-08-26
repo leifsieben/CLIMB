@@ -1,4 +1,5 @@
-"""Refuse to launch a fig_B rung that differs from skip_dense_48M in anything but corpus and budget.
+"""Refuse to launch a fig_B rung that differs from skip_dense_8M in anything but corpus, budget and
+its own descriptor directory.
 
 A rung that differs in two things cannot answer a question about one. The figures session asked for
 this gate explicitly and I would want it anyway: the whole value of skip_dense_*_c124 is that the
@@ -17,8 +18,20 @@ speedup and would corrupt these runs completely:
   match. The run would train MTR against targets belonging to other compounds, converge, and
   produce a plausible encoder. Nothing would fail.
 
-skip_dense_48M does not set the field, so on-the-fly descriptors are what the measured 761 FP/s
-already reflects. Keeping it absent is both correct AND identical to the reference.
+THE REFERENCE USED TO BE skip_dense_48M AND THAT WAS WRONG. It is the only rung in its own ladder
+that trained against 208 descriptors instead of 217 -- it started 2h43m before the canonical stats
+file existed, refit its own normalizer, and is consequently also the only rung computing descriptors
+live. Gating the c124 rungs against it meant gating them against the outlier, and the docstring's
+"keeping the field absent is identical to the reference" was true of the reference and false of the
+ladder. skip_dense_8M is the right reference: 217 descriptors, precompute set, and already the
+bridge's comparison partner.
+
+SO THE FIELD IS NO LONGER FORBIDDEN -- IT IS REQUIRED TO MATCH ITS CORPUS. The catastrophe above is
+a MISMATCH between corpus and descriptor directory, not the presence of a directory. Forbidding the
+field outright would now force every c124 rung onto the live pathway, which is exactly the
+difference we are removing from the ladder. The gate therefore checks the pairing, using the same
+CORPORA table the precompute writes from, so there is one definition of which directory belongs to
+which corpus.
 """
 from __future__ import annotations
 import sys
@@ -26,12 +39,16 @@ from pathlib import Path
 
 import yaml
 
-REF = Path("figure_data/climb_v2_phase2/skip_dense_48M/config.yaml")
+sys.path.insert(0, str(Path(__file__).parent))
+from precompute_descriptors import CORPORA  # one definition of corpus -> descriptor directory
+
+REF = Path("figure_data/climb_v2_phase2/skip_dense_8M/config.yaml")
 ALLOWED = {
     ("run_id",),
     ("unsupervised_data_paths",),
     ("unsupervised_raw_smiles_paths",),
     ("selection", "total_forward_passes"),
+    ("descriptor_precompute_dir",),
 }
 
 
@@ -58,14 +75,29 @@ def main(path: str) -> int:
         print(f"  [{tag}] {'.'.join(k)}: {a!r} -> {b!r}")
         if k not in ALLOWED:
             bad.append(k)
-    if "descriptor_precompute_dir" in {k[0] for k in new}:
-        print("  [FORBIDDEN] descriptor_precompute_dir is set -- shard names collide across corpora; "
-              "this would attach pubchem_filtered descriptors to pubchem_124m_full molecules")
-        bad.append(("descriptor_precompute_dir",))
+    # The descriptor directory must BELONG TO the corpus this run reads. Absent is allowed (the
+    # live pathway); present-and-wrong is the silent catastrophe above.
+    raw = new.get(("unsupervised_raw_smiles_paths",)) or []
+    if isinstance(raw, str):
+        raw = [raw]
+    corpora = [c for c in CORPORA if any(c in str(r) for r in raw)]
+    desc = new.get(("descriptor_precompute_dir",), "<absent>")
+    if desc != "<absent>":
+        if len(corpora) != 1:
+            print(f"  [FORBIDDEN] cannot identify the corpus from {raw!r}, so the descriptor "
+                  f"directory cannot be checked against it")
+            bad.append(("descriptor_precompute_dir",))
+        elif str(desc).rstrip("/") != CORPORA[corpora[0]][1].rstrip("/"):
+            print(f"  [FORBIDDEN] descriptor_precompute_dir {desc!r} does not belong to corpus "
+                  f"{corpora[0]} ({CORPORA[corpora[0]][1]}) -- shard names collide across corpora, "
+                  f"so this would attach one corpus's descriptor rows to the other's molecules")
+            bad.append(("descriptor_precompute_dir",))
+        else:
+            print(f"  [ok] descriptor_precompute_dir matches corpus {corpora[0]}")
     if bad:
-        print(f"REFUSING: {len(bad)} forbidden difference(s) from skip_dense_48M")
+        print(f"REFUSING: {len(bad)} forbidden difference(s) from skip_dense_8M")
         return 1
-    print("GATE PASSED: differs from skip_dense_48M in corpus and budget only")
+    print("GATE PASSED: differs from skip_dense_8M in corpus, budget and its own descriptor directory")
     return 0
 
 

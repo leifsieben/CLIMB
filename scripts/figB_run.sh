@@ -69,13 +69,28 @@ $PY scripts/build_figB_manifest.py --run "$RUN" --out "analysis/manifest_${RUN}.
 n=$(aws s3 ls s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/ | grep -c "\.parquet$")
 [ "$n" -ge 124 ] || abort "expected >=124 corpus shards, counted $n"
 say "corpus OK -- $n shards"
-# And the one field whose presence would silently corrupt MTR on this corpus.
+# The descriptor directory is now REQUIRED and must belong to this corpus -- absent would put the
+# rung on the live pathway, which is how the broken skip_dense_48M behaved. Check the pairing, then
+# check the directory is COMPLETE, then check the rows are the right molecules. A correct path over
+# an incomplete or misaligned directory is the failure this is actually guarding against.
 $PY -c "
-import json
-m=json.load(open('analysis/manifest_${RUN}.json'))
-pc=m['runs'][0]['pretrain_config']
-assert 'descriptor_precompute_dir' not in pc, 'descriptor_precompute_dir is set -- shard names collide across corpora'
-print('[figB] descriptor_precompute_dir correctly absent')" 2>&1 | tee -a "$LOG" || abort "descriptor precompute check failed"
+import json, sys
+sys.path.insert(0, 'scripts')
+from precompute_descriptors import CORPORA
+m = json.load(open('analysis/manifest_${RUN}.json'))
+pc = m['runs'][0]['pretrain_config']
+raw = pc['unsupervised_raw_smiles_paths']
+corpus = [c for c in CORPORA if any(c in r for r in raw)]
+assert len(corpus) == 1, f'cannot identify corpus from {raw}'
+want = CORPORA[corpus[0]][1].rstrip('/')
+got = str(pc.get('descriptor_precompute_dir', '')).rstrip('/')
+assert got == want, f'descriptor_precompute_dir {got!r} does not belong to corpus {corpus[0]} ({want})'
+print(f'[figB] descriptor dir matches corpus {corpus[0]}')" 2>&1 | tee -a "$LOG" || abort "descriptor directory does not match the corpus"
+
+# Complete: every shard the corpus has must have a descriptor file of the size its row count implies.
+$PY scripts/verify_descriptor_dir.py --corpus pubchem_124m_full 2>&1 | tee -a "$LOG"   || abort "descriptor directory incomplete -- refusing to train against partial targets"
+# Right molecules: a path and a size cannot see a row shift or a corpus swap.
+$PY scripts/verify_descriptor_alignment.py --corpus pubchem_124m_full --shards 0-123 --n_probes 12 2>&1 | tee -a "$LOG"   || abort "descriptor rows are not these molecules"
 
 # ---- the MTR target space must be the one the TEMPLATE trained against -------------------------
 # This box came off an April AMI carrying rdkit-pypi 2022.9.5, which SHADOWED the rdkit 2025.9.2 the
