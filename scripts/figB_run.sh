@@ -91,6 +91,13 @@ assert len(cur) == want, f'MTR width {len(cur)} != template {want}'
 print(f'[figB] MTR target space matches template $TPL: {want} descriptors, names in order')" 2>&1 | tee -a "$LOG" || abort "MTR descriptor space does not match the template -- refusing to train an incomparable rung"
 
 # ---- train ------------------------------------------------------------------------------------
+# 11 ms/molecule single-core x 6 workers should be ~545 seq/s; the first attempt managed 90 with a
+# load average of 47 on 16 vCPUs, which is thread oversubscription, not descriptor cost -- both
+# corpora measure the same 11 ms. Pin the math libraries to one thread per worker. This is an env
+# setting, not a config change: the manifest diff against the template stays exactly the eight
+# fields the gate allows, and dataloader_num_workers stays at the template's 6 so the shard
+# interleaving is unchanged.
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 say "launching wave"
 $PY scripts/launch_v2_wave.py --manifest "analysis/manifest_${RUN}.json" --worker_name "figB_${RUN}" \
   >> "$LOG" 2>&1
