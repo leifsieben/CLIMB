@@ -1,0 +1,853 @@
+arm,descriptor,group,r2,alpha
+ECFP4 (2048 bit),MaxAbsEStateIndex,EState,0.8047526934014932,1000.0
+ECFP4 (2048 bit),MaxEStateIndex,EState,0.8047521419197831,1000.0
+ECFP4 (2048 bit),MinAbsEStateIndex,EState,0.32710782443354924,1000.0
+ECFP4 (2048 bit),MinEStateIndex,EState,0.8021657057757969,1000.0
+ECFP4 (2048 bit),qed,Simple counts / bulk,0.4751429370854101,1000.0
+ECFP4 (2048 bit),SPS,Information (Ipc/SPS),0.788803982820277,1000.0
+ECFP4 (2048 bit),MolWt,Simple counts / bulk,0.7175189463725813,1000.0
+ECFP4 (2048 bit),HeavyAtomMolWt,Simple counts / bulk,0.7182082855802955,1000.0
+ECFP4 (2048 bit),ExactMolWt,Simple counts / bulk,0.7176039671226936,1000.0
+ECFP4 (2048 bit),NumValenceElectrons,Simple counts / bulk,0.7241352707281197,1000.0
+ECFP4 (2048 bit),NumRadicalElectrons,Simple counts / bulk,0.269495286745257,1000.0
+ECFP4 (2048 bit),MaxPartialCharge,Simple counts / bulk,0.6709834268683433,1000.0
+ECFP4 (2048 bit),MinPartialCharge,Simple counts / bulk,0.4687429602803972,1000.0
+ECFP4 (2048 bit),MaxAbsPartialCharge,Simple counts / bulk,0.4654914832353382,1000.0
+ECFP4 (2048 bit),MinAbsPartialCharge,Simple counts / bulk,0.6925805133414595,1000.0
+ECFP4 (2048 bit),FpDensityMorgan1,Simple counts / bulk,0.5277326199019245,1000.0
+ECFP4 (2048 bit),FpDensityMorgan2,Simple counts / bulk,0.405068830582514,1000.0
+ECFP4 (2048 bit),FpDensityMorgan3,Simple counts / bulk,0.3682105399693908,1000.0
+ECFP4 (2048 bit),BCUT2D_MWHI,BCUT (eigenvalue),0.6294198116401671,1000.0
+ECFP4 (2048 bit),BCUT2D_MWLOW,BCUT (eigenvalue),0.5980048512859292,1000.0
+ECFP4 (2048 bit),BCUT2D_CHGHI,BCUT (eigenvalue),0.7531881268412539,1000.0
+ECFP4 (2048 bit),BCUT2D_CHGLO,BCUT (eigenvalue),0.6643809758496686,1000.0
+ECFP4 (2048 bit),BCUT2D_LOGPHI,BCUT (eigenvalue),0.686444855843549,1000.0
+ECFP4 (2048 bit),BCUT2D_LOGPLOW,BCUT (eigenvalue),0.6650037763316514,1000.0
+ECFP4 (2048 bit),BCUT2D_MRHI,BCUT (eigenvalue),0.7097910677755899,1000.0
+ECFP4 (2048 bit),BCUT2D_MRLOW,BCUT (eigenvalue),0.615977500091397,1000.0
+ECFP4 (2048 bit),AvgIpc,Information (Ipc/SPS),0.7297929584429375,1000.0
+ECFP4 (2048 bit),BalabanJ,Simple counts / bulk,0.5688978519741414,1000.0
+ECFP4 (2048 bit),BertzCT,Simple counts / bulk,0.753914427154813,1000.0
+ECFP4 (2048 bit),Chi0,Chi (connectivity),0.7233342436491789,1000.0
+ECFP4 (2048 bit),Chi0n,Chi (connectivity),0.7276872339596034,1000.0
+ECFP4 (2048 bit),Chi0v,Chi (connectivity),0.7195145565678956,1000.0
+ECFP4 (2048 bit),Chi1,Chi (connectivity),0.7304913586976566,1000.0
+ECFP4 (2048 bit),Chi1n,Chi (connectivity),0.7345517868218943,1000.0
+ECFP4 (2048 bit),Chi1v,Chi (connectivity),0.7094574049538114,1000.0
+ECFP4 (2048 bit),Chi2n,Chi (connectivity),0.7463570516669493,1000.0
+ECFP4 (2048 bit),Chi2v,Chi (connectivity),0.693953600053097,1000.0
+ECFP4 (2048 bit),Chi3n,Chi (connectivity),0.7771091265368593,1000.0
+ECFP4 (2048 bit),Chi3v,Chi (connectivity),0.7044462970480245,1000.0
+ECFP4 (2048 bit),Chi4n,Chi (connectivity),0.7844720235854186,1000.0
+ECFP4 (2048 bit),Chi4v,Chi (connectivity),0.6914791450616915,1000.0
+ECFP4 (2048 bit),HallKierAlpha,Kappa (shape),0.7703609173434002,1000.0
+ECFP4 (2048 bit),Ipc,Information (Ipc/SPS),-0.26377465819086554,1000.0
+ECFP4 (2048 bit),Kappa1,Kappa (shape),0.700855648272613,1000.0
+ECFP4 (2048 bit),Kappa2,Kappa (shape),0.6707759529191433,1000.0
+ECFP4 (2048 bit),Kappa3,Kappa (shape),-1.4295054751087304,1000.0
+ECFP4 (2048 bit),LabuteASA,Simple counts / bulk,0.7255548708768138,1000.0
+ECFP4 (2048 bit),PEOE_VSA1,PEOE/SMR/SlogP VSA,0.7271184177639776,1000.0
+ECFP4 (2048 bit),PEOE_VSA10,PEOE/SMR/SlogP VSA,0.5945258583920112,1000.0
+ECFP4 (2048 bit),PEOE_VSA11,PEOE/SMR/SlogP VSA,0.5290506552872617,1000.0
+ECFP4 (2048 bit),PEOE_VSA12,PEOE/SMR/SlogP VSA,0.4690865940463965,1000.0
+ECFP4 (2048 bit),PEOE_VSA13,PEOE/SMR/SlogP VSA,0.5285975247310792,1000.0
+ECFP4 (2048 bit),PEOE_VSA14,PEOE/SMR/SlogP VSA,0.56910276063987,1000.0
+ECFP4 (2048 bit),PEOE_VSA2,PEOE/SMR/SlogP VSA,0.6337827222910604,1000.0
+ECFP4 (2048 bit),PEOE_VSA3,PEOE/SMR/SlogP VSA,0.5191988511684753,1000.0
+ECFP4 (2048 bit),PEOE_VSA4,PEOE/SMR/SlogP VSA,0.5781578500810414,1000.0
+ECFP4 (2048 bit),PEOE_VSA5,PEOE/SMR/SlogP VSA,0.47753120011213246,1000.0
+ECFP4 (2048 bit),PEOE_VSA6,PEOE/SMR/SlogP VSA,0.6080446614202114,1000.0
+ECFP4 (2048 bit),PEOE_VSA7,PEOE/SMR/SlogP VSA,0.6767818089694435,1000.0
+ECFP4 (2048 bit),PEOE_VSA8,PEOE/SMR/SlogP VSA,0.5803335162811138,1000.0
+ECFP4 (2048 bit),PEOE_VSA9,PEOE/SMR/SlogP VSA,0.5532111054311142,1000.0
+ECFP4 (2048 bit),SMR_VSA1,PEOE/SMR/SlogP VSA,0.721801966090653,1000.0
+ECFP4 (2048 bit),SMR_VSA10,PEOE/SMR/SlogP VSA,0.7389366351859825,1000.0
+ECFP4 (2048 bit),SMR_VSA2,PEOE/SMR/SlogP VSA,0.786472532439427,1000.0
+ECFP4 (2048 bit),SMR_VSA3,PEOE/SMR/SlogP VSA,0.7472216217349494,1000.0
+ECFP4 (2048 bit),SMR_VSA4,PEOE/SMR/SlogP VSA,0.7110287397608828,1000.0
+ECFP4 (2048 bit),SMR_VSA5,PEOE/SMR/SlogP VSA,0.7523777790923265,1000.0
+ECFP4 (2048 bit),SMR_VSA6,PEOE/SMR/SlogP VSA,0.6933393506474455,1000.0
+ECFP4 (2048 bit),SMR_VSA7,PEOE/SMR/SlogP VSA,0.750935314458947,1000.0
+ECFP4 (2048 bit),SMR_VSA9,PEOE/SMR/SlogP VSA,0.7394078736852305,1000.0
+ECFP4 (2048 bit),SlogP_VSA1,PEOE/SMR/SlogP VSA,0.6768310617395169,1000.0
+ECFP4 (2048 bit),SlogP_VSA10,PEOE/SMR/SlogP VSA,0.7454291696713462,1000.0
+ECFP4 (2048 bit),SlogP_VSA11,PEOE/SMR/SlogP VSA,0.8138026493564778,1000.0
+ECFP4 (2048 bit),SlogP_VSA12,PEOE/SMR/SlogP VSA,0.6944182580723285,1000.0
+ECFP4 (2048 bit),SlogP_VSA2,PEOE/SMR/SlogP VSA,0.7131794153572122,1000.0
+ECFP4 (2048 bit),SlogP_VSA3,PEOE/SMR/SlogP VSA,0.6656633048484097,1000.0
+ECFP4 (2048 bit),SlogP_VSA4,PEOE/SMR/SlogP VSA,0.7204122993428406,1000.0
+ECFP4 (2048 bit),SlogP_VSA5,PEOE/SMR/SlogP VSA,0.7132110619976104,1000.0
+ECFP4 (2048 bit),SlogP_VSA6,PEOE/SMR/SlogP VSA,0.7453872119828837,1000.0
+ECFP4 (2048 bit),SlogP_VSA7,PEOE/SMR/SlogP VSA,0.6553566261001458,1000.0
+ECFP4 (2048 bit),SlogP_VSA8,PEOE/SMR/SlogP VSA,0.7716274942435326,1000.0
+ECFP4 (2048 bit),TPSA,Simple counts / bulk,0.7301572778584142,1000.0
+ECFP4 (2048 bit),EState_VSA1,EState,0.7008053707951213,1000.0
+ECFP4 (2048 bit),EState_VSA10,EState,0.7338936971428914,1000.0
+ECFP4 (2048 bit),EState_VSA11,EState,-0.4046728047293007,1000.0
+ECFP4 (2048 bit),EState_VSA2,EState,0.4997163501536408,1000.0
+ECFP4 (2048 bit),EState_VSA3,EState,0.3124319948586751,1000.0
+ECFP4 (2048 bit),EState_VSA4,EState,0.4076812458920819,1000.0
+ECFP4 (2048 bit),EState_VSA5,EState,0.29247249600008185,1000.0
+ECFP4 (2048 bit),EState_VSA6,EState,0.28297176450587225,1000.0
+ECFP4 (2048 bit),EState_VSA7,EState,0.38474089178547566,1000.0
+ECFP4 (2048 bit),EState_VSA8,EState,0.37449452628477675,1000.0
+ECFP4 (2048 bit),EState_VSA9,EState,0.6382235893153245,1000.0
+ECFP4 (2048 bit),VSA_EState1,EState,0.7243999344455826,1000.0
+ECFP4 (2048 bit),VSA_EState10,EState,0.7354163931794203,1000.0
+ECFP4 (2048 bit),VSA_EState2,EState,0.7360691029838564,1000.0
+ECFP4 (2048 bit),VSA_EState3,EState,0.7332758159189485,1000.0
+ECFP4 (2048 bit),VSA_EState4,EState,0.6482801923130607,1000.0
+ECFP4 (2048 bit),VSA_EState5,EState,0.5461632106055624,1000.0
+ECFP4 (2048 bit),VSA_EState6,EState,0.7419051129031675,1000.0
+ECFP4 (2048 bit),VSA_EState7,EState,0.6483544128771102,1000.0
+ECFP4 (2048 bit),VSA_EState8,EState,0.6405495752046066,1000.0
+ECFP4 (2048 bit),VSA_EState9,EState,0.6738739140797267,1000.0
+ECFP4 (2048 bit),FractionCSP3,Simple counts / bulk,0.8739340697408818,1000.0
+ECFP4 (2048 bit),HeavyAtomCount,Simple counts / bulk,0.7296807473729316,1000.0
+ECFP4 (2048 bit),NHOHCount,Simple counts / bulk,0.7834795058046731,1000.0
+ECFP4 (2048 bit),NOCount,Simple counts / bulk,0.709297708239344,1000.0
+ECFP4 (2048 bit),NumAliphaticCarbocycles,Simple counts / bulk,0.734832941447092,1000.0
+ECFP4 (2048 bit),NumAliphaticHeterocycles,Simple counts / bulk,0.6878195724874392,1000.0
+ECFP4 (2048 bit),NumAliphaticRings,Simple counts / bulk,0.7815468610761314,1000.0
+ECFP4 (2048 bit),NumAmideBonds,Simple counts / bulk,0.7038449961178748,1000.0
+ECFP4 (2048 bit),NumAromaticCarbocycles,Simple counts / bulk,0.7645038453288902,1000.0
+ECFP4 (2048 bit),NumAromaticHeterocycles,Simple counts / bulk,0.783917843298193,1000.0
+ECFP4 (2048 bit),NumAromaticRings,Simple counts / bulk,0.7992319267287028,1000.0
+ECFP4 (2048 bit),NumAtomStereoCenters,Simple counts / bulk,0.81400178919294,1000.0
+ECFP4 (2048 bit),NumBridgeheadAtoms,Simple counts / bulk,0.3830235212716545,1000.0
+ECFP4 (2048 bit),NumHAcceptors,Simple counts / bulk,0.7016422744220241,1000.0
+ECFP4 (2048 bit),NumHDonors,Simple counts / bulk,0.7707992299893172,1000.0
+ECFP4 (2048 bit),NumHeteroatoms,Simple counts / bulk,0.710085017913749,1000.0
+ECFP4 (2048 bit),NumHeterocycles,Simple counts / bulk,0.7254602192600033,1000.0
+ECFP4 (2048 bit),NumRotatableBonds,Simple counts / bulk,0.7245961525428128,1000.0
+ECFP4 (2048 bit),NumSaturatedCarbocycles,Simple counts / bulk,0.6893229339229405,1000.0
+ECFP4 (2048 bit),NumSaturatedHeterocycles,Simple counts / bulk,0.6274680597471523,1000.0
+ECFP4 (2048 bit),NumSaturatedRings,Simple counts / bulk,0.7308756971762967,1000.0
+ECFP4 (2048 bit),NumSpiroAtoms,Simple counts / bulk,0.28238479333652633,1000.0
+ECFP4 (2048 bit),NumUnspecifiedAtomStereoCenters,Simple counts / bulk,0.6627832165237022,1000.0
+ECFP4 (2048 bit),Phi,Information (Ipc/SPS),0.6454509269953735,1000.0
+ECFP4 (2048 bit),RingCount,Simple counts / bulk,0.7628564491819012,1000.0
+ECFP4 (2048 bit),MolLogP,Simple counts / bulk,0.6942083727229904,1000.0
+ECFP4 (2048 bit),MolMR,Simple counts / bulk,0.7202238669677961,1000.0
+ECFP4 (2048 bit),fr_Al_COO,Fragment counts (fr_),0.5982273304253676,1000.0
+ECFP4 (2048 bit),fr_Al_OH,Fragment counts (fr_),0.7647368157756459,1000.0
+ECFP4 (2048 bit),fr_Al_OH_noTert,Fragment counts (fr_),0.7533369729989811,1000.0
+ECFP4 (2048 bit),fr_ArN,Fragment counts (fr_),0.6975413934114754,1000.0
+ECFP4 (2048 bit),fr_Ar_COO,Fragment counts (fr_),0.682571656040699,1000.0
+ECFP4 (2048 bit),fr_Ar_N,Fragment counts (fr_),0.807775532860355,1000.0
+ECFP4 (2048 bit),fr_Ar_NH,Fragment counts (fr_),0.7447470834247464,1000.0
+ECFP4 (2048 bit),fr_Ar_OH,Fragment counts (fr_),0.804918802937948,1000.0
+ECFP4 (2048 bit),fr_COO,Fragment counts (fr_),0.6709653194035095,1000.0
+ECFP4 (2048 bit),fr_COO2,Fragment counts (fr_),0.6631437225600287,1000.0
+ECFP4 (2048 bit),fr_C_O,Fragment counts (fr_),0.7458153190813523,1000.0
+ECFP4 (2048 bit),fr_C_O_noCOO,Fragment counts (fr_),0.7354725533722231,1000.0
+ECFP4 (2048 bit),fr_C_S,Fragment counts (fr_),0.832651600081071,1000.0
+ECFP4 (2048 bit),fr_HOCCN,Fragment counts (fr_),-0.13835507404948544,1000.0
+ECFP4 (2048 bit),fr_Imine,Fragment counts (fr_),0.5757905076041655,1000.0
+ECFP4 (2048 bit),fr_NH0,Fragment counts (fr_),0.7962024858832416,1000.0
+ECFP4 (2048 bit),fr_NH1,Fragment counts (fr_),0.7637416783152737,1000.0
+ECFP4 (2048 bit),fr_NH2,Fragment counts (fr_),0.7890313614151712,1000.0
+ECFP4 (2048 bit),fr_N_O,Fragment counts (fr_),0.16668038441229915,1000.0
+ECFP4 (2048 bit),fr_Ndealkylation1,Fragment counts (fr_),0.40628835265669305,1000.0
+ECFP4 (2048 bit),fr_Ndealkylation2,Fragment counts (fr_),0.39268075331318875,1000.0
+ECFP4 (2048 bit),fr_Nhpyrrole,Fragment counts (fr_),0.7447470834247464,1000.0
+ECFP4 (2048 bit),fr_SH,Fragment counts (fr_),0.43317806421788574,1000.0
+ECFP4 (2048 bit),fr_aldehyde,Fragment counts (fr_),0.5721253624274993,1000.0
+ECFP4 (2048 bit),fr_alkyl_carbamate,Fragment counts (fr_),0.5068164124691541,1000.0
+ECFP4 (2048 bit),fr_alkyl_halide,Fragment counts (fr_),0.7024792922810593,1000.0
+ECFP4 (2048 bit),fr_allylic_oxid,Fragment counts (fr_),0.431434321255197,1000.0
+ECFP4 (2048 bit),fr_amide,Fragment counts (fr_),0.7038449961178748,1000.0
+ECFP4 (2048 bit),fr_amidine,Fragment counts (fr_),0.4114168618191777,1000.0
+ECFP4 (2048 bit),fr_aniline,Fragment counts (fr_),0.7356111717149709,1000.0
+ECFP4 (2048 bit),fr_aryl_methyl,Fragment counts (fr_),0.6262109909462172,1000.0
+ECFP4 (2048 bit),fr_azide,Fragment counts (fr_),0.7323161063993999,1000.0
+ECFP4 (2048 bit),fr_azo,Fragment counts (fr_),0.6070973124925205,1000.0
+ECFP4 (2048 bit),fr_barbitur,Fragment counts (fr_),0.0574973462808549,1000.0
+ECFP4 (2048 bit),fr_benzene,Fragment counts (fr_),0.7653653917995005,1000.0
+ECFP4 (2048 bit),fr_benzodiazepine,Fragment counts (fr_),0.2798782551589044,1000.0
+ECFP4 (2048 bit),fr_bicyclic,Fragment counts (fr_),0.6789708365782888,1000.0
+ECFP4 (2048 bit),fr_dihydropyridine,Fragment counts (fr_),0.2007928622065881,1000.0
+ECFP4 (2048 bit),fr_epoxide,Fragment counts (fr_),0.12129138687347263,1000.0
+ECFP4 (2048 bit),fr_ester,Fragment counts (fr_),0.6488913979190185,1000.0
+ECFP4 (2048 bit),fr_ether,Fragment counts (fr_),0.7558967089839962,1000.0
+ECFP4 (2048 bit),fr_furan,Fragment counts (fr_),0.40694533404088973,1000.0
+ECFP4 (2048 bit),fr_guanido,Fragment counts (fr_),0.43446964763499774,1000.0
+ECFP4 (2048 bit),fr_halogen,Fragment counts (fr_),0.7318896217986275,1000.0
+ECFP4 (2048 bit),fr_hdrzine,Fragment counts (fr_),0.3779213800801148,1000.0
+ECFP4 (2048 bit),fr_hdrzone,Fragment counts (fr_),0.6643692792244551,1000.0
+ECFP4 (2048 bit),fr_imidazole,Fragment counts (fr_),0.5445914765628936,1000.0
+ECFP4 (2048 bit),fr_imide,Fragment counts (fr_),0.45324614914392003,1000.0
+ECFP4 (2048 bit),fr_isocyan,Fragment counts (fr_),,1000.0
+ECFP4 (2048 bit),fr_isothiocyan,Fragment counts (fr_),,1000.0
+ECFP4 (2048 bit),fr_ketone,Fragment counts (fr_),0.6571704017916,1000.0
+ECFP4 (2048 bit),fr_ketone_Topliss,Fragment counts (fr_),0.6051856717810875,1000.0
+ECFP4 (2048 bit),fr_lactam,Fragment counts (fr_),0.39242798087949515,1000.0
+ECFP4 (2048 bit),fr_lactone,Fragment counts (fr_),0.3436213669443189,1000.0
+ECFP4 (2048 bit),fr_methoxy,Fragment counts (fr_),0.7770411817813596,1000.0
+ECFP4 (2048 bit),fr_morpholine,Fragment counts (fr_),0.5150064627173598,1000.0
+ECFP4 (2048 bit),fr_nitrile,Fragment counts (fr_),0.8129394852583136,1000.0
+ECFP4 (2048 bit),fr_nitro,Fragment counts (fr_),0.8497147415496218,1000.0
+ECFP4 (2048 bit),fr_nitro_arom,Fragment counts (fr_),0.843876124328147,1000.0
+ECFP4 (2048 bit),fr_nitro_arom_nonortho,Fragment counts (fr_),0.8766132526029257,1000.0
+ECFP4 (2048 bit),fr_nitroso,Fragment counts (fr_),0.5740002141032878,1000.0
+ECFP4 (2048 bit),fr_oxazole,Fragment counts (fr_),0.3267931976529782,1000.0
+ECFP4 (2048 bit),fr_oxime,Fragment counts (fr_),0.408336040312388,1000.0
+ECFP4 (2048 bit),fr_para_hydroxylation,Fragment counts (fr_),0.6628766043479541,1000.0
+ECFP4 (2048 bit),fr_phenol,Fragment counts (fr_),0.776373381914041,1000.0
+ECFP4 (2048 bit),fr_phenol_noOrthoHbond,Fragment counts (fr_),0.7587857268146956,1000.0
+ECFP4 (2048 bit),fr_phos_acid,Fragment counts (fr_),0.3031928454941931,1000.0
+ECFP4 (2048 bit),fr_phos_ester,Fragment counts (fr_),0.3555177374993216,1000.0
+ECFP4 (2048 bit),fr_piperdine,Fragment counts (fr_),0.32505409576939615,1000.0
+ECFP4 (2048 bit),fr_piperzine,Fragment counts (fr_),0.3252901369233777,1000.0
+ECFP4 (2048 bit),fr_priamide,Fragment counts (fr_),0.5540874431025311,1000.0
+ECFP4 (2048 bit),fr_pyridine,Fragment counts (fr_),0.5352041614036347,1000.0
+ECFP4 (2048 bit),fr_quatN,Fragment counts (fr_),0.7598191126763091,1000.0
+ECFP4 (2048 bit),fr_sulfide,Fragment counts (fr_),0.6110163368205205,1000.0
+ECFP4 (2048 bit),fr_sulfonamd,Fragment counts (fr_),0.6017876030945821,1000.0
+ECFP4 (2048 bit),fr_sulfone,Fragment counts (fr_),0.335570253514495,1000.0
+ECFP4 (2048 bit),fr_term_acetylene,Fragment counts (fr_),0.8400892843763943,1000.0
+ECFP4 (2048 bit),fr_tetrazole,Fragment counts (fr_),0.023005505775001933,1000.0
+ECFP4 (2048 bit),fr_thiazole,Fragment counts (fr_),0.5603629929845692,1000.0
+ECFP4 (2048 bit),fr_thiocyan,Fragment counts (fr_),-0.10070699000836081,1000.0
+ECFP4 (2048 bit),fr_thiophene,Fragment counts (fr_),0.5848220573228042,1000.0
+ECFP4 (2048 bit),fr_unbrch_alkane,Fragment counts (fr_),0.6204542877096424,1000.0
+ECFP4 (2048 bit),fr_urea,Fragment counts (fr_),0.39153977266448725,1000.0
+CLIMB unsup,MaxAbsEStateIndex,EState,0.7138677099242179,1000.0
+CLIMB unsup,MaxEStateIndex,EState,0.7138681498163557,1000.0
+CLIMB unsup,MinAbsEStateIndex,EState,0.4239761920678009,1000.0
+CLIMB unsup,MinEStateIndex,EState,0.7964059547182276,1000.0
+CLIMB unsup,qed,Simple counts / bulk,0.6071855120559564,1000.0
+CLIMB unsup,SPS,Information (Ipc/SPS),0.9010175091472888,1000.0
+CLIMB unsup,MolWt,Simple counts / bulk,0.8480495436970357,1000.0
+CLIMB unsup,HeavyAtomMolWt,Simple counts / bulk,0.8504317057771464,1000.0
+CLIMB unsup,ExactMolWt,Simple counts / bulk,0.8480583378969568,1000.0
+CLIMB unsup,NumValenceElectrons,Simple counts / bulk,0.8526571069007615,1000.0
+CLIMB unsup,NumRadicalElectrons,Simple counts / bulk,0.7648025400936554,1000.0
+CLIMB unsup,MaxPartialCharge,Simple counts / bulk,0.6866466482876012,1000.0
+CLIMB unsup,MinPartialCharge,Simple counts / bulk,0.440037900305974,1000.0
+CLIMB unsup,MaxAbsPartialCharge,Simple counts / bulk,0.454837330552057,1000.0
+CLIMB unsup,MinAbsPartialCharge,Simple counts / bulk,0.6952740987564892,1000.0
+CLIMB unsup,FpDensityMorgan1,Simple counts / bulk,0.701083877562388,1000.0
+CLIMB unsup,FpDensityMorgan2,Simple counts / bulk,0.5758432239985856,1000.0
+CLIMB unsup,FpDensityMorgan3,Simple counts / bulk,0.4688616537108712,1000.0
+CLIMB unsup,BCUT2D_MWHI,BCUT (eigenvalue),0.5579302753298215,1000.0
+CLIMB unsup,BCUT2D_MWLOW,BCUT (eigenvalue),0.7316700399994233,1000.0
+CLIMB unsup,BCUT2D_CHGHI,BCUT (eigenvalue),0.882599146128991,1000.0
+CLIMB unsup,BCUT2D_CHGLO,BCUT (eigenvalue),0.7682973727337401,1000.0
+CLIMB unsup,BCUT2D_LOGPHI,BCUT (eigenvalue),0.8437575749318929,1000.0
+CLIMB unsup,BCUT2D_LOGPLOW,BCUT (eigenvalue),0.7306422767872505,1000.0
+CLIMB unsup,BCUT2D_MRHI,BCUT (eigenvalue),0.6173881934942651,1000.0
+CLIMB unsup,BCUT2D_MRLOW,BCUT (eigenvalue),0.6385269628577865,1000.0
+CLIMB unsup,AvgIpc,Information (Ipc/SPS),0.7967696284731816,1000.0
+CLIMB unsup,BalabanJ,Simple counts / bulk,0.7611297747004864,1000.0
+CLIMB unsup,BertzCT,Simple counts / bulk,0.9026521107330534,1000.0
+CLIMB unsup,Chi0,Chi (connectivity),0.8669258747358228,1000.0
+CLIMB unsup,Chi0n,Chi (connectivity),0.8649694258675136,1000.0
+CLIMB unsup,Chi0v,Chi (connectivity),0.8546549275538269,1000.0
+CLIMB unsup,Chi1,Chi (connectivity),0.8740015514762304,1000.0
+CLIMB unsup,Chi1n,Chi (connectivity),0.8565642910674001,1000.0
+CLIMB unsup,Chi1v,Chi (connectivity),0.8216759547587795,1000.0
+CLIMB unsup,Chi2n,Chi (connectivity),0.8650772757925176,1000.0
+CLIMB unsup,Chi2v,Chi (connectivity),0.8108001432713916,1000.0
+CLIMB unsup,Chi3n,Chi (connectivity),0.8702999139261061,1000.0
+CLIMB unsup,Chi3v,Chi (connectivity),0.7946914910904065,1000.0
+CLIMB unsup,Chi4n,Chi (connectivity),0.8670724731725601,1000.0
+CLIMB unsup,Chi4v,Chi (connectivity),0.7940176220021047,1000.0
+CLIMB unsup,HallKierAlpha,Kappa (shape),0.8897647511845984,1000.0
+CLIMB unsup,Ipc,Information (Ipc/SPS),-0.13156382660940924,1000.0
+CLIMB unsup,Kappa1,Kappa (shape),0.8279011217226608,1000.0
+CLIMB unsup,Kappa2,Kappa (shape),0.7552755708157982,1000.0
+CLIMB unsup,Kappa3,Kappa (shape),-1.5728630174891727,1000.0
+CLIMB unsup,LabuteASA,Simple counts / bulk,0.866377713729908,1000.0
+CLIMB unsup,PEOE_VSA1,PEOE/SMR/SlogP VSA,0.6851424974808142,1000.0
+CLIMB unsup,PEOE_VSA10,PEOE/SMR/SlogP VSA,0.4814507654426601,1000.0
+CLIMB unsup,PEOE_VSA11,PEOE/SMR/SlogP VSA,0.37807238579232394,1000.0
+CLIMB unsup,PEOE_VSA12,PEOE/SMR/SlogP VSA,0.29603820180650053,1000.0
+CLIMB unsup,PEOE_VSA13,PEOE/SMR/SlogP VSA,0.39909980612199214,1000.0
+CLIMB unsup,PEOE_VSA14,PEOE/SMR/SlogP VSA,0.5007374953808092,1000.0
+CLIMB unsup,PEOE_VSA2,PEOE/SMR/SlogP VSA,0.6119937437853066,1000.0
+CLIMB unsup,PEOE_VSA3,PEOE/SMR/SlogP VSA,0.35690585934536767,1000.0
+CLIMB unsup,PEOE_VSA4,PEOE/SMR/SlogP VSA,0.42547259422245254,1000.0
+CLIMB unsup,PEOE_VSA5,PEOE/SMR/SlogP VSA,0.18567478866447196,1000.0
+CLIMB unsup,PEOE_VSA6,PEOE/SMR/SlogP VSA,0.5941390840053061,1000.0
+CLIMB unsup,PEOE_VSA7,PEOE/SMR/SlogP VSA,0.6410593353686871,1000.0
+CLIMB unsup,PEOE_VSA8,PEOE/SMR/SlogP VSA,0.4710120925977427,1000.0
+CLIMB unsup,PEOE_VSA9,PEOE/SMR/SlogP VSA,0.4362048891056901,1000.0
+CLIMB unsup,SMR_VSA1,PEOE/SMR/SlogP VSA,0.7501094704007472,1000.0
+CLIMB unsup,SMR_VSA10,PEOE/SMR/SlogP VSA,0.746878072441612,1000.0
+CLIMB unsup,SMR_VSA2,PEOE/SMR/SlogP VSA,0.5277646915301235,1000.0
+CLIMB unsup,SMR_VSA3,PEOE/SMR/SlogP VSA,0.6283095052225363,1000.0
+CLIMB unsup,SMR_VSA4,PEOE/SMR/SlogP VSA,0.5741273087411078,1000.0
+CLIMB unsup,SMR_VSA5,PEOE/SMR/SlogP VSA,0.7200512651557205,1000.0
+CLIMB unsup,SMR_VSA6,PEOE/SMR/SlogP VSA,0.6313599697137723,1000.0
+CLIMB unsup,SMR_VSA7,PEOE/SMR/SlogP VSA,0.8884564503960705,1000.0
+CLIMB unsup,SMR_VSA9,PEOE/SMR/SlogP VSA,0.6482814578716952,1000.0
+CLIMB unsup,SlogP_VSA1,PEOE/SMR/SlogP VSA,0.557809854286941,1000.0
+CLIMB unsup,SlogP_VSA10,PEOE/SMR/SlogP VSA,0.6716722390139109,1000.0
+CLIMB unsup,SlogP_VSA11,PEOE/SMR/SlogP VSA,0.6395715375785707,1000.0
+CLIMB unsup,SlogP_VSA12,PEOE/SMR/SlogP VSA,0.706651659819683,1000.0
+CLIMB unsup,SlogP_VSA2,PEOE/SMR/SlogP VSA,0.6981463648210935,1000.0
+CLIMB unsup,SlogP_VSA3,PEOE/SMR/SlogP VSA,0.575571334635728,1000.0
+CLIMB unsup,SlogP_VSA4,PEOE/SMR/SlogP VSA,0.6466889817042112,1000.0
+CLIMB unsup,SlogP_VSA5,PEOE/SMR/SlogP VSA,0.6767768717809866,1000.0
+CLIMB unsup,SlogP_VSA6,PEOE/SMR/SlogP VSA,0.8788888981187923,1000.0
+CLIMB unsup,SlogP_VSA7,PEOE/SMR/SlogP VSA,0.6064105100308649,1000.0
+CLIMB unsup,SlogP_VSA8,PEOE/SMR/SlogP VSA,0.6836228471987549,1000.0
+CLIMB unsup,TPSA,Simple counts / bulk,0.7703238048550483,1000.0
+CLIMB unsup,EState_VSA1,EState,0.7146646187677994,1000.0
+CLIMB unsup,EState_VSA10,EState,0.8027625151747363,1000.0
+CLIMB unsup,EState_VSA11,EState,-0.01309240311576354,1000.0
+CLIMB unsup,EState_VSA2,EState,0.5257341198757146,1000.0
+CLIMB unsup,EState_VSA3,EState,0.31510462541868334,1000.0
+CLIMB unsup,EState_VSA4,EState,0.40865624778540943,1000.0
+CLIMB unsup,EState_VSA5,EState,0.27078329058383077,1000.0
+CLIMB unsup,EState_VSA6,EState,0.35154044694237563,1000.0
+CLIMB unsup,EState_VSA7,EState,0.4839978002008919,1000.0
+CLIMB unsup,EState_VSA8,EState,0.45369701336056023,1000.0
+CLIMB unsup,EState_VSA9,EState,0.6205283067756839,1000.0
+CLIMB unsup,VSA_EState1,EState,0.7259429257434249,1000.0
+CLIMB unsup,VSA_EState10,EState,0.793024020531196,1000.0
+CLIMB unsup,VSA_EState2,EState,0.8080735686805971,1000.0
+CLIMB unsup,VSA_EState3,EState,0.6566444606281132,1000.0
+CLIMB unsup,VSA_EState4,EState,0.427138938394535,1000.0
+CLIMB unsup,VSA_EState5,EState,0.5198139808144006,1000.0
+CLIMB unsup,VSA_EState6,EState,0.8693183667139832,1000.0
+CLIMB unsup,VSA_EState7,EState,0.4463081255291417,1000.0
+CLIMB unsup,VSA_EState8,EState,0.7091614709094083,1000.0
+CLIMB unsup,VSA_EState9,EState,0.5647286017450794,1000.0
+CLIMB unsup,FractionCSP3,Simple counts / bulk,0.9073016549129186,1000.0
+CLIMB unsup,HeavyAtomCount,Simple counts / bulk,0.8729895461534258,1000.0
+CLIMB unsup,NHOHCount,Simple counts / bulk,0.6619078482937384,1000.0
+CLIMB unsup,NOCount,Simple counts / bulk,0.778418550589007,1000.0
+CLIMB unsup,NumAliphaticCarbocycles,Simple counts / bulk,0.677922683362784,1000.0
+CLIMB unsup,NumAliphaticHeterocycles,Simple counts / bulk,0.6074330621936126,1000.0
+CLIMB unsup,NumAliphaticRings,Simple counts / bulk,0.7930699598529081,1000.0
+CLIMB unsup,NumAmideBonds,Simple counts / bulk,0.6416525274448186,1000.0
+CLIMB unsup,NumAromaticCarbocycles,Simple counts / bulk,0.8304112450271983,1000.0
+CLIMB unsup,NumAromaticHeterocycles,Simple counts / bulk,0.6255934500438105,1000.0
+CLIMB unsup,NumAromaticRings,Simple counts / bulk,0.9194902770530748,1000.0
+CLIMB unsup,NumAtomStereoCenters,Simple counts / bulk,0.7179091472086613,1000.0
+CLIMB unsup,NumBridgeheadAtoms,Simple counts / bulk,0.24787132487865093,1000.0
+CLIMB unsup,NumHAcceptors,Simple counts / bulk,0.7608344369192295,1000.0
+CLIMB unsup,NumHDonors,Simple counts / bulk,0.6737658835588765,1000.0
+CLIMB unsup,NumHeteroatoms,Simple counts / bulk,0.7800397333733371,1000.0
+CLIMB unsup,NumHeterocycles,Simple counts / bulk,0.5912072848367824,1000.0
+CLIMB unsup,NumRotatableBonds,Simple counts / bulk,0.6703585664739857,1000.0
+CLIMB unsup,NumSaturatedCarbocycles,Simple counts / bulk,0.6014306742832051,1000.0
+CLIMB unsup,NumSaturatedHeterocycles,Simple counts / bulk,0.5185134139957338,1000.0
+CLIMB unsup,NumSaturatedRings,Simple counts / bulk,0.6962648607207884,1000.0
+CLIMB unsup,NumSpiroAtoms,Simple counts / bulk,0.14872583759110602,1000.0
+CLIMB unsup,NumUnspecifiedAtomStereoCenters,Simple counts / bulk,0.7704471397062054,1000.0
+CLIMB unsup,Phi,Information (Ipc/SPS),0.7071403585471465,1000.0
+CLIMB unsup,RingCount,Simple counts / bulk,0.8861467629448567,1000.0
+CLIMB unsup,MolLogP,Simple counts / bulk,0.65947601193234,1000.0
+CLIMB unsup,MolMR,Simple counts / bulk,0.8661425690004251,1000.0
+CLIMB unsup,fr_Al_COO,Fragment counts (fr_),0.3637899030377212,1000.0
+CLIMB unsup,fr_Al_OH,Fragment counts (fr_),0.5628887091279748,1000.0
+CLIMB unsup,fr_Al_OH_noTert,Fragment counts (fr_),0.5418248388190571,1000.0
+CLIMB unsup,fr_ArN,Fragment counts (fr_),0.3290000130384919,1000.0
+CLIMB unsup,fr_Ar_COO,Fragment counts (fr_),0.17101898331264986,1000.0
+CLIMB unsup,fr_Ar_N,Fragment counts (fr_),0.6739724438572434,1000.0
+CLIMB unsup,fr_Ar_NH,Fragment counts (fr_),0.7226836963978849,1000.0
+CLIMB unsup,fr_Ar_OH,Fragment counts (fr_),0.5289271675490729,1000.0
+CLIMB unsup,fr_COO,Fragment counts (fr_),0.42764327513934075,1000.0
+CLIMB unsup,fr_COO2,Fragment counts (fr_),0.4382551009942752,1000.0
+CLIMB unsup,fr_C_O,Fragment counts (fr_),0.79718807913237,1000.0
+CLIMB unsup,fr_C_O_noCOO,Fragment counts (fr_),0.7579256292564488,1000.0
+CLIMB unsup,fr_C_S,Fragment counts (fr_),0.41734985694145144,1000.0
+CLIMB unsup,fr_HOCCN,Fragment counts (fr_),0.011112143473141378,1000.0
+CLIMB unsup,fr_Imine,Fragment counts (fr_),0.28766830367679697,1000.0
+CLIMB unsup,fr_NH0,Fragment counts (fr_),0.6619271648094877,1000.0
+CLIMB unsup,fr_NH1,Fragment counts (fr_),0.579794220993305,1000.0
+CLIMB unsup,fr_NH2,Fragment counts (fr_),0.4290917114523397,1000.0
+CLIMB unsup,fr_N_O,Fragment counts (fr_),0.09038600503290051,1000.0
+CLIMB unsup,fr_Ndealkylation1,Fragment counts (fr_),0.19721007687059566,1000.0
+CLIMB unsup,fr_Ndealkylation2,Fragment counts (fr_),0.18429285882837332,1000.0
+CLIMB unsup,fr_Nhpyrrole,Fragment counts (fr_),0.7226836963978849,1000.0
+CLIMB unsup,fr_SH,Fragment counts (fr_),0.03605700979989146,1000.0
+CLIMB unsup,fr_aldehyde,Fragment counts (fr_),0.28491337634934844,1000.0
+CLIMB unsup,fr_alkyl_carbamate,Fragment counts (fr_),0.11693260727094279,1000.0
+CLIMB unsup,fr_alkyl_halide,Fragment counts (fr_),0.6944258491988242,1000.0
+CLIMB unsup,fr_allylic_oxid,Fragment counts (fr_),0.44605499271268545,1000.0
+CLIMB unsup,fr_amide,Fragment counts (fr_),0.6416525274448186,1000.0
+CLIMB unsup,fr_amidine,Fragment counts (fr_),0.20670697010877037,1000.0
+CLIMB unsup,fr_aniline,Fragment counts (fr_),0.5267931223315464,1000.0
+CLIMB unsup,fr_aryl_methyl,Fragment counts (fr_),0.4320929161640933,1000.0
+CLIMB unsup,fr_azide,Fragment counts (fr_),0.1215272228911205,1000.0
+CLIMB unsup,fr_azo,Fragment counts (fr_),0.18312864691791686,1000.0
+CLIMB unsup,fr_barbitur,Fragment counts (fr_),0.0875191403083122,1000.0
+CLIMB unsup,fr_benzene,Fragment counts (fr_),0.8295924944448627,1000.0
+CLIMB unsup,fr_benzodiazepine,Fragment counts (fr_),0.07016491252235457,1000.0
+CLIMB unsup,fr_bicyclic,Fragment counts (fr_),0.5621099463354289,1000.0
+CLIMB unsup,fr_dihydropyridine,Fragment counts (fr_),0.05477604943366987,1000.0
+CLIMB unsup,fr_epoxide,Fragment counts (fr_),0.1274668657307958,1000.0
+CLIMB unsup,fr_ester,Fragment counts (fr_),0.5275675232163574,1000.0
+CLIMB unsup,fr_ether,Fragment counts (fr_),0.7191193655262254,1000.0
+CLIMB unsup,fr_furan,Fragment counts (fr_),0.07449340648473213,1000.0
+CLIMB unsup,fr_guanido,Fragment counts (fr_),0.09190705268593169,1000.0
+CLIMB unsup,fr_halogen,Fragment counts (fr_),0.8401235540653946,1000.0
+CLIMB unsup,fr_hdrzine,Fragment counts (fr_),0.17446530375518288,1000.0
+CLIMB unsup,fr_hdrzone,Fragment counts (fr_),0.28316161843893395,1000.0
+CLIMB unsup,fr_imidazole,Fragment counts (fr_),0.15219893715392296,1000.0
+CLIMB unsup,fr_imide,Fragment counts (fr_),0.2444012626674119,1000.0
+CLIMB unsup,fr_isocyan,Fragment counts (fr_),,1000.0
+CLIMB unsup,fr_isothiocyan,Fragment counts (fr_),,1000.0
+CLIMB unsup,fr_ketone,Fragment counts (fr_),0.4071904538190674,1000.0
+CLIMB unsup,fr_ketone_Topliss,Fragment counts (fr_),0.36170199033522576,1000.0
+CLIMB unsup,fr_lactam,Fragment counts (fr_),0.08497845894999367,1000.0
+CLIMB unsup,fr_lactone,Fragment counts (fr_),0.10878450650641236,1000.0
+CLIMB unsup,fr_methoxy,Fragment counts (fr_),0.6099916514301099,1000.0
+CLIMB unsup,fr_morpholine,Fragment counts (fr_),0.12079818481240368,1000.0
+CLIMB unsup,fr_nitrile,Fragment counts (fr_),0.5841622704360101,1000.0
+CLIMB unsup,fr_nitro,Fragment counts (fr_),0.750979885613489,1000.0
+CLIMB unsup,fr_nitro_arom,Fragment counts (fr_),0.5501113405020274,1000.0
+CLIMB unsup,fr_nitro_arom_nonortho,Fragment counts (fr_),0.45050516177286115,1000.0
+CLIMB unsup,fr_nitroso,Fragment counts (fr_),0.09169795876071984,1000.0
+CLIMB unsup,fr_oxazole,Fragment counts (fr_),0.0054535157247991295,1000.0
+CLIMB unsup,fr_oxime,Fragment counts (fr_),0.15372680191450605,1000.0
+CLIMB unsup,fr_para_hydroxylation,Fragment counts (fr_),0.3574819113342498,1000.0
+CLIMB unsup,fr_phenol,Fragment counts (fr_),0.4530879959845667,1000.0
+CLIMB unsup,fr_phenol_noOrthoHbond,Fragment counts (fr_),0.4314909685532856,1000.0
+CLIMB unsup,fr_phos_acid,Fragment counts (fr_),0.18263262098318944,1000.0
+CLIMB unsup,fr_phos_ester,Fragment counts (fr_),0.192757125404453,1000.0
+CLIMB unsup,fr_piperdine,Fragment counts (fr_),0.166929909071741,1000.0
+CLIMB unsup,fr_piperzine,Fragment counts (fr_),0.20012284155730065,1000.0
+CLIMB unsup,fr_priamide,Fragment counts (fr_),0.2256162418903569,1000.0
+CLIMB unsup,fr_pyridine,Fragment counts (fr_),0.15778058035045284,1000.0
+CLIMB unsup,fr_quatN,Fragment counts (fr_),0.41217295818801936,1000.0
+CLIMB unsup,fr_sulfide,Fragment counts (fr_),0.3576557360007482,1000.0
+CLIMB unsup,fr_sulfonamd,Fragment counts (fr_),0.353015353394847,1000.0
+CLIMB unsup,fr_sulfone,Fragment counts (fr_),0.14678299453172283,1000.0
+CLIMB unsup,fr_term_acetylene,Fragment counts (fr_),0.4486615937032562,1000.0
+CLIMB unsup,fr_tetrazole,Fragment counts (fr_),0.012193883324674748,1000.0
+CLIMB unsup,fr_thiazole,Fragment counts (fr_),0.06916937050293692,1000.0
+CLIMB unsup,fr_thiocyan,Fragment counts (fr_),0.006777332817313408,1000.0
+CLIMB unsup,fr_thiophene,Fragment counts (fr_),0.11025742049215159,1000.0
+CLIMB unsup,fr_unbrch_alkane,Fragment counts (fr_),0.37250298303384066,1000.0
+CLIMB unsup,fr_urea,Fragment counts (fr_),0.14242129783706614,1000.0
+"CLIMB sup, desc",MaxAbsEStateIndex,EState,0.9323973864013023,1000.0
+"CLIMB sup, desc",MaxEStateIndex,EState,0.9323972982099796,1000.0
+"CLIMB sup, desc",MinAbsEStateIndex,EState,0.6152308733955719,1000.0
+"CLIMB sup, desc",MinEStateIndex,EState,0.8948908188310093,1000.0
+"CLIMB sup, desc",qed,Simple counts / bulk,0.7369057738136231,1000.0
+"CLIMB sup, desc",SPS,Information (Ipc/SPS),0.9321581903565633,1000.0
+"CLIMB sup, desc",MolWt,Simple counts / bulk,0.9732393179333914,1000.0
+"CLIMB sup, desc",HeavyAtomMolWt,Simple counts / bulk,0.9732411347414375,1000.0
+"CLIMB sup, desc",ExactMolWt,Simple counts / bulk,0.9732186870761892,1000.0
+"CLIMB sup, desc",NumValenceElectrons,Simple counts / bulk,0.9764503681484387,1000.0
+"CLIMB sup, desc",NumRadicalElectrons,Simple counts / bulk,0.5002633657832147,1000.0
+"CLIMB sup, desc",MaxPartialCharge,Simple counts / bulk,0.7748165323203109,1000.0
+"CLIMB sup, desc",MinPartialCharge,Simple counts / bulk,0.6549079978912229,1000.0
+"CLIMB sup, desc",MaxAbsPartialCharge,Simple counts / bulk,0.6595738932111292,1000.0
+"CLIMB sup, desc",MinAbsPartialCharge,Simple counts / bulk,0.7793535352064951,1000.0
+"CLIMB sup, desc",FpDensityMorgan1,Simple counts / bulk,0.8150329102455544,1000.0
+"CLIMB sup, desc",FpDensityMorgan2,Simple counts / bulk,0.7100362556995621,1000.0
+"CLIMB sup, desc",FpDensityMorgan3,Simple counts / bulk,0.604908046344939,1000.0
+"CLIMB sup, desc",BCUT2D_MWHI,BCUT (eigenvalue),0.8976135239641906,1000.0
+"CLIMB sup, desc",BCUT2D_MWLOW,BCUT (eigenvalue),0.7973210091903132,1000.0
+"CLIMB sup, desc",BCUT2D_CHGHI,BCUT (eigenvalue),0.9081523127632946,1000.0
+"CLIMB sup, desc",BCUT2D_CHGLO,BCUT (eigenvalue),0.818919382228139,1000.0
+"CLIMB sup, desc",BCUT2D_LOGPHI,BCUT (eigenvalue),0.9017028045190988,1000.0
+"CLIMB sup, desc",BCUT2D_LOGPLOW,BCUT (eigenvalue),0.7948070129533688,1000.0
+"CLIMB sup, desc",BCUT2D_MRHI,BCUT (eigenvalue),0.8915762453616428,1000.0
+"CLIMB sup, desc",BCUT2D_MRLOW,BCUT (eigenvalue),0.7693185868468986,1000.0
+"CLIMB sup, desc",AvgIpc,Information (Ipc/SPS),0.8616684611501942,1000.0
+"CLIMB sup, desc",BalabanJ,Simple counts / bulk,0.937364230606537,1000.0
+"CLIMB sup, desc",BertzCT,Simple counts / bulk,0.9664381773412785,1000.0
+"CLIMB sup, desc",Chi0,Chi (connectivity),0.9772817416839097,1000.0
+"CLIMB sup, desc",Chi0n,Chi (connectivity),0.9761985777591093,1000.0
+"CLIMB sup, desc",Chi0v,Chi (connectivity),0.9739104855061923,1000.0
+"CLIMB sup, desc",Chi1,Chi (connectivity),0.9772690309356463,1000.0
+"CLIMB sup, desc",Chi1n,Chi (connectivity),0.9749072307248706,1000.0
+"CLIMB sup, desc",Chi1v,Chi (connectivity),0.9643648491940902,1000.0
+"CLIMB sup, desc",Chi2n,Chi (connectivity),0.9724116986773232,1000.0
+"CLIMB sup, desc",Chi2v,Chi (connectivity),0.9380442885000526,1000.0
+"CLIMB sup, desc",Chi3n,Chi (connectivity),0.9699728369736008,1000.0
+"CLIMB sup, desc",Chi3v,Chi (connectivity),0.90862502177053,1000.0
+"CLIMB sup, desc",Chi4n,Chi (connectivity),0.9646483064457326,1000.0
+"CLIMB sup, desc",Chi4v,Chi (connectivity),0.912286119944198,1000.0
+"CLIMB sup, desc",HallKierAlpha,Kappa (shape),0.9617987789065664,1000.0
+"CLIMB sup, desc",Ipc,Information (Ipc/SPS),-0.1799661782599027,1000.0
+"CLIMB sup, desc",Kappa1,Kappa (shape),0.971096498668589,1000.0
+"CLIMB sup, desc",Kappa2,Kappa (shape),0.9459986962499279,1000.0
+"CLIMB sup, desc",Kappa3,Kappa (shape),-0.3549403902780075,1000.0
+"CLIMB sup, desc",LabuteASA,Simple counts / bulk,0.9759371883467577,1000.0
+"CLIMB sup, desc",PEOE_VSA1,PEOE/SMR/SlogP VSA,0.9064670089311337,1000.0
+"CLIMB sup, desc",PEOE_VSA10,PEOE/SMR/SlogP VSA,0.6633288298168507,1000.0
+"CLIMB sup, desc",PEOE_VSA11,PEOE/SMR/SlogP VSA,0.5397604973347228,1000.0
+"CLIMB sup, desc",PEOE_VSA12,PEOE/SMR/SlogP VSA,0.47212002363355643,1000.0
+"CLIMB sup, desc",PEOE_VSA13,PEOE/SMR/SlogP VSA,0.522813632368919,1000.0
+"CLIMB sup, desc",PEOE_VSA14,PEOE/SMR/SlogP VSA,0.7671866205717235,1000.0
+"CLIMB sup, desc",PEOE_VSA2,PEOE/SMR/SlogP VSA,0.762312922848268,1000.0
+"CLIMB sup, desc",PEOE_VSA3,PEOE/SMR/SlogP VSA,0.5388746646502389,1000.0
+"CLIMB sup, desc",PEOE_VSA4,PEOE/SMR/SlogP VSA,0.6665844652733008,1000.0
+"CLIMB sup, desc",PEOE_VSA5,PEOE/SMR/SlogP VSA,0.40404097181739973,1000.0
+"CLIMB sup, desc",PEOE_VSA6,PEOE/SMR/SlogP VSA,0.7634569305009568,1000.0
+"CLIMB sup, desc",PEOE_VSA7,PEOE/SMR/SlogP VSA,0.75289718869432,1000.0
+"CLIMB sup, desc",PEOE_VSA8,PEOE/SMR/SlogP VSA,0.5716638597390795,1000.0
+"CLIMB sup, desc",PEOE_VSA9,PEOE/SMR/SlogP VSA,0.6030881941173616,1000.0
+"CLIMB sup, desc",SMR_VSA1,PEOE/SMR/SlogP VSA,0.9587459482190523,1000.0
+"CLIMB sup, desc",SMR_VSA10,PEOE/SMR/SlogP VSA,0.8829007206668522,1000.0
+"CLIMB sup, desc",SMR_VSA2,PEOE/SMR/SlogP VSA,0.8459764319294072,1000.0
+"CLIMB sup, desc",SMR_VSA3,PEOE/SMR/SlogP VSA,0.7831520181258285,1000.0
+"CLIMB sup, desc",SMR_VSA4,PEOE/SMR/SlogP VSA,0.8220813567236983,1000.0
+"CLIMB sup, desc",SMR_VSA5,PEOE/SMR/SlogP VSA,0.9440858108074436,1000.0
+"CLIMB sup, desc",SMR_VSA6,PEOE/SMR/SlogP VSA,0.9021025971682922,1000.0
+"CLIMB sup, desc",SMR_VSA7,PEOE/SMR/SlogP VSA,0.9400671073469783,1000.0
+"CLIMB sup, desc",SMR_VSA9,PEOE/SMR/SlogP VSA,0.7537148318206048,1000.0
+"CLIMB sup, desc",SlogP_VSA1,PEOE/SMR/SlogP VSA,0.807325061411698,1000.0
+"CLIMB sup, desc",SlogP_VSA10,PEOE/SMR/SlogP VSA,0.781764371528058,1000.0
+"CLIMB sup, desc",SlogP_VSA11,PEOE/SMR/SlogP VSA,0.7338845322975848,1000.0
+"CLIMB sup, desc",SlogP_VSA12,PEOE/SMR/SlogP VSA,0.8863393210451327,1000.0
+"CLIMB sup, desc",SlogP_VSA2,PEOE/SMR/SlogP VSA,0.9458627485927487,1000.0
+"CLIMB sup, desc",SlogP_VSA3,PEOE/SMR/SlogP VSA,0.8129903346869937,1000.0
+"CLIMB sup, desc",SlogP_VSA4,PEOE/SMR/SlogP VSA,0.8257865309733333,1000.0
+"CLIMB sup, desc",SlogP_VSA5,PEOE/SMR/SlogP VSA,0.9021080575303609,1000.0
+"CLIMB sup, desc",SlogP_VSA6,PEOE/SMR/SlogP VSA,0.9308725316803852,1000.0
+"CLIMB sup, desc",SlogP_VSA7,PEOE/SMR/SlogP VSA,0.7617747815369129,1000.0
+"CLIMB sup, desc",SlogP_VSA8,PEOE/SMR/SlogP VSA,0.6883350167693856,1000.0
+"CLIMB sup, desc",TPSA,Simple counts / bulk,0.9630921505383901,1000.0
+"CLIMB sup, desc",EState_VSA1,EState,0.9321031736667756,1000.0
+"CLIMB sup, desc",EState_VSA10,EState,0.9528026618062366,1000.0
+"CLIMB sup, desc",EState_VSA11,EState,0.09643449158629136,1000.0
+"CLIMB sup, desc",EState_VSA2,EState,0.6860713144986954,1000.0
+"CLIMB sup, desc",EState_VSA3,EState,0.5545620352049858,1000.0
+"CLIMB sup, desc",EState_VSA4,EState,0.6190795218427214,1000.0
+"CLIMB sup, desc",EState_VSA5,EState,0.5791097259432598,1000.0
+"CLIMB sup, desc",EState_VSA6,EState,0.46725932118015845,1000.0
+"CLIMB sup, desc",EState_VSA7,EState,0.575764545385246,1000.0
+"CLIMB sup, desc",EState_VSA8,EState,0.6496552912558149,1000.0
+"CLIMB sup, desc",EState_VSA9,EState,0.8701100509861226,1000.0
+"CLIMB sup, desc",VSA_EState1,EState,0.9241927743500946,1000.0
+"CLIMB sup, desc",VSA_EState10,EState,0.9277622593342327,1000.0
+"CLIMB sup, desc",VSA_EState2,EState,0.9113439064169941,1000.0
+"CLIMB sup, desc",VSA_EState3,EState,0.9182107308842438,1000.0
+"CLIMB sup, desc",VSA_EState4,EState,0.7606288740652315,1000.0
+"CLIMB sup, desc",VSA_EState5,EState,0.772462501930535,1000.0
+"CLIMB sup, desc",VSA_EState6,EState,0.9158249301304583,1000.0
+"CLIMB sup, desc",VSA_EState7,EState,0.872650885398406,1000.0
+"CLIMB sup, desc",VSA_EState8,EState,0.897463177555589,1000.0
+"CLIMB sup, desc",VSA_EState9,EState,0.8060630413049565,1000.0
+"CLIMB sup, desc",FractionCSP3,Simple counts / bulk,0.9507782832383626,1000.0
+"CLIMB sup, desc",HeavyAtomCount,Simple counts / bulk,0.9775396697522161,1000.0
+"CLIMB sup, desc",NHOHCount,Simple counts / bulk,0.9347564951140864,1000.0
+"CLIMB sup, desc",NOCount,Simple counts / bulk,0.95432997700845,1000.0
+"CLIMB sup, desc",NumAliphaticCarbocycles,Simple counts / bulk,0.8673389713339568,1000.0
+"CLIMB sup, desc",NumAliphaticHeterocycles,Simple counts / bulk,0.8205249666529425,1000.0
+"CLIMB sup, desc",NumAliphaticRings,Simple counts / bulk,0.9169957328694776,1000.0
+"CLIMB sup, desc",NumAmideBonds,Simple counts / bulk,0.9083510393081452,1000.0
+"CLIMB sup, desc",NumAromaticCarbocycles,Simple counts / bulk,0.8747319706561705,1000.0
+"CLIMB sup, desc",NumAromaticHeterocycles,Simple counts / bulk,0.7125622633597637,1000.0
+"CLIMB sup, desc",NumAromaticRings,Simple counts / bulk,0.9602337030983494,1000.0
+"CLIMB sup, desc",NumAtomStereoCenters,Simple counts / bulk,0.9322962521921896,1000.0
+"CLIMB sup, desc",NumBridgeheadAtoms,Simple counts / bulk,0.3760133723766419,1000.0
+"CLIMB sup, desc",NumHAcceptors,Simple counts / bulk,0.9294812101404976,1000.0
+"CLIMB sup, desc",NumHDonors,Simple counts / bulk,0.9326554960729954,1000.0
+"CLIMB sup, desc",NumHeteroatoms,Simple counts / bulk,0.9561407939099273,1000.0
+"CLIMB sup, desc",NumHeterocycles,Simple counts / bulk,0.7892326428302014,1000.0
+"CLIMB sup, desc",NumRotatableBonds,Simple counts / bulk,0.8843182042808383,1000.0
+"CLIMB sup, desc",NumSaturatedCarbocycles,Simple counts / bulk,0.895182924258308,1000.0
+"CLIMB sup, desc",NumSaturatedHeterocycles,Simple counts / bulk,0.7829105510097715,1000.0
+"CLIMB sup, desc",NumSaturatedRings,Simple counts / bulk,0.8685922726899972,1000.0
+"CLIMB sup, desc",NumSpiroAtoms,Simple counts / bulk,0.23891570818093166,1000.0
+"CLIMB sup, desc",NumUnspecifiedAtomStereoCenters,Simple counts / bulk,0.9174460896368049,1000.0
+"CLIMB sup, desc",Phi,Information (Ipc/SPS),0.9270508679173821,1000.0
+"CLIMB sup, desc",RingCount,Simple counts / bulk,0.9552062066598463,1000.0
+"CLIMB sup, desc",MolLogP,Simple counts / bulk,0.9074496209590383,1000.0
+"CLIMB sup, desc",MolMR,Simple counts / bulk,0.9729138669946905,1000.0
+"CLIMB sup, desc",fr_Al_COO,Fragment counts (fr_),0.8474228914008212,1000.0
+"CLIMB sup, desc",fr_Al_OH,Fragment counts (fr_),0.9270478687768722,1000.0
+"CLIMB sup, desc",fr_Al_OH_noTert,Fragment counts (fr_),0.9148039778616449,1000.0
+"CLIMB sup, desc",fr_ArN,Fragment counts (fr_),0.4752598770475652,1000.0
+"CLIMB sup, desc",fr_Ar_COO,Fragment counts (fr_),0.6090756745943011,1000.0
+"CLIMB sup, desc",fr_Ar_N,Fragment counts (fr_),0.7947369093252199,1000.0
+"CLIMB sup, desc",fr_Ar_NH,Fragment counts (fr_),0.4894124705280647,1000.0
+"CLIMB sup, desc",fr_Ar_OH,Fragment counts (fr_),0.6638769544908852,1000.0
+"CLIMB sup, desc",fr_COO,Fragment counts (fr_),0.8502275004217623,1000.0
+"CLIMB sup, desc",fr_COO2,Fragment counts (fr_),0.8683392410139902,1000.0
+"CLIMB sup, desc",fr_C_O,Fragment counts (fr_),0.9246046717453461,1000.0
+"CLIMB sup, desc",fr_C_O_noCOO,Fragment counts (fr_),0.9205577746211897,1000.0
+"CLIMB sup, desc",fr_C_S,Fragment counts (fr_),0.8939982800995717,1000.0
+"CLIMB sup, desc",fr_HOCCN,Fragment counts (fr_),0.3600116242046536,1000.0
+"CLIMB sup, desc",fr_Imine,Fragment counts (fr_),0.7119971886790706,1000.0
+"CLIMB sup, desc",fr_NH0,Fragment counts (fr_),0.8052380079462375,1000.0
+"CLIMB sup, desc",fr_NH1,Fragment counts (fr_),0.8103873002259578,1000.0
+"CLIMB sup, desc",fr_NH2,Fragment counts (fr_),0.8225168155388212,1000.0
+"CLIMB sup, desc",fr_N_O,Fragment counts (fr_),0.8142578865295873,1000.0
+"CLIMB sup, desc",fr_Ndealkylation1,Fragment counts (fr_),0.8010172697041262,1000.0
+"CLIMB sup, desc",fr_Ndealkylation2,Fragment counts (fr_),0.5354531257288294,1000.0
+"CLIMB sup, desc",fr_Nhpyrrole,Fragment counts (fr_),0.4894124705280647,1000.0
+"CLIMB sup, desc",fr_SH,Fragment counts (fr_),0.7890170968867967,1000.0
+"CLIMB sup, desc",fr_aldehyde,Fragment counts (fr_),0.7375005238038442,1000.0
+"CLIMB sup, desc",fr_alkyl_carbamate,Fragment counts (fr_),0.8427151339320612,1000.0
+"CLIMB sup, desc",fr_alkyl_halide,Fragment counts (fr_),0.9101599350480408,1000.0
+"CLIMB sup, desc",fr_allylic_oxid,Fragment counts (fr_),0.759236326919354,1000.0
+"CLIMB sup, desc",fr_amide,Fragment counts (fr_),0.9083510393081452,1000.0
+"CLIMB sup, desc",fr_amidine,Fragment counts (fr_),0.7701262377997616,1000.0
+"CLIMB sup, desc",fr_aniline,Fragment counts (fr_),0.5770408038819362,1000.0
+"CLIMB sup, desc",fr_aryl_methyl,Fragment counts (fr_),0.4383916290962302,1000.0
+"CLIMB sup, desc",fr_azide,Fragment counts (fr_),0.5232310168254757,1000.0
+"CLIMB sup, desc",fr_azo,Fragment counts (fr_),0.42679831833958926,1000.0
+"CLIMB sup, desc",fr_barbitur,Fragment counts (fr_),0.5731198445588714,1000.0
+"CLIMB sup, desc",fr_benzene,Fragment counts (fr_),0.8737589745624995,1000.0
+"CLIMB sup, desc",fr_benzodiazepine,Fragment counts (fr_),0.056262440469294295,1000.0
+"CLIMB sup, desc",fr_bicyclic,Fragment counts (fr_),0.6452576788905249,1000.0
+"CLIMB sup, desc",fr_dihydropyridine,Fragment counts (fr_),0.07786910961840887,1000.0
+"CLIMB sup, desc",fr_epoxide,Fragment counts (fr_),0.5049317520128229,1000.0
+"CLIMB sup, desc",fr_ester,Fragment counts (fr_),0.7768737063291695,1000.0
+"CLIMB sup, desc",fr_ether,Fragment counts (fr_),0.9131253268998388,1000.0
+"CLIMB sup, desc",fr_furan,Fragment counts (fr_),0.10778697689220051,1000.0
+"CLIMB sup, desc",fr_guanido,Fragment counts (fr_),0.8035632543552531,1000.0
+"CLIMB sup, desc",fr_halogen,Fragment counts (fr_),0.9651821384655299,1000.0
+"CLIMB sup, desc",fr_hdrzine,Fragment counts (fr_),0.7896412741415453,1000.0
+"CLIMB sup, desc",fr_hdrzone,Fragment counts (fr_),0.8403583409216444,1000.0
+"CLIMB sup, desc",fr_imidazole,Fragment counts (fr_),0.1671785174757151,1000.0
+"CLIMB sup, desc",fr_imide,Fragment counts (fr_),0.6677286964416778,1000.0
+"CLIMB sup, desc",fr_isocyan,Fragment counts (fr_),,1000.0
+"CLIMB sup, desc",fr_isothiocyan,Fragment counts (fr_),,1000.0
+"CLIMB sup, desc",fr_ketone,Fragment counts (fr_),0.6777943146374938,1000.0
+"CLIMB sup, desc",fr_ketone_Topliss,Fragment counts (fr_),0.6402265804013811,1000.0
+"CLIMB sup, desc",fr_lactam,Fragment counts (fr_),0.5005065081464748,1000.0
+"CLIMB sup, desc",fr_lactone,Fragment counts (fr_),0.2546385119769422,1000.0
+"CLIMB sup, desc",fr_methoxy,Fragment counts (fr_),0.8212616251961609,1000.0
+"CLIMB sup, desc",fr_morpholine,Fragment counts (fr_),0.7614502673698549,1000.0
+"CLIMB sup, desc",fr_nitrile,Fragment counts (fr_),0.8591220657535799,1000.0
+"CLIMB sup, desc",fr_nitro,Fragment counts (fr_),0.8820609937799977,1000.0
+"CLIMB sup, desc",fr_nitro_arom,Fragment counts (fr_),0.6277851410729891,1000.0
+"CLIMB sup, desc",fr_nitro_arom_nonortho,Fragment counts (fr_),0.48489059592834216,1000.0
+"CLIMB sup, desc",fr_nitroso,Fragment counts (fr_),0.8172227364116432,1000.0
+"CLIMB sup, desc",fr_oxazole,Fragment counts (fr_),0.023089704759813312,1000.0
+"CLIMB sup, desc",fr_oxime,Fragment counts (fr_),0.8831454580668566,1000.0
+"CLIMB sup, desc",fr_para_hydroxylation,Fragment counts (fr_),0.3359493505746437,1000.0
+"CLIMB sup, desc",fr_phenol,Fragment counts (fr_),0.5693367078063283,1000.0
+"CLIMB sup, desc",fr_phenol_noOrthoHbond,Fragment counts (fr_),0.5456103098697226,1000.0
+"CLIMB sup, desc",fr_phos_acid,Fragment counts (fr_),0.8260709875224436,1000.0
+"CLIMB sup, desc",fr_phos_ester,Fragment counts (fr_),0.9169405140160077,1000.0
+"CLIMB sup, desc",fr_piperdine,Fragment counts (fr_),0.6479956744852939,1000.0
+"CLIMB sup, desc",fr_piperzine,Fragment counts (fr_),0.38762383394008215,1000.0
+"CLIMB sup, desc",fr_priamide,Fragment counts (fr_),0.2435392405503678,1000.0
+"CLIMB sup, desc",fr_pyridine,Fragment counts (fr_),0.16183603801736102,1000.0
+"CLIMB sup, desc",fr_quatN,Fragment counts (fr_),0.926992418610344,1000.0
+"CLIMB sup, desc",fr_sulfide,Fragment counts (fr_),0.7626471079489975,1000.0
+"CLIMB sup, desc",fr_sulfonamd,Fragment counts (fr_),0.528795596052722,1000.0
+"CLIMB sup, desc",fr_sulfone,Fragment counts (fr_),0.515647016441951,1000.0
+"CLIMB sup, desc",fr_term_acetylene,Fragment counts (fr_),0.9887744768613004,1000.0
+"CLIMB sup, desc",fr_tetrazole,Fragment counts (fr_),0.009650174761703156,1000.0
+"CLIMB sup, desc",fr_thiazole,Fragment counts (fr_),0.08192051679870294,1000.0
+"CLIMB sup, desc",fr_thiocyan,Fragment counts (fr_),0.019903183146713688,1000.0
+"CLIMB sup, desc",fr_thiophene,Fragment counts (fr_),0.1280587170286287,1000.0
+"CLIMB sup, desc",fr_unbrch_alkane,Fragment counts (fr_),0.8994393027738083,1000.0
+"CLIMB sup, desc",fr_urea,Fragment counts (fr_),0.8314151326684093,1000.0
+CLIMB random,MaxAbsEStateIndex,EState,0.4412031305437716,1000.0
+CLIMB random,MaxEStateIndex,EState,0.4412025647789003,1000.0
+CLIMB random,MinAbsEStateIndex,EState,0.2066577405030261,1000.0
+CLIMB random,MinEStateIndex,EState,0.637762057276476,1000.0
+CLIMB random,qed,Simple counts / bulk,0.20622880410648992,1000.0
+CLIMB random,SPS,Information (Ipc/SPS),0.764255576700748,1000.0
+CLIMB random,MolWt,Simple counts / bulk,0.4020771181207754,1000.0
+CLIMB random,HeavyAtomMolWt,Simple counts / bulk,0.40895477778219136,1000.0
+CLIMB random,ExactMolWt,Simple counts / bulk,0.4019007122414945,1000.0
+CLIMB random,NumValenceElectrons,Simple counts / bulk,0.384880672641297,1000.0
+CLIMB random,NumRadicalElectrons,Simple counts / bulk,0.816070377326335,1000.0
+CLIMB random,MaxPartialCharge,Simple counts / bulk,0.5450477911487515,1000.0
+CLIMB random,MinPartialCharge,Simple counts / bulk,0.4056505581331601,1000.0
+CLIMB random,MaxAbsPartialCharge,Simple counts / bulk,0.4219709463463077,1000.0
+CLIMB random,MinAbsPartialCharge,Simple counts / bulk,0.5393923829581642,1000.0
+CLIMB random,FpDensityMorgan1,Simple counts / bulk,0.4751358793381186,1000.0
+CLIMB random,FpDensityMorgan2,Simple counts / bulk,0.3570040841579406,1000.0
+CLIMB random,FpDensityMorgan3,Simple counts / bulk,0.23493526258359076,1000.0
+CLIMB random,BCUT2D_MWHI,BCUT (eigenvalue),0.4494533344564554,1000.0
+CLIMB random,BCUT2D_MWLOW,BCUT (eigenvalue),0.5472574284001281,1000.0
+CLIMB random,BCUT2D_CHGHI,BCUT (eigenvalue),0.6655869735926689,1000.0
+CLIMB random,BCUT2D_CHGLO,BCUT (eigenvalue),0.5466542768256191,1000.0
+CLIMB random,BCUT2D_LOGPHI,BCUT (eigenvalue),0.6790532897598255,1000.0
+CLIMB random,BCUT2D_LOGPLOW,BCUT (eigenvalue),0.48917060331348994,1000.0
+CLIMB random,BCUT2D_MRHI,BCUT (eigenvalue),0.5130884405322228,1000.0
+CLIMB random,BCUT2D_MRLOW,BCUT (eigenvalue),0.49874583298133934,1000.0
+CLIMB random,AvgIpc,Information (Ipc/SPS),0.4928644625680899,1000.0
+CLIMB random,BalabanJ,Simple counts / bulk,0.5529468925109928,1000.0
+CLIMB random,BertzCT,Simple counts / bulk,0.48317064228317286,1000.0
+CLIMB random,Chi0,Chi (connectivity),0.3934027688910827,1000.0
+CLIMB random,Chi0n,Chi (connectivity),0.4006627556412219,1000.0
+CLIMB random,Chi0v,Chi (connectivity),0.40227238270905674,1000.0
+CLIMB random,Chi1,Chi (connectivity),0.40817791813263926,1000.0
+CLIMB random,Chi1n,Chi (connectivity),0.4013359481531277,1000.0
+CLIMB random,Chi1v,Chi (connectivity),0.396777916300708,1000.0
+CLIMB random,Chi2n,Chi (connectivity),0.42910925703569813,1000.0
+CLIMB random,Chi2v,Chi (connectivity),0.4270413746568019,1000.0
+CLIMB random,Chi3n,Chi (connectivity),0.46328435930411893,1000.0
+CLIMB random,Chi3v,Chi (connectivity),0.43776494592767334,1000.0
+CLIMB random,Chi4n,Chi (connectivity),0.49532774970013216,1000.0
+CLIMB random,Chi4v,Chi (connectivity),0.455953582369345,1000.0
+CLIMB random,HallKierAlpha,Kappa (shape),0.5376326902214226,1000.0
+CLIMB random,Ipc,Information (Ipc/SPS),-0.37861017995385726,1000.0
+CLIMB random,Kappa1,Kappa (shape),0.36360332417352603,1000.0
+CLIMB random,Kappa2,Kappa (shape),0.3225711293867479,1000.0
+CLIMB random,Kappa3,Kappa (shape),-1.4214893805769746,1000.0
+CLIMB random,LabuteASA,Simple counts / bulk,0.4035059918314581,1000.0
+CLIMB random,PEOE_VSA1,PEOE/SMR/SlogP VSA,0.34420467962006496,1000.0
+CLIMB random,PEOE_VSA10,PEOE/SMR/SlogP VSA,0.20687153688914361,1000.0
+CLIMB random,PEOE_VSA11,PEOE/SMR/SlogP VSA,0.20126086755633332,1000.0
+CLIMB random,PEOE_VSA12,PEOE/SMR/SlogP VSA,0.12942935318440574,1000.0
+CLIMB random,PEOE_VSA13,PEOE/SMR/SlogP VSA,0.23907042106501153,1000.0
+CLIMB random,PEOE_VSA14,PEOE/SMR/SlogP VSA,0.3207116457340531,1000.0
+CLIMB random,PEOE_VSA2,PEOE/SMR/SlogP VSA,0.3620228215225011,1000.0
+CLIMB random,PEOE_VSA3,PEOE/SMR/SlogP VSA,0.23241043496452318,1000.0
+CLIMB random,PEOE_VSA4,PEOE/SMR/SlogP VSA,0.36120020675985354,1000.0
+CLIMB random,PEOE_VSA5,PEOE/SMR/SlogP VSA,0.2441090728033516,1000.0
+CLIMB random,PEOE_VSA6,PEOE/SMR/SlogP VSA,0.3309570700916554,1000.0
+CLIMB random,PEOE_VSA7,PEOE/SMR/SlogP VSA,0.3887599578492752,1000.0
+CLIMB random,PEOE_VSA8,PEOE/SMR/SlogP VSA,0.19382529148464533,1000.0
+CLIMB random,PEOE_VSA9,PEOE/SMR/SlogP VSA,0.2027130927624221,1000.0
+CLIMB random,SMR_VSA1,PEOE/SMR/SlogP VSA,0.4491276441795867,1000.0
+CLIMB random,SMR_VSA10,PEOE/SMR/SlogP VSA,0.5093284918461876,1000.0
+CLIMB random,SMR_VSA2,PEOE/SMR/SlogP VSA,0.2743354531336635,1000.0
+CLIMB random,SMR_VSA3,PEOE/SMR/SlogP VSA,0.5339960321928412,1000.0
+CLIMB random,SMR_VSA4,PEOE/SMR/SlogP VSA,0.33005425787638687,1000.0
+CLIMB random,SMR_VSA5,PEOE/SMR/SlogP VSA,0.4161308444392555,1000.0
+CLIMB random,SMR_VSA6,PEOE/SMR/SlogP VSA,0.33684707298496097,1000.0
+CLIMB random,SMR_VSA7,PEOE/SMR/SlogP VSA,0.6551203082587603,1000.0
+CLIMB random,SMR_VSA9,PEOE/SMR/SlogP VSA,0.49839376426245097,1000.0
+CLIMB random,SlogP_VSA1,PEOE/SMR/SlogP VSA,0.33075966667141077,1000.0
+CLIMB random,SlogP_VSA10,PEOE/SMR/SlogP VSA,0.485383387428844,1000.0
+CLIMB random,SlogP_VSA11,PEOE/SMR/SlogP VSA,0.29447704313650447,1000.0
+CLIMB random,SlogP_VSA12,PEOE/SMR/SlogP VSA,0.5957322303763499,1000.0
+CLIMB random,SlogP_VSA2,PEOE/SMR/SlogP VSA,0.3197091750010017,1000.0
+CLIMB random,SlogP_VSA3,PEOE/SMR/SlogP VSA,0.3116393979436184,1000.0
+CLIMB random,SlogP_VSA4,PEOE/SMR/SlogP VSA,0.3959597715787325,1000.0
+CLIMB random,SlogP_VSA5,PEOE/SMR/SlogP VSA,0.3707998983458295,1000.0
+CLIMB random,SlogP_VSA6,PEOE/SMR/SlogP VSA,0.6396911718506921,1000.0
+CLIMB random,SlogP_VSA7,PEOE/SMR/SlogP VSA,0.3607155447033754,1000.0
+CLIMB random,SlogP_VSA8,PEOE/SMR/SlogP VSA,0.5052619985472164,1000.0
+CLIMB random,TPSA,Simple counts / bulk,0.3829708618151545,1000.0
+CLIMB random,EState_VSA1,EState,0.30916641990023497,1000.0
+CLIMB random,EState_VSA10,EState,0.4310507431750008,1000.0
+CLIMB random,EState_VSA11,EState,0.014235097254513218,1000.0
+CLIMB random,EState_VSA2,EState,0.24480170375237886,1000.0
+CLIMB random,EState_VSA3,EState,0.14511962573711956,1000.0
+CLIMB random,EState_VSA4,EState,0.23454630644617347,1000.0
+CLIMB random,EState_VSA5,EState,0.1729861477336283,1000.0
+CLIMB random,EState_VSA6,EState,0.17569057286450807,1000.0
+CLIMB random,EState_VSA7,EState,0.3376908711965454,1000.0
+CLIMB random,EState_VSA8,EState,0.2624202257301739,1000.0
+CLIMB random,EState_VSA9,EState,0.4079875750141939,1000.0
+CLIMB random,VSA_EState1,EState,0.5796959674679913,1000.0
+CLIMB random,VSA_EState10,EState,0.6123084086739641,1000.0
+CLIMB random,VSA_EState2,EState,0.3925310125871405,1000.0
+CLIMB random,VSA_EState3,EState,0.27972149828736637,1000.0
+CLIMB random,VSA_EState4,EState,0.27909260826367566,1000.0
+CLIMB random,VSA_EState5,EState,0.24260583399603508,1000.0
+CLIMB random,VSA_EState6,EState,0.6985630481714757,1000.0
+CLIMB random,VSA_EState7,EState,0.2907321858829325,1000.0
+CLIMB random,VSA_EState8,EState,0.4535753560528495,1000.0
+CLIMB random,VSA_EState9,EState,0.31477362517066576,1000.0
+CLIMB random,FractionCSP3,Simple counts / bulk,0.871479684212617,1000.0
+CLIMB random,HeavyAtomCount,Simple counts / bulk,0.4053693423117033,1000.0
+CLIMB random,NHOHCount,Simple counts / bulk,0.30821670507707666,1000.0
+CLIMB random,NOCount,Simple counts / bulk,0.393750121155481,1000.0
+CLIMB random,NumAliphaticCarbocycles,Simple counts / bulk,0.40371972537586664,1000.0
+CLIMB random,NumAliphaticHeterocycles,Simple counts / bulk,0.3777759909560682,1000.0
+CLIMB random,NumAliphaticRings,Simple counts / bulk,0.5903468164418306,1000.0
+CLIMB random,NumAmideBonds,Simple counts / bulk,0.27289820867090664,1000.0
+CLIMB random,NumAromaticCarbocycles,Simple counts / bulk,0.6914257522694194,1000.0
+CLIMB random,NumAromaticHeterocycles,Simple counts / bulk,0.6610817096852819,1000.0
+CLIMB random,NumAromaticRings,Simple counts / bulk,0.7371059078332113,1000.0
+CLIMB random,NumAtomStereoCenters,Simple counts / bulk,0.3756739787247295,1000.0
+CLIMB random,NumBridgeheadAtoms,Simple counts / bulk,0.1062949941768434,1000.0
+CLIMB random,NumHAcceptors,Simple counts / bulk,0.39448800470020395,1000.0
+CLIMB random,NumHDonors,Simple counts / bulk,0.306301555600785,1000.0
+CLIMB random,NumHeteroatoms,Simple counts / bulk,0.41213250401850865,1000.0
+CLIMB random,NumHeterocycles,Simple counts / bulk,0.4310182333164191,1000.0
+CLIMB random,NumRotatableBonds,Simple counts / bulk,0.3181557643870565,1000.0
+CLIMB random,NumSaturatedCarbocycles,Simple counts / bulk,0.35942531149066426,1000.0
+CLIMB random,NumSaturatedHeterocycles,Simple counts / bulk,0.30107396316481594,1000.0
+CLIMB random,NumSaturatedRings,Simple counts / bulk,0.496151115893557,1000.0
+CLIMB random,NumSpiroAtoms,Simple counts / bulk,0.06215059514822885,1000.0
+CLIMB random,NumUnspecifiedAtomStereoCenters,Simple counts / bulk,0.4397907095946384,1000.0
+CLIMB random,Phi,Information (Ipc/SPS),0.3406160797412767,1000.0
+CLIMB random,RingCount,Simple counts / bulk,0.6397294748864655,1000.0
+CLIMB random,MolLogP,Simple counts / bulk,0.48916142161758636,1000.0
+CLIMB random,MolMR,Simple counts / bulk,0.41791582185187726,1000.0
+CLIMB random,fr_Al_COO,Fragment counts (fr_),0.1542757683128413,1000.0
+CLIMB random,fr_Al_OH,Fragment counts (fr_),0.25211601422644425,1000.0
+CLIMB random,fr_Al_OH_noTert,Fragment counts (fr_),0.23487192614752372,1000.0
+CLIMB random,fr_ArN,Fragment counts (fr_),0.16237632501100752,1000.0
+CLIMB random,fr_Ar_COO,Fragment counts (fr_),0.03378833722247376,1000.0
+CLIMB random,fr_Ar_N,Fragment counts (fr_),0.8005807044897358,1000.0
+CLIMB random,fr_Ar_NH,Fragment counts (fr_),0.6526255957420182,1000.0
+CLIMB random,fr_Ar_OH,Fragment counts (fr_),0.16257504237632114,1000.0
+CLIMB random,fr_COO,Fragment counts (fr_),0.17010737018612565,1000.0
+CLIMB random,fr_COO2,Fragment counts (fr_),0.18090667160697538,1000.0
+CLIMB random,fr_C_O,Fragment counts (fr_),0.4093121060595032,1000.0
+CLIMB random,fr_C_O_noCOO,Fragment counts (fr_),0.3573049336700369,1000.0
+CLIMB random,fr_C_S,Fragment counts (fr_),0.3022290833581074,1000.0
+CLIMB random,fr_HOCCN,Fragment counts (fr_),-0.027753153023805543,1000.0
+CLIMB random,fr_Imine,Fragment counts (fr_),0.11421204764809234,1000.0
+CLIMB random,fr_NH0,Fragment counts (fr_),0.5597014217535636,1000.0
+CLIMB random,fr_NH1,Fragment counts (fr_),0.3362858947911084,1000.0
+CLIMB random,fr_NH2,Fragment counts (fr_),0.22143096367557302,1000.0
+CLIMB random,fr_N_O,Fragment counts (fr_),0.09323279554685338,1000.0
+CLIMB random,fr_Ndealkylation1,Fragment counts (fr_),0.09044343534339494,1000.0
+CLIMB random,fr_Ndealkylation2,Fragment counts (fr_),0.05188060754583079,1000.0
+CLIMB random,fr_Nhpyrrole,Fragment counts (fr_),0.6526255957420182,1000.0
+CLIMB random,fr_SH,Fragment counts (fr_),0.0013959898362589929,1000.0
+CLIMB random,fr_aldehyde,Fragment counts (fr_),0.13875743538096807,1000.0
+CLIMB random,fr_alkyl_carbamate,Fragment counts (fr_),0.03131863171621585,1000.0
+CLIMB random,fr_alkyl_halide,Fragment counts (fr_),0.6917195660636406,1000.0
+CLIMB random,fr_allylic_oxid,Fragment counts (fr_),0.2114401405729348,1000.0
+CLIMB random,fr_amide,Fragment counts (fr_),0.27289820867090664,1000.0
+CLIMB random,fr_amidine,Fragment counts (fr_),0.10561882909182874,1000.0
+CLIMB random,fr_aniline,Fragment counts (fr_),0.24096768789928946,1000.0
+CLIMB random,fr_aryl_methyl,Fragment counts (fr_),0.13372629831363902,1000.0
+CLIMB random,fr_azide,Fragment counts (fr_),0.17202787330248626,1000.0
+CLIMB random,fr_azo,Fragment counts (fr_),0.04097848483958044,1000.0
+CLIMB random,fr_barbitur,Fragment counts (fr_),0.012707900908823344,1000.0
+CLIMB random,fr_benzene,Fragment counts (fr_),0.6908038137132024,1000.0
+CLIMB random,fr_benzodiazepine,Fragment counts (fr_),0.011372567333868266,1000.0
+CLIMB random,fr_bicyclic,Fragment counts (fr_),0.3718231850328185,1000.0
+CLIMB random,fr_dihydropyridine,Fragment counts (fr_),0.012837471497428421,1000.0
+CLIMB random,fr_epoxide,Fragment counts (fr_),0.09186141379340351,1000.0
+CLIMB random,fr_ester,Fragment counts (fr_),0.2468608815240929,1000.0
+CLIMB random,fr_ether,Fragment counts (fr_),0.4719028477497047,1000.0
+CLIMB random,fr_furan,Fragment counts (fr_),0.285281823985879,1000.0
+CLIMB random,fr_guanido,Fragment counts (fr_),0.0377713977340709,1000.0
+CLIMB random,fr_halogen,Fragment counts (fr_),0.7617836593841092,1000.0
+CLIMB random,fr_hdrzine,Fragment counts (fr_),0.2126314205015476,1000.0
+CLIMB random,fr_hdrzone,Fragment counts (fr_),0.17175746170286033,1000.0
+CLIMB random,fr_imidazole,Fragment counts (fr_),0.16419405594761083,1000.0
+CLIMB random,fr_imide,Fragment counts (fr_),0.07607778589180048,1000.0
+CLIMB random,fr_isocyan,Fragment counts (fr_),,1000.0
+CLIMB random,fr_isothiocyan,Fragment counts (fr_),,1000.0
+CLIMB random,fr_ketone,Fragment counts (fr_),0.1263927328140544,1000.0
+CLIMB random,fr_ketone_Topliss,Fragment counts (fr_),0.11618651730798557,1000.0
+CLIMB random,fr_lactam,Fragment counts (fr_),0.025733788068117658,1000.0
+CLIMB random,fr_lactone,Fragment counts (fr_),0.0326757001872483,1000.0
+CLIMB random,fr_methoxy,Fragment counts (fr_),0.31179976891593575,1000.0
+CLIMB random,fr_morpholine,Fragment counts (fr_),0.18554179874802657,1000.0
+CLIMB random,fr_nitrile,Fragment counts (fr_),0.2688003000638304,1000.0
+CLIMB random,fr_nitro,Fragment counts (fr_),0.783433308030765,1000.0
+CLIMB random,fr_nitro_arom,Fragment counts (fr_),0.5337976472808428,1000.0
+CLIMB random,fr_nitro_arom_nonortho,Fragment counts (fr_),0.42557442370050147,1000.0
+CLIMB random,fr_nitroso,Fragment counts (fr_),0.008623315771516205,1000.0
+CLIMB random,fr_oxazole,Fragment counts (fr_),0.040779994358371985,1000.0
+CLIMB random,fr_oxime,Fragment counts (fr_),0.2617328521327208,1000.0
+CLIMB random,fr_para_hydroxylation,Fragment counts (fr_),0.1946440762052961,1000.0
+CLIMB random,fr_phenol,Fragment counts (fr_),0.14007655004733166,1000.0
+CLIMB random,fr_phenol_noOrthoHbond,Fragment counts (fr_),0.12839684101783844,1000.0
+CLIMB random,fr_phos_acid,Fragment counts (fr_),0.10596037080178933,1000.0
+CLIMB random,fr_phos_ester,Fragment counts (fr_),0.1262851888722345,1000.0
+CLIMB random,fr_piperdine,Fragment counts (fr_),0.05595158634061792,1000.0
+CLIMB random,fr_piperzine,Fragment counts (fr_),0.05059738549011483,1000.0
+CLIMB random,fr_priamide,Fragment counts (fr_),0.10597027585538876,1000.0
+CLIMB random,fr_pyridine,Fragment counts (fr_),0.12915251265525463,1000.0
+CLIMB random,fr_quatN,Fragment counts (fr_),0.36663576370348727,1000.0
+CLIMB random,fr_sulfide,Fragment counts (fr_),0.3274311753049003,1000.0
+CLIMB random,fr_sulfonamd,Fragment counts (fr_),0.25184869397893817,1000.0
+CLIMB random,fr_sulfone,Fragment counts (fr_),0.09818566552377517,1000.0
+CLIMB random,fr_term_acetylene,Fragment counts (fr_),0.34910695423739757,1000.0
+CLIMB random,fr_tetrazole,Fragment counts (fr_),0.011119839487680139,1000.0
+CLIMB random,fr_thiazole,Fragment counts (fr_),0.15663688287924493,1000.0
+CLIMB random,fr_thiocyan,Fragment counts (fr_),0.010536260138756415,1000.0
+CLIMB random,fr_thiophene,Fragment counts (fr_),0.3387618710081032,1000.0
+CLIMB random,fr_unbrch_alkane,Fragment counts (fr_),0.26149382626482887,1000.0
+CLIMB random,fr_urea,Fragment counts (fr_),0.048753094338357394,1000.0
