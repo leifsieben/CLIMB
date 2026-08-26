@@ -284,6 +284,22 @@ ARMS = {
     # corpus, so guessing from "it's the big one" would have put 8B on the plate. The parameter
     # count we already had is what decides it.
     #
+    # SOURCE IS THE PAPER, NOT THE MODEL CARD, and that is worth stating because the other two
+    # counts are card-sourced. arXiv 2410.12348 (SELF-BART, IBM Research): "a 354M parameter model
+    # trained on 1B samples drawn from a combination of ZINC and PubChem datasets with a vocabulary
+    # of 3160 tokens." The HF card states no corpus size at all.
+    #
+    # THE CHECKPOINT IS VERIFIED TO BE THAT PAPER'S MODEL, not assumed to be: the paper's stated
+    # vocabulary of 3160 matches the checkpoint's own config.json vocab_size exactly, alongside
+    # d_model 1024 and 12+12 encoder-decoder layers. Two unrelated models do not land on a
+    # 3160-token vocabulary.
+    #
+    # PARAMETERS DISAGREE BY ~1% and we keep OURS. The paper says 354M; the loaded checkpoint
+    # measures 358.1M, almost certainly a counting convention (tied embeddings or the LM head).
+    # It does not touch the corpus figure, but if a plate ever prints this arm's size, print the
+    # measured number -- same lesson as molformer_c3's `hf` above, except the human-maintained
+    # record that lost was a paper rather than a config.
+    #
     # The paper says "samples", not unique molecules, so this is a pretraining-scale figure of the
     # same kind as MoLFormer's 1.1B rather than a deduplicated count. Worth one caption word if a
     # referee presses on the unique-molecule axis, since that distinction is the whole subject of
