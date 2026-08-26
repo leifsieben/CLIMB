@@ -20,7 +20,15 @@ if [ ! -s "$ENC/model.safetensors" ]; then
 fi
 [ -s "$ENC/model.safetensors" ] || { say "MISSING ENCODER -- refusing to produce a cell"; exit 1; }
 [ -s figure_data/_tokenizer/tokenizer.json ] || { say "MISSING TOKENIZER"; exit 1; }
-say "encoder and tokenizer staged"
+# The Wong CSV is NOT in git -- it lives on S3 and a fresh box has neither. Fetch it, and assert it
+# arrived: wong_run.py would otherwise die inside csv.DictReader with a bare FileNotFoundError.
+CSV=chemeleon_suite/data/wong_saureus.csv
+if [ ! -s "$CSV" ]; then
+  mkdir -p chemeleon_suite/data
+  aws s3 cp s3://climb-s3-bucket/experiments/figA_data/wong_saureus.csv "$CSV" --only-show-errors
+fi
+[ -s "$CSV" ] || { say "MISSING WONG CSV -- not in git and not fetched from S3"; exit 1; }
+say "encoder, tokenizer and Wong CSV staged ($(wc -l < "$CSV") rows)"
 
 rc=0
 for ds in wong fartdb; do
