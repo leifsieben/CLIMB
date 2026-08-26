@@ -72,3 +72,44 @@ comparison of representations.
 The one case that *is* the fig_F shape: three literature CLMs whose vectors came from two different
 transformers versions, ranked against each other. That is a split **within** a compared group, and
 it was fixed by re-extracting all three in one environment.
+
+## A gate can be skipped by the act of installing it
+
+`figB_run.sh` updates itself -- `git reset --hard origin/v2-redux` at line 20 -- and then keeps
+executing. Bash reads a script lazily, by byte offset. Inserting fifteen lines at line 69 moved
+everything after it past the offset bash resumed from, so the MTR gate added in that very commit
+did not run, on a box that reported the correct commit hash. The log showed a clean launch.
+
+Nothing detects this. The gate's absence looks exactly like the gate passing, because a gate that
+passes prints one line and a gate that never ran prints nothing -- and nobody reads the log for a
+line that is *supposed* to be there. The fix is to re-exec once after the self-update so the rest
+of the script is read from the new file at a fresh offset.
+
+The general shape: **if a check's success is signalled by silence, its absence is invisible.**
+Make checks announce themselves, and assert on the announcement, not on the exit status of a
+script that may never have reached the check.
+
+## "Same computation, two environments" hides in the descriptor pathway too
+
+The MTR objective regresses on 217 rdkit descriptors. Two things about that number are load-bearing
+and neither is in any config:
+
+1. **Which 217.** A box off an April AMI had `rdkit-pypi 2022.9.5` shadowing `rdkit 2025.9.2` and
+   exposed 208 descriptors. It surfaced as a broadcast error only because the counts differed -- a
+   version that merely REORDERED the list would have z-scored every descriptor by another
+   descriptor's mean, trained happily, and produced a number that silently was not comparable to
+   anything. Check names in order, against the width the template run RECORDED (`mtr_n_desc`).
+
+2. **How they were produced.** Precomputed descriptors are stored `float16`; live ones are
+   `float32`. Measured on 1,000 molecules of pubchem_filtered against the July precompute: NaN
+   pattern identical, median |dz| 3.4e-5, 99.9th percentile 0.0017 -- but 11 cells of 216,818
+   (0.005%) differ by more than 0.01 z, worst case AvgIpc at 0.98 z, because Ipc-family values are
+   large and float16 keeps ~3 significant digits. Negligible for a corpus-level comparison, and
+   worth stating rather than assuming.
+
+Cost of the same fact: `Ipc` computes a characteristic polynomial through `numpy.dot`, so on a
+live-descriptor run every dataloader worker opens its own OpenBLAS pool. Six workers asked for ~20
+cores on 16 and two thirds of the machine went to kernel time -- 90 seq/s against the template's
+762, with the GPU at 0%. Runs reading precomputed descriptors never call rdkit in the worker and
+never showed it. `py-spy dump` on a worker found it in one command; a throughput number alone would
+only have said "slow", which is the condition the watchdog is explicitly told not to kill.
