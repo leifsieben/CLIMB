@@ -19,6 +19,19 @@ say "start on $(curl -s --max-time 2 http://169.254.169.254/latest/meta-data/ins
 git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux
 say "code at $(git rev-parse --short HEAD)"
 
+# ---- fetch the TEMPLATE manifests: experiments/ is gitignored, so a fresh box has none ---------
+# The first bridge launch died here in one second -- "no manifest entry for template skip_dense_8M"
+# -- because build_figB_manifest.py clones from a real entry and those live only on the laptop.
+# Publishing them to S3 keeps the CLONE and its gate on the box, which is where they belong: the
+# alternative, generating the manifest locally and shipping the result, would move the check away
+# from the machine that actually runs it.
+mkdir -p experiments/climb_v2_phase2
+for f in manifest.json manifest_supplement.json; do
+  aws s3 cp "s3://climb-s3-bucket/experiments/climb_v2_phase2/manifests/templates/$f"             "experiments/climb_v2_phase2/$f" --only-show-errors 2>/dev/null
+done
+[ -s experiments/climb_v2_phase2/manifest.json ] || abort "template manifest not on S3 -- cannot clone"
+say "template manifests fetched"
+
 # ---- manifest, gated ------------------------------------------------------------------------
 $PY scripts/build_figB_manifest.py --run "$RUN" --out "analysis/manifest_${RUN}.json" 2>&1 | tee -a "$LOG"
 [ -s "analysis/manifest_${RUN}.json" ] || abort "manifest builder refused or failed"
