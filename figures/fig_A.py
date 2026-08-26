@@ -233,14 +233,20 @@ BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plat
 SUMMARY = "mean"
 
 
-def main(weighting="category", name="fig_A", subdir=None):
-    """weighting="category" is the paper cut; "dataset" is the pooled alternative.
+def main(weighting="dataset", name="fig_A", subdir=None):
+    """weighting="dataset" is the paper cut; "category" is the alternative kept for comparison.
+
+    LEIF CHOSE THE POOLED CUT ON 2026-08-26 -- "let's use the average over all datasets one, it's
+    easier to understand" -- and it costs almost nothing to say it that way: the two orderings
+    agree at Kendall tau 0.934, the top four are identical, and only sup_mixed moves more than one
+    place (5th -> 7th, its virtual-screening strength diluted once 30 MoleculeACE targets carry 45%
+    of the headline instead of 25%).
 
     THE TWO DIFFER ONLY IN HOW THE PER-DATASET RANKS ARE SUMMARISED, never in how they are
     computed -- both read the same rank matrix out of tasksuites.wide_ranks. Activity cliffs holds
-    30 of the 67 datasets and virtual screening 3, so pooling by dataset hands MoleculeACE 45% of
-    the headline where the paper cut gives it 25%. Worth looking at precisely because that is a
-    choice and not a fact.
+    30 of the 66 datasets and virtual screening 3, so pooling by dataset hands MoleculeACE 45% of
+    the headline where the category cut gives it 25%. Worth keeping both precisely because that is
+    a choice and not a fact.
     """
     head_seed = _audit_docstring()
     out, avail, short_prov, missing_ds = compute()
@@ -332,11 +338,13 @@ def main(weighting="category", name="fig_A", subdir=None):
     if short_prov:
         a0 = next(iter(short_prov))
         miss = ", ".join(m.split(":")[0] for m in missing_ds[a0])
-        tail = ("so its category means are not over the same datasets"
-                if weighting == "category" else
-                "so its mean is over a smaller dataset set than its neighbours'")
-        xlab += (f"\n*  provisional: ranked on {short_prov[a0]} of {int(out['n_datasets'].max())}"
-                 f" datasets (no {miss}), {tail}")
+        # SHORT ENOUGH TO FIT THE CROP. save() trims to drawn content, so a footnote wider than
+        # the axes silently sets the plate width and then LaTeX scales every font down to fit --
+        # and at the previous length the last word was cut off the canvas outright.
+        tail = ("not the same datasets as its neighbours"
+                if weighting == "category" else "a smaller set than its neighbours")
+        xlab += (f"\n*  provisional: ranked on {short_prov[a0]} of "
+                 f"{int(out['n_datasets'].max())} datasets (no {miss}) \u2014 {tail}")
     ax.set_xlabel(xlab, fontsize=FS["label"])
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
@@ -415,6 +423,7 @@ def report(out, avail, order, head_seed, short_prov, missing_ds):
 
 if __name__ == "__main__":
     main()
-    # The pooled alternative, for comparison only (Leif 2026-08-26: "just to see how much
-    # changes"). Rendered into panels/ so it cannot be mistaken for the paper plate.
-    main(weighting="dataset", name="fig_A_by_dataset", subdir="panels")
+    # The category-weighted cut, kept for comparison and for answering a referee who asks whether
+    # the 30 MoleculeACE targets drive the ordering. Rendered into panels/ so it cannot be
+    # mistaken for the paper plate.
+    main(weighting="category", name="fig_A_by_category", subdir="panels")

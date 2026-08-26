@@ -85,6 +85,28 @@ def _polaris_types():
     return {k: v["type"] for k, v in man.items()}
 
 
+# DATASETS EXCLUDED FROM THE RANKING (Leif 2026-08-26: "drop Molnet BBBP").
+#
+# MolNet:BBBP is not merely noisy, it is mis-curated, and we verified that on our own copy rather
+# than taking it on authority. Of its 2,039 molecules, 60 canonical structures appear more than
+# once and TEN of those pairs carry CONTRADICTORY labels -- aspirin, levodopa, miconazole and
+# methylphenidate are each labelled both brain-penetrant and non-penetrant. That matches the count
+# Pat Walters reports, independently arrived at.
+#
+# THE STRONGER ARGUMENT IS THAT IT DOES NOT DISCRIMINATE. A randomly initialised encoder places
+# 8th of 14 on it, ahead of ChemBERTa-2, SELFIES-TED and both fingerprint anchors; across the
+# classification datasets, an arm's rank here correlates with the RANDOM encoder's rank at
+# rho = -0.65 (p = 0.008). The field packs into 0.0737 ROC-AUC against a between-fold SD of
+# 0.0354, so the ordering is largely resolved by noise and then charged as full ranks.
+#
+# NOTHING IS LOST BY DROPPING IT. Polaris:bbb-martins is the same endpoint from the same Martins
+# source in a better curation -- every one of its 394 test molecules is also in MolNet:BBBP -- and
+# ECFP4+desc places FIRST there and last here. Keeping both counted one endpoint twice.
+#
+# Measured cost to the headline: nothing reorders, and the largest change to any arm is 0.15.
+EXCLUDED_DATASETS = {"MolNet:BBBP"}
+
+
 def wide_ranks(arms=None, summary="mean"):
     """Per-arm mean rank within each task category, and the mean of the four.
 
@@ -95,6 +117,14 @@ def wide_ranks(arms=None, summary="mean"):
     worth of precision.
     """
     S, M = A.wide_table(arms)
+    # Report the exclusion rather than performing it silently: a filter that matches nothing looks
+    # exactly like one that matches everything, and both read as success.
+    hit = sorted(set(S.columns) & EXCLUDED_DATASETS)
+    miss = sorted(EXCLUDED_DATASETS - set(S.columns))
+    assert not miss, f"EXCLUDED_DATASETS names datasets not in the table: {miss}"
+    if hit:
+        S = S.drop(columns=hit)
+        M = M.drop(index=hit)
     cat = pd.Series({c: category_of(c, M) for c in S.columns})
     unknown = sorted(set(cat) - set(CATEGORIES))
     assert not unknown, f"category_of returned {unknown}, not in CATEGORIES"

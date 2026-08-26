@@ -77,9 +77,16 @@ SHADES = {
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
     "chemeleon": ["#7E6BA8", "#A093C0", "#C4BCD8"],
-    # [0] ChemBERTa-2, [1] MoLFormer, [2] SELFIES-TED. Three separable violets, dark -> light,
-    # so the external block reads as one family in fig_A and still survives greyscale.
-    "literature": ["#5C4A85", "#8B7BB5", "#B9AED5"],
+    # [0] ChemBERTa-2, [1] MoLFormer, [2] SELFIES-TED. BLACK -> GREY (Leif 2026-08-26: "make the
+    # 3 literature models just versions of black-gray"). They are the outside-the-lab comparators,
+    # so a neutral ramp says "not ours" in a way no hue can, and the block still reads as one
+    # family. It also means the only coloured rows on the plate are things we built or fitted.
+    #
+    # THE RAMP IS WIDE ON PURPOSE. random_encoder is #2B2B2B, so a literature shade near it would
+    # collide -- greys separate only by lightness and four of them on one plate is the limit.
+    # #111 / #767676 / #BFBFBF puts two full steps between the darkest literature arm and
+    # random_encoder, and the two never sit adjacent in rank order anyway.
+    "literature": ["#111111", "#767676", "#BFBFBF"],
     "s2u":    ["#6B6494", "#8F89B2", "#B7B3CE"],
     "e2e":    ["#8A8A8A", "#A8A8A8", "#C6C6C6"],
     "random": ["#2B2B2B", "#555555", "#808080"],
