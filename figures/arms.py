@@ -191,12 +191,12 @@ ARMS = {
     # repetition-saturated arm as "the largest supervised model" would say the opposite of what
     # fig_B now says. Its real counterpart is skip_dense_100M_c124, in flight.
     "unsup_100M": dict(
-        label="unsupervised, 100M molecules", short="unsup 100M", family="unsup",
+        label="unsupervised, 100M mols", short="unsup 100M", family="unsup",
         color=SHADES["unsup"][1], probe="frozen", pretrain_replicates=False,
         in_ablation=False, unique_molecules=100_000_000,
         src=dict(mace="unsup_100M", mol=["unsup_100M"])),
     "sup_dense_96M": dict(
-        label="supervised desc, 96M passes", short="sup 96M", family="sup",
+        label="supervised desc, 96M FP", short="sup 96M", family="sup",
         color=SHADES["sup"][2], probe="frozen", pretrain_replicates=False,
         in_ablation=False, in_ranking=False, unique_molecules=12_000_000,
         src=dict(mace="skip_dense_96M", mol=["skip_dense_96M"])),

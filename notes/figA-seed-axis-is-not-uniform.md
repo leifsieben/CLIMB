@@ -135,3 +135,43 @@ and it agrees with HIV about the ordering. Per-fold saturation is real and the f
 large next to the between-arm spread, so CBS is NOISY -- but that is a different thing from
 degenerate. BBBP was nef1 EXACTLY 1.0 for every feature block: spread zero, no information at all.
 CBS's spread is 0.23. Keep it in the suite.
+
+---
+
+# unsup_100M has ONE pretraining, and how much that costs (2026-08-26)
+
+**Leif:** *"the difference is that unsup_100M has only one seed right? That's ok for me right now
+but it means we have slight apples-to-oranges comparison."*
+
+Correct. Its three replicates are HEAD seeds inside one directory; the other CLIMB arms carry three
+separate PRETRAININGS. So its point estimate contains one draw from the pretraining distribution
+and the others average three. Measured rather than asserted:
+
+**Pretraining-seed SD, from `unsup`'s three pretrainings** (same objective and architecture as
+unsup_100M), per dataset, as a fraction of the 14-arm field spread:
+
+    median 0.078   IQR [0.046, 0.143]   over all 65 datasets
+
+Examples in raw units: BACE 0.8694 / 0.8625 / 0.8424 (sd 0.0140), Tox21 sd 0.0024, QM7 sd 0.84.
+
+**What that does to its position.** Perturbing only unsup_100M by one resampled pretraining draw
+on every dataset, 400 simulations:
+
+    observed place                2nd of 14
+    simulated place               median 2nd, 95% interval [2, 4]
+    stays 2nd                     87% of draws
+    stays top-3                   89%
+    stays ahead of ChemBERTa-2    ~89%   (ChemBERTa is 4th observed)
+
+So the exposure is real and bounded. "unsup_100M places second" is robust; "unsup_100M is ahead of
+ChemBERTa-2" holds in roughly nine draws out of ten and should be written with that hedge, not as a
+bare fact. The honest caption form is that it is a single pretraining run and its interval does not
+include pretraining variability, with the 87%/89% figures available if a referee asks.
+
+**Six of fourteen rows are now head-seed rather than pretraining-seed replicates** -- ecfp,
+ecfp_desc, the three literature CLMs, and unsup_100M. The caption's "3 seeds means two estimands"
+clause needs that count, not the old five of thirteen.
+
+Two more pretrainings of unsup_100M would close it. At the measured MLM throughput (~833 s per 1M
+forward passes) that is ~23 GPU-hours each, so ~46 hours for the pair -- more than the supervised
+rungs in flight, and buying a hedge rather than a result. Not recommended unless a referee asks.
