@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -333,18 +334,31 @@ def train(args) -> int:
     # ---- dense descriptor MTR ----
     mtr_loader = None
     mtr_n_desc = 0
+    mtr_stats_sha1 = None
     if "mtr" in objectives:
         from descriptors_v2 import fit_descriptor_stats, load_stats, save_stats
         if not raw_paths:
             raise ValueError("mtr objective requires 'unsupervised_raw_smiles_paths'")
         stats_path = cfg.get("descriptor_stats_path", DESCRIPTOR_STATS_PATH)
+        # The dangerous branch announced itself and the safe one was silent, so "did this run refit
+        # the normalizer or load the canonical one?" could only be answered by inference from an
+        # unchanged mtime. A refit normalizer is a different loss surface: a run that refits is not
+        # a control for a run that did not, and nothing anywhere errors. Say which, and record the
+        # digest in metadata.json so the answer outlives the log.
         if Path(stats_path).exists():
             desc_stats = load_stats(stats_path)
+            mtr_stats_sha1 = hashlib.sha1(Path(stats_path).read_bytes()).hexdigest()[:12]
+            print(f"[pretrain_v2] MTR stats LOADED from {stats_path} "
+                  f"({len(desc_stats['mean'])} descriptors, sha1:{mtr_stats_sha1}) -- not refit",
+                  flush=True)
         else:
             print("[pretrain_v2] fitting descriptor stats on a raw-SMILES sample ...", flush=True)
             sample = [ex["smiles"] for _, ex in zip(range(20000), make_raw_smiles_dataset(raw_paths, subset_seed=0))]
             desc_stats = fit_descriptor_stats(sample)
             save_stats(desc_stats, stats_path)
+            mtr_stats_sha1 = hashlib.sha1(Path(stats_path).read_bytes()).hexdigest()[:12]
+            print(f"[pretrain_v2] MTR stats REFIT on this corpus (sha1:{mtr_stats_sha1}) -- this "
+                  f"run is NOT comparable to runs normalized with different stats", flush=True)
         mtr_n_desc = len(desc_stats["mean"])
         desc_dir = cfg.get("descriptor_precompute_dir")
         if desc_dir:
@@ -436,6 +450,7 @@ def train(args) -> int:
         "corruption": corruption,          # E13/H2c: content-free control marker (None = real pretraining)
         "supervised_families": sup_families,
         "mtr_n_desc": mtr_n_desc,
+        "mtr_stats_sha1": mtr_stats_sha1,
         "total_steps": total_steps,
         "total_forward_passes_target": total_fps,
         "warmup_steps": warmup_steps,
