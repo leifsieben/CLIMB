@@ -47,3 +47,38 @@ shape exactly, one computation split across two environments.
 The gate now compares descriptor names IN ORDER against the fitted normalization stats, and the
 width against what the run template RECORDED rather than against a constant. Same principle as
 [[absence-claims-go-stale-silently]]: assert the condition, do not quote the number.
+
+---
+
+# The normalizer question, and the bug it found one script over (2026-08-26)
+
+I asked whether the bridge z-scores its live float32 values with the JULY-FITTED stats or refits on
+c124, because a refit normalizer is a second difference inside a one-difference control and nothing
+would error. Answer: **July stats**, established four ways rather than asserted --
+
+    digest   stats file on the box sha1[:12] 1a77d80d06d8 == canonical S3 object, byte identical
+    mtime    both stamped 2026-07-16T12:17:21Z; the refit branch calls save_stats(), which
+             REWRITES that file, so an unchanged mtime is positive evidence it never ran
+    log      the refit branch's "fitting descriptor stats..." line appears 0 times
+    path     bridge config.yaml `descriptor_stats_path` is the same string as skip_dense_8M's
+
+`metadata.json` now carries `mtr_stats_sha1` beside `mtr_n_desc` -- a digest doing for the
+normalizer's VALUES what the width field already did for the descriptor COUNT. Runs after that
+commit state it in their own artefact; for the bridge, the four items above are the record.
+
+## The live one it turned up
+
+`precompute_descriptors.py` refit the stats whenever the file was merely absent LOCALLY, then
+uploaded that fit OVER the canonical S3 copy with `check=True` -- silently renormalizing the target
+space for every run in the project. A fresh box with an empty `configs/` was the whole trigger.
+Now fixed: fetch canonical first, refit only if nothing canonical exists anywhere.
+
+**The blast radius is closed by evidence already in hand, in one direction.** The canonical object's
+LastModified is unchanged since 2026-07-16T12:17:21Z, so no PUT has landed on it since -- the bug
+cannot have fired after that date. What that timestamp does NOT settle is whether it fired ON that
+date, overwriting an earlier canonical file. That only matters for a rung that began before it;
+every rung in the ladder is later, so the question is closed, but it closed on a date comparison
+rather than on the mtime alone.
+
+Worth keeping as the shape: the evidence gathered to answer one question retired a second, larger
+question that was not asked. [[absence-claims-go-stale-silently]]
