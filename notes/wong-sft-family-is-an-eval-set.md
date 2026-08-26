@@ -142,3 +142,51 @@ Wong needed no such subtlety: 88.5% overlap against 4.4% blocked is not a residu
 24 phase-2 runs list WONG in supervised_families, and the blocklist is a build-time artefact of an
 eval suite that has grown five times since. Rebuilding it properly means rebuilding against the
 CURRENT suite and re-training every affected run. That is a wave, not a fix.
+
+---
+
+# The replacement arm is CLEANER, not clean, and the exposure is systematic (2026-08-26)
+
+From the three runs' own metadata, all seeds verified:
+
+    skip_mixed_8M               PCBA, L1000_MCF7, L1000_VCAP, PCQM, WONG
+    skip_dense_plus_sparse_8M   PCBA, L1000_MCF7, L1000_VCAP
+
+No WONG, no PCQM. But Wong's eval molecules overlap the families it DOES train on:
+
+    Wong x L1000_MCF7   2,418 molecules   6.2%     EXACT (11,718-molecule family, under the cap)
+    Wong x PCBA           267 molecules   0.7%     lower bound (PCBA is sampled at 400k)
+
+So sup_dense_sparse saw roughly 7% of Wong's eval molecules with labels, against sup_mixed's 88.5%.
+Twelve-fold smaller, and not zero. The honest sentence is "trains on ~7% of Wong's molecules
+through L1000_MCF7", NOT "the contaminated arm is out".
+
+## It is not about this arm, and that is the point
+
+EVERY assay-label SFT arm trains on those same families, so every one carries the same ~7% on Wong
+and every non-SFT arm -- unsup, unsup_100M, s2u, the anchors, the three literature CLMs, and the
+descriptor-only MTR arms -- carries none. That is a small SYSTEMATIC advantage to one group of rows
+on one dataset, and it does not cancel when values become ranks.
+
+fig_A now prints the affected arms in its CAPTION FACTS block, DERIVED from each run's
+supervised_families rather than listed, so an arm whose recipe changes cannot slip out of the
+sentence.
+
+## The empirical bound on it, which is strong
+
+The two other arms carrying the identical ~7% exposure are the WORST TWO ARMS IN THE FIELD on Wong:
+
+    sup_sparse    0.2099   rank 13 of 13
+    u2s_sparse    0.1381   rank 14 of 14 (pre-swap field)
+
+If 7% of a dataset's molecules seen with labels during pretraining bought a meaningful advantage,
+those two would not be last on exactly that dataset. Combined with the high-overlap control above
+-- where sup_dense, which cannot be leaked, gains MORE than the assay arms do -- the reading is
+that this exposure is real, declared, and not doing measurable work.
+
+## A measurement upgrade worth propagating
+
+L1000_MCF7 holds 11,718 molecules and L1000_VCAP 7,800, both far below the 400k sampling cap the
+audit used. So every L1000 figure in the table above is EXACT rather than a lower bound. Only PCBA
+and WONG are sampled and therefore floors. This matters most for the Polaris rows, where
+L1000_MCF7 is the dominant source -- those numbers are not going to grow.

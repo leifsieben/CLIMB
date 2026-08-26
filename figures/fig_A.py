@@ -58,6 +58,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+import json
+from pathlib import Path
+
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX, row_ncol
 from figures.arms import ARMS, SHADES, system, label as arm_label
 from figures import tasksuites as T
@@ -65,6 +68,7 @@ from figures.allsuites import wide_table as A_wide
 
 check_font()
 INK = "#000000"
+ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------- the ranked field --------------
 # The CLIMB seven are Leif's list (2026-08-25). Changing the field is a one-line edit here; it is
@@ -210,6 +214,36 @@ def compute():
             f"partial arm beside complete ones.")
     avail = {k: int((cat == k).sum()) for k in T.CATEGORIES}
     return out, avail, short_prov, missing_ds
+
+
+def assay_trained(arms):
+    """Arms whose PRETRAINING used real assay labels, read from each run's own metadata.json.
+
+    Derived, never listed. The distinction matters because assay-label families overlap several
+    eval sets molecule-for-molecule, so these rows carry an exposure the descriptor-only, MLM and
+    classical rows cannot -- and unlike a metric or a unit, that exposure does NOT cancel when the
+    values are turned into ranks. It is a property of the objective, so the objective's own record
+    is where it should be read from; a hand-list here would be one more thing to update when an
+    arm's recipe changes.
+
+    Measured overlaps live in notes/wong-sft-family-is-an-eval-set.md rather than here: they come
+    from an audit over data this repo does not hold, so a number copied into this file could not
+    be checked by anything that reads it.
+    """
+    out = []
+    for a in arms:
+        if a not in ARMS:
+            continue
+        dirs = ARMS[a]["src"].get("mol") or []
+        if not dirs:
+            continue
+        f = ROOT / "figure_data" / "climb_v2_phase2" / dirs[0] / "metadata.json"
+        if not f.exists():
+            continue
+        fams = json.loads(f.read_text()).get("supervised_families") or []
+        if fams:
+            out.append((a, fams))
+    return out
 
 
 def _audit_docstring():
@@ -453,6 +487,18 @@ def report(out, avail, order, head_seed, short_prov, missing_ds):
            "reads tighter for a")
     print( "                          reason unrelated to the arm's stability. Say so; do not "
            "write \"three seeds\" flat.")
+    at = assay_trained(RANKED_ARMS)
+    if at:
+        names = ", ".join(a for a, _ in at)
+        fams = sorted({f for _, fl in at for f in fl})
+        print(f"     assay exposure      {len(at)} of {len(RANKED_ARMS)} arms pretrain on REAL "
+              f"ASSAY LABELS ({names});")
+        print(f"                          families {', '.join(fams)}. Those families overlap "
+              f"several eval sets molecule-for-")
+        print( "                          molecule, and unlike a unit that exposure does not "
+               "cancel in a rank. Numbers and")
+        print( "                          the bounding control: "
+               "notes/wong-sft-family-is-an-eval-set.md")
     for a, n in short_prov.items():
         print(f"     provisional          {a} ranked on {n} of "
               f"{int(out['n_datasets'].max())} datasets "
