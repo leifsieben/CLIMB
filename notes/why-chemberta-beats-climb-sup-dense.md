@@ -47,6 +47,21 @@ Six of seven panels improve, several substantially, for the SAME number of forwa
 CLIMB models that beat ChemBERTa-2 on MoleculeACE are the two big-corpus rungs: **0.7474 and
 0.7307 against 0.7446.**
 
+## The two corpora are also in DIFFERENT NOTATION -- which makes the control below load-bearing
+
+Found by the compute session 2026-08-26, from build_unsup124_manifest.py's docstring and measured
+on the shards: `pubchem_filtered` is **0.3% lowercase-aromatic** SMILES, `pubchem_124m_full` is
+**86.4%**. The filtered corpus kept raw upstream PubChem strings because `--recanonicalize` was a
+silent no-op on the box that built it (RDKit absent; prepare_pubchem_124m.py returns input
+unchanged when Chem is None). Same molecules, different strings, different tokens.
+
+I could not verify the percentages locally -- the corpora are not on this machine -- so they are
+the compute session's measurement.
+
+This means a naive 12M-vs-124M comparison confounds THREE things: unique molecules, notation, and
+(for the top rungs) repetition. The control in the next section is what separates them, and its
+being a wash is now doing more work than I credited when I wrote it.
+
 ## It is DISTINCT MOLECULES, not the corpus label -- the matched-compute control is a wash
 
 `unsup_8M_c124` is a matched 8M-forward-pass run on the 124M corpus, built to isolate corpus from
@@ -58,6 +73,17 @@ under one epoch), so if the 124M corpus were better per se, this run would show 
     HIV   0.7789 -> 0.7802 (124M better)   ESOL   1.0131 -> 0.9733 (124M better)
 
 Four of six favour the 124M corpus, two favour the 12M one, all small. A wash.
+
+**AND THIS IS ALSO THE NOTATION BRIDGE.** 8M forward passes is single-epoch on BOTH corpora, so
+unsup_8M vs unsup_8M_c124 differs in unique-molecule count NOT AT ALL and in notation ENTIRELY. Its
+being a wash therefore bounds the notation effect at ~0 for the MLM objective at this scale, which
+is what licenses reading unsup_50M/100M's gain as molecules rather than strings. The comparison was
+built as a corpus control and turns out to be a notation control; both readings point the same way.
+
+The caveat is that this is measured for MLM only. MLM predicts masked TOKENS, so it is the
+objective where notation should matter most -- a wash there is reassuring for MTR rather than
+conclusive about it. The supervised ladder has no equivalent bridge, which is why
+skip_dense_8M_c124 (~2.9 GPU-hours) is worth running before the two large supervised rungs.
 
 So the gain at 50M/100M is not "the big corpus is better chemistry". It is that the 12M corpus
 CAPS distinct molecules at 12M: the 24M and 48M rungs are re-reading it 2x and 4x. The 124M corpus
