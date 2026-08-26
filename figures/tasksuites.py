@@ -82,11 +82,11 @@ def _polaris_types():
     return {k: v["type"] for k, v in man.items()}
 
 
-def wide_ranks(arms=None):
+def wide_ranks(arms=None, summary="mean"):
     """Per-arm mean rank within each task category, and the mean of the four.
 
     Ranks are computed PER DATASET over the arms present on it and rescaled to the full field
-    (1 .. N), so a dataset scored on only k of N arms cannot flatter the k. Category means are
+    (1 .. N), so a dataset scored on only k of N arms cannot flatter the k. Category summaries are
     then averaged with EQUAL WEIGHT, and the interval is the spread across those four numbers
     inflated by the design effect -- 30 near-duplicate MoleculeACE targets do not buy sqrt(30)
     worth of precision.
@@ -108,8 +108,17 @@ def wide_ranks(arms=None):
     out = pd.DataFrame(index=S.index)
     for k in CATEGORIES:
         cols = [c for c in S.columns if cat[c] == k]
-        out[k] = R[cols].mean(axis=1) if cols else np.nan
+        out[k] = (R[cols].median(axis=1) if summary == "median" else R[cols].mean(axis=1)) \
+                 if cols else np.nan
         out[k + "_n"] = R[cols].notna().sum(axis=1) if cols else 0
+    # `summary` sets how a CATEGORY is summarised from its datasets; the four categories are
+    # always averaged, because they are four numbers and equally weighted by construction.
+    #
+    # WHY THE CHOICE MATTERS. Mean rank is not robust on a dataset where the whole field sits
+    # inside the test-set noise: BBBP packs 13 arms into 0.0737 ROC-AUC with a between-fold SD of
+    # 0.0354, so a tie is resolved by noise and then charged as a full rank. ECFP4+desc scores
+    # 0.9056 there against bare ECFP4's 0.8792 -- descriptors HELP -- and still takes rank 12,
+    # which drags its classification mean from 2.09 to 3.93. The median is unmoved by that.
     out["mean_rank"] = out[CATEGORIES].mean(axis=1)
     n_cat = out[CATEGORIES].notna().sum(axis=1)
     out["se_rank"] = out[CATEGORIES].std(axis=1, ddof=1) / np.sqrt(n_cat.clip(lower=1))

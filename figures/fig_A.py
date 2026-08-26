@@ -103,7 +103,7 @@ def compute():
     are NOT rescaled to 1..13 here: doing that would invent a position for three arms that have no
     results, and the axis is drawn to len(HAVE) with the pending rows left empty instead.
     """
-    out, cat, R = T.wide_ranks(HAVE)
+    out, cat, R = T.wide_ranks(HAVE, summary=SUMMARY)
     missing = [a for a in HAVE if a not in out.index]
     assert not missing, f"fig_A: arms in RANKED_ARMS with no row in the score table: {missing}"
 
@@ -131,6 +131,13 @@ def compute():
 
 
 BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plates read alike
+
+# How a CATEGORY is summarised from its datasets: "mean" or "median" rank. The four category
+# summaries are averaged either way. See tasksuites.wide_ranks for why this is not cosmetic --
+# on datasets where the whole field sits inside the test-set noise, mean rank charges a tie as a
+# full rank. The published ordering is IDENTICAL under both (Kendall tau +1.000, no arm moves a
+# place), so this changes the reported numbers and not the conclusion.
+SUMMARY = "median"
 
 
 def main():
@@ -202,7 +209,7 @@ def main():
     ax.set_ylim(len(order) - 0.42, -0.62)
     ax.set_xlim(0.4, nfield + 1.6)
     ax.set_xticks(range(1, nfield + 1, 2))
-    ax.set_xlabel(f"mean rank over four task categories, equally weighted "
+    ax.set_xlabel(f"{SUMMARY} rank over four task categories, equally weighted "
                   f"(1 = best of {nfield} scored)", fontsize=FS["label"])
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
