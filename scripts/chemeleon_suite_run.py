@@ -105,44 +105,43 @@ NPZ_META: dict = {}   # provenance read out of a precomputed feature table, if p
 
 
 def prepare_fold(X, tr, head, std_method):
-    """Standardise and impute a feature matrix for ONE fold, exactly as run() does.
+    """Standardise and impute one fold by DELEGATING to eval_v2._prep -- the canonical routine.
 
-    EXTRACTED BECAUSE I LOST BOTH RULES BY REWRITING THE LOOP. wong_run.py and cbs_run.py called
-    make_featurizer directly and reimplemented the fold loop, which silently dropped two fixes that
-    already existed here, each installed after its own incident:
+    THIS FUNCTION USED TO REIMPLEMENT IT AND GOT IT WRONG TWICE. First it omitted the rules
+    entirely (wong_run/cbs_run built their own loop; Wong/fp_desc died on "Input contains NaN" in
+    the INPUTS). Then it reimplemented imputation and z-scoring but dropped two details that only
+    matter for exactly this case, and Wong/fp_desc died again -- this time on NaN in the
+    PREDICTIONS, a different traceback for the same root cause:
 
-      * make_featurizer returns std="none" for ecfp4/fp_desc because those arms were defined with
-        XGBoost, which is scale-invariant. An MLP is not -- unscaled descriptors span 20+ orders of
-        magnitude beside 0/1 bits and collapse it (fp_desc__mlp returned CONSTANT predictions for
-        whole Polaris cells).
-      * fp_desc keeps undefined descriptors as NaN because XGBoost consumes them natively. An MLP
-        cannot: one NaN makes every output NaN, and with std="none" nothing upstream removes them.
-        On Polaris that produced 9 of 28 tasks at 100% NaN, exiting 0 with full-size prediction
-        files.
+      * impute in FLOAT64, not float32. RDKit's Ipc reaches 3.9e23 on BACE; standardising that in
+        float32 overflows to inf, the MLP emits NaN, and roc_auc_score raises on y_score.
+      * clip to +-10 SIGMA after standardising. Without it an unbounded column saturates the first
+        layer even when nothing is non-finite.
 
-    Wong/fp_desc died with "Input contains NaN" -- the loud version of the same thing. Any runner
-    that builds its own loop must call THIS, not re-derive it.
+    Imputation uses the TRAIN column MEDIAN -- not 0, which would sit at an arbitrary point on an
+    unstandardized column and drag that column's own mean and sd.
 
-    Imputation uses TRAIN-fold medians only, so no test information reaches the fit, and applies
-    only when the head needs it -- an XGBoost arm is untouched.
+    So: no third reimplementation. eval_v2._prep is the definition; this only decides WHEN it
+    applies (non-tree heads) and supplies the train-fold statistics.
     """
     import numpy as _np
+    import eval_v2 as _E
     if head != "xgb" and std_method == "none":
         std_method = "zscore"
-    Z = _np.asarray(X, dtype=_np.float32)
-    if head != "xgb" and not _np.isfinite(Z).all():
-        med = _np.nanmedian(_np.where(_np.isfinite(Z[tr]), Z[tr], _np.nan), axis=0)
-        med = _np.where(_np.isfinite(med), med, 0.0)
-        bad = ~_np.isfinite(Z)
-        n_bad = int(bad.sum())
-        Z = _np.where(bad, _np.broadcast_to(med, Z.shape), Z)
-        print(f"[prepare_fold] imputed {n_bad} non-finite entries from TRAIN medians", flush=True)
+    tree = (head == "xgb")
+    Xa = _np.asarray(X)
+    if tree:
+        return Xa
+    med = _np.nanmedian(_np.where(_np.isfinite(Xa[tr]), Xa[tr], _np.nan), axis=0)
+    med = _np.where(_np.isfinite(med), med, 0.0)
+    Z = _E._prep(Xa, med)                      # float64 impute from TRAIN medians
     if std_method == "zscore":
         mu = _np.nanmean(Z[tr], 0)
         sd = _np.nanstd(Z[tr], 0)
         sd[sd == 0] = 1.0
         Z = (Z - mu) / sd
-    return Z
+        Z = _E._prep(Z, med, post=True)        # +-10 sigma clip, the pass I had missed
+    return _np.asarray(Z, dtype=_np.float32)
 
 
 def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_revision=None):
