@@ -47,6 +47,27 @@ Six of seven panels improve, several substantially, for the SAME number of forwa
 CLIMB models that beat ChemBERTa-2 on MoleculeACE are the two big-corpus rungs: **0.7474 and
 0.7307 against 0.7446.**
 
+## It is DISTINCT MOLECULES, not the corpus label -- the matched-compute control is a wash
+
+`unsup_8M_c124` is a matched 8M-forward-pass run on the 124M corpus, built to isolate corpus from
+training length. At 8M forward passes you see 8M unique molecules from EITHER corpus (both are
+under one epoch), so if the 124M corpus were better per se, this run would show it. It does not:
+
+    BACE  0.8694 -> 0.8471 (12M better)    QM7   197.40 -> 196.01 (124M better)
+    BBBP  0.9536 -> 0.9480 (12M better)    Tox21 0.7987 -> 0.8097 (124M better)
+    HIV   0.7789 -> 0.7802 (124M better)   ESOL   1.0131 -> 0.9733 (124M better)
+
+Four of six favour the 124M corpus, two favour the 12M one, all small. A wash.
+
+So the gain at 50M/100M is not "the big corpus is better chemistry". It is that the 12M corpus
+CAPS distinct molecules at 12M: the 24M and 48M rungs are re-reading it 2x and 4x. The 124M corpus
+is the only way the study exceeds 12M distinct molecules.
+
+    unsup_48M   12M corpus, ~4 epochs,  12M distinct   MoleculeACE 0.7820
+    unsup_50M   124M corpus, <1 epoch,  50M distinct   MoleculeACE 0.7474
+
+Same compute, 4x the distinct molecules, 0.035 better. REPETITION SATURATES; NEW MOLECULES DO NOT.
+
 ## So the answer
 
 ChemBERTa-2 is not a better recipe. It saw more distinct molecules. Our ladder shows that more
@@ -64,6 +85,31 @@ is therefore a comparison of **what each project shipped**, not of which recipe 
 will take it as the latter. The honest caption sentence is that the CLIMB arms are held at a fixed
 pretraining budget by design -- the figure varies the OBJECTIVE, not the data scale, which is
 fig_B's axis -- and that our own ladder puts a larger-corpus CLIMB model ahead of ChemBERTa-2.
+
+## Does CLIMB reach ChemBERTa on a larger corpus? Yes -- but be precise about the terms
+
+Head-to-head, `unsup_100M` against ChemBERTa-2 on the five panels where both are measured with a
+matching metric:
+
+| panel | metric | CLIMB unsup_100M | ChemBERTa-2 | winner |
+|---|---|---|---|---|
+| MoleculeACE | macro RMSE | **0.7307** | 0.7446 | CLIMB |
+| CBS | NEF1% | **0.8100** | 0.7818 | CLIMB |
+| Tox21 | ROC-AUC | **0.8206** | 0.7938 | CLIMB |
+| QM7 | RMSE | **194.94** | 197.57 | CLIMB |
+| BACE | ROC-AUC | 0.8448 | **0.8471** | ChemBERTa (by 0.0023) |
+
+CLIMB wins 4 of 5. But the honest framing is a LADDER, not a win:
+
+    50M distinct molecules, 41.4M params   ->  0.7474   ~tie with ChemBERTa
+    77M distinct molecules,  3.4M params   ->  0.7446   ChemBERTa
+    100M distinct molecules, 41.4M params  ->  0.7307   CLIMB ahead
+
+At FEWER molecules than ChemBERTa (50M vs 77M) we tie it; at 1.3x its data we pass it -- while
+carrying **12x the parameters**. Parameter for parameter, ChemBERTa-2 is far more efficient than
+anything in this study, and that is the sentence a reviewer will write if we do not. The defensible
+claim is "CLIMB reaches and passes ChemBERTa-2 once it sees a comparable number of distinct
+molecules", NOT "CLIMB is the better model".
 
 **Open item:** `unsup_100M` exists on the seven scaling panels only, not across all 65 ranking
 datasets, so it cannot currently be drawn in fig_A. If the paper wants to make the "CLIMB at a
