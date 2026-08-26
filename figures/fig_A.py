@@ -70,12 +70,24 @@ INK = "#000000"
 RANKED_ARMS = ["ecfp", "ecfp_desc",
                "sup_dense", "sup_sparse", "sup_mixed",
                "unsup", "u2s_dense", "u2s_sparse", "s2u_dense", "random_encoder",
-               # The largest-corpus CLIMB run (Leif 2026-08-26). 100M DISTINCT molecules, the only
-               # CLIMB arm to exceed ChemBERTa-2's ~77M, and the only one whose data scale is
-               # comparable to a published CLM. Its supervised counterpart is skip_dense_100M_c124,
-               # in flight; sup_dense_96M is NOT it -- 96M forward passes but only 12M unique
-               # molecules, and it scores worse than the 48M rung it repeats, so ranking it as
-               # "the largest supervised model" would contradict fig_B.
+               # PROVISIONAL (Leif 2026-08-26: "I'm not yet committed to having them in figure A1
+               # for the actual paper, it's more for my own learning"). Kept in one place so
+               # dropping it is deleting this line, not unpicking a decision from the arm list.
+               #
+               # The largest-corpus CLIMB run: 100M DISTINCT molecules, the only CLIMB arm to
+               # exceed ChemBERTa-2's ~77M and the only one whose data scale is comparable to a
+               # published CLM. Its supervised counterpart is skip_dense_100M_c124, in flight;
+               # sup_dense_96M is NOT it -- 96M forward passes but only 12M unique molecules, and
+               # it scores worse than the 48M rung it repeats.
+               #
+               # IT HAS ONE PRETRAINING AND ALWAYS WILL (Leif: "the big ones will only ever have
+               # one seed, that is perfectly fine"). That is a decision, not a gap: its three
+               # replicates are HEAD seeds, so its point estimate carries one draw from the
+               # pretraining distribution where the other CLIMB arms average three. Measured cost
+               # of that, in notes/figA-seed-axis-is-not-uniform.md: pretraining-seed SD is a
+               # median 7.8% of the field spread, and under a resampled draw this arm holds 2nd
+               # place in 87% of simulations and stays ahead of ChemBERTa-2 in ~89%. Quote the
+               # placement plainly; hedge the head-to-head.
                "unsup_100M",
                "chemberta_mtr", "molformer_c3", "selfies_ted"]
 
