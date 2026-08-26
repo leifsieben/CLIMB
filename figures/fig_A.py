@@ -103,6 +103,14 @@ assert set(RANKED_ARMS) - set(ARMS) == set(PENDING_ARMS), \
     f"RANKED_ARMS names arms that are neither in arms.py nor declared pending: " \
     f"{sorted(set(RANKED_ARMS) - set(ARMS) - set(PENDING_ARMS))}"
 
+# PROVISIONAL arms are exploratory. They are RANKED even when short of the full dataset field
+# (Leif 2026-08-26: "just include the 100M provisionally just so I can see the current results...
+# it may not stay in anyway"), and every row that is short carries a * plus a footnote naming what
+# it is missing. A NON-provisional arm that is short is still a hard error, because the whole point
+# of the guard is that a category mean over a different dataset set is a different quantity -- for
+# a provisional arm that is a stated caveat, for a paper arm it is a bug.
+PROVISIONAL = {"unsup_100M"}
+
 N = len(RANKED_ARMS)
 HAVE = [a for a in RANKED_ARMS if a in ARMS]
 
@@ -138,6 +146,15 @@ def compute():
     # built from one of its three replicate directories, so a coverage check alone still passes an
     # arm that is a third as deep. Replicate depth is audit check 19's job; this is coverage.
     n_ds = out["n_datasets"].astype(int)
+    full = int(n_ds.max())
+    short_prov = {a: int(n_ds[a]) for a in n_ds.index if a in PROVISIONAL and n_ds[a] < full}
+    missing_ds = {}
+    for a in short_prov:
+        have = set(R.columns[R.loc[a].notna()])
+        missing_ds[a] = sorted(set(R.columns) - have)
+        print(f"   [fig_A] {a} is PROVISIONAL, ranked on {short_prov[a]} of {full} datasets, "
+              f"missing {missing_ds[a]}. Marked * on the plate.")
+    n_ds = n_ds.drop(index=list(short_prov))
     if n_ds.nunique() > 1:
         short = {a: int(n_ds[a]) for a in n_ds.index if n_ds[a] < n_ds.max()}
         raise AssertionError(
@@ -146,7 +163,7 @@ def compute():
             f"quantity as its neighbours'. Score or fetch the missing runs -- do not rank a "
             f"partial arm beside complete ones.")
     avail = {k: int((cat == k).sum()) for k in T.CATEGORIES}
-    return out, avail
+    return out, avail, short_prov, missing_ds
 
 
 BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plates read alike
@@ -177,9 +194,9 @@ SUMMARY = "mean"
 
 
 def main():
-    out, avail = compute()
-    order = list(out.sort_values("mean_rank").index) + [a for a in RANKED_ARMS if a not in HAVE]
-    nfield = len(HAVE)
+    out, avail, short_prov, missing_ds = compute()
+    order = list(out.sort_values("mean_rank").index) + [a for a in RANKED_ARMS if a not in out.index]
+    nfield = len(out)
 
     # One row per model. Thirteen rows plus axis and legend inside 3.4in, roughly a third of A4's
     # text height -- the point of dropping the six-panel block.
@@ -191,21 +208,23 @@ def main():
     # fractions below change, AND when the row labels change: the multiplier is the ratio of the
     # canvas to the crop, and the crop is set by the widest label in the left column, so shortening
     # the arm list moved it. First version, with slack on both sides, rendered 5.58in.
-    fig = plt.figure(figsize=(STYLE["col2"] * 1.115, 3.45))
+    fig = plt.figure(figsize=(STYLE["col2"] * 1.115, 3.66))
     # Row pitch is set by the axes HEIGHT, and it has two lines of text to hold rather than one
     # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 2.83in over 13 rows
     # is 0.218in per row; at the previous 2.50in the bold line and its subtitle nearly touched the
     # rows above and below.
-    ax = fig.add_axes([0.232, 0.177, 0.760, 0.820])
+    # bottom margin holds a TWO-LINE x-label when a provisional footnote is present; at the
+    # one-line spacing the legend sat on top of the second line.
+    ax = fig.add_axes([0.232, 0.243, 0.760, 0.750])
 
     ytrans = ax.get_yaxis_transform()          # x in axes coords, y in data coords
     for yi, a in enumerate(order):
         sysname, sub, c = _meta(a)
-        pending = a not in HAVE
+        pending = a not in out.index
         if yi % 2 == 0:
             ax.axhspan(yi - 0.5, yi + 0.5, color=BAND, lw=0, zorder=0)
         if pending:
-            ax.text(0.5 * (1 + nfield), yi, "awaiting results", ha="center", va="center",
+            ax.text(0.5 * (1 + nfield), yi, "awaiting Wong + FartDB", ha="center", va="center",
                     fontsize=FS["annot"] - 0.5, color="#7A7A7A", style="italic", zorder=3)
         else:
             r = out.loc[a]
@@ -234,8 +253,10 @@ def main():
     # between-row whatever the row pitch.
     for yi, a in enumerate(order):
         sysname, sub, _ = _meta(a)
-        grey = "#7A7A7A" if a not in HAVE else INK
-        st = "italic" if a not in HAVE else "normal"
+        grey = "#7A7A7A" if a not in out.index else INK
+        st = "italic" if a not in out.index else "normal"
+        if a in short_prov:
+            sysname = sysname + " *"
         ax.text(-0.012, yi - 0.21, sysname, transform=ytrans, ha="right", va="center",
                 fontsize=FS["tick"] - 0.4, fontweight="bold", color=grey, style=st)
         ax.text(-0.012, yi + 0.21, sub, transform=ytrans, ha="right", va="center",
@@ -245,8 +266,18 @@ def main():
     ax.set_ylim(len(order) - 0.42, -0.62)
     ax.set_xlim(0.4, nfield + 1.6)
     ax.set_xticks(range(1, nfield + 1, 2))
-    ax.set_xlabel(f"{SUMMARY} rank over four task categories, equally weighted "
-                  f"(1 = best of {nfield} scored)", fontsize=FS["label"])
+    # The provisional footnote lives ON THE X-LABEL, not as free-floating text below the axes: at
+    # transAxes y=-0.145 it landed behind the legend and was clipped, and str.replace had silently
+    # not matched the legend line anyway, so the caveat rendered nowhere at all. A label cannot be
+    # lost that way.
+    xlab = (f"{SUMMARY} rank over four task categories, equally weighted "
+            f"(1 = best of {nfield} scored)")
+    if short_prov:
+        a0 = next(iter(short_prov))
+        miss = ", ".join(m.split(":")[0] for m in missing_ds[a0])
+        xlab += (f"\n*  provisional: ranked on {short_prov[a0]} of {int(out['n_datasets'].max())}"
+                 f" datasets (no {miss}), so its category means are not over the same datasets")
+    ax.set_xlabel(xlab, fontsize=FS["label"])
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
     ax.tick_params(axis="x", labelsize=FS["tick"] - 0.5)
@@ -283,15 +314,15 @@ def main():
 
 
 def report(out, avail, order):
-    print(f"\nFig A — {len(HAVE)} of {len(RANKED_ARMS)} arms scored, "
+    print(f"\nFig A — {len(out)} of {len(RANKED_ARMS)} arms scored, "
           f"{out.attrs['n_datasets_total']} datasets in four categories\n")
     print(f"   {'model':<34}" + "".join(f"{T.CAT_SHORT[k]:>9}" for k in T.CATEGORIES)
           + f"{'mean':>8}{'SE':>7}{'n_ds':>6}")
     for a in order:
         _sys, _sub, _ = _meta(a)
         lab = f"{_sys} {_sub}"
-        if a not in HAVE:
-            print(f"   {lab:<34}" + f"{'awaiting results':>39}")
+        if a not in out.index:
+            print(f"   {lab:<34}" + f"{'awaiting Wong + FartDB':>39}")
             continue
         r = out.loc[a]
         print(f"   {lab:<34}" + "".join(f"{r[k]:>9.2f}" for k in T.CATEGORIES)

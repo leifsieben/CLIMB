@@ -27,7 +27,10 @@ from figures.arms import ARMS, ARM_ORDER
 ROOT = Path(__file__).resolve().parent.parent
 FD = ROOT / "figure_data"
 
-SUITES = ["MoleculeNet", "MoleculeACE", "Polaris", "CBS"]
+# Benchmark grouping. Wong and FartDB joined 2026-08-26; they are their own suites here because
+# `suite` is a PROVENANCE label (which benchmark a dataset came from), while the task-type grouping
+# fig_A ranks over lives in figures/tasksuites.py and is derived independently.
+SUITES = ["MoleculeNet", "MoleculeACE", "Polaris", "CBS", "Wong", "FartDB"]
 
 # MoleculeNet results are NOT all under one root: each compute wave wrote into its own tree, keyed
 # by encoder prefix. MoleculeACE / CBS / Polaris are flat by prefix, MoleculeNet is not — so always
@@ -252,6 +255,48 @@ def _cbs_value(mol_src):
     return sum(vals) / len(vals) if vals else None
 
 
+# ------------------------------------------------------------------- Wong / FartDB --------------
+# Two datasets commissioned for fig_A's task-type suites and delivered 2026-08-26. Both are scored
+# ON-BOX (unlike Polaris, whose labels are withheld), so results.csv holds the finished numbers and
+# fold_values.csv the per-fold detail. Both are 5-fold scaffold CV x 3 head seeds = 15 cells.
+#
+# PRIMARY METRIC comes from each run's own verified.json rather than from a constant here, so a
+# runner that changes its primary cannot silently be read on the old one.
+#   Wong    nef1        a 1.29%-positive S. aureus antibacterial screen -> virtual screening
+#   FartDB  macro_ovr_auc   mean AUC across the taste classes, per Leif's ruling. NOTE that the
+#           runner's five classes INCLUDE `undefined` (verified.json: classes = sweet, undefined,
+#           bitter, sour, umami; undefined_kept = true), so the shipped macro averages a catch-all
+#           bucket alongside the four real tastes. Measured cost of that choice: excluding
+#           `undefined` moves the value by -0.004 to +0.004 depending on the arm, with the sign
+#           varying, so it does not reorder the field. Flagged rather than silently re-derived --
+#           re-averaging the four here would disagree with every number the runner emits.
+def _flat_suite(dirs, tree, task, metric):
+    """{task: mean over replicate dirs} for the flat on-box suites (Wong, FartDB).
+
+    `metric` is DECLARED by the caller and cross-checked against the run's own verified.json
+    wherever that file names a `metric_primary`. Wong's does; FartDB's does not (it carries
+    `classes` and `undefined_kept` instead), so a read-only-from-the-run rule would work for one
+    suite and fail for the other. Declaring it and verifying agreement catches a runner that
+    changes its primary without catching a runner that simply never wrote the field.
+    """
+    vals = []
+    for d in dirs:
+        base = FD / tree / d
+        vj, rc = base / "verified.json", base / "results.csv"
+        if not rc.exists():
+            continue
+        if vj.exists():
+            declared = json.load(open(vj)).get("metric_primary")
+            assert declared in (None, metric), (
+                f"{tree}/{d}: verified.json says the primary metric is {declared!r} but this "
+                f"figure reads {metric!r}. One of them has moved; do not average across both.")
+        hit = [float(r["mean"]) for r in csv.DictReader(open(rc)) if r["metric"] == metric]
+        assert len(hit) == 1, (
+            f"{tree}/{d}: {len(hit)} rows for primary metric {primary!r} in results.csv")
+        vals.append(hit[0])
+    return {task: sum(vals) / len(vals)} if vals else {}
+
+
 def _seed_dirs(base):
     """A source dir plus its pretraining-seed replicates, if they exist on disk.
 
@@ -281,6 +326,13 @@ def wide_table(arms=None):
         for ds, v in _molnet(src["mol"]).items():
             vals[f"MolNet:{ds}"] = v
             meta[f"MolNet:{ds}"] = ("MoleculeNet", MOLNET[ds][0], MOLNET[ds][1])
+        # Wong and FartDB use the same run-dir names as the MolNet wave, exactly as CBS does.
+        for tree, task, key, metric in (("wong_saureus", "Wong", "Wong:wong", "nef1"),
+                                        ("fartdb", "FartDB", "FartDB:fartdb", "macro_ovr_auc")):
+            got = _flat_suite(src["mol"], tree, task, metric)
+            if got:
+                vals[key] = got[task]
+                meta[key] = ("Wong" if task == "Wong" else "FartDB", metric, True)
         if src.get("mace"):                       # e2e-only arms (chemeleon_e2e) have no
             mace_dirs = _seed_dirs(src["mace"])   # MoleculeACE/Polaris -- mace=None
             for t, v in _moleculeace(mace_dirs).items():

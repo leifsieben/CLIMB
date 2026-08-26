@@ -46,7 +46,10 @@ CAT_MARKER = {"Activity cliffs": "^", "Virtual screening": "D",
 # Datasets commissioned for this figure that have not landed locally yet. Named here so the
 # coverage report can say "3 of 4 categories, and the missing one is WAITING rather than absent",
 # which is a different statement from "this arm scored nothing".
-PENDING_DATASETS = {"Wong:wong": "Virtual screening", "FartDB:fartdb": "Classification"}
+# EMPTY as of 2026-08-26: Wong and FartDB landed, so virtual screening is CBS + HIV + Wong (3) and
+# classification is 15. The mechanism stays -- it is how a commissioned dataset shows as owed in
+# the legend rather than being invisible until it arrives.
+PENDING_DATASETS = {}
 
 # Datasets that live in a benchmark tree whose default rule would bin them elsewhere. HIV is
 # scored by ROC-AUC like every other MoleculeNet classification set, so the metric rule calls it
