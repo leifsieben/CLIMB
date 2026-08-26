@@ -7,6 +7,9 @@
 # this needs and the instance role stays S3-only.
 set -u
 RUN=$1
+# Resolve our own path BEFORE the cd -- the re-exec below runs after it, and "$0" was relative to
+# whatever directory the launcher used.
+SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 cd /home/ec2-user/CLIMB
 PY=~/venvs/climb/bin/python
 S3=s3://climb-s3-bucket/experiments/climb_v2_phase2
@@ -23,7 +26,7 @@ say "start on $(curl -s --max-time 2 http://169.254.169.254/latest/meta-data/ins
 if [ "${FIGB_REEXEC:-0}" != "1" ]; then
   git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux
   say "code at $(git rev-parse --short HEAD) -- re-exec from updated source"
-  FIGB_REEXEC=1 exec bash "$0" "$@"
+  FIGB_REEXEC=1 exec bash "$SELF" "$@"
 fi
 say "code at $(git rev-parse --short HEAD)"
 
