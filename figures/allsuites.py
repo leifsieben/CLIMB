@@ -91,7 +91,7 @@ def _polaris_manifest():
     return json.load(open(ROOT / "chemeleon_suite/data/polaris/polaris_manifest.json"))
 
 
-def _molnet(dirs):
+def _molnet(dirs, metrics=None):
     """{dataset: mean over all pretraining-seed dirs x fold ENSEMBLE rows}.
 
     Uses the plain `<metric>` fold rows (fold0..foldK-1), never `<metric>_cell`. eval_v2.py
@@ -113,7 +113,13 @@ def _molnet(dirs):
         129.9 elsewhere (10 native folds averaged with 5 z-scored ones).
     """
     out = {}
-    for ds, (metric, _) in MOLNET.items():
+    metrics = metrics or {}
+    for ds, (default_metric, _) in MOLNET.items():
+        # A caller may ask for a DIFFERENT metric on a dataset that already carries it -- SI fig g
+        # reads HIV on nef1 so its virtual-screening panel is one unit. The summary file holds
+        # every metric eval_v2 computed, so this is a lookup and not a recomputation; asking for
+        # one that was never computed yields no rows and the dataset is simply absent.
+        metric = metrics.get(f"MolNet:{ds}", default_metric)
         # one subdir for this (arm, dataset): the first candidate any of the arm's dirs has
         chosen, usable = None, []
         for sub in NATIVE_SUBDIRS.get(ds, ("moleculenet_cv",)):
@@ -178,8 +184,15 @@ def _polaris_summary():
     return out
 
 
-def _polaris(dirs, man):
-    """{task: mean of the task's primary metric over eval seeds}."""
+def _polaris(dirs, man, metrics=None):
+    """{task: mean of the task's primary metric over eval seeds}.
+
+    `metrics` may override the metric per dataset key ("Polaris:<short>"). Polaris returns only
+    the metrics its own benchmark declares -- the labels are withheld, so nothing else can be
+    computed locally -- and a task that does not carry the requested metric is left OUT rather
+    than silently falling back to its primary. A caller asking for one unit must be told which
+    datasets cannot supply it, not handed a mixture that looks uniform.
+    """
     per = collections.defaultdict(lambda: collections.defaultdict(list))
     present = []
     for d in dirs:
@@ -190,8 +203,9 @@ def _polaris(dirs, man):
         for r in csv.DictReader(open(f)):
             per[r["task"]][r["metric"]].append(float(r["value"]))
     out = {}
+    metrics = metrics or {}
     for t, m in per.items():
-        pm = man.get(t, {}).get("primary_metric")
+        pm = metrics.get(f"Polaris:{t.split('/')[-1]}") or man.get(t, {}).get("primary_metric")
         if pm in m:
             out[t] = st.mean(m[pm])
     if len(present) <= 1 and len(out) < len(man):
@@ -312,20 +326,33 @@ def _seed_dirs(base):
     return [base, f"{base}_s1", f"{base}_s2"]
 
 
-def wide_table(arms=None):
+def wide_table(arms=None, metrics=None):
     """Returns (scores, meta):
     scores  DataFrame, rows = arms, columns = all 65 datasets (NaN where not run)
     meta    DataFrame indexed by dataset with columns suite, metric, higher_better
+
+    `metrics` optionally overrides the metric for individual datasets, keyed by the same string
+    used as the column name ("MolNet:HIV" -> "nef1", "Polaris:ames" -> "roc_auc"). The RANKING
+    never passes it -- each dataset is ranked on the metric its benchmark declares. SI fig g does,
+    because it averages VALUES rather than ranks and an average needs one unit.
+
+    meta's `metric` and `higher_better` follow the EFFECTIVE metric, not the default. Reporting
+    the declared metric beside an overridden value is how a plate ends up with a correct number
+    under a wrong axis label.
     """
     arms = arms or ARM_ORDER
+    metrics = metrics or {}
     man = _polaris_manifest()
     rows, meta = {}, {}
     for a in arms:
         src = ARMS[a]["src"]
         vals = {}
-        for ds, v in _molnet(src["mol"]).items():
-            vals[f"MolNet:{ds}"] = v
-            meta[f"MolNet:{ds}"] = ("MoleculeNet", MOLNET[ds][0], MOLNET[ds][1])
+        for ds, v in _molnet(src["mol"], metrics).items():
+            key = f"MolNet:{ds}"
+            met = metrics.get(key, MOLNET[ds][0])
+            vals[key] = v
+            meta[key] = ("MoleculeNet", met,
+                         MOLNET[ds][1] if met == MOLNET[ds][0] else met in HIGHER)
         # Wong and FartDB use the same run-dir names as the MolNet wave, exactly as CBS does.
         for tree, task, key, metric in (("wong_saureus", "Wong", "Wong:wong", "nef1"),
                                         ("fartdb", "FartDB", "FartDB:fartdb", "macro_ovr_auc")):
@@ -347,10 +374,11 @@ def wide_table(arms=None):
             # them swaps the #1 and #2 arms, so this was deciding the headline. _seed_dirs already
             # handles the explicit-list case (s2u_dense).
             pol_dirs = _seed_dirs(src["mace"])
-            for t, v in _polaris(pol_dirs, man).items():
-                pm = man[t]["primary_metric"]
-                vals[f"Polaris:{t.split('/')[-1]}"] = v
-                meta[f"Polaris:{t.split('/')[-1]}"] = ("Polaris", pm, pm in HIGHER)
+            for t, v in _polaris(pol_dirs, man, metrics).items():
+                key = f"Polaris:{t.split('/')[-1]}"
+                pm = metrics.get(key) or man[t]["primary_metric"]
+                vals[key] = v
+                meta[key] = ("Polaris", pm, pm in HIGHER)
         cbs_v = _cbs_value(src.get("mol"))
         if cbs_v is not None:
             vals["CBS:cbs"] = cbs_v

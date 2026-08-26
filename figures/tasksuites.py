@@ -104,7 +104,29 @@ def _polaris_types():
 # ECFP4+desc places FIRST there and last here. Keeping both counted one endpoint twice.
 #
 # Measured cost to the headline: nothing reorders, and the largest change to any arm is 0.15.
-EXCLUDED_DATASETS = {"MolNet:BBBP"}
+#
+# ---------------------------------------------------------------------------------------------
+# THE THRESHOLDED PKIS2 TASKS: the SAME MOLECULES counted twice, in two categories.
+#
+# Leif 2026-08-26: "let's drop the pkis2-ret because it shouldn't be in regression and
+# classification." Verified before acting -- pkis2-ret-wt-cls-v2 and pkis2-ret-wt-reg-v2 hold the
+# IDENTICAL 106 test molecules, and pkis2-kit the identical 116. One is the other thresholded. So
+# each target was contributing a Classification rank and a Regression rank from one experiment.
+#
+# THE RULE IS APPLIED TO KIT AS WELL AS RET, and that matters for a reason beyond consistency.
+# ECFP4+desc places 11th on ret-cls and 2nd on kit-cls, so dropping only the one Leif named would
+# have removed the dataset where our own anchor looks worst and kept the one where it looks good.
+# The rule as stated -- drop the thresholded variant wherever the continuous variant exists on the
+# same molecules -- removes one of each and cannot be read as choosing the outcome. pkis2-egfr has
+# only a regression variant and is untouched.
+#
+# THE CONTINUOUS VARIANT IS THE ONE KEPT, on the evidence rather than by preference: the two agree
+# at rho +0.73 (ret) and +0.54 (kit) about which arm is better, well above the ~0.45 typical of
+# two unrelated classification sets, so the pair is internally consistent and the thresholded copy
+# adds no information its parent lacks -- it only adds PR-AUC's small-sample fragility on 106 and
+# 116 molecules.
+EXCLUDED_DATASETS = {"MolNet:BBBP",
+                     "Polaris:pkis2-ret-wt-cls-v2", "Polaris:pkis2-kit-wt-cls-v2"}
 
 
 def wide_ranks(arms=None, summary="mean"):
