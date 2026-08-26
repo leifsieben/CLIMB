@@ -44,8 +44,12 @@ def main():
     args = p.parse_args()
     SHARDS, default_out = CORPORA[args.corpus]
     args.out_s3 = args.out_s3 or default_out
-    if args.corpus not in args.out_s3:
-        raise SystemExit(f"refusing: --out_s3 {args.out_s3} is not named for corpus {args.corpus}")
+    # Test the PAIRING, not the spelling. The first version asked whether the corpus name was a
+    # substring of the destination -- and pubchem_124m_full's own directory is named
+    # pubchem_124m_descriptors, so the guard rejected the correct default on every box.
+    if args.out_s3.rstrip("/") != default_out.rstrip("/"):
+        raise SystemExit(f"refusing: --out_s3 {args.out_s3} is not the registered directory for "
+                         f"corpus {args.corpus} ({default_out})")
     print(f"[precompute] corpus {args.corpus}\n  from {SHARDS}\n  to   {args.out_s3}", flush=True)
 
     import pyarrow.parquet as pq
