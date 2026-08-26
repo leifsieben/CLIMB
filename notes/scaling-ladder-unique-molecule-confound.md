@@ -220,3 +220,70 @@ visibly different at the point of comparison. Then the guard is in the shape, no
 
 Not today's work. The moment it stops being hypothetical is when fig_B's ladder gains a c124 row
 beside a pubchem_filtered one.
+
+---
+
+# The decomposition, measured (2026-08-26)
+
+unsup_8M_c124 scored on Wong and FartDB, 15 cells each. The confounded +0.0754 splits, and the
+split is arithmetically exact rather than approximate.
+
+## Wong, NEF1%
+
+    unsup_8M       filtered,   8M FP    arm mean 0.3280   (dirs 0.3291 / 0.3156 / 0.3392)
+    unsup_8M_c124  c124,       8M FP             0.3502 +- 0.0672   single pretraining
+    unsup_100M     c124,     100M FP             0.4034 +- 0.0708   single pretraining
+
+    CORPUS + NOTATION   0.3280 -> 0.3502   +0.0222   (29%)
+    BUDGET 8M -> 100M   0.3502 -> 0.4034   +0.0532   (71%)
+                                           -------
+                                           +0.0754
+
+So most of what I first attributed to scale IS scale -- but only about seven tenths of it, and the
+point of the exercise is that "most" was not knowable before the control ran.
+
+## FartDB, macro one-vs-rest AUC
+
+    unsup_8M       0.9369 +- 0.0241
+    unsup_8M_c124  0.9369 +- 0.0334      CORPUS + NOTATION  +0.0000
+    unsup_100M     0.9449 +- 0.0245      BUDGET             +0.0080
+
+THE IDENTICAL 0.9369 IS A COINCIDENCE AND MUST BE SAID SO, because four matching decimals is
+exactly what a careful reader flags as a duplicated row. Verified here, not taken on report: six of
+the seven metrics differ, the macro is confirmed to be the plain mean of the five class AUCs for
+both arms, and the classes trade:
+
+    auc_bitter      -0.0230      (0.8970 +-0.0671  ->  0.8740 +-0.1189)
+    auc_sour        +0.0026
+    auc_sweet       +0.0029
+    auc_undefined   +0.0046
+    auc_umami       +0.0130
+    sum             +0.0001  ->  macro identical to four decimals
+
+WHICH CHANGES THE READING. "The corpus does nothing on FartDB" is a statement about the macro that
+the classes do not support as flatly: bitter falls 0.023 and the other four rise by 0.023 between
+them. Both moves are well inside their fold spreads -- bitter's own SD is 0.067 and 0.119 -- so the
+honest sentence is that no per-class change is resolvable, NOT that nothing moved. A macro that
+cancels is not the same evidence as five zeros.
+
+## What the pair supports, and what it does not
+
+Both corpus deltas are inside the pretraining-seed SD's 95% interval (see above: sigma in
+[0.0062, 0.0744] from three runs), and so is the Wong budget delta. The DIRECTION is consistent on
+both datasets; the magnitudes are not separable from seed noise with the runs in hand. Stated with
+its n, the reading is: at a fixed 8M budget, moving to the 124M corpus changes Wong by +0.022 and
+FartDB by +0.000, neither resolvable.
+
+Both c124 arms are SINGLE pretraining runs, so their error bars are head-seed only and exclude the
+very variance the comparison is measured against. unsup_8M_c124 carries in_ranking=False; none of
+this touches fig_A.
+
+## It also closes the tokenizer question from the second side
+
+The mismatch concern was that a vocabulary fitted to 0.3% lowercase-aromatic text would fail on
+86.4% lowercase-aromatic text. Two independent bounds now:
+
+    sequence length     c124 is 5.5% SHORTER per forward pass, not longer
+    downstream effect   the corpus row is +0.0222 and +0.0000
+
+If the vocabulary were failing, the corpus row is exactly where it would show. It does not.

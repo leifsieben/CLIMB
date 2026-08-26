@@ -212,12 +212,12 @@ ARMS = {
         in_ablation=False, in_ranking=False, unique_molecules=12_000_000,
         src=dict(mace="skip_dense_96M", mol=["skip_dense_96M"])),
 
-    # unsup_8M_c124 lands here when its Wong + FartDB cells score, as
-    #     "unsup_8M_c124": dict(label="unsupervised", short="unsup 8M c124", family="unsup",
-    #                           system="CLIMB 8M", color=SHADES["unsup"][2], probe="frozen",
-    #                           pretrain_replicates=False, in_ablation=False, in_ranking=False,
-    #                           unique_molecules=8_000_000,
-    #                           src=dict(mace="unsup_8M_c124", mol=["unsup_8M_c124"]))
+    # SCORED AND REGISTERED 2026-08-26.
+    "unsup_8M_c124": dict(
+        label="unsupervised", short="unsup 8M c124", family="unsup", system="CLIMB 8M",
+        color=SHADES["unsup"][2], probe="frozen", pretrain_replicates=False,
+        in_ablation=False, in_ranking=False, unique_molecules=8_000_000,
+        src=dict(mace="unsup_8M_c124", mol=["unsup_8M_c124"])),
     #
     # IT IS THE CONTROL THAT MAKES unsup_100M INTERPRETABLE, not another rung. unsup_8M sits on
     # pubchem_filtered (~12M molecules, 0.3% lowercase-aromatic) while unsup_100M sits on
