@@ -57,9 +57,23 @@ def _fwd_passes(rung):
     return int(m.group(1)) * 1_000_000 if m else np.nan
 
 
+# The unsup->sup rungs run TWO stages: an MLM base of <rung>M forward passes plus a fixed 2M-FP
+# SFT. Their token count already includes both -- u2s_dense_from2M is 0.17B against unsup_2M's
+# 0.09B, i.e. 85.8 tokens per molecule where every pure ladder is a flat 40-43 -- so reading the
+# unique-molecule count off the RUN ID puts this family at half its true position. Derived from the
+# stages instead.
+#
+# CAVEAT, stated because it cannot be resolved from the artifacts: this counts the SFT molecules as
+# NEW. If the SFT table overlaps the MLM sample, the true figure is lower, bounded below by the MLM
+# count alone. The u2s points therefore carry an upper bound on their x, which is the conservative
+# direction for the claim being made (it cannot make u2s look better than it is on a data axis).
+SFT_STAGE_FP = 2_000_000
+
+
 def unique_molecules(rung, big_corpus):
     fp = _fwd_passes(rung)
-    return fp if big_corpus else min(fp, CORPUS_12M)
+    base = fp if big_corpus else min(fp, CORPUS_12M)
+    return base + SFT_STAGE_FP if rung.startswith("u2s_") else base
 
 
 def epochs(rung, big_corpus):
@@ -159,7 +173,11 @@ def _panels(banded, variant="marked"):
                 for r in rep.itertuples():
                     ax.plot(r.tokens, r.value, marker=MARKER[ladder], ms=4.6, mfc="white",
                             mec=c, mew=1.1, ls="none", zorder=4)
-            _big_marker(ax, g, c)
+            if variant != "nodup":
+                # The open ring marks the big-corpus rungs. In the paper cut every rung samples
+                # new molecules, so the distinction it encodes no longer exists -- and it has no
+                # legend key there either, which would leave an unexplained symbol on the plate.
+                _big_marker(ax, g, c)
             lo = min(lo, (g.value - g.sd_total).min()); hi = max(hi, (g.value + g.sd_total).max())
         for a, ls in REF_LINES:
             if p in REF[a]:
@@ -191,8 +209,9 @@ def _panels(banded, variant="marked"):
             ax.spines[sp].set_visible(False)
     handles = [Line2D([], [], color=ARMS[l]["color"], marker=MARKER[l], ms=4.5, lw=1.2,
                       label=ARMS[l]["label"]) for l in LADDERS]
-    handles.append(Line2D([], [], color=INK, marker="o", mfc="none", mew=1.0, ls="none",
-                          label="larger corpus (unsup 50M/100M)"))
+    if variant != "nodup":
+        handles.append(Line2D([], [], color=INK, marker="o", mfc="none", mew=1.0, ls="none",
+                              label="larger corpus (unsup 50M/100M)"))
     if variant == "marked":
         handles.append(Line2D([], [], color=INK, marker="s", mfc="white", mew=1.1, ls="none",
                               label="re-reads the 12M corpus (no new molecules)"))
@@ -203,6 +222,8 @@ def _panels(banded, variant="marked"):
         handles.append(Line2D([], [], color=ARMS[a]["color"], ls=ls, lw=1.2, label=ARMS[a]["label"]))
     # ROWS BY HANDLE COUNT, measured not guessed: the "re-reads the corpus" key takes the
     # marked variant to 6 handles, and one row rendered 8.91in against a 6.69in text block.
+    # ONE ROW for the paper cut: three ladders plus two reference lines is five keys, and with
+    # every repeated rung dropped there is no corpus key to explain any more.
     _rows = 1 if len(handles) <= 5 else 2
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.050),
                ncol=row_ncol(handles, rows=_rows), fontsize=FS["legend"], handletextpad=0.5,
@@ -215,7 +236,7 @@ def _panels(banded, variant="marked"):
     # adds exactly the white band it looks like it should remove.
     fig.tight_layout(rect=(0, 0.112, 1, 1), w_pad=0.35)
     xlab = {"marked": "pretraining tokens  (hollow = corpus re-read, no new molecules)",
-            "nodup":  "pretraining tokens  (rungs that add unique molecules only)",
+            "nodup":  "pretraining tokens   (every rung samples new molecules; none re-reads)",
             "unique": "unique molecules seen"}[variant]
     fig.text(0.5, 0.068, xlab, ha="center", va="bottom", fontsize=FS["annot"], color=INK)
     return fig
@@ -228,10 +249,21 @@ def main():
     # THREE VARIANTS for review (Leif 2026-08-26). Tokens is the standard unit and v1 keeps it;
     # v2 and v3 exist because tokens alone cannot show that the supervised ladders stop adding
     # molecules after the 8M rung.
-    for name, variant in (("fig_B", "marked"), ("fig_B_v2_nodup", "nodup"),
-                          ("fig_B_v3_unique", "unique")):
+    # ONLY RUNGS THAT SAMPLE NEW CHEMISTRY (Leif 2026-08-26). Every repeated rung is dropped, so
+    # no point on the plate needs a corpus caveat and there is nothing to explain about resampling
+    # vs new molecules -- all points are the same kind of point.
+    #
+    # THE TOKENS AXIS SURVIVES THAT, which is why it stays. On non-repeating rungs tokens per
+    # molecule is a flat 40-43 for every pure ladder, so tokens IS the unique-molecule axis
+    # rescaled; keeping the standard unit costs nothing once the repeats are gone. (u2s runs 53-86
+    # because its tokens include the SFT stage -- see unique_molecules().)
+    fig = _panels(banded=False, variant="nodup")
+    save(fig, "fig_B")
+    plt.close(fig)
+    # the diagnostic cuts stay available for the SI and for arguing with a referee
+    for name, variant in (("fig_B_SI_all_rungs", "marked"), ("fig_B_SI_unique", "unique")):
         fig = _panels(banded=False, variant=variant)
-        save(fig, name)
+        save(fig, name, subdir="panels")
         plt.close(fig)
     report()
 
