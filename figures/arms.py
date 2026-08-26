@@ -289,10 +289,21 @@ ARMS = {
     # trained on 1B samples drawn from a combination of ZINC and PubChem datasets with a vocabulary
     # of 3160 tokens." The HF card states no corpus size at all.
     #
-    # THE CHECKPOINT IS VERIFIED TO BE THAT PAPER'S MODEL, not assumed to be: the paper's stated
-    # vocabulary of 3160 matches the checkpoint's own config.json vocab_size exactly, alongside
-    # d_model 1024 and 12+12 encoder-decoder layers. Two unrelated models do not land on a
-    # 3160-token vocabulary.
+    # TWO SEPARATE QUESTIONS, TWO SEPARATE PIECES OF EVIDENCE, and conflating them is how a
+    # careful reader still lands on 8B:
+    #
+    #   "is this that paper's model?"   the paper states a 3160-token vocabulary and the
+    #                                   checkpoint's config.json says vocab_size 3160, with
+    #                                   d_model 1024 and 12+12 layers. Two unrelated models do
+    #                                   not land on 3160.
+    #   "WHICH ROW of its table?"       the measured 358.1M parameters. The vocabulary CANNOT
+    #                                   answer this -- both variants presumably share it -- so
+    #                                   the fingerprint alone leaves you choosing between 1B and
+    #                                   8B, and the smaller model is the one on 8B.
+    #
+    # Written out because the first version of this note ran the two together as one chain. The
+    # evidence was real and the answer was right, and a later reader identifying a different
+    # checkpoint from it would have used the vocabulary alone and picked the wrong row.
     #
     # PARAMETERS DISAGREE BY ~1% and we keep OURS. The paper says 354M; the loaded checkpoint
     # measures 358.1M, almost certainly a counting convention (tied embeddings or the LM head).
