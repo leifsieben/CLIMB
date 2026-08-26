@@ -186,8 +186,12 @@ ARMS = {
     #
     # skip_dense_96M is deliberately NOT its supervised counterpart. It is the largest supervised
     # run by COMPUTE (96M forward passes) but sees only 12M unique molecules -- eight epochs of the
-    # small corpus -- and it scores WORSE than the 48M rung it repeats (0.7748 vs 0.7674 macro RMSE
-    # on MoleculeACE). Registered here so it can be quoted, and left out of fig_A's field: ranking a
+    # small corpus -- and it scores WORSE than the 24M rung it repeats, 0.7748 against 0.7687 macro
+    # RMSE on MoleculeACE, four times the compute for a worse number. (That comparison used to be
+    # drawn against skip_dense_48M; that rung was dropped everywhere on 2026-08-26 for training on
+    # 208 descriptors under a self-fit normalizer, so 24M is now the nearest valid rung below it.
+    # The conclusion did not depend on which one: 96M is worse than every dense rung except 2M.)
+    # Registered here so it can be quoted, and left out of fig_A's field: ranking a
     # repetition-saturated arm as "the largest supervised model" would say the opposite of what
     # fig_B now says. Its real counterpart is skip_dense_100M_c124, in flight.
     "unsup_100M": dict(

@@ -45,8 +45,18 @@ OUT = FD / "six_panel" / "scaling_ladders.csv"
 
 # ladder key -> (arms.py arm whose label/colour it inherits, rung dirs in ascending budget)
 LADDERS = {
+    # skip_dense_48M IS DELIBERATELY ABSENT (Leif 2026-08-26: "just drop it everywhere").
+    # It began 2026-07-16T09:34:03Z, 2h43m before the canonical descriptor-stats object was first
+    # written, so it took pretrain_v2's refit branch and fit its own normalizer on a 20k sample --
+    # on a box whose venv carried a shadowed rdkit-pypi 2022.9.5 exposing 208 of the 217
+    # descriptors. Its config is also the only one in this ladder with no descriptor_precompute_dir,
+    # so it computed those 208 live. Three differences in one rung: descriptor set, normalizer,
+    # pathway. It is not a noisy point, it is a point answering a different question.
+    #
+    # It was invisible in the values -- MoleculeACE 0.7674 between 24M's 0.7687 and 96M's 0.7748 --
+    # which is why nothing caught it for six weeks and why dropping it beats footnoting it.
     "sup_dense":        ("sup_dense",
-                         ["skip_dense_2M", "skip_dense_8M", "skip_dense_24M", "skip_dense_48M", "skip_dense_96M"]),
+                         ["skip_dense_2M", "skip_dense_8M", "skip_dense_24M", "skip_dense_96M"]),
     "sup_dense_sparse": ("sup_dense_sparse",
                          ["skip_dense_plus_sparse_2M", "skip_dense_plus_sparse_8M",
                           "skip_dense_plus_sparse_24M", "skip_dense_plus_sparse_48M"]),

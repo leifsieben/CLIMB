@@ -37,7 +37,40 @@ from figures.sixpanel import ROOT
 check_font()
 INK = "#000000"
 
+# RUNGS DROPPED FROM EVERY CUT (Leif 2026-08-26: "just drop it everywhere").
+#
+# skip_dense_48M began 2026-07-16T09:34:03Z, 2h43m BEFORE the canonical descriptor-stats object
+# was first written. It therefore took pretrain_v2's refit branch and fit its own normalizer on a
+# 20k sample -- and it did so on a box whose venv carried a shadowed rdkit-pypi 2022.9.5 exposing
+# 208 of the 217 descriptors. Its config is also the only one in the dense ladder with no
+# descriptor_precompute_dir, so it computed those 208 live. Three differences in one rung:
+#
+#     descriptor set   208, not 217
+#     normalizer       self-fit on 20k, not the canonical July stats
+#     pathway          live, where 2M/8M/24M/96M all read the precompute
+#
+# IT WAS INVISIBLE IN THE VALUES. MoleculeACE read 0.7674, between 24M's 0.7687 and 96M's 0.7748;
+# BACE, Tox21 and the rest were equally unremarkable. A run trained against a different objective
+# with a self-fit normalizer produced numbers indistinguishable from its neighbours, which is why
+# nothing caught it for six weeks -- and why a footnote on a normal-looking point was the weaker
+# remedy. It is not a noisy point; it answers a different question.
+#
+# Dropped in six_panel_scaling.py's LADDERS as well, so a rebuild agrees with this file. The
+# filter here is the belt to that braces: a stale scaling_ladders.csv on someone's disk cannot
+# put the rung back on the plate without failing the assert below.
+EXCLUDED_RUNGS = {"skip_dense_48M"}
+
 DF = pd.read_csv(ROOT / "figure_data" / "six_panel" / "scaling_ladders.csv")
+_before = set(DF.rung)
+DF = DF[~DF.rung.isin(EXCLUDED_RUNGS)].reset_index(drop=True)
+# Report what was dropped rather than dropping it quietly: a filter that silently matches nothing
+# is indistinguishable from a filter that silently matches everything, and both look like success.
+_dropped = sorted(_before & EXCLUDED_RUNGS)
+_stale = sorted(EXCLUDED_RUNGS - _before)
+if _dropped:
+    print(f"  [fig_B] excluded {len(_dropped)} rung(s) still present in scaling_ladders.csv: "
+          f"{', '.join(_dropped)} -- rebuild with scripts/six_panel_scaling.py to drop at source")
+assert not set(DF.rung) & EXCLUDED_RUNGS
 
 # ---------------------------------------------------------------- unique molecules -------------
 # THE BASE CORPUS IS 12M MOLECULES. A rung above 12M forward passes is RE-READING it, so forward
@@ -87,6 +120,8 @@ DF["epochs"] = [epochs(r.rung, r.big_corpus) for r in DF.itertuples()]
 DF["repeated"] = DF["epochs"] > 1.0
 
 # ladder display order + style: colour from arms.py (single source of truth), markers distinct
+
+
 LADDERS = ["sup_dense", "unsup", "u2s_dense"]
 MARKER = {"sup_dense": "o", "unsup": "D", "u2s_dense": "P"}
 
@@ -260,11 +295,10 @@ def main():
     fig = _panels(banded=False, variant="nodup")
     save(fig, "fig_B")
     plt.close(fig)
-    # the diagnostic cuts stay available for the SI and for arguing with a referee
-    for name, variant in (("fig_B_SI_all_rungs", "marked"), ("fig_B_SI_unique", "unique")):
-        fig = _panels(banded=False, variant=variant)
-        save(fig, name, subdir="panels")
-        plt.close(fig)
+    # NO SI CUTS (Leif 2026-08-26: "don't even produce the fig_B SI cuts, these are not needed").
+    # The "marked" and "unique" variants remain reachable as _panels(variant=...) for a referee
+    # question about re-reads, but nothing renders them, so figures_v2/ holds one fig_B artefact
+    # and there is no second plate to keep in sync with the first.
     report()
 
 

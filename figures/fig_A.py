@@ -87,7 +87,7 @@ RANKED_ARMS = ["ecfp", "ecfp_desc",
                # exceed ChemBERTa-2's ~77M and the only one whose data scale is comparable to a
                # published CLM. Its supervised counterpart is skip_dense_100M_c124, in flight;
                # sup_dense_96M is NOT it -- 96M forward passes but only 12M unique molecules, and
-               # it scores worse than the 48M rung it repeats.
+               # it scores worse than the 24M rung it repeats (0.7748 vs 0.7687 macro RMSE).
                #
                # IT HAS ONE PRETRAINING AND ALWAYS WILL (Leif: "the big ones will only ever have
                # one seed, that is perfectly fine"). That is a decision, not a gap: its three
