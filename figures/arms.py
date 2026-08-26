@@ -191,15 +191,25 @@ ARMS = {
     # repetition-saturated arm as "the largest supervised model" would say the opposite of what
     # fig_B now says. Its real counterpart is skip_dense_100M_c124, in flight.
     "unsup_100M": dict(
-        label="unsupervised, 100M mols", short="unsup 100M", family="unsup",
+        label="unsupervised", short="unsup 100M", family="unsup", system="CLIMB 100M",
         color=SHADES["unsup"][1], probe="frozen", pretrain_replicates=False,
         in_ablation=False, unique_molecules=100_000_000,
         src=dict(mace="unsup_100M", mol=["unsup_100M"])),
     "sup_dense_96M": dict(
-        label="supervised desc, 96M FP", short="sup 96M", family="sup",
+        label="supervised, desc", short="sup 96M", family="sup", system="CLIMB 96M FP",
         color=SHADES["sup"][2], probe="frozen", pretrain_replicates=False,
         in_ablation=False, in_ranking=False, unique_molecules=12_000_000,
         src=dict(mace="skip_dense_96M", mol=["skip_dense_96M"])),
+
+    # skip_dense_100M_c124 lands here when the run finishes, as
+    #     "sup_dense_100M": dict(label="supervised, desc", short="sup 100M", family="sup",
+    #                            system="CLIMB 100M", color=SHADES["sup"][5], probe="frozen",
+    #                            pretrain_replicates=False, in_ablation=False,
+    #                            unique_molecules=100_000_000,
+    #                            src=dict(mace="skip_dense_100M_c124",
+    #                                     mol=["skip_dense_100M_c124"]))
+    # -- same two-line shape as unsup_100M so the pair reads as one comparison: "CLIMB 100M" bold
+    # on both, objective underneath. Written out here rather than left to be reinvented.
 
     # ------------------------------------------------------------ external literature CLMs ----
     # Three published chemical language models, added 2026-08-26 from the fig_A wave. All three
@@ -635,8 +645,16 @@ SYSTEM = {"anchor": "XGBoost", "chemeleon": "CheMeleon",
 
 
 def system(arm_key: str) -> str:
-    """Which model system the arm belongs to -- the first line of a two-line axis label."""
-    return SYSTEM.get(ARMS[arm_key]["family"], "CLIMB") if arm_key in ARMS else ""
+    """Which model system the arm belongs to -- the first line of a two-line axis label.
+
+    A per-arm `system` key overrides the family default. That exists for the large-corpus runs,
+    where the informative split is "CLIMB 100M" on the bold line and the objective underneath --
+    the scale is what distinguishes them from every other CLIMB row, so it belongs on the line the
+    eye reads first, and the family default of plain "CLIMB" buries it in the subtitle.
+    """
+    if arm_key not in ARMS:
+        return ""
+    return ARMS[arm_key].get("system") or SYSTEM.get(ARMS[arm_key]["family"], "CLIMB")
 
 
 def label(arm_key: str) -> str:

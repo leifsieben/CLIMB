@@ -208,7 +208,7 @@ def main():
     # fractions below change, AND when the row labels change: the multiplier is the ratio of the
     # canvas to the crop, and the crop is set by the widest label in the left column, so shortening
     # the arm list moved it. First version, with slack on both sides, rendered 5.58in.
-    fig = plt.figure(figsize=(STYLE["col2"] * 1.115, 3.66))
+    fig = plt.figure(figsize=(STYLE["col2"] * 1.123, 3.66))
     # Row pitch is set by the axes HEIGHT, and it has two lines of text to hold rather than one
     # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 2.83in over 13 rows
     # is 0.218in per row; at the previous 2.50in the bold line and its subtitle nearly touched the
