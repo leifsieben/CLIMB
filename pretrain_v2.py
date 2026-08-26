@@ -440,6 +440,33 @@ def train(args) -> int:
         objectives, total_batches=total_steps, seed=pretraining_seed,
     )
 
+    # ---- what machine this ran on -------------------------------------------------------------
+    # Reconstructing a run's throughput took three steps because no artefact recorded the hardware:
+    # skip_dense_48M hit 762 seq/s on live descriptors and a 16-vCPU box gets 302, and the split
+    # between "fewer descriptors" and "wider box" could only be inferred. A rate is not a property
+    # of the code alone. Best effort and never fatal -- IMDS is a 2-second timeout away and a run
+    # must not die because a metadata endpoint was slow.
+    def _host_facts():
+        facts = {"nproc": os.cpu_count()}
+        try:
+            import urllib.request
+            base = "http://169.254.169.254/latest/meta-data/"
+            for field, key in (("instance-type", "instance_type"), ("instance-id", "instance_id")):
+                with urllib.request.urlopen(base + field, timeout=2) as r:
+                    facts[key] = r.read().decode()
+        except Exception:
+            pass
+        try:
+            facts["gpu"] = torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+        except Exception:
+            pass
+        try:
+            import rdkit
+            facts["rdkit"] = rdkit.__version__
+        except Exception:
+            pass
+        return facts
+
     # ---- metadata ----
     metadata = {
         "run_id": cfg.get("run_id", run_dir.name),
@@ -451,6 +478,9 @@ def train(args) -> int:
         "supervised_families": sup_families,
         "mtr_n_desc": mtr_n_desc,
         "mtr_stats_sha1": mtr_stats_sha1,
+        "mtr_descriptor_pathway": ("precomputed" if cfg.get("descriptor_precompute_dir") else "live")
+                                  if mtr_n_desc else None,
+        "host": _host_facts(),
         "total_steps": total_steps,
         "total_forward_passes_target": total_fps,
         "warmup_steps": warmup_steps,
