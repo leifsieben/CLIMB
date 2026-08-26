@@ -39,7 +39,8 @@ def stored_row(npy_uri: str, row: int) -> np.ndarray:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", choices=sorted(CORPORA), required=True)
-    ap.add_argument("--shards", required=True, help="inclusive range, e.g. 0-61")
+    ap.add_argument("--shards", help="inclusive range, e.g. 0-61")
+    ap.add_argument("--shard_list", help="explicit comma-separated ids, e.g. 00060,00061")
     ap.add_argument("--n_probes", type=int, default=24)
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
@@ -49,12 +50,18 @@ def main() -> int:
 
     shards_uri, desc_uri = CORPORA[a.corpus]
     stats = load_stats("configs/descriptor_stats.json")
-    lo, hi = (int(x) for x in a.shards.split("-"))
+    if a.shard_list:
+        pool = [int(x) for x in a.shard_list.split(",") if x.strip()]
+    elif a.shards:
+        lo, hi = (int(x) for x in a.shards.split("-"))
+        pool = list(range(lo, hi + 1))
+    else:
+        raise SystemExit("need --shards or --shard_list")
     rng = random.Random(a.seed)
 
     ok = fail = 0
     for _ in range(a.n_probes):
-        si = rng.randint(lo, hi)
+        si = rng.choice(pool)
         name = f"shard_{si:05d}"
         ds = pads.dataset(f"{shards_uri}{name}.parquet", format="parquet")
         col = next(c for c in ds.schema.names if "SMILES" in c or "smi" in c.lower())
