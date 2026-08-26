@@ -166,3 +166,57 @@ Two guards that would have caught these, in order of how much they cost:
     quote the interval instead of the ratio.
 
 Related: [[numeric-repro-bounds]], [[anchors-need-model-seeds]], [[replicate-axis-depends-on-arm]].
+
+---
+
+# The c124 tokenizer is fitted to the OTHER corpus, and what that does is measurable
+
+2026-08-26. Confirmed by the compute session from the configs, not the naming: `tokenizer_10M`,
+vocab 1000, hidden 512, 12 layers -- IDENTICAL across unsup_8M, unsup_8M_c124, unsup_50M and
+unsup_100M. So both clean contrasts above have exactly two axes and not a third.
+
+## But the tokenizer was fitted on the small corpus
+
+`tokenizer_10M` was fit on a 10M sample of pubchem_filtered, which is 0.3% lowercase-aromatic. The
+c124 runs then train on text that is 86.4% lowercase-aromatic. Every arm on both sides of both
+contrasts uses the same tokenizer, so this is NOT a confound between arms -- but it means the
+CORPUS row measures "different corpus, read through a vocabulary fitted to the other one", and a
+penalty there has tokenizer mismatch as a live explanation rather than an excluded one.
+
+## The obvious symptom is absent, measured
+
+A vocabulary with no merges for lowercase aromatics would fragment `c1ccccc1` toward single
+characters and inflate sequence length. Tokens per forward pass, from each run's own trainer count:
+
+    unsup_2M     filtered    42.93
+    unsup_8M     filtered    42.91
+    unsup_24M    filtered    42.91
+    unsup_48M    filtered    42.91
+    unsup_50M    c124        40.55
+    unsup_100M   c124        40.38
+
+The four small-corpus rungs agree to four significant figures, which is the sanity check on the
+measurement. The c124 rungs are ~5.5% SHORTER, not longer -- the opposite direction from severe
+fragmentation.
+
+This BOUNDS the concern rather than eliminating it: the two corpora hold different molecules, so
+part of that 5.5% is a size distribution rather than tokenization quality. What it rules out is the
+large effect. A vocabulary genuinely unable to represent the majority notation would not produce
+sequences 5% shorter than the corpus it was fitted on.
+
+## Which way it cuts, and it is not the flattering direction by accident
+
+unsup_100M places 2nd of 14 in fig_A while being tokenized by a vocabulary fitted to a different
+notation. Whatever that costs, the arm is carrying it. So the big-corpus result is CONSERVATIVE --
+the honest framing is "despite", not "with an advantage". Worth one clause if the 100M rung is
+claimed, alongside the fact that it is a single pretraining run.
+
+## The durable fix for the confound above, from the compute session
+
+My guard was "diff the configs before comparing two arms", and their reply is that a discipline is
+the thing that fails. The structural version: carry corpus and budget as FIELDS ON THE ROW rather
+than as knowledge about the row, so two rows differing on more than the axis under comparison are
+visibly different at the point of comparison. Then the guard is in the shape, not in the reader.
+
+Not today's work. The moment it stops being hypothetical is when fig_B's ladder gains a c124 row
+beside a pubchem_filtered one.
