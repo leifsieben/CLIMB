@@ -107,6 +107,16 @@ $PY scripts/verify_descriptor_alignment.py --corpus pubchem_124m_full --shard_li
 # but only because the counts differed. Had a version merely REORDERED the list, every descriptor
 # would have been z-scored by another descriptor's mean and nothing would have raised. So check the
 # names in order, and check them against what the template run RECORDED, not against a constant.
+# REPAIR THE ENVIRONMENT BEFORE CHECKING IT. Every box off the April AMI carries rdkit-pypi 2022.9.5
+# shadowing rdkit 2025.9.2 and exposing 208 of 217 descriptors. The gate below would then refuse a
+# perfectly good rung for a reason that is one pip command away, and "the gate refused" is exactly
+# when someone deletes the gate. Uninstalling rdkit-pypi alone breaks both -- they share paths --
+# so force-reinstall the one we want.
+if $PY -m pip list 2>/dev/null | grep -q "^rdkit-pypi"; then
+  say "rdkit-pypi present -- repairing to the fleet rdkit"
+  $PY -m pip uninstall -y rdkit-pypi >/dev/null 2>&1
+  $PY -m pip install -q --force-reinstall --no-deps "rdkit==2025.9.2" >/dev/null 2>&1
+fi
 aws s3 cp "$S3/$TPL/metadata.json" analysis/tpl_meta.json --only-show-errors   || abort "cannot read template metadata -- no reference MTR width to check against"
 $PY -c "
 import json, descriptors_v2 as dv
