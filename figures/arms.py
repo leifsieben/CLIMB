@@ -175,6 +175,32 @@ ARMS = {
         src=dict(mace="fp_desc", cbs_legacy_label="fp_desc",
                  mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
 
+    # ---------------------------------------------------------- the largest-corpus CLIMB runs --
+    # Added 2026-08-26. These are SINGLE pretraining runs, so their replicate axis is the HEAD
+    # SEED (3 seeds inside one directory), not three pretrainings -- `pretrain_replicates=False`,
+    # the same convention the anchors and the literature CLMs use.
+    #
+    # unsup_100M is the largest CLIMB model on the axis that matters: 100M DISTINCT molecules from
+    # the 124M corpus, under one epoch, no repetition. It is the only CLIMB arm that has seen more
+    # unique chemistry than ChemBERTa-2's ~77M.
+    #
+    # skip_dense_96M is deliberately NOT its supervised counterpart. It is the largest supervised
+    # run by COMPUTE (96M forward passes) but sees only 12M unique molecules -- eight epochs of the
+    # small corpus -- and it scores WORSE than the 48M rung it repeats (0.7748 vs 0.7674 macro RMSE
+    # on MoleculeACE). Registered here so it can be quoted, and left out of fig_A's field: ranking a
+    # repetition-saturated arm as "the largest supervised model" would say the opposite of what
+    # fig_B now says. Its real counterpart is skip_dense_100M_c124, in flight.
+    "unsup_100M": dict(
+        label="unsupervised, 100M molecules", short="unsup 100M", family="unsup",
+        color=SHADES["unsup"][1], probe="frozen", pretrain_replicates=False,
+        in_ablation=False, unique_molecules=100_000_000,
+        src=dict(mace="unsup_100M", mol=["unsup_100M"])),
+    "sup_dense_96M": dict(
+        label="supervised desc, 96M passes", short="sup 96M", family="sup",
+        color=SHADES["sup"][2], probe="frozen", pretrain_replicates=False,
+        in_ablation=False, in_ranking=False, unique_molecules=12_000_000,
+        src=dict(mace="skip_dense_96M", mol=["skip_dense_96M"])),
+
     # ------------------------------------------------------------ external literature CLMs ----
     # Three published chemical language models, added 2026-08-26 from the fig_A wave. All three
     # are FROZEN + MLP probe, featurized in ONE environment (scripts/figA_extract_all.sh) so no

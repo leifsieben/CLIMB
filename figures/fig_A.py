@@ -70,6 +70,13 @@ INK = "#000000"
 RANKED_ARMS = ["ecfp", "ecfp_desc",
                "sup_dense", "sup_sparse", "sup_mixed",
                "unsup", "u2s_dense", "u2s_sparse", "s2u_dense", "random_encoder",
+               # The largest-corpus CLIMB run (Leif 2026-08-26). 100M DISTINCT molecules, the only
+               # CLIMB arm to exceed ChemBERTa-2's ~77M, and the only one whose data scale is
+               # comparable to a published CLM. Its supervised counterpart is skip_dense_100M_c124,
+               # in flight; sup_dense_96M is NOT it -- 96M forward passes but only 12M unique
+               # molecules, and it scores worse than the 48M rung it repeats, so ranking it as
+               # "the largest supervised model" would contradict fig_B.
+               "unsup_100M",
                "chemberta_mtr", "molformer_c3", "selfies_ted"]
 
 # PENDING_ARMS is empty: the three literature CLMs landed 2026-08-26 and are now real entries in
