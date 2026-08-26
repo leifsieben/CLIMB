@@ -61,6 +61,7 @@ from matplotlib.lines import Line2D
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX, row_ncol
 from figures.arms import ARMS, SHADES, system, label as arm_label
 from figures import tasksuites as T
+from figures.allsuites import wide_table as A_wide
 
 check_font()
 INK = "#000000"
@@ -76,8 +77,16 @@ INK = "#000000"
 # with fine-tuned networks ranks two protocols at once and an end-to-end row placing high says
 # something about fine-tuning rather than about pretraining. fig_A1 carries that comparison, with
 # its own end-to-end key.
+# sup_mixed WAS HERE AND IS OUT (Leif 2026-08-26: "let's do desc+sparse for all"). Its objective
+# is the same 50/50 MTR+supervised recipe as sup_dense_sparse; the only difference is that it adds
+# PCQM and WONG to the supervised label families -- and WONG is the antibiotic screen that became
+# one of this figure's virtual-screening datasets the same day. It ranked 1 of 14 on Wong while the
+# two other assay-trained arms ranked 13th and 14th. See notes/wong-sft-family-is-an-eval-set.md.
+#
+# sup_dense_sparse is the same recipe without the two families, so the swap keeps the objective
+# comparison the row exists to make and drops the contaminated one.
 RANKED_ARMS = ["ecfp", "ecfp_desc",
-               "sup_dense", "sup_sparse", "sup_mixed",
+               "sup_dense", "sup_sparse", "sup_dense_sparse",
                "unsup", "u2s_dense", "u2s_sparse", "s2u_dense", "random_encoder",
                # PROVISIONAL (Leif 2026-08-26: "I'm not yet committed to having them in figure A1
                # for the actual paper, it's more for my own learning"). Kept in one place so
@@ -120,8 +129,19 @@ assert set(RANKED_ARMS) - set(ARMS) == set(PENDING_ARMS), \
 # a provisional arm that is a stated caveat, for a paper arm it is a bug.
 PROVISIONAL = {"unsup_100M"}
 
+# ARMS REGISTERED IN arms.py BUT NOT YET SCORED EVERYWHERE. They are drawn as labelled empty rows
+# and left OUT of the ranking, exactly as PENDING_ARMS are -- the difference is only that these
+# exist in arms.py, so PENDING_ARMS' "must not be in ARMS" assertion cannot carry them.
+#
+# THE DECLARATION IS TESTED AGAINST MEASURED COVERAGE, not trusted. compute() asserts that every
+# arm named here is genuinely short AND that no arm outside it is, so this set cannot quietly
+# outlive the run that fills it: the day sup_dense_sparse's Wong and FartDB cells land, the render
+# fails until the name is removed, rather than drawing an empty row over real data forever. A
+# declaration that only ever removes things is the kind that goes stale silently.
+AWAITING_DATA = {"sup_dense_sparse"}
+
 N = len(RANKED_ARMS)
-HAVE = [a for a in RANKED_ARMS if a in ARMS]
+HAVE = [a for a in RANKED_ARMS if a in ARMS and a not in AWAITING_DATA]
 
 
 def _meta(a):
@@ -139,6 +159,23 @@ def compute():
     are NOT rescaled to 1..13 here: doing that would invent a position for three arms that have no
     results, and the axis is drawn to len(HAVE) with the pending rows left empty instead.
     """
+    # THE AWAITING DECLARATION IS A CLAIM ABOUT THE DATA AND IS CHECKED AGAINST IT. Measured over
+    # the FULL registered field, not just the ranked one, so an arm that is short cannot be ranked
+    # by omission from this set, and an arm that is complete cannot keep an empty row by inertia.
+    full_S, _full_M = A_wide(RANKED_ARMS)
+    n_by_arm = full_S.notna().sum(axis=1)
+    target = int(n_by_arm.max())
+    really_short = {a for a in RANKED_ARMS if a in ARMS and int(n_by_arm.get(a, 0)) < target}
+    stale = AWAITING_DATA - really_short
+    undeclared = really_short - AWAITING_DATA - PROVISIONAL
+    assert not stale, (
+        f"fig_A: {sorted(stale)} is declared AWAITING_DATA but now covers all {target} datasets. "
+        f"Remove it from AWAITING_DATA so it is ranked -- an empty row drawn over real results is "
+        f"worse than no row.")
+    assert not undeclared, (
+        f"fig_A: {sorted(undeclared)} is short of the {target}-dataset field and is neither "
+        f"AWAITING_DATA nor PROVISIONAL. Declare it or score it; do not rank it.")
+
     out, cat, R = T.wide_ranks(HAVE, summary=SUMMARY)
     missing = [a for a in HAVE if a not in out.index]
     assert not missing, f"fig_A: arms in RANKED_ARMS with no row in the score table: {missing}"
