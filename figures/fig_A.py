@@ -233,9 +233,21 @@ BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plat
 SUMMARY = "mean"
 
 
-def main():
+def main(weighting="category", name="fig_A", subdir=None):
+    """weighting="category" is the paper cut; "dataset" is the pooled alternative.
+
+    THE TWO DIFFER ONLY IN HOW THE PER-DATASET RANKS ARE SUMMARISED, never in how they are
+    computed -- both read the same rank matrix out of tasksuites.wide_ranks. Activity cliffs holds
+    30 of the 67 datasets and virtual screening 3, so pooling by dataset hands MoleculeACE 45% of
+    the headline where the paper cut gives it 25%. Worth looking at precisely because that is a
+    choice and not a fact.
+    """
     head_seed = _audit_docstring()
     out, avail, short_prov, missing_ds = compute()
+    if weighting == "dataset":
+        out = out.assign(mean_rank=out["mean_rank_pooled"], se_rank=out["se_rank_pooled"])
+    elif weighting != "category":
+        raise ValueError(f"weighting must be 'category' or 'dataset', got {weighting!r}")
     order = list(out.sort_values("mean_rank").index) + [a for a in RANKED_ARMS if a not in out.index]
     nfield = len(out)
 
@@ -311,13 +323,20 @@ def main():
     # transAxes y=-0.145 it landed behind the legend and was clipped, and str.replace had silently
     # not matched the legend line anyway, so the caveat rendered nowhere at all. A label cannot be
     # lost that way.
-    xlab = (f"{SUMMARY} rank over four task categories, equally weighted "
-            f"(1 = best of {nfield} scored)")
+    if weighting == "dataset":
+        xlab = (f"{SUMMARY} rank over all {int(out['n_datasets'].max())} datasets, each weighted "
+                f"equally (1 = best of {nfield} scored)")
+    else:
+        xlab = (f"{SUMMARY} rank over four task categories, equally weighted "
+                f"(1 = best of {nfield} scored)")
     if short_prov:
         a0 = next(iter(short_prov))
         miss = ", ".join(m.split(":")[0] for m in missing_ds[a0])
+        tail = ("so its category means are not over the same datasets"
+                if weighting == "category" else
+                "so its mean is over a smaller dataset set than its neighbours'")
         xlab += (f"\n*  provisional: ranked on {short_prov[a0]} of {int(out['n_datasets'].max())}"
-                 f" datasets (no {miss}), so its category means are not over the same datasets")
+                 f" datasets (no {miss}), {tail}")
     ax.set_xlabel(xlab, fontsize=FS["label"])
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
@@ -349,7 +368,7 @@ def main():
     bb = ax.get_position()
     leg.set_bbox_to_anchor((0.5 * (bb.x0 + bb.x1), 0.004), transform=fig.transFigure)
 
-    save(fig, "fig_A")
+    save(fig, name, subdir=subdir)
     plt.close(fig)
     report(out, avail, order, head_seed, short_prov, missing_ds)
 
@@ -396,3 +415,6 @@ def report(out, avail, order, head_seed, short_prov, missing_ds):
 
 if __name__ == "__main__":
     main()
+    # The pooled alternative, for comparison only (Leif 2026-08-26: "just to see how much
+    # changes"). Rendered into panels/ so it cannot be mistaken for the paper plate.
+    main(weighting="dataset", name="fig_A_by_dataset", subdir="panels")

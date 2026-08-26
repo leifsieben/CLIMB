@@ -141,6 +141,17 @@ def wide_ranks(arms=None, summary="mean"):
     deff = out["n_units"] / max(sum(ne.values()), 1e-9)
     out["se_rank_naive"] = out["se_rank"]
     out["se_rank"] = out["se_rank"] * np.sqrt(deff.clip(lower=1.0))
+    # POOLED ALTERNATIVE: every dataset equal weight, category structure ignored entirely.
+    # Carried alongside rather than as a separate function so both summaries come off ONE rank
+    # matrix -- a second code path computing "the same ranks a different way" is how two numbers
+    # that should agree start disagreeing. Its interval is the spread across the 67 per-dataset
+    # ranks divided by the EFFECTIVE dataset count (sum of the per-category effective n), which is
+    # the matching estimand for a dataset-weighted mean rather than the four-category one.
+    n_eff_ds = max(sum(ne.values()), 1e-9)
+    out["mean_rank_pooled"] = R.mean(axis=1)
+    out["se_rank_pooled"] = R.std(axis=1, ddof=1) / np.sqrt(n_eff_ds)
+    out.attrs["n_eff_datasets"] = n_eff_ds
+
     out.attrs["effective_n"] = ne
     out.attrs["n_datasets_total"] = len(S.columns)
     out.attrs["categories"] = {k: int((cat == k).sum()) for k in CATEGORIES}
