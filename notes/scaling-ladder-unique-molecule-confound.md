@@ -54,6 +54,35 @@ design called for was never built, and the x-axis that is drawn is the one that 
 `skip_dense_96M` sits at 4.12B tokens, far to the right, while representing the same 12M molecules
 as the rung three positions to its left.
 
+## Verified from run artifacts, not from the README (compute session, 2026-08-26)
+
+I had taken the corpus split and the no-repetition claim from README section 3. Both were checked
+against the runs themselves and both hold:
+
+- **Corpus split** is in each rung's own `config.yaml`: `unsup_50M` and `unsup_100M` carry
+  `unsupervised_data_paths -> pubchem_124m_full`; `unsup_8M` and every `skip_dense_*` rung carry
+  `pubchem_filtered`.
+- **Sampling is without replacement and the stream does not cycle**: `data.py:__iter__` yields from
+  the iterator and RETURNS on StopIteration rather than re-creating it, so within one pass a
+  molecule cannot repeat. 50M/100M forward passes from a 124M-molecule corpus really are 50M/100M
+  DISTINCT molecules. The unique-molecule axis is correct as drawn.
+- **Repetition above the corpus size is real and comes from the epoch loop**, not the sampler:
+  `skip_dense_96M` reports `final_fp 95,994,624` against a 12M-molecule corpus, `skip_dense_48M`
+  reports `47,997,696`. A single pass cannot yield either. ~8x and ~4x.
+
+## Cost of the fix, from measured throughput
+
+Supervised rungs run at **1,316 s per 1M forward passes** (skip_dense_48M 63,177 s / 48M and
+skip_dense_96M 126,295 s / 96M -- the two agree to three figures). MLM is cheaper per pass at
+~850 s/1M (unsup_50M 43,617 s / 50M, unsup_100M 83,251 s / 100M), which is consistent with MTR
+also computing 217 descriptor targets.
+
+    skip_dense_50M_c124    ~18.3 GPU-hours    tests the claim
+    skip_dense_100M_c124   ~36.6 GPU-hours    makes the ladder symmetric, changes no conclusion
+
+This is PRETRAINING, an order of magnitude above the frozen-probe runs, so it is a spend decision
+rather than a queue item.
+
 ## What would fix it, cheapest first
 
 1. **Draw the unique-molecule axis** (fig_B panel b, as A2.b already specifies). Costs nothing --
