@@ -190,3 +190,51 @@ L1000_MCF7 holds 11,718 molecules and L1000_VCAP 7,800, both far below the 400k 
 audit used. So every L1000 figure in the table above is EXACT rather than a lower bound. Only PCBA
 and WONG are sampled and therefore floors. This matters most for the Polaris rows, where
 L1000_MCF7 is the dominant source -- those numbers are not going to grow.
+
+---
+
+# RETRACTION: "it is not only Wong" was wrong. Only Wong is leakage. (2026-08-26)
+
+Leif, in one line: **"overlap doesn't matter as long as you're not leaking labels."** Correct, and
+it retires most of the table above. The compute session then checked the families' actual LABEL
+COLUMNS rather than reasoning from overlap counts:
+
+    WONG        4 cols      WONG__Wong_SA__Active, Wong_Hep__Active, Wong_IMR90__Active,
+                            Wong_HSkMC__Active
+    L1000_MCF7  978 cols    gene expression (geneID-*)
+    L1000_VCAP  978 cols    gene expression
+    PCBA        1328 cols   bioassay activity (assayID-*)
+
+`WONG__Wong_SA__Active` IS the Wong eval label -- S. aureus growth inhibition, same assay, same
+molecules, and the eval's own rule (y = mean_relative < 0.2) is asserted per row in wong_run.py.
+So skip_mixed_8M was trained to predict the eval's target on 88.5% of its molecules. That is label
+leakage and the removal stands on it.
+
+EVERY OTHER ROW IN THE OVERLAP TABLE IS A DIFFERENT LABEL SPACE. Wong x L1000_MCF7 is 2,418
+molecules whose TRANSCRIPTIONAL RESPONSE was seen, not their antibiotic activity. The Polaris rows
+are ADMET endpoints against gene-expression and bioassay panels; Ames x PCBA is mutagenicity
+against assay activity. In none does the training label tell you the eval label. A model that saw a
+molecule's chemistry and must then learn a new endpoint from the eval's own training folds with a
+fresh head is transfer learning working, not failing.
+
+## The ~7% caveat on sup_dense_sparse is RETRACTED
+
+Those 2,418 Wong molecules came with gene-expression labels, not Wong labels. sup_dense_sparse
+needs no Wong footnote. It is clean in the sense that matters.
+
+## Why the rank control agreed, and now for a reason
+
+The control above found the assay-trained arms gaining LESS on high-overlap datasets than
+sup_dense, which has no assay exposure at all. Under the overlap framing that was a puzzle needing
+"those datasets are just noisy" to explain. Under the label framing it is the expected result:
+**there was no label advantage available to gain.** A measurement that needed an excuse under one
+hypothesis and needs none under another is evidence for the second.
+
+## What still stands
+
+The blocklist is still built against a July eval suite and would still fail to protect a FUTURE
+eval set whose labels coincide with an SFT family -- which is exactly how Wong happened. Unchanged
+in shape, far smaller in blast radius: one arm, one dataset, already removed. The durable check is
+not "rebuild the blocklist" but **compare SFT label columns against eval targets whenever either
+list changes** -- a question about label spaces, which is cheap, rather than about molecules, which
+is not.

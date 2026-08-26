@@ -219,16 +219,23 @@ def compute():
 def assay_trained(arms):
     """Arms whose PRETRAINING used real assay labels, read from each run's own metadata.json.
 
-    Derived, never listed. The distinction matters because assay-label families overlap several
-    eval sets molecule-for-molecule, so these rows carry an exposure the descriptor-only, MLM and
-    classical rows cannot -- and unlike a metric or a unit, that exposure does NOT cancel when the
-    values are turned into ranks. It is a property of the objective, so the objective's own record
-    is where it should be read from; a hand-list here would be one more thing to update when an
-    arm's recipe changes.
+    Derived, never listed. Reported so a reader can see which rows had assay labels at all, and
+    so the ONE question that matters can be asked of them: does any SFT label column coincide with
+    an eval target?
 
-    Measured overlaps live in notes/wong-sft-family-is-an-eval-set.md rather than here: they come
-    from an audit over data this repo does not hold, so a number copied into this file could not
-    be checked by anything that reads it.
+    OVERLAP IS NOT LEAKAGE (Leif 2026-08-26: "overlap doesn't matter as long as you're not leaking
+    labels"). These families share molecules with several eval sets, but they share LABELS with
+    only one: WONG__Wong_SA__Active is the Wong eval target on the same assay and the same
+    molecules. Everywhere else the shared molecules carry gene-expression or bioassay-panel labels
+    against ADMET or mutagenicity endpoints -- a different label space, which is what transfer
+    learning IS rather than a way of failing at it.
+
+    The arm that trained on WONG is gone from this field. Every arm listed here trains on
+    L1000/PCBA only, so none of them has seen an eval target. Kept as a derived line rather than
+    deleted because the check is "compare SFT label columns against eval targets", and it has to
+    be re-askable of whatever the field contains next.
+
+    Numbers and the audit: notes/wong-sft-family-is-an-eval-set.md
     """
     out = []
     for a in arms:
@@ -491,14 +498,14 @@ def report(out, avail, order, head_seed, short_prov, missing_ds):
     if at:
         names = ", ".join(a for a, _ in at)
         fams = sorted({f for _, fl in at for f in fl})
-        print(f"     assay exposure      {len(at)} of {len(RANKED_ARMS)} arms pretrain on REAL "
-              f"ASSAY LABELS ({names});")
-        print(f"                          families {', '.join(fams)}. Those families overlap "
-              f"several eval sets molecule-for-")
-        print( "                          molecule, and unlike a unit that exposure does not "
-               "cancel in a rank. Numbers and")
-        print( "                          the bounding control: "
-               "notes/wong-sft-family-is-an-eval-set.md")
+        print(f"     assay labels        {len(at)} of {len(RANKED_ARMS)} arms pretrain on real "
+              f"assay labels ({names}):")
+        print(f"                          {', '.join(fams)}. None coincides with an eval target -- "
+              f"the shared molecules carry")
+        print( "                          gene-expression / bioassay labels against ADMET and "
+               "mutagenicity endpoints, which is")
+        print( "                          transfer, not leakage. The one arm that DID (WONG on "
+               "Wong) is out of this field.")
     for a, n in short_prov.items():
         print(f"     provisional          {a} ranked on {n} of "
               f"{int(out['n_datasets'].max())} datasets "
