@@ -23,6 +23,17 @@ import argparse
 import json
 import math
 import os
+
+# One BLAS thread per process, set BEFORE numpy loads OpenBLAS -- the dataloader workers fork from
+# here and inherit it. Without this the MTR collate is 8x slower than it should be on a live-
+# descriptor run: rdkit's Ipc descriptor builds a characteristic polynomial through numpy.dot, so
+# every worker opens its own OpenBLAS pool, six workers ask for ~20 cores on 16, and two thirds of
+# the machine goes to kernel time fighting over them. Runs reading PRECOMPUTED descriptors never
+# call rdkit in the worker and never noticed. Setting it here rather than in the launcher's
+# environment is deliberate: an export in a shell wrapper is one indirection away from the process
+# that needs it, and it was silently not reaching this one.
+for _v in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 import shutil
 import sys
 import tempfile
