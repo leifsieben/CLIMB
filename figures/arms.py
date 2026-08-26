@@ -242,22 +242,46 @@ ARMS = {
     #
     # `mol` is a LITERAL list and must name all three dirs; `mace` is a STEM that _seed_dirs
     # expands. Getting that backwards has silently cost seeds four times in this repo.
+    # SUBTITLES IN CLIMB'S OWN GRAMMAR (Leif 2026-08-26), so the external models can be read
+    # against the CLIMB rows instead of beside them: OBJECTIVE, PRETRAINING MOLECULES, INPUT.
+    # ChemBERTa-2's MTR is regression onto computed RDKit descriptors -- the same objective CLIMB
+    # calls "supervised, desc" -- which is the comparison the relabel exists to make visible.
+    #
+    # `pretrain_mols` is the number the label prints. It is the PRETRAINING CORPUS, never the
+    # parameter count: the two orderings are opposite here (3.4M / 44.4M / 358.1M parameters
+    # against 77M / 1.1B / unknown molecules) and printing one where the other belongs is the
+    # single easiest mistake to make on this plate.
     "chemberta_mtr": dict(
         label="MTR pretraining", short="ChemBERTa", family="chemberta",
         color=SHADES["literature"][0], probe="frozen", pretrain_replicates=False,
         in_ablation=False, params_m=3.4, hf="DeepChem/ChemBERTa-77M-MTR",
+        objective="supervised", pretrain_mols=77e6, inputs="desc",
         src=dict(mace="chemberta_mtr",
                  mol=["chemberta_mtr", "chemberta_mtr_s1", "chemberta_mtr_s2"])),
+    # `hf` FIXED 2026-08-26. It read ibm-research/MoLFormer-XL-both-10pct, which is the repo the
+    # TOKENIZER came from; the weights are DeepChem/MoLFormer-c3-1.1B, per this arm's own
+    # npz_provenance. The two differ by an order of magnitude in pretraining data -- "both-10pct"
+    # is 10% of each corpus -- so the wrong repo here would have put ~122M on the plate instead of
+    # 1.1B. Read from the run's artefact, not from the config someone remembered writing.
+    #
+    # 1.1B verified from the model card: 100% ZINC20 (1B) + 100% PubChem (100M). Input is SMILES,
+    # not SELFIES (this arm's npz_provenance records selfies_input: false).
     "molformer_c3": dict(
         label="c3, linear attention", short="MoLFormer", family="molformer",
         color=SHADES["literature"][1], probe="frozen", pretrain_replicates=False,
-        in_ablation=False, params_m=44.4, hf="ibm-research/MoLFormer-XL-both-10pct",
+        in_ablation=False, params_m=44.4, hf="DeepChem/MoLFormer-c3-1.1B",
+        objective="unsupervised", pretrain_mols=1.1e9, inputs="SMILES",
         src=dict(mace="molformer_c3",
                  mol=["molformer_c3", "molformer_c3_s1", "molformer_c3_s2"])),
+    # pretrain_mols is DELIBERATELY ABSENT: the model card states no corpus size, the SELF-BART
+    # paper behind it was not reachable, and a plausible round number on a figure is worse than a
+    # missing one. label() omits the count rather than inventing it; fill this in the moment the
+    # figure is confirmed from the card or the paper and the subtitle completes itself.
     "selfies_ted": dict(
         label="SELFIES, enc-dec", short="SELFIES-TED", family="selfies_ted",
         color=SHADES["literature"][2], probe="frozen", pretrain_replicates=False,
         in_ablation=False, params_m=358.1, hf="ibm-research/materials.selfies-ted",
+        objective="unsupervised", inputs="SELFIES",
         src=dict(mace="selfies_ted",
                  mol=["selfies_ted", "selfies_ted_s1", "selfies_ted_s2"])),
 
@@ -668,8 +692,30 @@ def system(arm_key: str) -> str:
     return ARMS[arm_key].get("system") or SYSTEM.get(ARMS[arm_key]["family"], "CLIMB")
 
 
+def _mols(n):
+    """1.1e9 -> '1.1B', 7.7e7 -> '77M'. Trailing '.0' dropped so 77M never prints as 77.0M."""
+    for div, suf in ((1e9, "B"), (1e6, "M"), (1e3, "k")):
+        if n >= div:
+            v = n / div
+            return f"{v:.1f}".rstrip("0").rstrip(".") + suf
+    return str(int(n))
+
+
 def label(arm_key: str) -> str:
-    return ARMS[arm_key]["label"] if arm_key in ARMS else arm_key
+    """The subtitle line. Built from the arm's own fields where they exist.
+
+    An arm carrying `objective` gets CLIMB's grammar -- "objective, corpus, input" -- so the
+    external models read against the CLIMB rows rather than beside them (Leif 2026-08-26).
+    `pretrain_mols` is OMITTED WHEN UNKNOWN rather than guessed: a plausible round number on a
+    figure is worse than a missing one, because nothing downstream can tell the two apart.
+    """
+    if arm_key not in ARMS:
+        return arm_key
+    a = ARMS[arm_key]
+    if a.get("objective"):
+        mols = f"{_mols(a['pretrain_mols'])} " if a.get("pretrain_mols") else ""
+        return f"{a['objective']}, {mols}{a['inputs']}"
+    return a["label"]
 
 
 def two_line_label(arm_key: str) -> str:

@@ -78,20 +78,45 @@ PENDING = {
     "sup_dense_100M": dict(system="CLIMB 100M", label="supervised, desc", color="#A3455E"),
 }
 
-# ------------------------------------------------------------- the four panels ------------------
-# (category, metric, axis label, higher_is_better). The metric is DECLARED here and every dataset
-# in the category is re-read on it; whatever cannot supply it drops out and the count says so.
+# ------------------------------------------------------------- the six panels -------------------
+# (category, metric, axis label, higher_is_better). Leif 2026-08-26: "two plots for reg and class
+# then, one auroc one auprc, one mae and one spearman, but then let's keep the same definitions as
+# we used for ranking in A."
+#
+# SO NO METRIC IS INVENTED HERE. Every metric below is one fig_A already ranks some dataset on;
+# the panels differ from the ranking only in showing VALUES rather than ranks, and in grouping the
+# datasets by which metric they can supply instead of mixing them.
+#
+# THE TWO CLASSIFICATION PANELS ARE COMPLEMENTARY, not alternative views of one set. Polaris
+# releases only each benchmark's declared metric, so cyp2c9-substrate and cyp2d6-substrate can
+# give pr_auc and nothing else, while the other ten give roc_auc. Ten plus two is the whole
+# category -- split by what the benchmark will release, not by preference.
 PANELS = [
-    ("Activity cliffs",   "rmse",      "macro RMSE  (pChEMBL)", False),
-    ("Regression",        "spearmanr", "Spearman ρ",            True),
-    ("Classification",    "roc_auc",   "ROC-AUC",               True),
-    ("Virtual screening", "nef1",      "NEF1%",                 True),
+    ("Activity cliffs",   "rmse",                "macro RMSE  (pChEMBL)", False),
+    ("Regression",        "spearmanr",           "Spearman ρ",            True),
+    ("Regression",        "mean_absolute_error", "MAE",                   False),
+    ("Classification",    "roc_auc",             "ROC-AUC",               True),
+    ("Classification",    "pr_auc",              "PR-AUC",                True),
+    ("Virtual screening", "nef1",                "NEF1%",                 True),
 ]
 
 # FartDB's macro one-vs-rest AUC is an AUROC generalised to five classes, and the runner stores it
 # under its own name. Mapping it into the ROC-AUC panel is a naming equivalence, declared here
 # rather than assumed inside the filter, so it is visible to anyone auditing what the panel holds.
 METRIC_ALIASES = {("Classification", "roc_auc"): {"macro_ovr_auc"}}
+
+# MAE IS NOT A UNIT, IT IS A UNIT PER DATASET, and this guard is why the MAE panel is trustworthy.
+# Measured across the regression tasks that report it: caco2-wang 0.35 and ld50-zhu 0.63 sit beside
+# ppbr-az 9.7 and the three pkis2 regressions at 18-24. That is a 69x span, so a plain mean would
+# be a number about pkis2 with the other ten datasets as rounding error -- the same failure as
+# averaging QM7's kcal/mol with ESOL's log units, only less obvious because both are called "MAE".
+#
+# A DROPPED HAND-LIST WOULD GO STALE, so the guard MEASURES instead: any dataset whose field-mean
+# error exceeds SCALE_RATIO x the panel median is on a different scale and is excluded, by name, in
+# the report. If a re-scoring ever moves a target's units the guard notices; a list of four task
+# names would not have.
+SCALE_RATIO = 3.0
+SCALE_GUARDED = {"mean_absolute_error", "mean_squared_error", "rmse"}
 
 
 def _category_map():
@@ -118,6 +143,14 @@ def compute():
         cols = [c for c in in_cat if c in S.columns and M.loc[c, "metric"] in ok]
         assert cols, f"SI_fig_g: no {name} dataset could be read on {metric!r}"
 
+        offscale = []
+        if metric in SCALE_GUARDED and len(cols) > 2:
+            field = S[cols].mean(axis=0)                    # the field's mean error per dataset
+            med = float(field.median())
+            offscale = sorted(c for c in cols
+                              if med > 0 and float(field[c]) / med > SCALE_RATIO)
+            cols = [c for c in cols if c not in offscale]
+
         sub = S.loc[[a for a in ARM_ORDER if a in S.index], cols]
         n = sub.notna().sum(axis=1)
         d = pd.DataFrame({"mean": sub.mean(axis=1),
@@ -126,8 +159,9 @@ def compute():
         d.loc[n < 2, "se"] = np.nan     # one dataset has no spread; draw the bar, drop the whisker
         d["n_cat"] = len(in_cat)
         d["n_used"] = len(cols)
-        d.attrs["dropped"] = sorted(set(in_cat) - set(cols))
-        out[name] = d
+        d.attrs["dropped"] = sorted(set(in_cat) - set(cols) - set(offscale))
+        d.attrs["offscale"] = offscale
+        out[(name, metric)] = d
     return out
 
 
@@ -147,51 +181,56 @@ def _meta(a):
 
 def main():
     res = compute()
-    # 1x4 (Leif 2026-08-26). Four panels across the text block leave ~1.55in each for seven bars,
-    # so the arm names cannot live on the x-axis -- they are a shared legend below, and the panels
-    # keep their full width for bars instead of spending a third of it on repeated tick text.
-    fig, axes = plt.subplots(1, 4, figsize=(STYLE["col2"] * 1.045, 2.78))
+    # ONE ROW, SIX PANELS (Leif 2026-08-26: "still have all plots be in one row"). That leaves
+    # ~1.05in per panel for seven bars, so nothing that repeats per panel can afford to be text:
+    # the arm names are a shared legend, the category name is carried by the title only where it
+    # changes, and the in-bar numbers run vertically at the smallest size the set allows.
+    fig, axes = plt.subplots(1, len(PANELS), figsize=(STYLE["col2"] * 1.002, 2.92))
 
+    prev_cat = None
     for ax, (name, metric, ylab, higher) in zip(axes, PANELS):
-        d = res[name]
+        d = res[(name, metric)]
         for xi, a in enumerate(ARM_ORDER):
             _sys, _sub, c = _meta(a)
             if a not in d.index or not np.isfinite(d.loc[a, "mean"]):
                 ax.text(xi, 0.02, "in flight", transform=ax.get_xaxis_transform(),
                         ha="center", va="bottom", rotation=90,
-                        fontsize=FS["annot"] - 1.5, color="#7A7A7A", style="italic", zorder=4)
+                        fontsize=FS["annot"] - 2.5, color="#7A7A7A", style="italic", zorder=4)
                 continue
             r = d.loc[a]
-            ax.bar(xi, r["mean"], width=0.78, color=c, edgecolor="none", zorder=2)
+            ax.bar(xi, r["mean"], width=0.84, color=c, edgecolor="none", zorder=2)
             if np.isfinite(r["se"]):
                 ax.errorbar(xi, r["mean"], yerr=r["se"], fmt="none", ecolor=INK,
-                            elinewidth=0.8, capsize=1.5, capthick=0.7, zorder=3)
-            # Rotated INSIDE the bar and anchored at its base, not its tip: the whisker lives at
-            # the tip, and a bar this narrow has no room beside it.
-            # A BAR AVERAGED OVER FEWER DATASETS THAN ITS NEIGHBOURS IS A DIFFERENT QUANTITY,
-            # and unlike a rank it cannot be rescaled to hide that. unsup_100M is still missing
-            # Wong and FartDB, so its VS bar is a mean of two where the rest are means of three.
-            # Marked at the bar and named in the footnote.
+                            elinewidth=0.7, capsize=1.2, capthick=0.6, zorder=3)
+            # A BAR AVERAGED OVER FEWER DATASETS THAN ITS NEIGHBOURS IS A DIFFERENT QUANTITY, and
+            # unlike a rank it cannot be rescaled to hide that. Marked at the bar, named in the
+            # footnote, and BOTH vanish on their own the moment the missing cells land.
             short = int(r["n"]) < int(d["n_used"].iloc[0])
-            ax.text(xi, 0.035, f"{r['mean']:.3f}" + (" *" if short else ""),
+            txt = (f"{r['mean']:.3f}" if r["mean"] < 10 else f"{r['mean']:.1f}")
+            ax.text(xi, 0.035, txt + ("*" if short else ""),
                     transform=ax.get_xaxis_transform(),
                     ha="center", va="bottom", rotation=90,
-                    fontsize=FS["annot"] - 1.5, color=_on(c), fontweight="bold", zorder=4)
+                    fontsize=FS["annot"] - 2.5, color=_on(c), fontweight="bold", zorder=4)
 
         ax.set_xticks(range(len(ARM_ORDER)))
         ax.set_xticklabels([])
         ax.tick_params(axis="x", length=0)
-        ax.set_xlim(-0.7, len(ARM_ORDER) - 0.3)
+        ax.set_xlim(-0.75, len(ARM_ORDER) - 0.25)
         arrow = "↑" if higher else "↓"
         n_used, n_cat = int(d["n_used"].iloc[0]), int(d["n_cat"].iloc[0])
-        ax.set_title(f"{name} {arrow}", fontsize=FS["title"] - 0.5, fontweight="bold",
-                     color=INK, pad=3)
+        # EVERY panel names its category. Printing it once over a pair and leaving the second
+        # with a bare arrow looked tidy and read as an orphan: a floating "down-arrow" between
+        # "Regression" and "Classification" belongs to neither. The y-label carries the metric, so
+        # the repetition costs nothing and the pairing stays obvious.
+        head = f"{name} {arrow}"
+        prev_cat = name
+        ax.set_title(head, fontsize=FS["title"] - 1.5, fontweight="bold", color=INK, pad=3)
         # The count is on the AXIS, not in the caption: "10 of 12" is the most misreadable thing
         # on this plate and a reader should not have to leave the panel to find it.
-        ax.set_ylabel(f"{ylab}   ({n_used} of {n_cat} datasets)", fontsize=FS["annot"] - 0.5)
+        ax.set_ylabel(f"{ylab}  ({n_used}/{n_cat} ds)", fontsize=FS["annot"] - 1.5)
         ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
-        ax.tick_params(axis="y", labelsize=FS["tick"] - 1.5)
+        ax.tick_params(axis="y", labelsize=FS["tick"] - 2.5)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
 
@@ -202,38 +241,57 @@ def main():
         handles.append(Patch(facecolor=c, edgecolor="none", alpha=0.35 if pend else 1.0,
                              label=f"{sysname} — {sub}" + (" (in flight)" if pend else "")))
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.004), ncol=4,
-               fontsize=FS["legend"] - 0.5, handlelength=1.1, handletextpad=0.45,
+               fontsize=FS["legend"] - 1.0, handlelength=1.1, handletextpad=0.45,
                columnspacing=1.1, labelspacing=0.3, borderpad=0.3, **LEGEND_BOX)
-    # The short-coverage footnote is BUILT FROM THE TABLE, never typed: which arm is short of
-    # which panel changes every time a rung finishes scoring, and a hand-written sentence about it
-    # would be wrong within the day.
+
+    # THE FOOTNOTES ARE BUILT FROM THE TABLE, never typed: which arm is short of which panel, and
+    # which dataset sits off the MAE scale, both change as runs finish and as targets get
+    # re-scored. A hand-written sentence about either would be wrong within the day.
+    notes = []
     short = {}
-    for name, _m, _l, _h in PANELS:
-        d = res[name]
+    for name, metric, _l, _h in PANELS:
+        d = res[(name, metric)]
         for a in d.index:
             if int(d.loc[a, "n"]) < int(d["n_used"].iloc[0]):
-                short.setdefault(a, []).append(f"{name} {int(d.loc[a,'n'])} of "
-                                               f"{int(d['n_used'].iloc[0])}")
+                short.setdefault(a, []).append(
+                    f"{ylab_of(name, metric)} {int(d.loc[a,'n'])}/{int(d['n_used'].iloc[0])}")
+        if d.attrs["offscale"]:
+            notes.append(f"{ylab_of(name, metric)} excludes "
+                         f"{', '.join(x.split(':')[1] for x in d.attrs['offscale'])} "
+                         f"(error >{SCALE_RATIO:g}x the panel median — a different scale, not a "
+                         f"worse model)")
     if short:
-        txt = ";  ".join(f"{_meta(a)[0]} {_meta(a)[1]}: " + ", ".join(v)
-                         for a, v in short.items())
-        fig.text(0.5, 0.152, f"*  averaged over fewer datasets than the rest of the panel — {txt}",
-                 ha="center", va="bottom", fontsize=FS["annot"] - 1.5, color="#4A4A4A")
-    fig.tight_layout(rect=(0, 0.205, 1, 1), w_pad=1.6)
+        notes.insert(0, "*  averaged over fewer datasets than the rest of the panel — "
+                        + ";  ".join(f"{_meta(a)[0]} {_meta(a)[1]}: " + ", ".join(v)
+                                     for a, v in short.items()))
+    for i, line in enumerate(notes):
+        fig.text(0.5, 0.163 + 0.030 * (len(notes) - 1 - i), line, ha="center", va="bottom",
+                 fontsize=FS["annot"] - 2.0, color="#4A4A4A")
+    fig.tight_layout(rect=(0, 0.175 + 0.030 * len(notes), 1, 1), w_pad=1.1)
     save(fig, "SI_fig_g")
     plt.close(fig)
     report(res)
 
 
+def ylab_of(name, metric):
+    for n, m, lab, _h in PANELS:
+        if (n, m) == (name, metric):
+            return lab
+    return metric
+
+
 def report(res):
-    print("\nSI Fig g — absolute performance, every dataset re-read on ONE metric per panel\n")
+    print("\nSI Fig g — absolute performance, one metric per panel\n")
     for name, metric, ylab, higher in PANELS:
-        d = res[name]
-        print(f"   {name}  [{metric}]  {int(d['n_used'].iloc[0])} of {int(d['n_cat'].iloc[0])} "
-              f"datasets in the category")
+        d = res[(name, metric)]
+        print(f"   {name} / {ylab}  [{metric}]  {int(d['n_used'].iloc[0])} of "
+              f"{int(d['n_cat'].iloc[0])} datasets in the category")
         if d.attrs["dropped"]:
-            print(f"      cannot be re-read on {metric}: "
+            print(f"      does not report {metric}: "
                   f"{', '.join(x.split(':')[1] for x in d.attrs['dropped'])}")
+        if d.attrs["offscale"]:
+            print(f"      OFF-SCALE, excluded (> {SCALE_RATIO:g}x panel median): "
+                  f"{', '.join(x.split(':')[1] for x in d.attrs['offscale'])}")
         for a, v in d["mean"].sort_values(ascending=not higher).items():
             se = d.loc[a, "se"]
             tail = f"  +/- {se:.4f}" if np.isfinite(se) else "   <- one dataset, no SE"

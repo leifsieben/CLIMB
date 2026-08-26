@@ -263,11 +263,12 @@ def main(weighting="dataset", name="fig_A", subdir=None):
     # WIDTH IS SET BY MEASUREMENT. save() crops to the drawn content, so the rendered plate is NOT
     # figsize wide: an axes box that leaves slack renders narrower than the text block and LaTeX
     # then scales every font in it up relative to the rest of the set. This layout is authored to
-    # fill the canvas and measured at 6.73in against a 6.69in text block. Re-measure if the axes
+    # fill the canvas and measured at 6.69in against a 6.69in text block. Re-measure if the axes
     # fractions below change, AND when the row labels change: the multiplier is the ratio of the
-    # canvas to the crop, and the crop is set by the widest label in the left column, so shortening
-    # the arm list moved it. First version, with slack on both sides, rendered 5.58in.
-    fig = plt.figure(figsize=(STYLE["col2"] * 1.123, 3.66))
+    # canvas to the crop, and the crop is set by the widest label in the left column. It has moved
+    # three times for that reason -- 1.123 when the labels were short, 1.061 once the literature
+    # CLMs took subtitles like "unsupervised, 1.1B SMILES". First version rendered 5.58in.
+    fig = plt.figure(figsize=(STYLE["col2"] * 1.061, 3.66))
     # Row pitch is set by the axes HEIGHT, and it has two lines of text to hold rather than one
     # (Leif 2026-08-25: "XGBoost and its subtitle aren't squashed that much"). 0.750 x 3.66in =
     # 2.75in over 14 rows is 0.196in per row; at the previous height the bold line and its
