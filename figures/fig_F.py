@@ -207,15 +207,31 @@ ALL_TASKS = {"MoleculeACE": "macro_rmse", "CBS": "nef1", "ESOL": "rmse", "QM7": 
 # the run lands, which is the honest state rather than a silent absence.
 NO_EMB = "no embedding"
 EMB_CLM_U, EMB_CLM_S, EMB_CHE = "+ CLIMB unsup.", "+ CLIMB sup., desc", "+ CheMeleon frozen"
+# THE RANDOM ENCODER IS THIS FIGURE'S TRUE NULL (Leif 2026-08-26), and it is the control the
+# redundancy test has been missing. Every CLIMB bar here adds 512 dimensions to a classical block;
+# a bar that moves could be signal OR could be what 512 dimensions of ANYTHING do to an XGBoost
+# fit at this sample size. An untrained encoder answers that directly -- same width, same head,
+# same folds, no pretraining. If its bar sits level with the trained ones, the concatenation test
+# was never measuring pretraining.
+EMB_CLM_R = "+ CLIMB random"
 ROLE_COLOR = {NO_EMB: SHADES["anchor"][0], EMB_CLM_U: SHADES["unsup"][0],
-              EMB_CLM_S: SHADES["sup"][0], EMB_CHE: SHADES["chemeleon"][0]}
+              EMB_CLM_S: SHADES["sup"][0], EMB_CHE: SHADES["chemeleon"][0],
+              EMB_CLM_R: SHADES["random"][0]}
 # role -> the suffix its feature key carries in the source tables. "CLMsup" is the tag the
 # supervised concat run must write; it is named here so the request and the reader agree.
-ROLE_SUFFIX = {NO_EMB: None, EMB_CLM_U: "CLM", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel"}
+ROLE_SUFFIX = {NO_EMB: None, EMB_CLM_U: "CLM", EMB_CLM_S: "CLMsup", EMB_CHE: "CheMel",
+               EMB_CLM_R: "CLMrand"}
 # CheMeleon RETIRED from the paper (Leif 2026-08-23) -- see figures/arms.py RETIRED. Its role
 # constant and colour stay defined so the concat tables, which still carry CheMel blocks, load
 # without special-casing; it is simply not drawn.
-ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S]
+ROLE_ORDER = [NO_EMB, EMB_CLM_U, EMB_CLM_S, EMB_CLM_R]
+
+# ROLES WHOSE TABLES MAY LEGITIMATELY BE ABSENT, because the run is commissioned and not finished.
+# Everything else must be present or the figure refuses to draw -- a silently missing table for an
+# established role is a defect, and "file absent" is indistinguishable from it unless the two
+# states are declared apart. A pending role SELF-PROMOTES: the moment its tables appear they are
+# read and drawn, so nothing has to be remembered here on the day the run lands.
+PENDING_ROLES = {EMB_CLM_R}
 
 # TWO DESCRIPTOR FAMILIES ON ONE AXIS (Leif 2026-08-22). RDKit was the only descriptor block here.
 # Mordred earns its own ticks because CheMeleon is a D-MPNN pretrained to regress exactly the 1,613
@@ -296,7 +312,8 @@ CONCAT_TAG = {EMB_CLM_U: "unsup", EMB_CLM_S: "sup"}
 # the pattern that has cost this project a panel more than once: a name list written before an
 # object exists cannot include it, and the failure is silent because "file absent" is also the
 # legitimate state of a run still in flight.
-ROLE_SRC_STEM = {EMB_CLM_U: "climb", EMB_CLM_S: "climb_sup", EMB_CHE: "chemeleon"}
+ROLE_SRC_STEM = {EMB_CLM_U: "climb", EMB_CLM_S: "climb_sup", EMB_CHE: "chemeleon",
+                 EMB_CLM_R: "climb_random"}
 _undeclared = [r for r in ROLE_ORDER if ROLE_SUFFIX[r] and r not in ROLE_SRC_STEM]
 assert not _undeclared, f"fig_F: {_undeclared} have a feature suffix but no source-table stem"
 SOURCES = [RIGOR / f"concat_{kind}_{ROLE_SRC_STEM[r]}_v2.csv"
@@ -331,12 +348,30 @@ SOURCES = [RIGOR / f"concat_{kind}_{ROLE_SRC_STEM[r]}_v2.csv"
 # contain no embedding, so they are identical across tags by construction, and computing them once
 # is what makes that a fact rather than a hope.
 FIGF_V2 = RIGOR / "figF_v2"
-V2_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup"}
+V2_TAGS = {EMB_CLM_U: "CLMunsup", EMB_CLM_S: "CLMsup", EMB_CLM_R: "CLMrand"}
 V2_STEMS = ["SHARED"] + [V2_TAGS[r] for r in ROLE_ORDER if ROLE_SUFFIX[r]]
-SOURCES_V2 = [FIGF_V2 / f"{pre}_rdkit_sameenv_{stem}_V2.csv"
-              for stem in V2_STEMS for pre in ("concat", "concat_panels")]
-FOLD_SOURCES = [FIGF_V2 / f"{pre}_rdkit_sameenv_{stem}_V2_folds.csv"
-                for stem in V2_STEMS for pre in ("concat", "concat_panels")]
+
+
+def _v2_paths(stem):
+    return ([FIGF_V2 / f"{pre}_rdkit_sameenv_{stem}_V2.csv" for pre in ("concat", "concat_panels")],
+            [FIGF_V2 / f"{pre}_rdkit_sameenv_{stem}_V2_folds.csv"
+             for pre in ("concat", "concat_panels")])
+
+
+# REQUIRED vs PENDING, split rather than pooled. Pooling them is what made adding a role break the
+# whole figure: one new stem with no file on disk turned V2_READY False and the render raised,
+# which is the correct response for a MISSING table and the wrong one for an UNSTARTED run.
+_REQUIRED_STEMS = ["SHARED"] + [V2_TAGS[r] for r in ROLE_ORDER
+                                if ROLE_SUFFIX[r] and r not in PENDING_ROLES]
+SOURCES_V2, FOLD_SOURCES = [], []
+for _stem in _REQUIRED_STEMS:
+    _a, _b = _v2_paths(_stem)
+    SOURCES_V2 += _a
+    FOLD_SOURCES += _b
+# A pending role's tables are read WHEN THEY EXIST and skipped when they do not -- self-promoting,
+# so the day the run lands nobody has to edit a list here for the bars to appear.
+PENDING_SOURCES = [f for r in ROLE_ORDER if r in PENDING_ROLES and ROLE_SUFFIX[r]
+                   for f in _v2_paths(V2_TAGS[r])[0] + _v2_paths(V2_TAGS[r])[1] if f.exists()]
 V2_READY = all(f.exists() for f in SOURCES_V2)
 PAIRED_READY = V2_READY and all(f.exists() for f in FOLD_SOURCES)
 
