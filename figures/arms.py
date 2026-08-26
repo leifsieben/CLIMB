@@ -273,15 +273,26 @@ ARMS = {
         objective="unsupervised", pretrain_mols=1.1e9, inputs="SMILES",
         src=dict(mace="molformer_c3",
                  mol=["molformer_c3", "molformer_c3_s1", "molformer_c3_s2"])),
-    # pretrain_mols is DELIBERATELY ABSENT: the model card states no corpus size, the SELF-BART
-    # paper behind it was not reachable, and a plausible round number on a figure is worse than a
-    # missing one. label() omits the count rather than inventing it; fill this in the moment the
-    # figure is confirmed from the card or the paper and the subtitle completes itself.
+    # 1B FROM THE PAPER (Leif 2026-08-26), and WHICH VARIANT is settled by measurement rather than
+    # assumption. SELFIES-TED ships in two sizes and they differ in corpus as well as depth:
+    #
+    #     small   2.2M params    2 enc-dec layers, 4 heads    ZINC-22             8B samples
+    #     large   358M params   12 enc-dec layers, 16 heads   ZINC-22 + PubChem   1B samples
+    #
+    # Our checkpoint measures 358.1M parameters, so it is the LARGE one and its corpus is 1B --
+    # not the 8B of the small variant, which is the trap here: the SMALLER model saw the LARGER
+    # corpus, so guessing from "it's the big one" would have put 8B on the plate. The parameter
+    # count we already had is what decides it.
+    #
+    # The paper says "samples", not unique molecules, so this is a pretraining-scale figure of the
+    # same kind as MoLFormer's 1.1B rather than a deduplicated count. Worth one caption word if a
+    # referee presses on the unique-molecule axis, since that distinction is the whole subject of
+    # fig_B.
     "selfies_ted": dict(
         label="SELFIES, enc-dec", short="SELFIES-TED", family="selfies_ted",
         color=SHADES["literature"][2], probe="frozen", pretrain_replicates=False,
         in_ablation=False, params_m=358.1, hf="ibm-research/materials.selfies-ted",
-        objective="unsupervised", inputs="SELFIES",
+        objective="unsupervised", pretrain_mols=1e9, inputs="SELFIES",
         src=dict(mace="selfies_ted",
                  mol=["selfies_ted", "selfies_ted_s1", "selfies_ted_s2"])),
 

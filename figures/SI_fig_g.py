@@ -92,7 +92,7 @@ PENDING = {
 # give pr_auc and nothing else, while the other ten give roc_auc. Ten plus two is the whole
 # category -- split by what the benchmark will release, not by preference.
 PANELS = [
-    ("Activity cliffs",   "rmse",                "macro RMSE  (pChEMBL)", False),
+    ("Activity cliffs",   "rmse",                "macro RMSE",            False),
     ("Regression",        "spearmanr",           "Spearman ρ",            True),
     ("Regression",        "mean_absolute_error", "MAE",                   False),
     ("Classification",    "roc_auc",             "ROC-AUC",               True),
@@ -115,6 +115,18 @@ METRIC_ALIASES = {("Classification", "roc_auc"): {"macro_ovr_auc"}}
 # error exceeds SCALE_RATIO x the panel median is on a different scale and is excluded, by name, in
 # the report. If a re-scoring ever moves a target's units the guard notices; a list of four task
 # names would not have.
+# Target axes height. Panels are ~0.65in wide once six of them share the text block, so this is
+# the knob that sets their aspect; 0.80 lands close to square without squeezing the rotated in-bar
+# numbers, which need ~0.30in of the column.
+PANEL_H = 0.80      # axes height; panels are ~0.65in wide, so this sets the aspect
+TITLE_IN = 0.22     # panel title + its pad
+TOP_IN = 0.05
+NOTE_IN = 0.145     # one derived footnote line
+LEGEND_IN = 0.46    # the two-row legend box
+GAP_IN = 0.06       # breathing room between the lowest footnote and the axes
+WSPACE = 0.62       # enough for each panel to carry its own y tick labels
+LEFT_IN = 0.44      # y tick labels + the rotated y-axis label of the first panel
+
 SCALE_RATIO = 3.0
 SCALE_GUARDED = {"mean_absolute_error", "mean_squared_error", "rmse"}
 
@@ -165,6 +177,37 @@ def compute():
     return out
 
 
+def _notes(res):
+    """The footnote lines, BUILT FROM THE TABLE and never typed.
+
+    Which arm is short of which panel, and which dataset sits off the MAE scale, both change as
+    runs finish and as targets get re-scored. A hand-written sentence about either would be wrong
+    within the day -- and the figure's own height depends on how many lines there are, so this is
+    called once before the canvas is sized and once again to draw them.
+    """
+    lines, short = [], {}
+    for name, metric, _l, _h in PANELS:
+        d = res[(name, metric)]
+        for a in d.index:
+            if int(d.loc[a, "n"]) < int(d["n_used"].iloc[0]):
+                short.setdefault(a, []).append(
+                    f"{ylab_of(name, metric)} {int(d.loc[a, 'n'])}/{int(d['n_used'].iloc[0])}")
+        if d.attrs["offscale"]:
+            lines.append(f"{ylab_of(name, metric)} excludes "
+                         f"{', '.join(x.split(':')[1] for x in d.attrs['offscale'])} "
+                         f"(error >{SCALE_RATIO:g}x the panel median — a different scale, not a "
+                         f"worse model)")
+    if short:
+        lines.insert(0, "*  averaged over fewer datasets than the rest of the panel — "
+                        + ";  ".join(f"{_meta(a)[0]} {_meta(a)[1]}: " + ", ".join(v)
+                                     for a, v in short.items()))
+    return lines
+
+
+def _note_lines(res):
+    return len(_notes(res))
+
+
 def _on(hex_color):
     """Readable ink for a label drawn on top of `hex_color` (relative luminance, sRGB)."""
     r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5))
@@ -185,7 +228,27 @@ def main():
     # ~1.05in per panel for seven bars, so nothing that repeats per panel can afford to be text:
     # the arm names are a shared legend, the category name is carried by the title only where it
     # changes, and the in-bar numbers run vertically at the smallest size the set allows.
-    fig, axes = plt.subplots(1, len(PANELS), figsize=(STYLE["col2"] * 1.002, 2.92))
+    # PANEL SHAPE IS SET IN INCHES, and the layout is placed rather than negotiated (Leif
+    # 2026-08-26: "just don't have them be so elongated, more square like ideally"). Six panels
+    # across the text block fix each at ~0.65in wide, so height is the only free variable -- and
+    # the previous figure made them 0.65 x 1.77, an aspect of 2.7.
+    #
+    # tight_layout is NOT used here. Every piece of furniture below the axes has a fixed height in
+    # inches (a two-row legend, one line per derived footnote), so the canvas is built by adding
+    # those inches up and the axes are positioned from the same arithmetic. Asking tight_layout to
+    # reserve a FRACTION for them meant the reserved space changed whenever the height did, which
+    # is how the first attempt left an inch of white between the bars and the legend.
+    notes = _notes(res)
+    foot_in = LEGEND_IN + NOTE_IN * len(notes) + GAP_IN
+    fig_h = TOP_IN + TITLE_IN + PANEL_H + foot_in
+    fig_w = STYLE["col2"] * 0.991
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    axes = fig.subplots(1, len(PANELS))
+    fig.subplots_adjust(left=LEFT_IN / fig_w,
+                        right=1 - 0.02 / fig_w,
+                        bottom=foot_in / fig_h,
+                        top=1 - (TOP_IN + TITLE_IN) / fig_h,
+                        wspace=WSPACE)
 
     prev_cat = None
     for ax, (name, metric, ylab, higher) in zip(axes, PANELS):
@@ -227,7 +290,11 @@ def main():
         ax.set_title(head, fontsize=FS["title"] - 1.5, fontweight="bold", color=INK, pad=3)
         # The count is on the AXIS, not in the caption: "10 of 12" is the most misreadable thing
         # on this plate and a reader should not have to leave the panel to find it.
-        ax.set_ylabel(f"{ylab}  ({n_used}/{n_cat} ds)", fontsize=FS["annot"] - 1.5)
+        # SHORT ENOUGH TO FIT THE PANEL HEIGHT. A rotated y-label is as long as the axes are
+        # tall, and at 0.80in "macro RMSE (pChEMBL) (30/30 ds)" ran off the top of the canvas --
+        # drawn, correct, and cropped. The pChEMBL unit moves to the caption; the coverage count
+        # stays, because it is the thing a reader most needs and least expects.
+        ax.set_ylabel(f"{ylab}  ({n_used}/{n_cat})", fontsize=FS["annot"] - 1.5)
         ax.grid(axis="y", ls=":", lw=0.6, color=STYLE["grid"])
         ax.set_axisbelow(True)
         ax.tick_params(axis="y", labelsize=FS["tick"] - 2.5)
@@ -240,34 +307,18 @@ def main():
         pend = a not in ARMS
         handles.append(Patch(facecolor=c, edgecolor="none", alpha=0.35 if pend else 1.0,
                              label=f"{sysname} — {sub}" + (" (in flight)" if pend else "")))
+    # THE LEGEND, NOT THE AXES, SETS THIS PLATE'S WIDTH. save() crops to drawn content, and seven
+    # keys carrying subtitles like "unsupervised, 1.1B SMILES" are wider than six 0.65in panels --
+    # so shrinking the canvas moved the bars and left the crop where it was. Sized here instead:
+    # four columns at this face fit inside the text block, and a fifth or a larger face does not.
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.004), ncol=4,
-               fontsize=FS["legend"] - 1.0, handlelength=1.1, handletextpad=0.45,
-               columnspacing=1.1, labelspacing=0.3, borderpad=0.3, **LEGEND_BOX)
+               fontsize=FS["legend"] - 1.8, handlelength=0.95, handletextpad=0.4,
+               columnspacing=0.9, labelspacing=0.28, borderpad=0.28, **LEGEND_BOX)
 
-    # THE FOOTNOTES ARE BUILT FROM THE TABLE, never typed: which arm is short of which panel, and
-    # which dataset sits off the MAE scale, both change as runs finish and as targets get
-    # re-scored. A hand-written sentence about either would be wrong within the day.
-    notes = []
-    short = {}
-    for name, metric, _l, _h in PANELS:
-        d = res[(name, metric)]
-        for a in d.index:
-            if int(d.loc[a, "n"]) < int(d["n_used"].iloc[0]):
-                short.setdefault(a, []).append(
-                    f"{ylab_of(name, metric)} {int(d.loc[a,'n'])}/{int(d['n_used'].iloc[0])}")
-        if d.attrs["offscale"]:
-            notes.append(f"{ylab_of(name, metric)} excludes "
-                         f"{', '.join(x.split(':')[1] for x in d.attrs['offscale'])} "
-                         f"(error >{SCALE_RATIO:g}x the panel median — a different scale, not a "
-                         f"worse model)")
-    if short:
-        notes.insert(0, "*  averaged over fewer datasets than the rest of the panel — "
-                        + ";  ".join(f"{_meta(a)[0]} {_meta(a)[1]}: " + ", ".join(v)
-                                     for a, v in short.items()))
     for i, line in enumerate(notes):
-        fig.text(0.5, 0.163 + 0.030 * (len(notes) - 1 - i), line, ha="center", va="bottom",
+        y_in = LEGEND_IN + NOTE_IN * (len(notes) - 1 - i) + 0.03
+        fig.text(0.5, y_in / fig_h, line, ha="center", va="bottom",
                  fontsize=FS["annot"] - 2.0, color="#4A4A4A")
-    fig.tight_layout(rect=(0, 0.175 + 0.030 * len(notes), 1, 1), w_pad=1.1)
     save(fig, "SI_fig_g")
     plt.close(fig)
     report(res)
