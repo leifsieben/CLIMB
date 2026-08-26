@@ -57,7 +57,7 @@ def main() -> int:
 
     import eval_v2 as E
     from heads_v2 import make_head, compute_metric, compute_nef
-    from scripts.chemeleon_suite_run import make_featurizer, NPZ_META
+    from scripts.chemeleon_suite_run import make_featurizer, prepare_fold, NPZ_META
 
     smiles, y = load()
     feat, std = make_featurizer(a.featurizer, a.encoder, a.tokenizer,
@@ -76,11 +76,7 @@ def main() -> int:
             rng = np.random.default_rng(seed); perm = rng.permutation(len(pool))
             nv = max(1, int(0.1 * len(pool)))
             va, tr = pool[perm[:nv]], pool[perm[nv:]]
-            Z = X
-            if std == "zscore":
-                mu, sd = np.nanmean(X[tr], 0), np.nanstd(X[tr], 0)
-                sd[sd == 0] = 1.0
-                Z = (X - mu) / sd
+            Z = prepare_fold(X, tr, a.head, std)
             h = make_head(a.head, "classification", 1, seed).fit(Z[tr], y[tr], Z[va], y[va])
             p = np.asarray(h.predict(Z[te]), dtype=np.float64).reshape(-1, 1)
             nef = float(compute_nef(p, y[te]))

@@ -104,6 +104,47 @@ def clf_metrics(yt, yp):
 NPZ_META: dict = {}   # provenance read out of a precomputed feature table, if present
 
 
+def prepare_fold(X, tr, head, std_method):
+    """Standardise and impute a feature matrix for ONE fold, exactly as run() does.
+
+    EXTRACTED BECAUSE I LOST BOTH RULES BY REWRITING THE LOOP. wong_run.py and cbs_run.py called
+    make_featurizer directly and reimplemented the fold loop, which silently dropped two fixes that
+    already existed here, each installed after its own incident:
+
+      * make_featurizer returns std="none" for ecfp4/fp_desc because those arms were defined with
+        XGBoost, which is scale-invariant. An MLP is not -- unscaled descriptors span 20+ orders of
+        magnitude beside 0/1 bits and collapse it (fp_desc__mlp returned CONSTANT predictions for
+        whole Polaris cells).
+      * fp_desc keeps undefined descriptors as NaN because XGBoost consumes them natively. An MLP
+        cannot: one NaN makes every output NaN, and with std="none" nothing upstream removes them.
+        On Polaris that produced 9 of 28 tasks at 100% NaN, exiting 0 with full-size prediction
+        files.
+
+    Wong/fp_desc died with "Input contains NaN" -- the loud version of the same thing. Any runner
+    that builds its own loop must call THIS, not re-derive it.
+
+    Imputation uses TRAIN-fold medians only, so no test information reaches the fit, and applies
+    only when the head needs it -- an XGBoost arm is untouched.
+    """
+    import numpy as _np
+    if head != "xgb" and std_method == "none":
+        std_method = "zscore"
+    Z = _np.asarray(X, dtype=_np.float32)
+    if head != "xgb" and not _np.isfinite(Z).all():
+        med = _np.nanmedian(_np.where(_np.isfinite(Z[tr]), Z[tr], _np.nan), axis=0)
+        med = _np.where(_np.isfinite(med), med, 0.0)
+        bad = ~_np.isfinite(Z)
+        n_bad = int(bad.sum())
+        Z = _np.where(bad, _np.broadcast_to(med, Z.shape), Z)
+        print(f"[prepare_fold] imputed {n_bad} non-finite entries from TRAIN medians", flush=True)
+    if std_method == "zscore":
+        mu = _np.nanmean(Z[tr], 0)
+        sd = _np.nanstd(Z[tr], 0)
+        sd[sd == 0] = 1.0
+        Z = (Z - mu) / sd
+    return Z
+
+
 def make_featurizer(featurizer, encoder_path, tokenizer_path, hf_model=None, hf_revision=None):
     import torch
     device = torch.device("cuda" if torch.cuda.is_available()

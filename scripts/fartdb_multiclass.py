@@ -153,7 +153,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="output label, e.g. chemberta_mtr")
     ap.add_argument("--featurizer", required=True,
-                    choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder"])
+                    choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder", "npz"])
     ap.add_argument("--encoder", default=None)
     ap.add_argument("--tokenizer", default=None)
     ap.add_argument("--hf_model", default=None)
@@ -166,7 +166,7 @@ def main() -> int:
 
     sys.path.insert(0, str(ROOT))
     import eval_v2 as E                       # read-only: scaffold folds + the shared featurizers
-    from scripts.chemeleon_suite_run import make_featurizer  # noqa: E402
+    from scripts.chemeleon_suite_run import make_featurizer, prepare_fold  # noqa: E402
     feat, _ = make_featurizer(a.featurizer, a.encoder, a.tokenizer,
                               hf_model=a.hf_model, hf_revision=a.hf_revision)
     X = np.asarray(feat(smiles), dtype=np.float32)
@@ -184,9 +184,7 @@ def main() -> int:
             nv = max(1, int(0.1 * len(pool)))
             va, tr = pool[perm[:nv]], pool[perm[nv:]]
             # z-score on TRAIN ONLY, matching the suite's treatment of encoder features
-            mu, sd = np.nanmean(X[tr], 0), np.nanstd(X[tr], 0)
-            sd[sd == 0] = 1.0
-            Z = (X - mu) / sd
+            Z = prepare_fold(X, tr, "mlp", "zscore")
             head = (SoftmaxMLP(len(CLASSES), seed) if a.head == "mlp"
                     else SoftmaxXGB(len(CLASSES), seed))
             head.fit(Z[tr], y[tr], Z[va], y[va])

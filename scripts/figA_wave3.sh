@@ -79,6 +79,20 @@ stage_encoder () {  # $1 stem -> echoes the local path, or empty if it cannot be
   [ -s "$d/model.safetensors" ] && echo "$d" || echo ""
 }
 
+# STAGE AND ASSERT THE TOKENIZER. Its absence killed 48 of tonight's 60 failed cells: every CLIMB
+# encoder arm died in make_featurizer with "figure_data/_tokenizer is not a local folder", which
+# HuggingFace then reports as a possible private-repo auth problem -- nothing points at a missing
+# local directory. figF_stage2.sh already carries this exact lesson in a comment ("that is the same
+# 'asserted everything except one input' failure that cost the xgb job twelve cells on a missing
+# tokenizer") and I staged the encoders here without it.
+aws s3 sync s3://climb-s3-bucket/tokenizer_10M figure_data/_tokenizer --only-show-errors
+[ -s figure_data/_tokenizer/tokenizer.json ] || { say "FATAL tokenizer.json absent after staging"; exit 2; }
+$PY -c "
+from transformers import PreTrainedTokenizerFast
+t = PreTrainedTokenizerFast.from_pretrained('figure_data/_tokenizer')
+assert t.vocab_size > 0
+print(f'[w3] tokenizer loads, vocab={t.vocab_size}')" 2>&1 | tail -1 | tee -a "$LOG"   || { say "FATAL tokenizer will not load"; exit 2; }
+
 n_ok=0; n_bad=0
 while IFS='|' read -r arm label feat src seeds; do
   [ -n "${arm:-}" ] || continue
