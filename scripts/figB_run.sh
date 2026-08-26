@@ -26,11 +26,28 @@ say "code at $(git rev-parse --short HEAD)"
 # alternative, generating the manifest locally and shipping the result, would move the check away
 # from the machine that actually runs it.
 mkdir -p experiments/climb_v2_phase2
+# The cp errors were swallowed and the guard only asked "is the file non-empty?" -- and the worker
+# bundle ships a STALE July experiments/ tree, so a failed fetch left an old manifest in place that
+# passed the guard and died 1s later in the builder. Check the fetch, then TEST the condition that
+# matters: does this manifest actually carry the template this rung clones from?
 for f in manifest.json manifest_supplement.json; do
-  aws s3 cp "s3://climb-s3-bucket/experiments/climb_v2_phase2/manifests/templates/$f"             "experiments/climb_v2_phase2/$f" --only-show-errors 2>/dev/null
+  aws s3 cp "s3://climb-s3-bucket/experiments/climb_v2_phase2/manifests/templates/$f"             "experiments/climb_v2_phase2/$f" --only-show-errors     || abort "template fetch failed for $f -- refusing to run against whatever was already on disk"
 done
-[ -s experiments/climb_v2_phase2/manifest.json ] || abort "template manifest not on S3 -- cannot clone"
-say "template manifests fetched"
+# Ask the builder which template THIS rung clones -- 50M and 100M both clone skip_dense_8M, so
+# deriving the name by stripping a suffix would abort on a manifest that is perfectly fine.
+TPL=$($PY -c "
+import json,sys
+sys.path.insert(0,'scripts')
+from build_figB_manifest import SPEC
+t=SPEC.get('$RUN')
+if t is None: sys.exit(1)
+ids=set()
+for f in ('manifest.json','manifest_supplement.json'):
+    try: ids |= {r['run_id'] for r in json.load(open('experiments/climb_v2_phase2/'+f))['runs']}
+    except Exception: pass
+if t[0] not in ids: sys.exit(2)
+print(t[0])") || abort "template for '$RUN' missing from the fetched manifests -- stale or wrong file"
+say "template manifests fetched -- '$TPL' present"
 
 # ---- manifest, gated ------------------------------------------------------------------------
 $PY scripts/build_figB_manifest.py --run "$RUN" --out "analysis/manifest_${RUN}.json" 2>&1 | tee -a "$LOG"
