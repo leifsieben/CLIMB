@@ -212,6 +212,27 @@ ARMS = {
         in_ablation=False, in_ranking=False, unique_molecules=12_000_000,
         src=dict(mace="skip_dense_96M", mol=["skip_dense_96M"])),
 
+    # unsup_8M_c124 lands here when its Wong + FartDB cells score, as
+    #     "unsup_8M_c124": dict(label="unsupervised", short="unsup 8M c124", family="unsup",
+    #                           system="CLIMB 8M", color=SHADES["unsup"][2], probe="frozen",
+    #                           pretrain_replicates=False, in_ablation=False, in_ranking=False,
+    #                           unique_molecules=8_000_000,
+    #                           src=dict(mace="unsup_8M_c124", mol=["unsup_8M_c124"]))
+    #
+    # IT IS THE CONTROL THAT MAKES unsup_100M INTERPRETABLE, not another rung. unsup_8M sits on
+    # pubchem_filtered (~12M molecules, 0.3% lowercase-aromatic) while unsup_100M sits on
+    # pubchem_124m_full (123.4M, 86.4%), so comparing them moves BUDGET, CORPUS and NOTATION at
+    # once. This arm holds the 8M budget on the big corpus and splits that in two:
+    #
+    #     unsup_8M_c124 vs unsup_100M    same corpus, 8M -> 100M FP     = BUDGET
+    #     unsup_8M      vs unsup_8M_c124 same budget, both corpora      = CORPUS + NOTATION
+    #
+    # in_ranking=False: it is a control, and a third unsup row in fig_A would read as a third
+    # model. See notes/scaling-ladder-unique-molecule-confound.md -- I made this exact comparison
+    # across two axes on 2026-08-26 having written the note warning against it, because the two
+    # values come out of wide_table looking like siblings and nothing in that shape records that
+    # their corpora differ.
+
     # skip_dense_100M_c124 lands here when the run finishes, as
     #     "sup_dense_100M": dict(label="supervised, desc", short="sup 100M", family="sup",
     #                            system="CLIMB 100M", color=SHADES["sup"][5], probe="frozen",

@@ -100,3 +100,69 @@ it can only claim it was the one given more data.
 Related: [[why-chemberta-beats-climb-sup-dense]] -- the same cap is why ChemBERTa-2 outranks
 `sup_dense` in fig_A, and `unsup_8M_c124` is the control showing the corpus itself is a wash at
 matched unique molecules.
+
+---
+
+# I walked into this note's own trap, and then over-read a variance (2026-08-26)
+
+Recorded because both halves were mine, both looked rigorous, and neither would have failed.
+
+## Half one: I compared across two axes at once
+
+Wong landed for unsup_100M and I wrote that its +0.0754 over the `unsup` arm was worth putting in
+the text. The compute session checked both runs' CONFIGS rather than the arm table:
+
+    unsup_8M, _s1, _s2     pubchem_filtered      8M FP     0.3% lowercase-aromatic, ~12M molecules
+    unsup_100M             pubchem_124m_full   100M FP    86.4% lowercase-aromatic, 123.4M molecules
+
+Different budget AND different corpus AND different notation. So the gap is scale plus corpus plus
+notation -- which is exactly the confound the rest of this note is about. I had written the note,
+cited it in three figures that week, and still made the comparison, because the two numbers came
+out of one table looking like siblings.
+
+THE TABLE IS WHAT DID IT. `wide_table` returns one value per (arm, dataset), and nothing in that
+shape records that two rows differ in their pretraining corpus. A confound that is documented in
+prose and absent from the data structure will be re-made by whoever reads the structure -- which is
+eventually always someone, including its author.
+
+The clean pairs, once unsup_8M_c124 is scored:
+
+    unsup_8M_c124  vs  unsup_100M     same corpus, 8M -> 100M FP     = BUDGET
+    unsup_8M       vs  unsup_8M_c124  same budget, both corpora      = CORPUS + NOTATION
+
+Any text claim about the 100M rung rests on the first row, not on 0.4034 vs 0.3280.
+
+## Half two: a variance from three runs is barely a variance
+
+Having measured pretraining-seed SD on Wong at 0.0118 from the three `unsup` dirs, I wrote that the
+gap was "6.4x the pretraining-seed SD". The arithmetic is right and the inference is not: an SD
+estimated from n = 3 has an enormous sampling interval. Chi-square, 2 df, recomputed here rather
+than taken on trust:
+
+    s          0.0118
+    95% CI     sigma in [0.0062, 0.0744]
+    gap        0.0754
+    gap / s    point 6.4x,  95% range [1.0x, 12.2x]
+
+The upper end of the interval says the gap is ONE pretraining SD. The data cannot distinguish
+"clearly outside seed noise" from "exactly seed noise".
+
+What survives is the measurement WITH ITS N: "pretraining-seed SD on Wong is 0.0118 from three runs
+(95% CI 0.006-0.074)". That lets a reader see the estimate and how little it rests on. The ratio
+hides the second half behind a single confident number.
+
+## The shape, which is the reusable part
+
+Both halves are the same species as the SELFIES-TED note earlier the same day: **the evidence was
+real, the conclusion may well be right, and the reasoning had a gap.** Nothing errors, no check
+fires, and the output looks like the output of sound work. It is worse than an ordinary bug for
+exactly that reason -- a later reader inherits the METHOD, and the method is the broken part.
+
+Two guards that would have caught these, in order of how much they cost:
+
+  * Before comparing two arms' VALUES, diff their configs, not their names. Cheap, mechanical, and
+    it is the check that caught this one.
+  * Before quoting a ratio to a spread, ask how many samples the spread came from. Under about 10,
+    quote the interval instead of the ratio.
+
+Related: [[numeric-repro-bounds]], [[anchors-need-model-seeds]], [[replicate-axis-depends-on-arm]].
