@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX
-from figures.arms import ARMS, system, label as arm_label, _mols
+from figures.arms import ARMS, system, label as arm_label
 from figures import allsuites as A
 from figures import tasksuites as T
 
@@ -208,18 +208,24 @@ def _note_lines(res):
     return len(_notes(res))
 
 
-# ONE LEGEND ROW COSTS THE INPUT REPRESENTATION, and that is the trade rather than a free win
-# (Leif 2026-08-26: "use commas instead of emdashes so it fits into one row"). Measured at this
-# face, seven keys across the A4 text block:
+# THE LITERATURE MODELS ARE NAMED, NOT DESCRIBED (Leif 2026-08-26: "please don't list the 77M
+# etc, also information which is not needed. Just call the models by their name"). ChemBERTa-2,
+# MoLFormer and SELFIES-TED are published models a reader can look up; their objective and corpus
+# are in fig_A's row labels and in the SI text, and repeating them in seven keys spent a quarter
+# of the legend saying what a citation says better.
 #
-#     full subtitles, em dashes      8.49in    27% over
-#     full subtitles, commas         8.49in    the dash was never the cost
-#     objective + corpus + input     7.06in     5% over -- so close it is worth knowing
-#     objective + corpus             6.60in    FITS
+# THE CLIMB AND XGBOOST KEYS KEEP THEIR QUALIFIERS, because there the qualifier IS the identity:
+# two rows both read "CLIMB 100M" and differ only by objective, and "XGBoost" alone would not say
+# which feature block. So the rule is not "shorten everything", it is "name what has a name and
+# qualify what does not".
 #
-# So the comma alone does not do it; what does is dropping the input representation (desc / SMILES
-# / SELFIES) from the KEYS. It survives in fig_A's row labels and in the SI text, and the objective
-# and corpus scale -- the two things this plate is actually comparing -- stay.
+# Measured across the A4 text block at this face, seven keys in one row:
+#
+#     full subtitles, em dashes           8.49in    27% over
+#     full subtitles, commas              8.49in    the dash was never the binding term
+#     objective + corpus + input          7.06in     5% over
+#     objective + corpus                  6.60in    fits
+#     literature named, rest qualified    5.66in    fits comfortably
 ABBREV = {"unsupervised": "unsup.", "supervised": "sup.",
           "supervised, desc": "sup. desc", "supervised, desc+sparse": "sup. desc+sparse"}
 
@@ -228,10 +234,7 @@ def _legend_label(a):
     """Compact key text, built from the arm's fields rather than written out per arm."""
     sysname, sub, _ = _meta(a)
     if a in ARMS and ARMS[a].get("objective"):
-        d = ARMS[a]
-        obj = ABBREV.get(d["objective"], d["objective"])
-        mols = f" {_mols(d['pretrain_mols'])}" if d.get("pretrain_mols") else ""
-        return f"{sysname}, {obj}{mols}"
+        return sysname            # a published model: its name is the whole key
     return f"{sysname}, {ABBREV.get(sub, sub)}"
 
 
@@ -264,7 +267,7 @@ def main():
     # reserved 0.46in for a box that renders at about 0.25in and parked a quarter-inch of white
     # under the footnotes. Draw it, ask it how tall it is, then build the canvas around the answer.
     notes = _notes(res)
-    fig_w = STYLE["col2"] * 0.956
+    fig_w = STYLE["col2"] * 0.983
     fig = plt.figure(figsize=(fig_w, 3.0))          # provisional height, replaced below
     axes = fig.subplots(1, len(PANELS))
 
