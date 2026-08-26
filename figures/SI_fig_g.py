@@ -122,8 +122,8 @@ PANEL_H = 0.80      # axes height; panels are ~0.65in wide, so this sets the asp
 TITLE_IN = 0.22     # panel title + its pad
 TOP_IN = 0.05
 NOTE_IN = 0.145     # one derived footnote line
-LEGEND_IN = 0.46    # the two-row legend box
-GAP_IN = 0.06       # breathing room between the lowest footnote and the axes
+GAP_IN = 0.05       # breathing room between the lowest footnote and the axes
+PAD_IN = 0.02       # under the legend box; the crop adds its own margin on top of this
 WSPACE = 0.62       # enough for each panel to carry its own y tick labels
 LEFT_IN = 0.44      # y tick labels + the rotated y-axis label of the first panel
 
@@ -208,13 +208,6 @@ def _note_lines(res):
     return len(_notes(res))
 
 
-def _on(hex_color):
-    """Readable ink for a label drawn on top of `hex_color` (relative luminance, sRGB)."""
-    r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5))
-    lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
-    return INK if 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.45 else "white"
-
-
 def _meta(a):
     if a in ARMS:
         return system(a), arm_label(a), ARMS[a]["color"]
@@ -238,21 +231,20 @@ def main():
     # those inches up and the axes are positioned from the same arithmetic. Asking tight_layout to
     # reserve a FRACTION for them meant the reserved space changed whenever the height did, which
     # is how the first attempt left an inch of white between the bars and the legend.
+    # THE LAYOUT IS MEASURED, THEN PLACED (Leif 2026-08-26: "move the legend as close as
+    # possible"). The legend's height is a function of its font, its row count and its longest
+    # label -- none of which this module gets to decide in inches -- so the previous constant
+    # reserved 0.46in for a box that renders at about 0.25in and parked a quarter-inch of white
+    # under the footnotes. Draw it, ask it how tall it is, then build the canvas around the answer.
     notes = _notes(res)
-    foot_in = LEGEND_IN + NOTE_IN * len(notes) + GAP_IN
-    fig_h = TOP_IN + TITLE_IN + PANEL_H + foot_in
-    fig_w = STYLE["col2"] * 0.991
-    fig = plt.figure(figsize=(fig_w, fig_h))
+    fig_w = STYLE["col2"] * 0.985
+    fig = plt.figure(figsize=(fig_w, 3.0))          # provisional height, replaced below
     axes = fig.subplots(1, len(PANELS))
-    fig.subplots_adjust(left=LEFT_IN / fig_w,
-                        right=1 - 0.02 / fig_w,
-                        bottom=foot_in / fig_h,
-                        top=1 - (TOP_IN + TITLE_IN) / fig_h,
-                        wspace=WSPACE)
 
     prev_cat = None
     for ax, (name, metric, ylab, higher) in zip(axes, PANELS):
         d = res[(name, metric)]
+        marked = False
         for xi, a in enumerate(ARM_ORDER):
             _sys, _sub, c = _meta(a)
             if a not in d.index or not np.isfinite(d.loc[a, "mean"]):
@@ -265,16 +257,28 @@ def main():
             if np.isfinite(r["se"]):
                 ax.errorbar(xi, r["mean"], yerr=r["se"], fmt="none", ecolor=INK,
                             elinewidth=0.7, capsize=1.2, capthick=0.6, zorder=3)
-            # A BAR AVERAGED OVER FEWER DATASETS THAN ITS NEIGHBOURS IS A DIFFERENT QUANTITY, and
-            # unlike a rank it cannot be rescaled to hide that. Marked at the bar, named in the
-            # footnote, and BOTH vanish on their own the moment the missing cells land.
-            short = int(r["n"]) < int(d["n_used"].iloc[0])
-            txt = (f"{r['mean']:.3f}" if r["mean"] < 10 else f"{r['mean']:.1f}")
-            ax.text(xi, 0.035, txt + ("*" if short else ""),
-                    transform=ax.get_xaxis_transform(),
-                    ha="center", va="bottom", rotation=90,
-                    fontsize=FS["annot"] - 2.5, color=_on(c), fontweight="bold", zorder=4)
+            # NO VALUE PRINTED ON THE BAR (Leif 2026-08-26). At this panel size the numbers had to
+            # be set vertically at 4.5pt to fit, which is smaller than the axis they duplicate --
+            # the y-axis already carries the reading, and the plate exists to show the SHAPE of the
+            # differences rather than to be read off digit by digit. The exact values are in the
+            # module's own report() output if anyone needs them.
+            #
+            # THE ASTERISK STAYS, and moves above the whisker. A bar averaged over fewer datasets
+            # than its neighbours is a different quantity, and unlike a rank it cannot be rescaled
+            # to hide that. It is derived from the coverage table, so it vanishes on its own the
+            # moment the missing cells land.
+            if int(r["n"]) < int(d["n_used"].iloc[0]):
+                top = r["mean"] + (r["se"] if np.isfinite(r["se"]) else 0.0)
+                ax.annotate("*", (xi, top), textcoords="offset points", xytext=(0, 1.0),
+                            ha="center", va="bottom", fontsize=FS["annot"], color=INK, zorder=5)
+                marked = True
 
+        # HEADROOM FOR THE ASTERISK, and only where one is drawn. Matplotlib's autoscale sizes
+        # the axis to the bars and whiskers, so a mark placed above the tallest whisker lands in
+        # the title. Asked for explicitly rather than by padding every panel: the five panels
+        # without a short arm keep their full height for the bars.
+        if marked:
+            ax.set_ylim(0, ax.get_ylim()[1] * 1.10)
         ax.set_xticks(range(len(ARM_ORDER)))
         ax.set_xticklabels([])
         ax.tick_params(axis="x", length=0)
@@ -309,16 +313,37 @@ def main():
                              label=f"{sysname} — {sub}" + (" (in flight)" if pend else "")))
     # THE LEGEND, NOT THE AXES, SETS THIS PLATE'S WIDTH. save() crops to drawn content, and seven
     # keys carrying subtitles like "unsupervised, 1.1B SMILES" are wider than six 0.65in panels --
-    # so shrinking the canvas moved the bars and left the crop where it was. Sized here instead:
-    # four columns at this face fit inside the text block, and a fifth or a larger face does not.
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.004), ncol=4,
-               fontsize=FS["legend"] - 1.8, handlelength=0.95, handletextpad=0.4,
-               columnspacing=0.9, labelspacing=0.28, borderpad=0.28, **LEGEND_BOX)
+    # so shrinking the canvas moved the bars and left the crop where it was. Four columns at this
+    # face fit inside the text block; a fifth, or a larger face, does not.
+    leg = fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=4,
+                     fontsize=FS["legend"] - 1.8, handlelength=0.95, handletextpad=0.4,
+                     columnspacing=0.9, labelspacing=0.28, borderpad=0.28, **LEGEND_BOX)
 
+    fig.canvas.draw()
+    leg_in = leg.get_window_extent().height / fig.dpi
+    fig_h = TOP_IN + TITLE_IN + PANEL_H + GAP_IN + NOTE_IN * len(notes) + leg_in + PAD_IN
+    fig.set_size_inches(fig_w, fig_h)
+
+    # Everything below the axes is now stacked from the canvas floor upward, in inches: legend,
+    # then one line per footnote, then the axes. Each element is placed against the measured
+    # height of the one under it, so a footnote appearing or disappearing -- which happens on its
+    # own when unsup_100M's missing cells land -- re-flows the whole plate correctly.
+    leg.set_bbox_to_anchor((0.5, PAD_IN / fig_h), transform=fig.transFigure)
+    # MEASURED AGAIN AFTER THE RESIZE, and this second measurement is the one that matters. The
+    # first ran on the provisional canvas and only had to be close enough to size it; using it to
+    # place the footnotes put the lower line INSIDE the legend box, drawn and unreadable. Ask the
+    # legend where its top actually is now.
+    fig.canvas.draw()
+    leg_top_in = leg.get_window_extent().y1 / fig.dpi
     for i, line in enumerate(notes):
-        y_in = LEGEND_IN + NOTE_IN * (len(notes) - 1 - i) + 0.03
+        y_in = leg_top_in + NOTE_IN * (len(notes) - 1 - i) + 0.035
         fig.text(0.5, y_in / fig_h, line, ha="center", va="bottom",
                  fontsize=FS["annot"] - 2.0, color="#4A4A4A")
+    fig.subplots_adjust(
+        left=LEFT_IN / fig_w, right=1 - 0.02 / fig_w,
+        bottom=(leg_top_in + NOTE_IN * len(notes) + GAP_IN) / fig_h,
+        top=1 - (TOP_IN + TITLE_IN) / fig_h,
+        wspace=WSPACE)
     save(fig, "SI_fig_g")
     plt.close(fig)
     report(res)
