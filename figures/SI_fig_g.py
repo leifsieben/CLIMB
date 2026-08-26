@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from figures.style import STYLE, FS, save, check_font, LEGEND_BOX
-from figures.arms import ARMS, system, label as arm_label
+from figures.arms import ARMS, system, label as arm_label, _mols
 from figures import allsuites as A
 from figures import tasksuites as T
 
@@ -208,6 +208,33 @@ def _note_lines(res):
     return len(_notes(res))
 
 
+# ONE LEGEND ROW COSTS THE INPUT REPRESENTATION, and that is the trade rather than a free win
+# (Leif 2026-08-26: "use commas instead of emdashes so it fits into one row"). Measured at this
+# face, seven keys across the A4 text block:
+#
+#     full subtitles, em dashes      8.49in    27% over
+#     full subtitles, commas         8.49in    the dash was never the cost
+#     objective + corpus + input     7.06in     5% over -- so close it is worth knowing
+#     objective + corpus             6.60in    FITS
+#
+# So the comma alone does not do it; what does is dropping the input representation (desc / SMILES
+# / SELFIES) from the KEYS. It survives in fig_A's row labels and in the SI text, and the objective
+# and corpus scale -- the two things this plate is actually comparing -- stay.
+ABBREV = {"unsupervised": "unsup.", "supervised": "sup.",
+          "supervised, desc": "sup. desc", "supervised, desc+sparse": "sup. desc+sparse"}
+
+
+def _legend_label(a):
+    """Compact key text, built from the arm's fields rather than written out per arm."""
+    sysname, sub, _ = _meta(a)
+    if a in ARMS and ARMS[a].get("objective"):
+        d = ARMS[a]
+        obj = ABBREV.get(d["objective"], d["objective"])
+        mols = f" {_mols(d['pretrain_mols'])}" if d.get("pretrain_mols") else ""
+        return f"{sysname}, {obj}{mols}"
+    return f"{sysname}, {ABBREV.get(sub, sub)}"
+
+
 def _meta(a):
     if a in ARMS:
         return system(a), arm_label(a), ARMS[a]["color"]
@@ -237,7 +264,7 @@ def main():
     # reserved 0.46in for a box that renders at about 0.25in and parked a quarter-inch of white
     # under the footnotes. Draw it, ask it how tall it is, then build the canvas around the answer.
     notes = _notes(res)
-    fig_w = STYLE["col2"] * 0.985
+    fig_w = STYLE["col2"] * 0.956
     fig = plt.figure(figsize=(fig_w, 3.0))          # provisional height, replaced below
     axes = fig.subplots(1, len(PANELS))
 
@@ -310,16 +337,22 @@ def main():
         sysname, sub, c = _meta(a)
         pend = a not in ARMS
         handles.append(Patch(facecolor=c, edgecolor="none", alpha=0.35 if pend else 1.0,
-                             label=f"{sysname} — {sub}" + (" (in flight)" if pend else "")))
+                             label=_legend_label(a) + (" (pending)" if pend else "")))
     # THE LEGEND, NOT THE AXES, SETS THIS PLATE'S WIDTH. save() crops to drawn content, and seven
     # keys carrying subtitles like "unsupervised, 1.1B SMILES" are wider than six 0.65in panels --
     # so shrinking the canvas moved the bars and left the crop where it was. Four columns at this
     # face fit inside the text block; a fifth, or a larger face, does not.
-    leg = fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=4,
+    leg = fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0),
+                     ncol=len(handles),
                      fontsize=FS["legend"] - 1.8, handlelength=0.95, handletextpad=0.4,
                      columnspacing=0.9, labelspacing=0.28, borderpad=0.28, **LEGEND_BOX)
 
     fig.canvas.draw()
+    leg_w = leg.get_window_extent().width / fig.dpi
+    if leg_w > STYLE["col2"] + 0.02:
+        print(f"  [SI_fig_g] WARNING legend is {leg_w:.2f}in against a {STYLE['col2']}in text "
+              f"block -- it, not the axes, will set the plate width and LaTeX will scale every "
+              f"font down. Shorten the keys or drop to two rows.")
     leg_in = leg.get_window_extent().height / fig.dpi
     fig_h = TOP_IN + TITLE_IN + PANEL_H + GAP_IN + NOTE_IN * len(notes) + leg_in + PAD_IN
     fig.set_size_inches(fig_w, fig_h)
