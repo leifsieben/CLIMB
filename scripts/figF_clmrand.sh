@@ -85,5 +85,11 @@ done
 
 aws s3 cp analysis/_figF_v2_env.json "$S3/logs/_env_asserted_clmrand.json" --only-show-errors
 aws s3 cp "$LOG" "$S3/logs/figF_clmrand.log" --only-show-errors
-say "ALL FOUR FILES ON S3 -- terminating"
-sudo shutdown -h now
+# The box may be wanted for the 100M rung afterwards, so shutting down is opt-in rather than the
+# default: a job that takes a machine with it is wrong when the machine is the scarce thing.
+if [ "${CLMRAND_SHUTDOWN:-0}" = 1 ]; then
+  say "ALL FOUR FILES ON S3 -- shutting down"
+  sudo shutdown -h now
+else
+  say "ALL FOUR FILES ON S3 -- leaving the box up (CLMRAND_SHUTDOWN=1 to shut down)"
+fi
