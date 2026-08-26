@@ -231,6 +231,24 @@ def _cbs_value(mol_src):
                 vals += [float(r["nef1"]) for r in csv.DictReader(open(pf))
                          if r.get("nef1") not in (None, "", "nan")]
                 break
+            # THIRD FORMAT: cbs_run.py (the fig_A literature-CLM wave, 2026-08-26) writes
+            # fold_values.csv, long-format with a metric column rather than a nef1 column.
+            fv = base / "fold_values.csv"
+            if fv.exists():
+                vals += [float(r["value"]) for r in csv.DictReader(open(fv))
+                         if r.get("metric") == "nef1" and r.get("value") not in (None, "", "nan")]
+                break
+        else:
+            # A DIRECTORY THAT EXISTS AND HOLDS NONE OF THE THREE FILES IS AN ERROR, not an
+            # absence. Falling through silently returns None, which reads as "this arm was never
+            # run on CBS" and drops it from the virtual-screening category without a word --
+            # exactly what a fourth output filename would do. `for/else` runs only when no
+            # candidate hit its `break`.
+            present = [c for c in (d, f"{d}_s0") if (FD / "cbs_benchmark" / c).is_dir()]
+            assert not present, (
+                f"CBS: {present} exists but holds none of moleculenet_summary.csv / per_fold.csv "
+                f"/ fold_values.csv under moleculenet_cv/. A new runner output format must be "
+                f"added here rather than read as 'not run'.")
     return sum(vals) / len(vals) if vals else None
 
 

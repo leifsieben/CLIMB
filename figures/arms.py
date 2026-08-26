@@ -48,6 +48,10 @@ FAMILY_COLORS = {
     "unsup":    "#3F6E9C",   # blue     (muted)
     "u2s":      "#3D8073",   # green    (muted teal-green, bluish for CVD)
     "chemeleon": "#7E6BA8",  # purple   (muted violet)
+    # The three EXTERNAL literature CLMs. They take the retired CheMeleon hue rather than a new
+    # one: it is the same semantic slot -- a pretrained model from outside this lab -- and the
+    # violet band is free now. Giving them CLIMB blues/reds instead would imply they are our arms.
+    "literature": "#7E6BA8",
     "s2u":      "#6B6494",   # slate/indigo = supervised -> unsupervised (forgetting mirror)
     "e2e":      "#8A8A8A",   # grey
     "random":   "#2B2B2B",   # near-black
@@ -73,6 +77,9 @@ SHADES = {
     "unsup":  ["#3F6E9C", "#6B93B8", "#9AB6D0", "#C3D5E4"],
     "u2s":    ["#2A5C50", "#3D8073", "#5E9C90", "#84B7AD", "#ABD0C9"],
     "chemeleon": ["#7E6BA8", "#A093C0", "#C4BCD8"],
+    # [0] ChemBERTa-2, [1] MoLFormer, [2] SELFIES-TED. Three separable violets, dark -> light,
+    # so the external block reads as one family in fig_A and still survives greyscale.
+    "literature": ["#5C4A85", "#8B7BB5", "#B9AED5"],
     "s2u":    ["#6B6494", "#8F89B2", "#B7B3CE"],
     "e2e":    ["#8A8A8A", "#A8A8A8", "#C6C6C6"],
     "random": ["#2B2B2B", "#555555", "#808080"],
@@ -167,6 +174,45 @@ ARMS = {
         in_ablation=True,
         src=dict(mace="fp_desc", cbs_legacy_label="fp_desc",
                  mol=["fp_desc_anchor", "fp_desc_anchor_s1", "fp_desc_anchor_s2"])),
+
+    # ------------------------------------------------------------ external literature CLMs ----
+    # Three published chemical language models, added 2026-08-26 from the fig_A wave. All three
+    # are FROZEN + MLP probe, featurized in ONE environment (scripts/figA_extract_all.sh) so no
+    # arm in this group carries a different transformers version from its neighbours.
+    #
+    # REPLICATE AXIS IS THE HEAD SEED, not pretraining: each is a single released checkpoint, so
+    # `pretrain_replicates=False` and the three dirs are disjoint head-seed triples
+    # (42/117/709, 43/118/710, 44/119/711) -- the same convention the ECFP anchors use. See
+    # notes/figA-seed-axis-is-not-uniform.md; "three seeds" means two different estimands on this
+    # panel and the caption has to say so.
+    #
+    # THE NUMBER IN EACH NAME IS PRETRAINING DATA, NOT PARAMETERS, and the two orderings are
+    # OPPOSITE. Measured from the checkpoints by the compute session: ChemBERTa-77M-MTR is 3.4M
+    # parameters, MoLFormer-c3-1.1B is 44.4M, SELFIES-TED is 358.1M. So the names read
+    # 77M < 1.1B while the models are 3.4M < 44.4M < 358.1M. Never print a name's number as a
+    # size: "the 1.1B model loses to the 77M model" is a sentence someone would otherwise write,
+    # and it would be backwards. `params_m` is here so a caption can use the real number.
+    #
+    # `mol` is a LITERAL list and must name all three dirs; `mace` is a STEM that _seed_dirs
+    # expands. Getting that backwards has silently cost seeds four times in this repo.
+    "chemberta_mtr": dict(
+        label="MTR pretraining", short="ChemBERTa", family="chemberta",
+        color=SHADES["literature"][0], probe="frozen", pretrain_replicates=False,
+        in_ablation=False, params_m=3.4, hf="DeepChem/ChemBERTa-77M-MTR",
+        src=dict(mace="chemberta_mtr",
+                 mol=["chemberta_mtr", "chemberta_mtr_s1", "chemberta_mtr_s2"])),
+    "molformer_c3": dict(
+        label="c3, linear attention", short="MoLFormer", family="molformer",
+        color=SHADES["literature"][1], probe="frozen", pretrain_replicates=False,
+        in_ablation=False, params_m=44.4, hf="ibm-research/MoLFormer-XL-both-10pct",
+        src=dict(mace="molformer_c3",
+                 mol=["molformer_c3", "molformer_c3_s1", "molformer_c3_s2"])),
+    "selfies_ted": dict(
+        label="SELFIES, enc-dec", short="SELFIES-TED", family="selfies_ted",
+        color=SHADES["literature"][2], probe="frozen", pretrain_replicates=False,
+        in_ablation=False, params_m=358.1, hf="ibm-research/materials.selfies-ted",
+        src=dict(mace="selfies_ted",
+                 mol=["selfies_ted", "selfies_ted_s1", "selfies_ted_s2"])),
 
     # The r3-counts fingerprint as its OWN pair of arms rather than a replacement. Leif asked for
     # both generations reported (2026-08-19): the orthodox ECFP4+stereo is the headline anchor and
@@ -557,7 +603,9 @@ TASK_COLORS = {
 }
 
 
-SYSTEM = {"anchor": "XGBoost", "chemeleon": "CheMeleon"}          # everything else is CLIMB
+SYSTEM = {"anchor": "XGBoost", "chemeleon": "CheMeleon",
+          "chemberta": "ChemBERTa-2", "molformer": "MoLFormer", "selfies_ted": "SELFIES-TED"}
+# everything else is CLIMB
 
 
 def system(arm_key: str) -> str:

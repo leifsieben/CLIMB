@@ -35,9 +35,11 @@ TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-
      XGBoost by 0.138 macro RMSE, wider than the whole ECFP4+desc-to-CLIMB span. Leif ruled no
      ablation for now; the exposure is recorded rather than hidden.
 
-MISSING DATA IS DRAWN, NOT OMITTED. Three arms and two datasets are commissioned and not yet
-back. An arm with no results is a labelled empty row, not an absent row: dropping it would make
-the plate look finished and quietly renumber the field, which changes every rank on the page.
+MISSING DATA IS DRAWN, NOT OMITTED. Wong (virtual screening) and FartDB (classification) are
+commissioned and not yet complete -- 4 of 13 and 2 of 13 arms respectively as of 2026-08-26 -- so
+they are absent from the counts in the legend rather than half-scored. An arm with no results at
+all gets a labelled empty row, not an absent row: dropping it would make the plate look finished
+and quietly renumber the field, which changes every rank on the page.
 
 Run:  python3 -m figures.fig_A
 """
@@ -70,20 +72,12 @@ RANKED_ARMS = ["ecfp", "ecfp_desc",
                "unsup", "u2s_dense", "u2s_sparse", "s2u_dense", "random_encoder",
                "chemberta_mtr", "molformer_c3", "selfies_ted"]
 
-# Arms with no entry in arms.py because their results have not landed. They are promoted into
-# arms.py -- colour, label, replicate convention -- when the run comes back; until then they are
-# declared here so the figure can show the row it is waiting for.
-# `system` is the bold first line (the model doing the predicting), `label` the second (what it
-# is fed / how it was pretrained) -- the same split arms.system()/arms.label() make for every
-# other arm, so the two-line rule has no exceptions on this plate.
-PENDING_ARMS = {
-    "chemberta_mtr": dict(system="ChemBERTa-2", label="MTR pretraining",
-                          color=SHADES["unsup"][1]),
-    "molformer_c3":  dict(system="MoLFormer",   label="c3, linear attention",
-                          color=SHADES["unsup"][2]),
-    "selfies_ted":   dict(system="SELFIES-TED", label="SELFIES, enc-dec",
-                          color=SHADES["sup"][1]),
-}
+# PENDING_ARMS is empty: the three literature CLMs landed 2026-08-26 and are now real entries in
+# arms.py (colour, label, replicate convention, measured parameter count). The mechanism stays
+# rather than being deleted -- it is how the next commissioned arm gets a labelled empty row
+# instead of being silently absent, which is the difference between "we are waiting on this" and
+# "this plate is finished".
+PENDING_ARMS = {}
 assert not (set(PENDING_ARMS) & set(ARMS)), \
     "an arm is declared PENDING here and also present in arms.py -- promote it and delete it here"
 assert set(RANKED_ARMS) - set(ARMS) == set(PENDING_ARMS), \
@@ -112,6 +106,26 @@ def compute():
     out, cat, R = T.wide_ranks(HAVE)
     missing = [a for a in HAVE if a not in out.index]
     assert not missing, f"fig_A: arms in RANKED_ARMS with no row in the score table: {missing}"
+
+    # EVERY SCORED ARM MUST COVER THE SAME DATASETS. Rescaling handles a dataset that is missing
+    # for some arms, but it does NOT make an arm's CATEGORY MEAN comparable when that mean is
+    # taken over a different set of datasets from its neighbours'. An arm at 37 of 65 has a
+    # regression mean over eleven Polaris tasks it happens to have; the arm above it has one over
+    # nineteen. Those are different quantities printed in the same column.
+    #
+    # This fired on its first run: MoLFormer and SELFIES-TED came back at 37 while ChemBERTa read
+    # 65, because Polaris scores are produced LOCALLY (the labels are withheld) and only one of
+    # nine directories had been scored. Note what the count did NOT catch -- ChemBERTa's 65 was
+    # built from one of its three replicate directories, so a coverage check alone still passes an
+    # arm that is a third as deep. Replicate depth is audit check 19's job; this is coverage.
+    n_ds = out["n_datasets"].astype(int)
+    if n_ds.nunique() > 1:
+        short = {a: int(n_ds[a]) for a in n_ds.index if n_ds[a] < n_ds.max()}
+        raise AssertionError(
+            f"fig_A: arms do not cover the same datasets. Full field is {int(n_ds.max())}; "
+            f"short: {short}. A category mean taken over a different dataset set is not the same "
+            f"quantity as its neighbours'. Score or fetch the missing runs -- do not rank a "
+            f"partial arm beside complete ones.")
     avail = {k: int((cat == k).sum()) for k in T.CATEGORIES}
     return out, avail
 

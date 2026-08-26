@@ -81,3 +81,57 @@ EQUAL WEIGHT PER CATEGORY, not per dataset. Activity cliffs holds 30 datasets an
 RANKS DISCARD EFFECT SIZE. An arm 0.001 better on 40 datasets outranks one 0.05 better on 26. That
 is the price of combining ROC-AUC, NEF1%, RMSE and Spearman in one number; the per-category columns
 expose it partly, the mean rank cannot.
+
+---
+
+# The three literature CLMs, measured (2026-08-26)
+
+They landed and are promoted into `arms.py`. Three things the caption has to get right.
+
+## Parameter count is INVERSE to the name, and inverse to rank
+
+Measured from the checkpoints by the compute session, not read off the model card title:
+
+| arm | name implies | actual params | fig_A rank |
+|---|---|---|---|
+| ChemBERTa-2 (`ChemBERTa-77M-MTR`) | 77M | **3.4M** | 4.47 (2nd of 13) |
+| MoLFormer (`MoLFormer-c3-1.1B`) | 1.1B | **44.4M** | 6.07 (6th) |
+| SELFIES-TED | -- | **358.1M** | 7.22 (8th) |
+
+The number in each name is PRETRAINING DATA, not parameters. Two consequences:
+
+1. **Never print a name's number as a size.** "The 1.1B model loses to the 77M model" is a
+   sentence someone would write from the names, and it is backwards: 44.4M loses to 3.4M.
+2. **Rank order is exactly inverse to parameter count** across all three, 3.4M > 44.4M > 358.1M.
+   n = 3, so this is an observation and not a scaling claim -- but it is the opposite of what a
+   reader assumes, so it is worth one sentence rather than being left for them to get wrong.
+
+`params_m` is stored per arm in `arms.py` so a caption can use the real number.
+
+## ChemBERTa-2 places second, tied with ECFP4
+
+4.47 against ECFP4's 4.47, behind only ECFP4+desc (1.91), and ahead of EVERY CLIMB arm --
+supervised-desc is 5.63. The three literature CLMs bracket the CLIMB arms rather than sitting
+below them. This is the headline the figure now carries and it does not flatter us.
+
+## Wong and FartDB are still out
+
+4 of 13 and 2 of 13 arms as of 2026-08-26. Virtual screening therefore rests on CBS + HIV, two of
+its three datasets, and classification on 14 of 15. Both are stated in the legend as "+1 pending".
+
+## CBS discriminates -- the saturation warning does not hold
+
+The compute session flagged that plain ECFP4 hits NEF1 = 1.0000 in 3 of 5 CBS folds (mean 0.8900,
+ROC-AUC 0.9948, 8-10 positives per fold) and asked whether CBS is degenerate like BBBP. Checked
+through `allsuites.wide_table` -- the figure's own resolver, not a reimplementation of it -- over
+the arms fig_A actually ranks:
+
+    CBS NEF1 spread 0.2304 across the field, SD 0.0716   (ECFP4+desc 0.9300 .. sup_sparse 0.6996)
+    MolNet:HIV      spread 0.1278,           SD 0.0373
+    Spearman(CBS, HIV) over the shared arms  +0.721
+
+CBS is the MORE discriminating of the two available virtual-screening datasets, by roughly 2x,
+and it agrees with HIV about the ordering. Per-fold saturation is real and the fold-to-fold SD is
+large next to the between-arm spread, so CBS is NOISY -- but that is a different thing from
+degenerate. BBBP was nef1 EXACTLY 1.0 for every feature block: spread zero, no information at all.
+CBS's spread is 0.23. Keep it in the suite.
