@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from precompute_descriptors import CORPORA
+from c124_priority_order import needed
 
 WIDTH, ITEMSIZE, HEADER = 217, 2, 128
 
@@ -24,12 +25,23 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", choices=sorted(CORPORA), required=True)
     ap.add_argument("--width", type=int, default=WIDTH)
+    ap.add_argument("--budget", type=int, default=None,
+                    help="check only the shards a run of this forward-pass budget will OPEN. "
+                         "Without it, every shard in the corpus must be present.")
     a = ap.parse_args()
     import pyarrow.parquet as pq
 
     shards_uri, desc_uri = CORPORA[a.corpus]
     out = subprocess.run(["aws", "s3", "ls", shards_uri], capture_output=True, text=True).stdout
     shards = sorted(l.split()[-1] for l in out.splitlines() if l.strip().endswith(".parquet"))
+    if a.budget:
+        # A rung does not read the whole corpus, and requiring shards it will never open would
+        # block a launch on work that does not exist yet. Check exactly the set it opens --
+        # including the prefetch margin, since a prefetched shard is opened whether or not its
+        # rows are consumed.
+        want = set(needed(a.budget, len(shards)))
+        shards = [s for s in shards if s.replace(".parquet", "").replace("shard_", "") in want]
+        print(f"[verify-dir] budget {a.budget:,} opens {len(shards)} of the corpus's shards")
     if not shards:
         print(f"[verify-dir] no shards under {shards_uri} -- refusing to call that complete")
         return 1

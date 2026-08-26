@@ -88,9 +88,18 @@ assert got == want, f'descriptor_precompute_dir {got!r} does not belong to corpu
 print(f'[figB] descriptor dir matches corpus {corpus[0]}')" 2>&1 | tee -a "$LOG" || abort "descriptor directory does not match the corpus"
 
 # Complete: every shard the corpus has must have a descriptor file of the size its row count implies.
-$PY scripts/verify_descriptor_dir.py --corpus pubchem_124m_full 2>&1 | tee -a "$LOG"   || abort "descriptor directory incomplete -- refusing to train against partial targets"
+# Check the shards THIS RUNG OPENS, not the whole corpus: requiring shards it will never read would
+# block a launch on work that does not exist yet, and the 50M rung's 72 land well before the 100M
+# rung's 120. The budget comes from the manifest, so the gate and the run cannot disagree about it.
+BUDGET=$($PY -c "
+import json; print(json.load(open('analysis/manifest_${RUN}.json'))['runs'][0]['selection']['total_forward_passes'])")
+$PY scripts/verify_descriptor_dir.py --corpus pubchem_124m_full --budget "$BUDGET" 2>&1 | tee -a "$LOG"   || abort "descriptor directory incomplete for a ${BUDGET} forward-pass run -- refusing to train against partial targets"
 # Right molecules: a path and a size cannot see a row shift or a corpus swap.
-$PY scripts/verify_descriptor_alignment.py --corpus pubchem_124m_full --shards 0-123 --n_probes 12 2>&1 | tee -a "$LOG"   || abort "descriptor rows are not these molecules"
+$PY -c "
+import sys; sys.path.insert(0,'scripts')
+from c124_priority_order import needed
+print(','.join(needed($BUDGET)))" > analysis/_probe_shards.txt
+$PY scripts/verify_descriptor_alignment.py --corpus pubchem_124m_full --shard_list "$(cat analysis/_probe_shards.txt)" --n_probes 12 2>&1 | tee -a "$LOG"   || abort "descriptor rows are not these molecules"
 
 # ---- the MTR target space must be the one the TEMPLATE trained against -------------------------
 # This box came off an April AMI carrying rdkit-pypi 2022.9.5, which SHADOWED the rdkit 2025.9.2 the
