@@ -81,3 +81,89 @@ once nef1 with roc_auc. The first produced "seed SD 0.17" (it is 0.02) and the s
 table keyed (task, seed, metric) read with two of the three keys returns a confident wrong number
 -- the same shape as every other silent failure in this repo. Filter on the manifest's
 `primary_metric`, never on the task alone.
+
+---
+
+# Five summary schemes compared, and why ties are the wrong fix (2026-08-26)
+
+Leif asked whether rounding to the third or fourth digit and giving indistinguishable models a
+shared rank would stop noise moving the ranking, and said he prefers the mean to the median.
+
+## The measurements
+
+| scheme | ECFP4+desc classification | Kendall tau vs mean |
+|---|---|---|
+| mean rank | 3.93 | -- |
+| median rank | 2.00 | +0.994 |
+| 10% trimmed mean rank | 3.50 | +0.974 |
+| 20% trimmed mean rank | 3.10 | +0.974 |
+| mean z-score (effect size, not rank) | +0.77 | +0.949 |
+| mean rank, midranks tied within 1 replicate SD | 4.18 | +0.949 |
+| mean rank, midranks tied within 2 replicate SD | 4.46 | +0.949 |
+
+**No arm moves more than one place under any scheme.** That is the important line: the ordering is
+not an artefact of the summary, so the mean can be reported with the median as a robustness note.
+
+## Why ties BACKFIRE
+
+Ties look neutral and are not. ECFP4+desc is **outright best on 42 of 65 datasets**. A tie merges
+a win into a midrank, so the arm that wins most has the most to lose and an arm that never wins
+(CLIMB unsupervised: best on 0 of 65) can only gain. Ties transfer rank mass from winners to the
+middle. Measured, they made the number they were meant to fix worse: 3.93 -> 4.18 -> 4.46.
+
+Rounding to a fixed decimal is the same rule with an arbitrary threshold, and it has a further
+problem: 0.001 is not the same quantity in ROC-AUC, RMSE, NEF1% and pr_auc, so one constant cannot
+serve 65 heterogeneous datasets.
+
+## Why the tie THRESHOLD is also unavailable
+
+The only per-dataset noise scale we have is the replicate SD, and for a fixed-split benchmark that
+is head-init variance with the test set held fixed. It is wrong in both directions at once: at
+1 SD it ties **593 of 845 cells** (70% of the field) yet still does NOT tie BBBP, where the gap to
+the leader is 21 replicate SD but only 1.3 *fold* SD. On BBBP fold-to-fold variation is 16x the
+replicate SD. A tie rule needs the test-set sampling scale, which fixed splits do not expose.
+
+## Why z-scores do not fix it either
+
+Replacing ranks with within-dataset z-scores keeps effect size, which sounds like the principled
+answer. It is not, for this problem: z normalises by the FIELD'S OWN SPREAD, and on a packed field
+that spread IS the noise. BBBP contributes rank 12 under ranks and z = -1.20 under z-scores --
+equally punishing. Same flaw, different clothes.
+
+## What actually works
+
+A ROBUST SUMMARY, because it does not need to know the noise scale at all. The median is unmoved
+by how the tail is ordered and has no free parameter; a 20% trimmed mean is the middle ground for
+anyone who wants the word "mean". Both are one line in `fig_A.SUMMARY` /
+`tasksuites.wide_ranks(summary=)`.
+
+Reported: the MEAN, per Leif's preference, with the robustness table above as the caption's
+warrant.
+
+---
+
+# Is bare ECFP4's range across categories real? (Leif, 2026-08-26)
+
+Yes, and it is the most chemically interpretable thing on the plate. In METRIC units, not ranks --
+z against the 13-arm field on each dataset, oriented so + is better, averaged within category:
+
+| category | n | bare ECFP4 | ECFP4+desc | descriptors add (fraction of field span) |
+|---|---|---|---|---|
+| Activity cliffs | 30 | **+1.28** | +1.50 | +0.058 |
+| Virtual screening | 2 | **+0.94** | +1.97 | +0.275 |
+| Regression | 19 | **+0.20** | +1.60 | +0.416 |
+| Classification | 14 | **-0.10** | +0.77 | +0.256 |
+
+Bare ECFP4 swings from +1.28 (well above the field) on activity cliffs to **-0.10 (below the field
+average)** on classification. That is not rank compression -- it is the same picture in raw metric
+units, and it is exactly what the representation predicts: ECFP4 is a pure SUBSTRUCTURE code, so it
+is excellent where the answer is structural (matched pairs across a cliff, rare-active retrieval)
+and mediocre where the answer is physicochemical (ADMET regression and classification, which turn
+on logP, TPSA, molecular weight -- quantities the descriptor block supplies and a fingerprint does
+not encode).
+
+The mirror image is that the descriptor block's benefit is SMALLEST on activity cliffs (+0.058 of
+the field span) and LARGEST on regression (+0.416). Two ways of measuring the same fact.
+
+So the wide range is a result to report, not a defect to smooth. ECFP4+desc is the arm that is
+uniformly strong (+0.77 to +1.97 across all four), which is why it leads overall.

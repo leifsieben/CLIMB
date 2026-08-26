@@ -133,11 +133,28 @@ def compute():
 BAND = "#F2F2F2"          # zebra row band, same value as fig_A1 so the two plates read alike
 
 # How a CATEGORY is summarised from its datasets: "mean" or "median" rank. The four category
-# summaries are averaged either way. See tasksuites.wide_ranks for why this is not cosmetic --
-# on datasets where the whole field sits inside the test-set noise, mean rank charges a tie as a
-# full rank. The published ordering is IDENTICAL under both (Kendall tau +1.000, no arm moves a
-# place), so this changes the reported numbers and not the conclusion.
-SUMMARY = "median"
+# summaries are averaged either way.
+#
+# MEAN, by preference (Leif 2026-08-25: "easier to understand and feels a bit more honest"), and
+# the choice is defensible because the ORDERING DOES NOT DEPEND ON IT. Five schemes were compared
+# on this exact field (notes/rank-compression-on-packed-fields.md):
+#
+#     mean rank                 ECFP4+desc classification 3.93   (reported)
+#     median rank                                         2.00   Kendall tau vs mean +0.994
+#     20% trimmed mean rank                               3.10   +0.974
+#     mean z-score (effect size)                          +0.77  +0.949
+#     mean rank with noise-tied midranks                  4.46   +0.949
+#
+# No arm moves more than one place under any of them. What DOES change is how a single packed
+# dataset is charged, and that is a caption sentence rather than a different figure.
+#
+# TIES WERE TRIED AND REJECTED. Giving indistinguishable arms a shared midrank sounds neutral and
+# is not: ECFP4+desc is OUTRIGHT BEST on 42 of 65 datasets, so tying merges its wins into
+# midranks and it can only lose, while an arm that is never best can only gain. Measured, it made
+# the very number it was meant to fix WORSE (3.93 -> 4.18 at 1 SD, -> 4.46 at 2 SD). Rounding to
+# a fixed decimal is the same rule with an arbitrary threshold and the same asymmetry, plus it is
+# not comparable across ROC-AUC, RMSE, NEF1% and pr_auc.
+SUMMARY = "mean"
 
 
 def main():
