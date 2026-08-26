@@ -274,7 +274,79 @@ def main():
     worst = df.groupby("descriptor").r2.mean().nsmallest(5)
     print("\nworst-decoded descriptors (mean over arms) -- these drive the mean:")
     print("   " + ", ".join(f"{n} {v:.2f}" for n, v in worst.items()))
-    print(f"\nwrote {args.out}")
+
+    tex = Path(args.out).with_suffix(".tex")
+    tex.write_text(latex_table(df, order, len(smiles) - n_train, pool_name))
+    print(f"wrote {tex}")
+
+
+# Short column headers, and the ORDER IS THE ARGUMENT: the four families a graph-based encoder
+# should be good at first, the four a substructure fingerprint should be good at second. A reader
+# who sees the blocks in that order gets the finding from the layout; alphabetical order hides it.
+TEX_COLS = [
+    ("Chi (connectivity)",    "Chi"),
+    ("Kappa (shape)",         "Kappa"),
+    ("BCUT (eigenvalue)",     "BCUT"),
+    ("Information (Ipc/SPS)", "Ipc/SPS"),
+    ("EState",                "EState"),
+    ("PEOE/SMR/SlogP VSA",    "VSA"),
+    ("Fragment counts (fr_)", "fr\_*"),
+    ("Simple counts / bulk",  "Bulk"),
+]
+
+
+def latex_table(df, arm_order, n_test, pool_name):
+    """Transposed probe table: models as rows, descriptor groups as columns (Leif 2026-08-26).
+
+    MEDIAN, not mean. Kappa3 and Ipc are exponential in molecular size and reach large negative
+    R^2 after the +-10 clipping the pretraining objective uses, so the mean over ~212 descriptors
+    is carried by two pathological columns. The caption states the choice rather than leaving a
+    reader to wonder which statistic was taken and why.
+    """
+    med = df.pivot_table(index="arm", columns="group", values="r2", aggfunc="median")
+    allc = df.pivot_table(index="arm", values="r2", aggfunc="median")["r2"]
+    n_desc = int(df.descriptor.nunique())
+
+    head = " & ".join(r"\textbf{%s}" % short for _, short in TEX_COLS)
+    rows = []
+    for a in arm_order:
+        cells = [("%.2f" % med.loc[a, g]) if g in med.columns else "---" for g, _ in TEX_COLS]
+        rows.append("%s & %s & %.2f \\\\" % (a, " & ".join(cells), allc[a]))
+    body = "\n".join(rows)
+
+    tmpl = r"""\begin{table}[h]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4.5pt}
+\caption{\textbf{How much of the descriptor space each representation encodes.} Median $R^2$ of a
+ridge head fit from the frozen representation to each of __NDESC__ RDKit descriptors, on __NTEST__
+held-out molecules. A head is trained from scratch for every row; the representation is the only
+thing that varies. Targets are $z$-scored with the pretraining corpus statistics and clipped at
+$\pm10$, matching the descriptor objective. Median rather than mean because two descriptors
+(Kappa3, Ipc) are exponential in molecular size and reach large negative $R^2$ after clipping.
+\emph{CLIMB sup, desc was trained on these exact targets} and is included as a manipulation check,
+not as a comparison.}
+\label{tab:descriptor_probe}
+\begin{tabular}{@{}l cccc cccc @{\hspace{6pt}}||@{\hspace{6pt}} c@{}}
+\toprule
+& \multicolumn{4}{c}{\emph{topology and shape}}
+& \multicolumn{4}{c}{\emph{substructure and electronic}} & \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-9}
+\textbf{Representation} & __HEAD__ & \textbf{ALL} \\
+\midrule
+__BODY__
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize Molecule pool: __POOL__.}
+\end{table}
+"""
+    return (tmpl.replace("__NDESC__", str(n_desc))
+                .replace("__NTEST__", "{:,}".format(n_test))
+                .replace("__HEAD__", head)
+                .replace("__BODY__", body)
+                .replace("__POOL__", pool_name))
 
 
 if __name__ == "__main__":
