@@ -21,25 +21,55 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 SHARDS = "s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/"
 SMILES_COL = "SMILES_canonical"
 
+# Both corpora name their shards shard_NNNNN.parquet, so a precompute directory is only safe if it
+# is CORPUS-SPECIFIC -- pointing two corpora at one directory attaches the wrong molecules'
+# descriptors to every row and nothing raises. Keyed here rather than passed as a free-form string
+# so the pairing cannot be got wrong at the call site.
+CORPORA = {
+    "pubchem_filtered": ("s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/",
+                         "s3://climb-s3-bucket/tokenized_sources/pubchem_descriptors/"),
+    "pubchem_124m_full": ("s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/",
+                          "s3://climb-s3-bucket/tokenized_sources/pubchem_124m_descriptors/"),
+}
+
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--shard_range", default="0-11", help="inclusive, e.g. 0-3")
     p.add_argument("--stats_path", default="configs/descriptor_stats.json")
-    p.add_argument("--out_s3", required=True)
+    p.add_argument("--corpus", choices=sorted(CORPORA), default="pubchem_filtered",
+                   help="picks BOTH the shard source and its own descriptor directory")
+    p.add_argument("--out_s3", default=None, help="override; defaults to the corpus's own directory")
     p.add_argument("--chunk", type=int, default=20000)
     args = p.parse_args()
+    SHARDS, default_out = CORPORA[args.corpus]
+    args.out_s3 = args.out_s3 or default_out
+    if args.corpus not in args.out_s3:
+        raise SystemExit(f"refusing: --out_s3 {args.out_s3} is not named for corpus {args.corpus}")
+    print(f"[precompute] corpus {args.corpus}\n  from {SHARDS}\n  to   {args.out_s3}", flush=True)
 
     import pyarrow.parquet as pq
     import pyarrow.dataset as ds
     from descriptors_v2 import rdkit_descriptors, normalize, fit_descriptor_stats, load_stats, save_stats
     from data_v2 import make_raw_smiles_dataset
 
+    # The canonical stats define the MTR target space for EVERY run in the project. A box that
+    # happens not to have the file locally must fetch it, never refit it: refitting silently
+    # renormalizes the targets and the old branch then uploaded the new fit OVER the canonical
+    # file, which would have made every July run incomparable with everything after it, with no
+    # error anywhere. Refit only when nothing canonical exists.
+    if not Path(args.stats_path).exists():
+        Path(args.stats_path).parent.mkdir(parents=True, exist_ok=True)
+        got = subprocess.run(["aws", "s3", "cp", "s3://climb-s3-bucket/configs/descriptor_stats.json",
+                              args.stats_path, "--only-show-errors"])
+        if got.returncode == 0:
+            print("[precompute] fetched the canonical stats from S3 (did NOT refit)", flush=True)
+
     if Path(args.stats_path).exists():
         stats = load_stats(args.stats_path)
         print(f"[precompute] loaded stats ({len(stats['mean'])} descriptors)", flush=True)
     else:
-        print("[precompute] fitting descriptor stats (20k sample) ...", flush=True)
+        print("[precompute] no canonical stats anywhere -- fitting (20k sample) ...", flush=True)
         sample = [ex["smiles"] for _, ex in zip(range(20000), make_raw_smiles_dataset([SHARDS], subset_seed=0))]
         stats = fit_descriptor_stats(sample)
         save_stats(stats, args.stats_path)

@@ -215,7 +215,18 @@ def _max_seconds_for(run: dict) -> int:
     # Measured throughput is ~700-760 seq/s; budget at a CONSERVATIVE 400 seq/s + 4h for
     # eval/warmup so genuinely long runs are never killed prematurely (the old flat 12h cap
     # silently truncated every 48M≈18h and 96M≈35h run at ~33M FP).
-    return int(fps / 400) + 4 * 3600
+    #
+    # 700-760 seq/s is the PRECOMPUTED-descriptor rate. An MTR run without a precompute directory
+    # calls rdkit in the dataloader and measures ~300 seq/s on a 16-vCPU box, so 400 is no longer
+    # conservative for it -- it is optimistic by a third, and this ceiling would have killed the
+    # 50M c124 rung at ~42M forward passes and the 100M at ~80M. That is the same silent
+    # truncation the flat 12h cap used to cause, from the other direction: a ceiling is only
+    # conservative relative to a throughput it actually applies to.
+    pc = run.get("pretrain_config") or {}
+    live_descriptors = "mtr" in (pc.get("selection", {}) or {}).get("objectives", run.get(
+        "selection", {}).get("objectives", {})) and not pc.get("descriptor_precompute_dir")
+    floor = 200 if live_descriptors else 400
+    return int(fps / floor) + 4 * 3600
 
 
 def _run_pretrain(run: dict) -> str:
