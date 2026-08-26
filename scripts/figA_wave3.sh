@@ -12,6 +12,10 @@
 #                         <stem>_s1 means encoder _s1, NOT a new head seed.
 #   s2u_dense             _s0/_s1/_s2 -- no bare stem
 #   random_encoder        random_baseline_00/01/02 -- two digits
+#   unsup_100M            ONE pretraining run by decision, so ONE directory with the base head-seed
+#                         triple. Its bar therefore spans HEAD variance only, while every other
+#                         CLIMB arm's spans PRETRAINING variance. Same number of cells, different
+#                         quantity -- do not read the two error bars as like for like.
 # A script assuming <stem>{,_s1,_s2} silently produces NOTHING for the last two.
 set -u
 cd /home/ec2-user/CLIMB
@@ -50,6 +54,7 @@ sup_sparse|skip_sparse_all_8M_s2|encoder|skip_sparse_all_8M_s2|42 117 709
 sup_mixed|skip_mixed_8M|encoder|skip_mixed_8M|42 117 709
 sup_mixed|skip_mixed_8M_s1|encoder|skip_mixed_8M_s1|42 117 709
 sup_mixed|skip_mixed_8M_s2|encoder|skip_mixed_8M_s2|42 117 709
+unsup_100M|unsup_100M|encoder|unsup_100M|42 117 709
 unsup|unsup_8M|encoder|unsup_8M|42 117 709
 unsup|unsup_8M_s1|encoder|unsup_8M_s1|42 117 709
 unsup|unsup_8M_s2|encoder|unsup_8M_s2|42 117 709
