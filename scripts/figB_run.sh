@@ -143,6 +143,33 @@ print(f'[figB] MTR target space matches template $TPL: {want} descriptors, names
 # interleaving is unchanged.
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 say "launching wave"
+# ---- warm-start base, staged and PROVEN present -------------------------------------------------
+# A u2s rung names its base as a LOCAL path (experiments/.../unsup_50M/encoder). experiments/ is
+# gitignored, so on a fresh box that path does not exist -- and from_pretrained then treats it as a
+# HUGGING FACE REPO ID and dies on "Repo id must be in the form 'repo_name'". Both u2s boxes sat
+# idle 1.5h on exactly that. phase2_worker.sh has staged these for months; this runner never did.
+INIT_ENCODERS=$($PY -c "
+import json
+m = json.load(open('analysis/manifest_${RUN}.json'))
+runs = m['runs'] if isinstance(m, dict) and 'runs' in m else m
+seen = []
+for r in runs:
+    for sel in (r.get('selection') or {}, (r.get('pretrain_config') or {}).get('selection') or {}):
+        p = sel.get('init_encoder_path')
+        if p and p not in seen:
+            seen.append(p)
+print(' '.join(seen))
+") || abort "cannot read init_encoder_path out of the manifest"
+for e in $INIT_ENCODERS; do
+  say "warm-start base: $e"
+  mkdir -p "$e"
+  aws s3 sync "s3://climb-s3-bucket/$e" "$e" --only-show-errors || abort "sync failed for warm-start base $e"
+  # Test for WEIGHTS, not for the directory: mkdir -p above guarantees the directory exists, so a
+  # directory test would pass on every box and prove nothing.
+  [ -f "$e/model.safetensors" ] || [ -f "$e/pytorch_model.bin" ]     || abort "warm-start base $e has no weights after sync -- the run would die on startup"
+done
+[ -n "$INIT_ENCODERS" ] && say "warm-start bases staged and carry weights"
+
 $PY scripts/launch_v2_wave.py --manifest "analysis/manifest_${RUN}.json" --worker_name "figB_${RUN}" \
   >> "$LOG" 2>&1
 rc=$?

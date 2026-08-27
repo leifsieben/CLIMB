@@ -203,6 +203,15 @@ class ClimbV2Model(nn.Module):
 
     def load_init_encoder(self, path: str):
         from transformers import ModernBertModel
+        # Every warm-start path in this project is a LOCAL directory. If it is missing,
+        # from_pretrained falls back to treating it as a Hugging Face repo id and raises
+        # HFValidationError about repo-id syntax -- which reads like a bad config string and sends
+        # you looking in the manifest, when the actual fault is that nobody staged the weights.
+        if not os.path.isdir(path):
+            raise FileNotFoundError(
+                f"warm-start encoder directory {path!r} does not exist on this box. It is a local "
+                f"path, not a Hub id -- stage it (aws s3 sync s3://climb-s3-bucket/{path} {path}) "
+                f"before launching.")
         src = ModernBertModel.from_pretrained(path, reference_compile=False)
         self.encoder.load_state_dict(src.state_dict())
 
