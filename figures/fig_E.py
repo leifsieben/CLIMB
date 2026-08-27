@@ -42,9 +42,12 @@ Lift over a floor is exactly scale-invariant, so the z-scored-vs-native QM7 unit
 constrains the ABSOLUTE panels (fig_A, fig_B) cannot reach this figure.
 
 Cells built from fewer than 2 pretraining runs are drawn WITHOUT a whisker rather than borrowing a
-fold SD, which would not be the same estimand. As of 2026-08-18 that is `corrupt_mtr_8M` on
-BACE / Tox21 / QM7 (its _s1/_s2 replicates have MoleculeACE / CBS / Ames but not yet the MolNet
-suite) and on Ames (_s2's Polaris run is still missing). Every other cell in the figure is 3-seed.
+fold SD, which would not be the same estimand. As of 2026-08-27 NO cell triggers this: all 41 rows
+are 3-seed. This paragraph previously described `corrupt_mtr_8M` on BACE / Tox21 / QM7 and Ames, an
+arm that is no longer in the table at all, and named CBS, which is not in TASKS -- so it documented
+a state the figure had left. The arms actually drawn are real / targets_permuted (supervised) and
+real / shuffled / bigram / unigram / wiki (unsupervised); wiki has no HIV row and that CELL is blank
+rather than whiskerless, because its value is absent too.
 
 Run:  python3 scripts/build_fig_E_table.py && python3 -m figures.fig_E
 """
@@ -104,8 +107,15 @@ def draw(fig, ax, d, series, tag, subtitle, ylim, compact=False):
     for i, (key, label, colour) in enumerate(series):
         s = d[d.arm == key].set_index("dataset")
         ys = [s.lift_pct.get(t, np.nan) for t in TASKS]
+        # NaN, NOT 0.0. The docstring above promises a cell with too few runs is drawn WITHOUT a
+        # whisker rather than borrowing a different estimand; 0.0 draws a zero-LENGTH whisker with
+        # caps, which reads as a perfectly precise measurement sitting beside honest +-1 SD bars.
+        # That is the fig_F defect in the other direction -- there a missing paired SD fell back to
+        # the marginal one and looked too noisy; here a missing SD would look too clean. matplotlib
+        # omits the whisker for a NaN, so passing NaN through IS the documented behaviour. No cell
+        # currently triggers this (all 41 rows are 3-seed), which is exactly why it was safe to be
+        # wrong: correct by accident of the data rather than by construction.
         es = [s.lift_sd_pct.get(t, np.nan) for t in TASKS]
-        es = [0.0 if not np.isfinite(e) else e for e in es]
         off = (i - (n - 1) / 2) * w
         # bar styling matches fig_A2: solid black edge, same error-bar weights
         ax.bar(x + off, ys, width=w, color=colour, edgecolor=STYLE["ink"], linewidth=0.8,

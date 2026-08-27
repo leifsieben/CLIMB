@@ -100,12 +100,19 @@ def main():
             g = g_all[g_all["mode"] == mode].sort_values("fraction")
             if g.empty:
                 continue
-            sd = pd.to_numeric(g.sd, errors="coerce").fillna(0).to_numpy()
+            # NOT .fillna(0): a missing SD drawn as zero is a claim of perfect precision beside
+            # honest whiskers. NaN makes matplotlib omit the whisker, which is the honest state.
+            # Every row currently carries an SD, so this changes nothing drawn today -- it stops
+            # the figure being correct only by accident of the data. See fig_E for the same guard.
+            sd = pd.to_numeric(g.sd, errors="coerce").to_numpy()
             ax.errorbar(g.fraction, g.value, yerr=sd, color=colour, ls="-", lw=STYLE["lw"],
                         marker=marker, ms=4.6, mec="white", mew=0.6,
                         elinewidth=1.0, capsize=2.2, capthick=1.1, ecolor=INK, zorder=3)
-            lo = min(lo, (g.value - sd).min())
-            hi = max(hi, (g.value + sd).max())
+            # nanmin/nanmax: sd is now NaN where absent (see above), and a NaN would propagate
+            # into the axis limits and blank the panel. A cell with no whisker still has a VALUE
+            # that must stay inside the axes, so the limit falls back to the value alone.
+            lo = min(lo, np.nanmin(np.where(np.isnan(sd), g.value, g.value - sd)))
+            hi = max(hi, np.nanmax(np.where(np.isnan(sd), g.value, g.value + sd)))
 
         ax.set_xscale("log")
         ax.xaxis.set_major_locator(ticker.FixedLocator([0.001, 0.01, 0.1, 1.0]))
