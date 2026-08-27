@@ -6,6 +6,13 @@
 # The box is launched with instance-initiated-shutdown-behavior=terminate, so `shutdown -h` is all
 # this needs and the instance role stays S3-only.
 set -u
+# PIPEFAIL IS LOAD-BEARING HERE. Every gate below is written `python ... | tee -a "$LOG" || abort`,
+# and without this the pipeline's exit status is TEE's -- which always succeeds. Three rungs
+# launched on 2026-08-26 with their descriptor directory 20 shards complete: the completeness gate
+# ran, printed "BAD descriptors_shard_00005.npy: ABSENT" seventy times, and the run proceeded to
+# training anyway. The gate was not missing and it was not wrong; its verdict was discarded one
+# character before it was read.
+set -o pipefail
 RUN=$1
 # Resolve our own path BEFORE the cd -- the re-exec below runs after it, and "$0" was relative to
 # whatever directory the launcher used.
