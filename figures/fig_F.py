@@ -82,18 +82,25 @@ check for free, and it costs nothing to look at it before quoting a delta.
 One number not to over-read: CBS fp+desc NEF1 moves +0.0250, but NEF1 counts hits in the top 1% so
 that is a single hit crossing the threshold; the ROC-AUC beside it moved +0.0010.
 
-PANEL SCOPE: ALL SIX canonical panels are filled (2026-08-18). MoleculeACE, CBS and Ames come from
-analysis/rigor/concat_panels_climb.csv; BACE, Tox21 and QM7 from the original MoleculeNet run.
+PANEL SCOPE: ALL SIX canonical panels are filled. PANEL_ORDER is MoleculeACE, HIV, BACE, Ames,
+Tox21, QM7 -- this paragraph said CBS until 2026-08-27, naming a panel the figure has not drawn
+since the six-panel migration, and pointed at the v1 tables under analysis/rigor/ that the code
+stopped reading when FIGF_V2 was introduced. Read the panel list from figures.arms.PANEL_ORDER and
+the paths from FIGF_V2 below; both are code, and neither can drift the way this sentence did.
+MoleculeACE and Ames come from the concat_panels_* tables, the other four from the concat_* ones.
 Ames was the last to land, and it was never a missing RUN — the predictions had been written all
 along and only the scoring failed, because that runner writes the FEATURE-SET name into the `seed`
 column while the Polaris scorer calls int(seed). Its cells are 1 replicate per feature set, so they
 are drawn WITHOUT a whisker rather than borrowing an SD from another panel (same rule as fig_E).
-ESOL, BBBP and HIV were also run and are NOT shown here — they are outside the canonical panel set
-— but they are in figure_data/fig_F/fig_F.csv and BBBP is the exception discussed above.
+ESOL and BBBP were also run and are NOT shown here — they are outside the canonical panel set — but
+they are in figure_data/fig_F/fig_F.csv and BBBP is the exception discussed above. HIV was in this
+sentence too and should not have been: it IS a drawn panel.
 
 Error bars are +-1 SD across the seeds of that (task, feature set) cell.
 
-Source: analysis/rigor/concat_redundancy.csv + concat_panels_climb.csv (git-tracked).
+Source: analysis/rigor/figF_v2/ (git-tracked). The v1 tables analysis/rigor/concat_redundancy.csv
+and concat_panels_climb.csv still exist on disk and are NOT read -- see the v2 note below on why v1
+is not a fallback.
 
 Run:  python3 -m figures.fig_F
 """
@@ -370,8 +377,24 @@ for _stem in _REQUIRED_STEMS:
     FOLD_SOURCES += _b
 # A pending role's tables are read WHEN THEY EXIST and skipped when they do not -- self-promoting,
 # so the day the run lands nobody has to edit a list here for the bars to appear.
-PENDING_SOURCES = [f for r in ROLE_ORDER if r in PENDING_ROLES and ROLE_SUFFIX[r]
-                   for f in _v2_paths(V2_TAGS[r])[0] + _v2_paths(V2_TAGS[r])[1] if f.exists()]
+#
+# THIS WAS A COMMENT AND NOT A MECHANISM until 2026-08-27. The list below was built correctly and
+# then never read by compute(), which iterated SOURCES_V2 alone -- so when the CLMrand tables
+# landed the figure went on drawing the "not run" slot over four files sitting on disk. Nothing
+# failed: a dead list and a working one look identical, and the claim of self-promotion lived only
+# in this comment, where it could not be tested. The aggregate and fold paths are kept APART
+# because _v2_paths returns them as two lists for a reason -- folds carry a different schema, and
+# pooling them into one flat list is what made the original tempting to write and impossible to
+# use. ARRIVED is printed at every render so promotion is an observed event, not an assumption.
+PENDING_AGG, PENDING_FOLDS = [], []
+for _r in ROLE_ORDER:
+    if _r in PENDING_ROLES and ROLE_SUFFIX[_r]:
+        _pa, _pb = _v2_paths(V2_TAGS[_r])
+        PENDING_AGG += [f for f in _pa if f.exists()]
+        PENDING_FOLDS += [f for f in _pb if f.exists()]
+ARRIVED = sorted(V2_TAGS[r] for r in ROLE_ORDER
+                 if r in PENDING_ROLES and ROLE_SUFFIX[r]
+                 and all(f.exists() for f in _v2_paths(V2_TAGS[r])[0]))
 V2_READY = all(f.exists() for f in SOURCES_V2)
 PAIRED_READY = V2_READY and all(f.exists() for f in FOLD_SOURCES)
 
@@ -432,7 +455,10 @@ def compute():
             f"DIFFERENT environment and is not a fallback -- 27 of its 30 shared cells differ from "
             f"v2 by a median 0.38 fold SD against lifts of 0.1-0.4 SD.")
     print(f"  fig_F: v2 tables, one recorded environment ({FIGF_V2 / '_environment.json'})")
-    for f in SOURCES_V2:
+    if ARRIVED:
+        print(f"  fig_F: pending role(s) SELF-PROMOTED, tables now present and drawn: "
+              f"{', '.join(ARRIVED)}")
+    for f in SOURCES_V2 + PENDING_AGG:
         parts.append(_align_tags(pd.read_csv(f)))
     if not parts:
         raise FileNotFoundError("fig_F: no concat source table found")
@@ -554,7 +580,13 @@ def fold_table():
     """
     import collections
     out = collections.defaultdict(dict)
-    for f in FOLD_SOURCES:
+    # PENDING_FOLDS BELONGS HERE TOO, and leaving it out is not a missing feature -- it silently
+    # changes what the whisker MEANS for one arm. A role with no per-fold rows falls back to the
+    # marginal SD, which does not cancel fold difficulty and which this docstring measures at 2.0x
+    # the paired interval on BACE and 7.8x on Tox21. Drawn beside paired intervals that is not a
+    # wider error bar, it is a different estimator wearing the same glyph, and it made the random
+    # null look too noisy to falsify anything. Same list, same loop, or the arms are not comparable.
+    for f in FOLD_SOURCES + PENDING_FOLDS:
         if not f.exists():
             continue
         for r in _align_tags(pd.read_csv(f)).itertuples():

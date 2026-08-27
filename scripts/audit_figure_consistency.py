@@ -389,7 +389,18 @@ def check_bar_vs_ci():
     if not (bars.exists() and cis.exists()):
         print("  SKIP - one of the two tables is missing")
         return 0
-    bar = {(r["arm"], r["panel"]): r for r in _csv.DictReader(bars.open())}
+    # KEYED ON THE METRIC TOO, AND THE TWO FILES DO NOT SPELL IT THE SAME. mainline_8M.csv says
+    # roc_auc where a2_errorbars.csv says auc, so keying on the raw string drops 28 of 84 rows --
+    # and drops them into the `continue` below, which is silent. Adding the field WITHOUT the alias
+    # turns an 84-row cross-check into a 56-row one that still reports clean, which is a worse
+    # defect than the collapse it was meant to prevent. Normalise first, then key, then assert the
+    # coverage did not fall: the assertion is the part that makes this safe to edit again later.
+    _METRIC_ALIAS = {"auc": "roc_auc"}
+
+    def _metric(r):
+        return _METRIC_ALIAS.get(r["metric"], r["metric"])
+
+    bar = {(r["arm"], r["panel"], _metric(r)): r for r in _csv.DictReader(bars.open())}
     # One hit's worth of NEF1, per panel: 1 / min(top-1% size, n_actives). Measured from each
     # panel's own OOF dump so it cannot drift from the data.
     NEF1_QUANTUM = _nef1_quanta()
@@ -400,10 +411,18 @@ def check_bar_vs_ci():
                 return int(kv.split("=")[1])
         return None
 
-    bad, seedgap = [], []
+    bad, seedgap, missing, blank = [], [], [], 0
     for r in _csv.DictReader(cis.open()):
-        br = bar.get((r["arm"], r["panel"]))
-        if not r["value"] or not br or not br["value"]:
+        br = bar.get((r["arm"], r["panel"], _metric(r)))
+        # THREE CONDITIONS, NOT ONE. These used to share a `continue`, so a row the bar table did
+        # not contain was indistinguishable from a row with no value -- and a cross-check that
+        # silently compares nothing is the failure this whole audit exists to catch. A miss is now
+        # collected and reported; an empty value is counted separately because it is expected.
+        if br is None:
+            missing.append((r["arm"], r["panel"], r["metric"]))
+            continue
+        if not r["value"] or not br["value"]:
+            blank += 1
             continue
         v, b = float(r["value"]), float(br["value"])
         # METRIC-AWARE TOLERANCE. 0.2% is right for a continuous metric like ROC-AUC. NEF1 is a
@@ -434,9 +453,16 @@ def check_bar_vs_ci():
     for arm, panel, nb, nc in seedgap:
         print(f"  FAIL  {arm:16s} {panel:12s} bar pools {nb} pretraining seed(s), CI pools {nc} "
               f"- the interval describes a different estimator than the bar")
-    bad = bad + seedgap
+    # COVERAGE IS PART OF THE VERDICT. An error-bar row with no bar to compare against is not a
+    # pass, and printing OK while a third of the rows were skipped is precisely how a check stops
+    # being one. Reported before the verdict so it cannot be read as a footnote to a clean run.
+    if missing:
+        print(f"  FAIL  {len(missing)} error-bar row(s) have no matching bar and were NOT compared, "
+              f"e.g. {missing[:3]}")
+    bad = bad + seedgap + [("<missing>", m[1], 0.0, 0.0, 0.0) for m in missing]
     if not bad:
-        print("  OK - every drawn bar equals the centre of its own error bar")
+        print(f"  OK - every drawn bar equals the centre of its own error bar "
+              f"({blank} row(s) blank by construction)")
     else:
         print(f"  {len(bad)} bar(s) whose whisker is centred somewhere else - the two artefacts in "
               f"that run dir are different vintages; do NOT ship the affected panel")
