@@ -77,15 +77,30 @@ def main() -> int:
     if mine_arr.shape != theirs.shape:
         print(f"[selftest] SHAPE MISMATCH {mine_arr.shape} vs {theirs.shape}")
         return 1
-    same = np.array_equal(np.asarray(mine_arr), np.asarray(theirs))
-    if same:
-        print(f"[selftest] PASS -- {a.n} rows identical to the published shard, bit for bit")
-        return 0
-    # Not equal: report how badly, so the log distinguishes "rdkit drifted a ulp" from "wrong rows".
-    d = np.abs(np.asarray(mine_arr, np.float32) - np.asarray(theirs, np.float32))
-    frac = float((d > 0).mean())
-    print(f"[selftest] FAIL -- {frac:.4%} of cells differ, maxdiff {float(d.max()):.4f}")
-    return 1
+    A = np.asarray(mine_arr, np.float32)
+    B = np.asarray(theirs, np.float32)
+
+    # NaN is a legitimate descriptor value here -- rdkit returns it for molecules it cannot handle
+    # -- and NaN != NaN, so a plain equality test can NEVER pass on real data. The first version of
+    # this gate did exactly that and reported "FAIL, 0.0000% of cells differ, maxdiff nan", which
+    # is the signature of a broken test, not of broken data.
+    #
+    # The NaN pattern is itself alignment evidence and is checked rather than excused: the same
+    # molecules must fail in both arrays. Then the finite cells must match exactly.
+    nan_a, nan_b = np.isnan(A), np.isnan(B)
+    if not np.array_equal(nan_a, nan_b):
+        n_diff = int((nan_a ^ nan_b).sum())
+        print(f"[selftest] FAIL -- NaN pattern differs in {n_diff} cells: these are not the same molecules")
+        return 1
+    finite = ~nan_a
+    d = np.abs(A[finite] - B[finite])
+    if d.size and float(d.max()) > 0:
+        frac = float((d > 0).mean())
+        print(f"[selftest] FAIL -- {frac:.4%} of finite cells differ, maxdiff {float(d.max()):.4f}")
+        return 1
+    print(f"[selftest] PASS -- {a.n} rows identical to the published shard "
+          f"({int(nan_a.sum())} NaN cells in the same places, {int(finite.sum())} finite cells exact)")
+    return 0
 
 
 if __name__ == "__main__":
