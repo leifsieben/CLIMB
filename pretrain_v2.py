@@ -598,6 +598,7 @@ def train(args) -> int:
         # bit-identical to before. Top-up steps run at the scheduler's final LR -- the cosine
         # schedule has completed -- which is recorded in metadata rather than hidden.
         topup_steps = 0
+        topup_error = None
         if forward_passes_seen < total_fps:
             cap = max(1, total_steps // 2)          # refuse to run away if batches are tiny
             extra_iter = MultiObjectiveBatchIterator(
@@ -606,26 +607,43 @@ def train(args) -> int:
             )
             print(f"[topup] {forward_passes_seen}/{total_fps} FP after {total_steps} steps "
                   f"({100*forward_passes_seen/total_fps:.1f}%) - continuing at final LR", flush=True)
-            for mode, batch in extra_iter:
-                if forward_passes_seen >= total_fps:
-                    break
-                batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
-                with torch.autocast(**autocast_kwargs) if use_amp else _NoCtx():
-                    if mode == "mlm":
-                        loss = model.forward_mlm(batch["input_ids"], batch["attention_mask"], batch["labels"])
-                    elif mode == "mtr":
-                        loss = model.forward_mtr(batch["input_ids"], batch["attention_mask"], batch["targets"])
-                    else:
-                        loss, _ = model.forward_supervised(
-                            batch["input_ids"], batch["attention_mask"], batch["targets"], batch["family"])
-                    if isinstance(loss, tuple):
-                        loss = loss[0]
-                optimizer.zero_grad(set_to_none=True)
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
-                optimizer.step()
-                forward_passes_seen += batch["input_ids"].shape[0]
-                topup_steps += 1
+            # The three calls below MUST match the main loop's exactly -- same batch keys, same
+            # model methods. The first version used batch["targets"] for both mtr and supervised
+            # and called model.forward_supervised(), which does not exist, so top-up worked only
+            # for pure-MLM runs -- and those never under-deliver, so it never ran. Both u2s rungs
+            # trained 1,999,872 of 2,000,000 forward passes and then died in here on
+            # KeyError: 'targets', losing a finished encoder to a 128-pass shortfall.
+            #
+            # And it is wrapped, because that is the deeper fault: top-up closes a rounding gap,
+            # and must never be able to destroy a run that has already trained to budget. A
+            # failure here is recorded and the encoder is still saved.
+            try:
+                for mode, batch in extra_iter:
+                    if forward_passes_seen >= total_fps:
+                        break
+                    batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
+                    with torch.autocast(**autocast_kwargs) if use_amp else _NoCtx():
+                        if mode == "mlm":
+                            loss = model.forward_mlm(batch["input_ids"], batch["attention_mask"], batch["labels"])
+                        elif mode == "mtr":
+                            loss = model.forward_mtr(batch["input_ids"], batch["attention_mask"],
+                                                     batch["mtr_targets"], train_cfg.mtr_loss)
+                        else:
+                            loss, _ = model.forward_sup(
+                                batch["input_ids"], batch["attention_mask"], batch["labels"])
+                        if isinstance(loss, tuple):
+                            loss = loss[0]
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
+                    optimizer.step()
+                    forward_passes_seen += batch["input_ids"].shape[0]
+                    topup_steps += 1
+            except Exception as e:
+                topup_error = f"{type(e).__name__}: {e}"
+                print(f"[topup] FAILED after {topup_steps} extra steps -- {topup_error}. "
+                      f"Keeping the {forward_passes_seen}/{total_fps} FP already trained and "
+                      f"saving the encoder; the shortfall is recorded in metadata.", flush=True)
             metrics_file.write(json.dumps({
                 "step": total_steps + topup_steps, "topup_steps": topup_steps,
                 "forward_passes_seen": forward_passes_seen,
@@ -636,6 +654,7 @@ def train(args) -> int:
         # metadata.json is written before training starts, so persist the top-up count now --
         # otherwise the field is set on a dict nobody ever serialises again.
         metadata["topup_steps"] = topup_steps
+        metadata["topup_error"] = topup_error
         metadata["final_forward_passes_seen"] = forward_passes_seen
         metadata_path.write_text(json.dumps(metadata, indent=2))
 
