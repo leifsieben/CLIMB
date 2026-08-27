@@ -79,7 +79,18 @@ def main() -> int:
         m = np.isfinite(live) & np.isfinite(got)
         corr = float(np.corrcoef(live[m], got[m])[0, 1]) if m.sum() > 2 else float("nan")
         diff = float(np.abs(live[m] - got[m]).max()) if m.any() else float("inf")
-        good = corr > 0.999 and diff < 0.05
+        # THRESHOLDS FROM THE NEGATIVE CONTROL, not from intuition. Measured on a deliberately
+        # shifted read: aligned corr 1.000000 / maxdiff 0.0009, off by ONE ROW corr 0.218 /
+        # maxdiff 10.94, off by one BATCH corr 0.643 / maxdiff 4.71. Correlation is the
+        # discriminating statistic and maxdiff is a backstop.
+        #
+        # maxdiff was 0.05 and that was too tight: the stored rows are float16, and the Ipc-family
+        # descriptors are large enough that quantisation alone reaches ~1 z on a single cell (11 of
+        # 216,818 cells exceed 0.01 z, worst case AvgIpc at 0.98). A correctly aligned probe was
+        # failed for it -- corr 0.999991, maxdiff 0.2491 -- which stopped a rung whose descriptors
+        # were fine. A gate calibrated tighter than the storage format's own error is a false alarm
+        # generator, and a false alarm on a 24-hour job costs as much as a miss.
+        good = corr > 0.99 and diff < 2.0
         ok, fail = ok + good, fail + (not good)
         print(f"  {name} row {row:>7}: corr {corr:.6f} maxdiff {diff:.4f} "
               f"{'ok' if good else 'MISMATCH -- descriptors are not this molecule'}")
