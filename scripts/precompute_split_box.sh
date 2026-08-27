@@ -71,6 +71,14 @@ done
 $PY scripts/verify_descriptor_dir.py --corpus "$CORPUS" --shards "$LIST" 2>&1 | tee -a "$LOG" \
   || abort "post-merge verification failed"
 
-say "ALL $N SHARDS VERIFIED -- uploading log and terminating"
+say "ALL $N SHARDS VERIFIED -- uploading log"
 aws s3 cp "$LOG" "$OUT/_logs/split_box.log" --only-show-errors
-sudo shutdown -h now
+# A box that still owes other work must not terminate on finishing this list. Opt-in rather than
+# opt-out: the failure that costs a night is a box that shut down with work still assigned, not
+# one that idled for ten minutes while the next stage was dispatched.
+if [ "${SPLIT_SHUTDOWN:-0}" = "1" ]; then
+  say "SPLIT_SHUTDOWN=1 -- terminating"
+  sudo shutdown -h now
+else
+  say "SPLIT_SHUTDOWN unset -- staying up for the next stage"
+fi
