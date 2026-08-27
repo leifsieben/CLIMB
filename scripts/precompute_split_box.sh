@@ -24,13 +24,21 @@ N=$(echo "$LIST" | tr ',' '\n' | grep -c .)
 say "start on $(curl -s --max-time 2 http://169.254.169.254/latest/meta-data/instance-type || echo unknown), $CORES cores, $N shards: $LIST"
 
 # ---- the descriptor set must be the fleet's -----------------------------------------------------
-if $PY -m pip list 2>/dev/null | grep -q "^rdkit-pypi"; then
-  say "rdkit-pypi present -- repairing to the fleet rdkit"
-  $PY -m pip uninstall -y rdkit-pypi >/dev/null 2>&1
-  $PY -m pip install -q --force-reinstall --no-deps "rdkit==2025.9.2" >/dev/null 2>&1
-fi
 aws s3 cp s3://climb-s3-bucket/configs/descriptor_stats.json configs/descriptor_stats.json --only-show-errors \
   || abort "cannot fetch the canonical descriptor stats"
+# Repair on the EFFECTIVE descriptor count, not on what pip list says is installed. A fresh box
+# reported rdkit-pypi in pip list, this guard did not fire, and the run aborted on 208 names -- and
+# because both pip commands were routed to /dev/null there was no evidence of why. Test the
+# condition that matters, and let the repair's own errors reach the log.
+n_desc () { (cd /home/ec2-user/CLIMB && $PY -c "import descriptors_v2 as d; print(len(d.descriptor_names()))" 2>/dev/null || echo 0); }
+WANT_DESC=$($PY -c "import json; print(len(json.load(open('/home/ec2-user/CLIMB/configs/descriptor_stats.json'))['names']))" 2>/dev/null || echo 217)
+if [ "$(n_desc)" != "$WANT_DESC" ]; then
+  say "rdkit exposes $(n_desc) descriptors, need $WANT_DESC -- repairing"
+  $PY -m pip uninstall -y rdkit-pypi 2>&1 | tail -2 | tee -a "$LOG"
+  $PY -m pip install -q --force-reinstall --no-deps "rdkit==2025.9.2" 2>&1 | tail -2 | tee -a "$LOG"
+  say "after repair: $(n_desc) descriptors"
+fi
+[ "$(n_desc)" = "$WANT_DESC" ] || abort "rdkit still exposes $(n_desc) descriptors, need $WANT_DESC"
 $PY -c "
 import json, descriptors_v2 as dv
 stats = json.load(open('configs/descriptor_stats.json'))
