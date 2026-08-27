@@ -17,7 +17,7 @@ AMI=ami-0578780bc4c87a97a
 KEY=climb-gpu-key
 SG=sg-0d11ba7811485655f
 PROF=climb-ec2-s3-profile
-SUBNETS="subnet-0e07b7ae383dcb680 subnet-011f8d4b0a6f00ab7 subnet-0b0a9a945de9f8648 subnet-0ee6327e8f5b315df"
+SUBNETS="subnet-0697512b6a144ff98 subnet-0e07b7ae383dcb680 subnet-011f8d4b0a6f00ab7 subnet-0b0a9a945de9f8648 subnet-0ee6327e8f5b315df"   # 1a 1b 1c 1d 1f (1e: Unsupported)
 LOG=analysis/figB_queue.log
 say () { echo "[queue] $* $(date -u +%FT%TZ)" | tee -a "$LOG"; }
 
