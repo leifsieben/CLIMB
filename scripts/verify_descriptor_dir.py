@@ -25,6 +25,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", choices=sorted(CORPORA), required=True)
     ap.add_argument("--width", type=int, default=WIDTH)
+    ap.add_argument("--shards", default=None,
+                    help="comma-separated 5-digit ids -- check ONLY these. For a box that was "
+                         "given an explicit list, whose job is done when its own list is done.")
     ap.add_argument("--budget", type=int, default=None,
                     help="check only the shards a run of this forward-pass budget will OPEN. "
                          "Without it, every shard in the corpus must be present.")
@@ -34,6 +37,14 @@ def main() -> int:
     shards_uri, desc_uri = CORPORA[a.corpus]
     out = subprocess.run(["aws", "s3", "ls", shards_uri], capture_output=True, text=True).stdout
     shards = sorted(l.split()[-1] for l in out.splitlines() if l.strip().endswith(".parquet"))
+    if a.shards:
+        want = {x.strip() for x in a.shards.split(",") if x.strip()}
+        shards = [s for s in shards if s.replace(".parquet", "").replace("shard_", "") in want]
+        missing = want - {s.replace(".parquet", "").replace("shard_", "") for s in shards}
+        if missing:
+            print(f"[verify-dir] the corpus has no shard for requested id(s): {sorted(missing)}")
+            return 1
+        print(f"[verify-dir] checking the {len(shards)} requested shard(s)")
     if a.budget:
         # A rung does not read the whole corpus, and requiring shards it will never open would
         # block a launch on work that does not exist yet. Check exactly the set it opens --
