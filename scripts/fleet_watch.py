@@ -92,7 +92,8 @@ def poll(prev: dict) -> tuple[list[str], bool]:
 
 def main() -> int:
     prev: dict[str, str] = {}
-    for i in range(int(sys.argv[1]) if len(sys.argv) > 1 else 480):
+    n = int(sys.argv[1]) if len(sys.argv) > 1 else 480
+    for i in range(n):
         lines, bad = poll(prev)
         stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         print(f"--- {stamp}", flush=True)
@@ -101,7 +102,8 @@ def main() -> int:
         if bad and i > 0:      # first pass seeds the stall baseline
             print("UNHEALTHY -- see above", flush=True)
             return 1
-        time.sleep(300)
+        if i < n - 1:          # do not sleep after the final pass -- a one-shot check must return
+            time.sleep(300)
     return 0
 
 
