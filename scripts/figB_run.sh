@@ -94,6 +94,28 @@ got = str(pc.get('descriptor_precompute_dir', '')).rstrip('/')
 assert got == want, f'descriptor_precompute_dir {got!r} does not belong to corpus {corpus[0]} ({want})'
 print(f'[figB] descriptor dir matches corpus {corpus[0]}')" 2>&1 | tee -a "$LOG" || abort "descriptor directory does not match the corpus"
 
+# ---- repair rdkit BEFORE any gate that uses it --------------------------------------------------
+# Every box off the April AMI carries rdkit-pypi 2022.9.5 shadowing rdkit 2025.9.2, exposing 208 of
+# 217 descriptors. This block used to sit BELOW the alignment gate -- under a comment saying "repair
+# the environment before checking it" -- so the alignment gate ran on the broken rdkit and aborted
+# with "descriptor rows are not these molecules". The rows were fine; the environment was not, and
+# the message sent the reader to the data.
+#
+# The condition tested is the EFFECTIVE descriptor count, not `pip list`: a fresh box listed
+# rdkit-pypi and the pip-list guard still did not fire. Uninstalling rdkit-pypi alone breaks both
+# (they share paths), so force-reinstall the one we want, and let pip's errors reach the log.
+aws s3 cp s3://climb-s3-bucket/configs/descriptor_stats.json configs/descriptor_stats.json --only-show-errors \
+  || abort "cannot fetch the canonical descriptor stats"
+n_desc () { $PY -c "import descriptors_v2 as d; print(len(d.descriptor_names()))" 2>/dev/null || echo 0; }
+WANT_DESC=$($PY -c "import json; print(len(json.load(open('configs/descriptor_stats.json'))['names']))")
+if [ "$(n_desc)" != "$WANT_DESC" ]; then
+  say "rdkit exposes $(n_desc) descriptors, need $WANT_DESC -- repairing"
+  $PY -m pip uninstall -y rdkit-pypi 2>&1 | tail -2 | tee -a "$LOG"
+  $PY -m pip install -q --force-reinstall --no-deps "rdkit==2025.9.2" 2>&1 | tail -2 | tee -a "$LOG"
+  say "after repair: $(n_desc) descriptors"
+fi
+[ "$(n_desc)" = "$WANT_DESC" ] || abort "rdkit exposes $(n_desc) descriptors, need $WANT_DESC -- environment, not data"
+
 # Complete: every shard the corpus has must have a descriptor file of the size its row count implies.
 # Check the shards THIS RUNG OPENS, not the whole corpus: requiring shards it will never read would
 # block a launch on work that does not exist yet, and the 50M rung's 72 land well before the 100M
@@ -114,16 +136,6 @@ $PY scripts/verify_descriptor_alignment.py --corpus pubchem_124m_full --shard_li
 # but only because the counts differed. Had a version merely REORDERED the list, every descriptor
 # would have been z-scored by another descriptor's mean and nothing would have raised. So check the
 # names in order, and check them against what the template run RECORDED, not against a constant.
-# REPAIR THE ENVIRONMENT BEFORE CHECKING IT. Every box off the April AMI carries rdkit-pypi 2022.9.5
-# shadowing rdkit 2025.9.2 and exposing 208 of 217 descriptors. The gate below would then refuse a
-# perfectly good rung for a reason that is one pip command away, and "the gate refused" is exactly
-# when someone deletes the gate. Uninstalling rdkit-pypi alone breaks both -- they share paths --
-# so force-reinstall the one we want.
-if $PY -m pip list 2>/dev/null | grep -q "^rdkit-pypi"; then
-  say "rdkit-pypi present -- repairing to the fleet rdkit"
-  $PY -m pip uninstall -y rdkit-pypi >/dev/null 2>&1
-  $PY -m pip install -q --force-reinstall --no-deps "rdkit==2025.9.2" >/dev/null 2>&1
-fi
 aws s3 cp "$S3/$TPL/metadata.json" analysis/tpl_meta.json --only-show-errors   || abort "cannot read template metadata -- no reference MTR width to check against"
 $PY -c "
 import json, descriptors_v2 as dv
