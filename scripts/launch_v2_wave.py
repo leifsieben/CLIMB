@@ -146,8 +146,31 @@ def _is_complete(run: dict) -> bool:
         eval_dir = Path(run["evaluation_output_dir"])
         return ((eval_dir / "suite_summary.json").exists()
                 or _path_exists_s3(run["backup_s3_uri"].rstrip("/") + "/moleculenet/suite_summary.json"))
-    # (3) pretraining runs: require the FP budget to have actually been reached
-    return _reached_budget(run, prefer_s3=True)
+    # (3) pretraining runs: the budget must have been reached AND the encoder must exist.
+    # Forward passes alone are not completion -- the encoder IS the deliverable. Both u2s rungs
+    # trained 1,999,872 of 2,000,000 passes and then died before save_encoder(); by an
+    # FP-only test they were "complete", so _should_skip refused to re-run them and every
+    # relaunch skipped straight to upload and failed the same encoder check. A run whose
+    # artifact does not exist cannot be done, however much compute it consumed.
+    if not _reached_budget(run, prefer_s3=True):
+        return False
+    return _encoder_present(run)
+
+
+def _encoder_present(run: dict) -> bool:
+    """Does this run's encoder actually exist, locally or on S3?
+
+    Checked separately from the FP budget because the two fail independently: a run can consume
+    its whole budget and still write no weights (a crash after the loop), and that is precisely
+    the case an FP-only completion test mislabels as done.
+    """
+    run_dir = Path(run["output_dir"])
+    for name in ("model.safetensors", "pytorch_model.bin"):
+        if (run_dir / "encoder" / name).exists():
+            return True
+    base = run["backup_s3_uri"].rstrip("/")
+    return any(_path_exists_s3(f"{base}/encoder/{n}")
+               for n in ("model.safetensors", "pytorch_model.bin"))
 
 
 def _should_skip(run: dict, no_skip: bool) -> bool:
