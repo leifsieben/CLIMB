@@ -44,7 +44,14 @@ CV_DATASETS="BACE Tox21 QM7 HIV"
 #
 # Repair first, then test the BEHAVIOUR rather than the version string: a version string can agree
 # while the import resolves somewhere else entirely, which is exactly how this hid.
-$PY -m pip uninstall -y rdkit-pypi 2>&1 | tail -2 | tee -a "$LOG"
+# The two dists share the SAME `rdkit` package directory, so uninstalling rdkit-pypi deletes files
+# the surviving rdkit also owns and leaves a half-populated package -- `rdkit.Chem` imports but has
+# no MolToSmiles. Always reinstall after the purge; never uninstall alone.
+if $PY -m pip show rdkit-pypi >/dev/null 2>&1; then
+  say "rdkit-pypi is shadowing rdkit -- purging and reinstalling the pinned rdkit"
+  $PY -m pip uninstall -y rdkit-pypi 2>&1 | tail -2 | tee -a "$LOG"
+  $PY -m pip install -q --force-reinstall --no-deps "rdkit==2025.9.2" 2>&1 | tail -2 | tee -a "$LOG"
+fi
 $PY - <<'PYCHK' 2>&1 | tee -a "$LOG"
 import sys
 import rdkit
