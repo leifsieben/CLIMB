@@ -89,35 +89,55 @@ def run_tokens(run):
         return None
 
 
-def qm7_subdir(all_rungs):
-    """ONE QM7 subdir for the ENTIRE ladder set — all-or-nothing, never per rung.
+def ladder_subdir(all_rungs, subdirs, panel, mixing_cost):
+    """ONE subdir for the ENTIRE ladder set — all-or-nothing, never per rung.
 
-    QM7 predictions exist in two conventions: z-scored (`moleculenet_cv/`, ~0.85) and native
-    kcal/mol (`moleculenet_cv_qm7native/`, ~200). The aggregator's usual `_pick_subdir` resolves
-    one subdir per ARM and drops the dirs that lack it, which is right when the dropped dir is one
-    replicate of many. It is WRONG here: a rung is a point on a curve, not a replicate, so dropping
-    it puts a hole in the ladder — and resolving per rung would be worse still, silently plotting
-    a 200-vs-0.85 step as a scaling effect. So: use native only if EVERY rung has it, otherwise
-    z-scored everywhere, and say which.
+    THE HAZARD. `_pick_subdir` resolves one subdir per ARM and drops the dirs that lack it, which
+    is right when the dropped dir is one replicate of many. It is WRONG for a ladder: a rung is a
+    point on a curve, not a replicate, so dropping it puts a hole in the line. Worse, this file
+    calls the readers with a SINGLE-rung list, so `_pick_subdir` only ever sees one dir and
+    resolves per rung — and when it falls through to the last subdir it reports nothing, because
+    `skipped` is empty. Two rungs scored under different protocols then land on the same line with
+    no warning anywhere. So: use the preferred subdir only if EVERY rung has it, otherwise the
+    fallback everywhere, and say which.
+
+    TEST THE DIRECTORY THAT IS ACTUALLY RETURNED. The QM7 version of this checked for
+    `moleculenet_cv_qm7native` and then returned `moleculenet_cv_qm7clamped` — so a rung carrying
+    native but not clamped passed the gate, and `_cv_dir` then found nothing and dropped that
+    rung's QM7 row silently. Correct only while every rung happened to have both. The two are not
+    interchangeable: on unsup_2M clamped reads 197.98 against native's 201.17.
+
+    `mixing_cost` states, in the panel's own units, what a silent mix would draw as a scaling
+    effect. It goes in the message because a warning that does not say what it costs gets ignored.
     """
-    have = [r for r in all_rungs
-            if (FD / "climb_v2_phase2" / r / "moleculenet_cv_qm7native").exists()]
+    preferred, fallback = subdirs[0], subdirs[-1]
+    have = [r for r in all_rungs if (FD / "climb_v2_phase2" / r / preferred).exists()]
     if len(have) == len(all_rungs):
-        print(f"  QM7: native kcal/mol for all {len(all_rungs)} rungs "
-              f"(moleculenet_cv_qm7native/) — same convention as fig_A")
-        return QM7_SUBDIRS[:1]
+        print(f"  {panel}: {preferred}/ for all {len(all_rungs)} rungs — one protocol, "
+              f"same convention as fig_A")
+        return (preferred,)
     missing = [r for r in all_rungs if r not in set(have)]
-    print(f"  QM7: falling back to Z-SCORED for ALL {len(all_rungs)} rungs — "
-          f"{len(missing)} rung(s) have no native re-eval yet ({', '.join(missing[:6])}"
-          f"{'...' if len(missing) > 6 else ''}). Mixing the two would draw a unit step as a "
-          f"scaling effect; this figure's QM7 panel is then NOT comparable to fig_A's.")
-    return DEFAULT_SUBDIRS
+    print(f"  {panel}: falling back to {fallback}/ for ALL {len(all_rungs)} rungs — "
+          f"{len(missing)} rung(s) have no {preferred}/ ({', '.join(missing[:6])}"
+          f"{'...' if len(missing) > 6 else ''}). {mixing_cost} "
+          f"This figure's {panel} panel is then NOT comparable to fig_A's.")
+    return (fallback,)
+
+
+# What a silent mix would cost, measured on the 14 rungs that had both on 2026-08-28. These are
+# the numbers that make the all-or-nothing rule non-negotiable rather than tidy-minded.
+TOX21_MIX_COST = ("Mixing them would draw a +0.0233 AUC step (measured, range +0.0199..+0.0278) "
+                  "as a scaling effect — roughly 75% of the whole Tox21 ladder's range, so one "
+                  "mis-scored rung does not add noise, it invents a result.")
+QM7_MIX_COST = ("Mixing them would draw a 230x unit step (z-scored ~0.85 vs native ~195 kcal/mol) "
+                "as a scaling effect.")
 
 
 def main():
     rows = []
     all_rungs = [r for _, rungs in LADDERS.values() for r in rungs]
-    qm7_sub = qm7_subdir(all_rungs)
+    qm7_sub = ladder_subdir(all_rungs, QM7_SUBDIRS, "QM7", QM7_MIX_COST)
+    tox21_sub = ladder_subdir(all_rungs, TOX21_SUBDIRS, "Tox21", TOX21_MIX_COST)
     for ladder, (arm, rungs) in LADDERS.items():
         for rung in rungs:
             tok = run_tokens(rung)
@@ -165,7 +185,7 @@ def main():
             # --- MoleculeNet ---------------------------------------------------------
             for ds, metric in MOL_PANELS.items():
                 subs = (qm7_sub if ds == "QM7" else
-                        TOX21_SUBDIRS if ds == "Tox21" else DEFAULT_SUBDIRS)
+                        tox21_sub if ds == "Tox21" else DEFAULT_SUBDIRS)
                 folds = mol_fold_values([rung], ds, metric, subdirs=subs)
                 dirs = mol_dir_summaries([rung], ds, metric, subdirs=subs) if not folds else None
                 stats = panel_stats(cells=folds or None, dir_summaries=dirs)
