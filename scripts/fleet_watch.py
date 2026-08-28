@@ -56,6 +56,32 @@ def run_id_of(ip: str) -> str:
     return ""
 
 
+def eval_state(name: str, ip: str, prev: dict) -> tuple[str, str]:
+    """Health of an EVAL box, which has no fp counter to watch.
+
+    figB_eval_run.sh pipes eval_v2.py through `tail -20`, so nothing reaches the log until the
+    process EXITS: for hours the log is a perfectly steady snapshot of a box that may equally be
+    working or wedged. The only honest in-flight signals are the process being alive and the GPU
+    doing something, so those are what this checks -- a log that has not moved is NOT evidence.
+    """
+    log = "/home/ec2-user/CLIMB/analysis/figB_eval.log"
+    tail = remote(ip, f"tail -3 {log} 2>/dev/null")
+    procs = remote(ip, "pgrep -cf 'eval_v[2].py|chemeleon_suite_ru[n].py'") or "0"
+    util = remote(ip, "nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1") or "?"
+    last = tail.strip().splitlines()[-1][:60] if tail.strip() else "(no log)"
+    if "ABORT" in tail or "Traceback" in tail:
+        return "ABORTED", last
+    if procs.strip() in ("", "0"):
+        if "ALL ARTIFACTS PRESENT" in remote(ip, f"tail -20 {log} 2>/dev/null"):
+            return "DONE", last
+        return "IDLE", last
+    # Alive. Zero GPU across two consecutive polls with work assigned is a wedge, not a lull.
+    key = f"{ip}:gpu"
+    stalled = util.strip() == "0" and prev.get(key) == "0"
+    prev[key] = util.strip()
+    return ("STALLED" if stalled else "RUNNING"), f"gpu={util.strip()}% {last}"
+
+
 def s3_done(run: str) -> bool:
     enc = sh(["aws", "s3", "ls", f"{S3}/{run}/encoder/model.safetensors"])
     ver = sh(["aws", "s3", "ls", f"{S3}/{run}/verified.json"])
@@ -65,6 +91,12 @@ def s3_done(run: str) -> bool:
 def poll(prev: dict) -> tuple[list[str], bool]:
     lines, bad = [], False
     for name, iid, ip in boxes():
+        if "eval" in name:
+            state, note = eval_state(name, ip, prev)
+            if state in ("ABORTED", "IDLE", "STALLED"):
+                bad = True
+            lines.append(f"{state:8s} {name:42s} {note}")
+            continue
         run = run_id_of(ip)
         tag_run = name.replace("climb-figB-", "").replace("-fast", "")
         log = f"/home/ec2-user/CLIMB/analysis/figB_{run or tag_run}.log"
