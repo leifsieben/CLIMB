@@ -33,6 +33,29 @@ CV_DATASETS="BACE Tox21 QM7 HIV"
   mkdir -p figure_data/_tokenizer
   aws s3 sync $S3/tokenizer_10M figure_data/_tokenizer --only-show-errors || abort "tokenizer sync failed"; }
 
+# ---- the evaluation environment must be the one the ladder was measured in ----------------------
+# skip_dense_48M's 208-descriptor defect was rdkit-pypi shadowing rdkit, and the SAME shadowing is
+# live on these AMIs: `rdkit 2025.9.2` and `rdkit-pypi 2022.9.5` are both installed and `import
+# rdkit` resolves to 2022.09.5. That is not a cosmetic version difference. 2022.09.5 canonicalizes
+# organometallics differently (C[Hg]Cl vs [CH3][Hg][Cl]), so DeepChem's Raw featurizer keeps 7,831
+# Tox21 molecules where the reference environment keeps 7,823 -- a 77,946-row dump instead of
+# 77,864. rescore_tox21.py refuses anything but 77,864, so the whole Tox21 panel is lost, and the
+# scaffold folds every panel is scored on are cut from these same canonical SMILES.
+#
+# Repair first, then test the BEHAVIOUR rather than the version string: a version string can agree
+# while the import resolves somewhere else entirely, which is exactly how this hid.
+$PY -m pip uninstall -y rdkit-pypi 2>&1 | tail -2 | tee -a "$LOG"
+$PY - <<'PYCHK' 2>&1 | tee -a "$LOG"
+import sys
+import rdkit
+from rdkit import Chem
+canon = Chem.MolToSmiles(Chem.MolFromSmiles("C[Hg]Cl"))
+print(f"[eval] rdkit {rdkit.__version__} canonicalizes C[Hg]Cl as {canon}")
+if canon != "[CH3][Hg][Cl]":
+    sys.exit("rdkit canonicalization is not the reference environment's")
+PYCHK
+[ "${PIPESTATUS[0]}" = "0" ] || abort "rdkit is not the reference environment -- Tox21 would be scored on 7,831 molecules against a ladder built on 7,823"
+
 # The task lists live in the REPO, at the path chemeleon_suite_run.py actually reads
 # (ROOT/chemeleon_suite/tasks). An earlier version of this script checked figure_data/... instead
 # and warned on every box about files that were present all along -- a check against the wrong path
@@ -75,6 +98,12 @@ for run in $RUNS; do
     [ -f "$cv/moleculenet_summary.csv" ] || abort "$run: CV produced no moleculenet_summary.csv"
     have_preds "$cv/test_predictions.csv" $CV_DATASETS \
       || abort "$run: CV summary exists but test_predictions.csv is missing or does not cover $CV_DATASETS -- Tox21/QM7 cannot be rescored off-box and this rung would be dropped from those panels"
+    # rescore_tox21.py accepts EXACTLY this count (93,876 cells - 16,012 masked). Anything else and
+    # it writes nothing, so the rung silently falls back to the stale protocol on the Tox21 panel.
+    n_tox=$(awk -F, 'NR>1 && $1=="Tox21"' "$cv/test_predictions.csv" | wc -l | tr -d ' ')
+    [ "$n_tox" = "77864" ] \
+      || abort "$run: Tox21 dump has $n_tox rows, need 77864 -- the molecule set is not the ladder's and rescore_tox21.py will refuse it"
+    say "$run: Tox21 dump is $n_tox rows -- matches the ladder"
     aws s3 cp --recursive "$cv" "$S3/experiments/climb_v2_phase2/$run/moleculenet_cv" --only-show-errors \
       || abort "$run: CV upload failed"
     say "$run: CV done and uploaded"
