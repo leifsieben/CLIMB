@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Launch one eval box for a space-separated list of run ids.
+# Usage: figB_eval_launch.sh "<run_id> [run_id ...]" <label>
+set -u
+RUNS=$1; LABEL=$2
+AMI=ami-0578780bc4c87a97a
+KEY=climb-gpu-key
+SG=sg-0d11ba7811485655f
+PROF=climb-ec2-s3-profile
+# 1a included: it was missing from every launcher here and capacity errors are per-AZ.
+SUBNETS="subnet-0697512b6a144ff98 subnet-0e07b7ae383dcb680 subnet-011f8d4b0a6f00ab7 subnet-0b0a9a945de9f8648 subnet-0ee6327e8f5b315df"
+ERR=$(mktemp)
+for t in g5.4xlarge g5.2xlarge g6.4xlarge; do
+  for sn in $SUBNETS; do
+    id=$(aws ec2 run-instances --image-id $AMI --instance-type "$t" --key-name $KEY \
+      --security-group-ids $SG --subnet-id "$sn" --iam-instance-profile Name=$PROF \
+      --instance-initiated-shutdown-behavior terminate \
+      --user-data "#!/bin/bash
+su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux && EVAL_SHUTDOWN=1 setsid nohup bash scripts/figB_eval_run.sh $RUNS > /home/ec2-user/eval_boot.log 2>&1 &'" \
+      --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=climb-figB-eval-${LABEL}}]" \
+      --query 'Instances[].InstanceId' --output text 2>"$ERR")
+    case "$id" in i-*) echo "LAUNCHED eval-$LABEL -> $id ($t, $sn) for: $RUNS"; exit 0 ;; esac
+    grep -q "InsufficientInstanceCapacity\|Unsupported\|VcpuLimitExceeded" "$ERR" || { echo "NOT capacity:" >&2; cat "$ERR" >&2; exit 2; }
+  done
+done
+echo "FAILED to launch eval-$LABEL" >&2; exit 1
