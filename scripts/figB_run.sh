@@ -155,6 +155,18 @@ print(f'[figB] MTR target space matches template $TPL: {want} descriptors, names
 # interleaving is unchanged.
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 say "launching wave"
+# ---- the GPU must be OURS before we start -------------------------------------------------------
+# skip_dense_100M_c124 OOMed twelve seconds into training because a second trainer was already
+# holding 13.45 of the 22.06 GiB on that box, and the run then sat dead for 5.5 hours. The model is
+# 41.4M params and trains fine on this instance type -- the arithmetic was a squatter, not the
+# model. Discovering that from an OOM traceback costs a launch; discovering it here costs nothing.
+FREE_MIB=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1)
+OTHER=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -c . || echo 0)
+say "GPU: ${FREE_MIB:-unknown} MiB free, $OTHER process(es) already on the device"
+[ -n "$FREE_MIB" ] || abort "cannot read GPU memory -- refusing to train blind"
+[ "$OTHER" -eq 0 ] || abort "$OTHER process(es) already holding this GPU: $(nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader | tr '\n' ';') -- refusing to share"
+[ "$FREE_MIB" -ge 18000 ] || abort "only ${FREE_MIB} MiB free on the GPU, need >=18000 -- something is holding it"
+
 # ---- warm-start base, staged and PROVEN present -------------------------------------------------
 # A u2s rung names its base as a LOCAL path (experiments/.../unsup_50M/encoder). experiments/ is
 # gitignored, so on a fresh box that path does not exist -- and from_pretrained then treats it as a
