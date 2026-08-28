@@ -64,8 +64,20 @@ LADDERS = {
     # returns None without a metrics.jsonl, main() prints "SKIP <rung>: no metrics.jsonl" and moves
     # on, and the rung joins the line the moment its data lands. A listed-but-absent rung is
     # announced every run; a rung nobody listed is silent forever.
+    # ONE POINT PER BUDGET (Leif 2026-08-28: "only include skip dense c124 drop the other one").
+    # skip_dense_8M and skip_dense_8M_c124 are the SAME 8M forward passes on the 12M and the 124M
+    # corpus, so they land 0.330B and 0.343B apart on a log axis spanning 0.09B-4B -- effectively
+    # the same x. Sorted by tokens the line joined them, and the corpus difference (up to 0.039
+    # macro-RMSE on MoleculeACE, larger than the whole line's span) was drawn as a near-vertical
+    # zigzag that reads as instability rather than as a result. The c124 rung is the one kept: it
+    # is on the same corpus as the 50M/100M rungs above it, which makes this line parallel in
+    # construction to the unsup line (small corpus low, 124M corpus high).
+    #
+    # skip_dense_8M IS NOT DELETED ANYWHERE ELSE. It remains the mainline supervised 8M arm in
+    # mainline_8M.csv and the manifest template for every _c124 clone; this drops it from ONE
+    # line of ONE figure, and the bridge comparison it anchors is a caption number, not a point.
     "sup_dense":        ("sup_dense",
-                         ["skip_dense_2M", "skip_dense_8M", "skip_dense_8M_c124",
+                         ["skip_dense_2M", "skip_dense_8M_c124",
                           "skip_dense_24M", "skip_dense_96M",
                           "skip_dense_50M_c124", "skip_dense_100M_c124"]),
     "sup_dense_sparse": ("sup_dense_sparse",
@@ -99,18 +111,30 @@ BIG_CORPUS = {"unsup_50M", "unsup_100M",
 
 
 def run_tokens(run):
-    """Last tokens_seen in metrics.jsonl (trainer's own non-padding count), or None."""
+    """Last tokens_seen in metrics.jsonl (trainer's own non-padding count), or None.
+
+    THE LAST LINE IS NOT ALWAYS A TRAINING STEP. A run that finishes through the top-up loop ends
+    with a record of the top-up itself --
+        {"step": 7813, "topup_steps": 1, "forward_passes_seen": 2000128, ...}
+    -- which carries forward_passes_seen but NO tokens_seen. Reading the final line alone then
+    returned None for a complete 41 KB metrics file, and both u2s_dense_from50M and
+    u2s_dense_from100M vanished from fig_B while their data sat on disk. Scan for the last line
+    that actually HAS the field instead of assuming the last line is a step record.
+    """
     m = FD / "climb_v2_phase2" / run / "metrics.jsonl"
     if not m.exists():
         return None
-    last = ""
+    tok = None
     for line in m.open():
-        if line.strip():
-            last = line
-    try:
-        return float(json.loads(last).get("tokens_seen"))
-    except Exception:
-        return None
+        if not line.strip():
+            continue
+        try:
+            v = json.loads(line).get("tokens_seen")
+        except Exception:
+            continue
+        if v is not None:
+            tok = v
+    return None if tok is None else float(tok)
 
 
 def ladder_subdir(all_rungs, subdirs, panel, mixing_cost):
@@ -178,7 +202,14 @@ def main():
         for rung in rungs:
             tok = run_tokens(rung)
             if tok is None:
-                print(f"  SKIP {rung}: no metrics.jsonl")
+                # Say WHICH of the two it is. "no metrics.jsonl" was printed for both, and for a
+                # run whose file is present but unparsed that sends the reader to re-run a job
+                # that already finished.
+                _m = FD / "climb_v2_phase2" / rung / "metrics.jsonl"
+                why = ("no metrics.jsonl" if not _m.exists() else
+                       f"metrics.jsonl present ({_m.stat().st_size:,} bytes) but no tokens_seen "
+                       f"in any record -- NOT a missing run")
+                print(f"  SKIP {rung}: {why}")
                 continue
             if rung in U2S_BASE:
                 base = run_tokens(U2S_BASE[rung]) or 0.0

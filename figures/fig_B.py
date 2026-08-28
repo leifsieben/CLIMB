@@ -7,11 +7,24 @@ What it shows
 Each panel is one benchmark of the canonical six; each coloured line is one pretraining ladder
 (seed-0 rungs only): supervised, dense · unsupervised (MLM) · unsup->sup, dense. X = tokens
 actually processed (trainer's non-padding `tokens_seen`, log scale) — NOT forward passes x a
-constant, and unsup->sup counts its true total (MLM base + 2M-FP SFT stage). The two top
-unsupervised rungs (50M/100M, open markers) are trained on the LARGER RDKit-canonical corpus,
-not the 12M corpus of the lower rungs — same ladder, different corpus at the top. The
-unsupervised MoleculeACE line jumps 24M -> 50M (unsup_48M was never scored there). Reference
-lines: both XGBoost anchors (ECFP dash-dot, ECFP+desc dashed) and the random encoder (dotted).
+constant, and unsup->sup counts its true total (MLM base + 2M-FP SFT stage). Reference lines are
+the ECFP4+desc XGBoost anchor (dashed) and the untrained random encoder (dotted) — ONE anchor,
+not two; plain ECFP was drawn for a while and dropped (see REF_LINES).
+
+THE PLATE IS THE "nodup" CUT, and three things follow from that rather than from this paragraph:
+every rung that re-reads the 12M corpus is dropped entirely, so no point needs a corpus caveat;
+`_big_marker` is never called, so there are NO open markers and no corpus key in the legend; and
+the rungs actually drawn are whatever survives `repeated`, which is a property of the data, not a
+list anyone maintains here. Read the inventory `report()` prints, not a rung list in prose — an
+earlier version of this docstring described a "24M -> 50M jump" on a line whose 24M rung the cut
+had already removed.
+
+Each line therefore carries ONE point per budget. skip_dense_8M and skip_dense_8M_c124 are the
+same 8M forward passes on the 12M and the 124M corpus and land 0.343B vs 0.330B apart — the same
+x for plotting purposes — so joining them drew a real corpus effect as a vertical zigzag. Only
+the _c124 rung is on the line (Leif 2026-08-28); the pair is a caption number, and at that fixed
+budget the 124M corpus wins on all six panels: MoleculeACE -0.0391, Ames +0.0299, Tox21 +0.0247,
+HIV +0.0169, QM7 -0.64, BACE +0.0012.
 
 NO error bars (user decision 2026-08-17: they made every panel unreadable — single clean
 variant, no banded variant). The underlying
