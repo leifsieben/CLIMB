@@ -55,8 +55,19 @@ LADDERS = {
     #
     # It was invisible in the values -- MoleculeACE 0.7674 between 24M's 0.7687 and 96M's 0.7748 --
     # which is why nothing caught it for six weeks and why dropping it beats footnoting it.
+    # The _c124 rungs are the SAME supervised-dense regime trained on the 124M RDKit-canonical
+    # corpus instead of the 12M one, so they belong on this line with open markers -- exactly the
+    # convention unsup_50M/unsup_100M already established on the unsup line. skip_dense_8M_c124 is
+    # the bridge: same 8M forward passes as skip_dense_8M, different corpus, so the corpus effect
+    # reads directly as the vertical gap between two points at the same budget.
+    # skip_dense_100M_c124 is still training (ETA 2026-08-29). It is listed anyway: run_tokens()
+    # returns None without a metrics.jsonl, main() prints "SKIP <rung>: no metrics.jsonl" and moves
+    # on, and the rung joins the line the moment its data lands. A listed-but-absent rung is
+    # announced every run; a rung nobody listed is silent forever.
     "sup_dense":        ("sup_dense",
-                         ["skip_dense_2M", "skip_dense_8M", "skip_dense_24M", "skip_dense_96M"]),
+                         ["skip_dense_2M", "skip_dense_8M", "skip_dense_8M_c124",
+                          "skip_dense_24M", "skip_dense_96M",
+                          "skip_dense_50M_c124", "skip_dense_100M_c124"]),
     "sup_dense_sparse": ("sup_dense_sparse",
                          ["skip_dense_plus_sparse_2M", "skip_dense_plus_sparse_8M",
                           "skip_dense_plus_sparse_24M", "skip_dense_plus_sparse_48M"]),
@@ -65,13 +76,26 @@ LADDERS = {
     "unsup":            ("unsup",
                          ["unsup_2M", "unsup_8M", "unsup_24M", "unsup_48M", "unsup_50M", "unsup_100M"]),
     "u2s_dense":        ("u2s_dense",
-                         ["u2s_dense_from2M", "u2s_dense_from8M", "u2s_dense_from24M", "u2s_dense_from48M"]),
+                         ["u2s_dense_from2M", "u2s_dense_from8M", "u2s_dense_from24M",
+                          "u2s_dense_from48M", "u2s_dense_from50M", "u2s_dense_from100M"]),
 }
 # warm-start bases: u2s_dense_from{B} continues unsup_{B}; its true token count is base + SFT.
+# Each u2s rung's own metrics.jsonl counts ONLY its 2M-FP SFT stage: u2s_dense_from50M and
+# u2s_dense_from100M both read 82,438,904 tokens despite continuing very different bases. Without
+# an entry here a rung plots at the SFT spend alone, which for the two new ones would put a
+# 2.1B-token and a 4.1B-token model at the same x as the 2M rung. The warm start must not hide its
+# spend.
 U2S_BASE = {"u2s_dense_from2M": "unsup_2M", "u2s_dense_from8M": "unsup_8M",
-            "u2s_dense_from24M": "unsup_24M", "u2s_dense_from48M": "unsup_48M"}
+            "u2s_dense_from24M": "unsup_24M", "u2s_dense_from48M": "unsup_48M",
+            "u2s_dense_from50M": "unsup_50M", "u2s_dense_from100M": "unsup_100M"}
 # rungs on the larger RDKit-canonical corpus (marked in the figure, stated in the caption)
-BIG_CORPUS = {"unsup_50M", "unsup_100M"}
+# Rungs trained on the larger RDKit-canonical corpus (~124M molecules) rather than the 12M one.
+# fig_B draws these with open markers and treats them as escaping the 12M unique-molecule cap, so
+# a rung missing from this set is not merely mis-styled -- it is plotted as if it re-read a corpus
+# it never touched. The u2s rungs inherit the corpus of the base they continue.
+BIG_CORPUS = {"unsup_50M", "unsup_100M",
+              "skip_dense_8M_c124", "skip_dense_50M_c124", "skip_dense_100M_c124",
+              "u2s_dense_from50M", "u2s_dense_from100M"}
 
 
 def run_tokens(run):
@@ -135,7 +159,19 @@ QM7_MIX_COST = ("Mixing them would draw a 230x unit step (z-scored ~0.85 vs nati
 
 def main():
     rows = []
-    all_rungs = [r for _, rungs in LADDERS.values() for r in rungs]
+    listed = [r for _, rungs in LADDERS.values() for r in rungs]
+    # ONLY RUNGS THAT WILL ACTUALLY BE DRAWN GET A VOTE ON THE PROTOCOL. A rung listed ahead of its
+    # data contributes no row at all, so it cannot mix anything -- but ladder_subdir sees only a
+    # missing directory and cannot tell "absent because it is still training" from "present and
+    # scored the old way". Passing the raw list let five not-yet-evaluated rungs drag BOTH panels
+    # to the stale protocol: every Tox21 value in the table fell by ~0.023, the exact step the
+    # guard exists to prevent, caused by the guard. Filtered on the same condition the loop below
+    # skips on, so the decision is made over precisely the set that gets plotted.
+    all_rungs = [r for r in listed if run_tokens(r) is not None]
+    _absent = [r for r in listed if r not in set(all_rungs)]
+    if _absent:
+        print(f"  {len(_absent)} listed rung(s) have no data yet and are excluded from the "
+              f"subdir decision: {', '.join(_absent)}")
     qm7_sub = ladder_subdir(all_rungs, QM7_SUBDIRS, "QM7", QM7_MIX_COST)
     tox21_sub = ladder_subdir(all_rungs, TOX21_SUBDIRS, "Tox21", TOX21_MIX_COST)
     for ladder, (arm, rungs) in LADDERS.items():
