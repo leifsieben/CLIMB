@@ -111,6 +111,11 @@ RANKED_ARMS = ["ecfp", "ecfp_desc",
                # place in 87% of simulations and stays ahead of ChemBERTa-2 in ~89%. Quote the
                # placement plainly; hedge the head-to-head.
                "unsup_100M",
+               # Its supervised counterpart, landed 2026-08-29. The two are a MATCHED PAIR -- same
+               # 124M corpus, same 100M forward passes, objective the only difference -- so ranking
+               # one without the other would invite exactly the comparison the pair exists to
+               # settle, against whichever 8M-corpus arm happened to sit nearest it.
+               "sup_dense_100M",
                "chemberta_mtr", "molformer_c3", "selfies_ted"]
 
 assert_not_retired(RANKED_ARMS, "fig_A.RANKED_ARMS")

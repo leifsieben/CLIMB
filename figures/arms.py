@@ -233,15 +233,23 @@ ARMS = {
     # values come out of wide_table looking like siblings and nothing in that shape records that
     # their corpora differ.
 
-    # skip_dense_100M_c124 lands here when the run finishes, as
-    #     "sup_dense_100M": dict(label="supervised, desc", short="sup 100M", family="sup",
-    #                            system="CLIMB 100M", color=SHADES["sup"][5], probe="frozen",
-    #                            pretrain_replicates=False, in_ablation=False,
-    #                            unique_molecules=100_000_000,
-    #                            src=dict(mace="skip_dense_100M_c124",
-    #                                     mol=["skip_dense_100M_c124"]))
-    # -- same two-line shape as unsup_100M so the pair reads as one comparison: "CLIMB 100M" bold
-    # on both, objective underneath. Written out here rather than left to be reinvented.
+    # LANDED 2026-08-29. The supervised half of the 100M pair, written out above as a comment
+    # while the run was in flight and now real: 100,000,000 / 100,000,000 forward passes, 36.6 h,
+    # pinned rdkit 2025.09.2, 217 descriptors, precomputed pathway, all six suites scored in one
+    # wave. Same two-line shape as unsup_100M so the pair reads as ONE comparison -- "CLIMB 100M"
+    # bold on both, objective underneath -- which is the whole point of commissioning it: same
+    # corpus, same budget, objective the only difference.
+    #
+    # ONE PRETRAINING SEED, BY DECISION rather than by gap (Leif: "the big ones will only ever have
+    # one seed, that is perfectly fine"), exactly as unsup_100M. Its three replicates are HEAD
+    # seeds, so its point estimate carries one draw from the pretraining distribution where the
+    # 8M-rung arms average three. Cost measured in notes/figA-seed-axis-is-not-uniform.md.
+    "sup_dense_100M": dict(
+        label="supervised, desc", short="sup 100M", family="sup",
+        system="CLIMB 100M", color=SHADES["sup"][5], probe="frozen",
+        pretrain_replicates=False, in_ablation=False,
+        unique_molecules=100_000_000,
+        src=dict(mace="skip_dense_100M_c124", mol=["skip_dense_100M_c124"])),
 
     # ------------------------------------------------------------ external literature CLMs ----
     # Three published chemical language models, added 2026-08-26 from the fig_A wave. All three
@@ -763,7 +771,14 @@ PANELS = {
 }
 # The canonical SIX. CBS stays defined above (the all-suites table and the SI external-validation
 # panel still use it) but is deliberately NOT one of the six, so `list(PANELS)` is not the order.
-PANEL_ORDER = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]
+# QM7 AND AMES SWAPPED 2026-08-29 (Leif). Every six-panel plate is a 2x3 grid, so the LEFT COLUMN
+# is positions 1 and 4 -- MoleculeACE and, until now, Ames. The swap puts MoleculeACE and QM7 in
+# that column and moves Ames to position 6, the last cell, because Ames is the one panel that may
+# have to be dropped: Polaris withholds its TEST labels, so any analysis needing a re-split has to
+# work inside the 5,821 labelled training molecules and produces a number not comparable to the
+# Ames reported everywhere else. A panel that might be removed belongs where removing it costs the
+# layout least.
+PANEL_ORDER = ["MoleculeACE", "HIV", "BACE", "QM7", "Tox21", "Ames"]
 
 # Categorical colour per MoleculeNet task, for the similarity/transfer analysis figures (C2/D)
 # where POINTS ARE TASKS, not arms. Muted hues drawn from the arm families; within those figures

@@ -113,7 +113,21 @@ from figures.allsuites import wide_ranks, wide_table, SUITES
 
 check_font()
 
-SUITE_MARKER = {"MoleculeNet": "o", "MoleculeACE": "^", "Polaris": "s", "CBS": "D"}
+# One marker per suite in allsuites.SUITES. Wong and FartDB were missing here from the day those
+# suites were added until 2026-08-29: draw() does `SUITE_MARKER[s] for s in SUITES`, so the figure
+# raised KeyError('Wong') and fig_A1 AND fig_A_horizontal both stopped rendering entirely the
+# moment enough arms had Wong ranks to reach that line. Same shape as allsuites.py's header table,
+# which listed four of six suites for the same reason: a lookup keyed by a list that grew.
+#
+# The assert below is the actual fix. Adding two keys repairs today; failing at IMPORT with the
+# missing name is what stops the next suite from being found by a traceback inside a draw call.
+SUITE_MARKER = {"MoleculeNet": "o", "MoleculeACE": "^", "Polaris": "s", "CBS": "D",
+                "Wong": "v", "FartDB": "p"}
+_unmarked = [s for s in SUITES if s not in SUITE_MARKER]
+assert not _unmarked, (
+    f"allsuites.SUITES has {_unmarked} with no marker in fig_A1.SUITE_MARKER. Add one here: "
+    f"every suite is drawn as an open glyph, so pick a shape distinguishable from "
+    f"{sorted(SUITE_MARKER.values())} at 3.6pt.")
 INK = "#000000"
 BAND = "#F2F2F2"          # zebra row band; light enough not to compete with the marker colours
 
