@@ -39,16 +39,18 @@ panels where it pays are the two where the label budget is smallest relative to 
 the task — BACE tops out at 1.2k labels, and HIV is 3.5% active.
 
 THE XGBoost ANCHOR (added 2026-08-29, Leif: "just to see that XGBoost actually beats the models at
-any dataset size"). It does, on half the plate:
-  QM7 and Tox21   ECFP4+desc is the best line at EVERY budget tested and is never overtaken.
-  BACE            ahead to ~300 labels; both CLMs pass it by 605 (0.79 vs 0.81-0.82 at full data).
-  HIV             ahead to ~8k; supervised passes it at 32.9k (0.62 vs 0.67).
-So the fingerprint is not merely competitive, it is unbeaten on two of four panels at every label
-budget we measured -- and where it loses, it loses only once labels are plentiful, which is the
-opposite of the usual case made for pretraining.
-
-ITS LINE IS SHORT ON TWO PANELS. The anchor sweep covers the four MolNet tasks, so MoleculeACE and
-Ames carry the three model arms only. A visibly short line, not a silently absent one.
+any dataset size"). It does, on FOUR OF THE SIX PANELS, at every budget:
+  MoleculeACE  best at all 5 budgets, and by a wide margin (1.05 -> 0.67 macro RMSE against the
+               best model line's 1.16 -> 0.78). Never overtaken.
+  QM7          best at all 5. Never overtaken.
+  Tox21        best at every budget it shares with the models. Never overtaken.
+  HIV          best at every shared budget. Never overtaken.
+  Ames         best at 4 of 5; supervised edges it at 582 labels and it retakes the lead after.
+  BACE         the ONE panel it never leads -- both CLMs are ahead from 60 labels upward.
+So on five of six panels the fingerprint is ahead at nearly every label budget we measured, and on
+four it is never beaten at all. BACE is the single exception, and BACE is also the smallest panel
+here (1.2k labels at full data). The usual case for pretraining is that it pays when labels are
+scarce; on this plate the scarce-label end is where the fingerprint is strongest.
 
 X POSITIONS DIFFER BY <0.1% ON Tox21 AND HIV, and the cause is worth recording rather than hiding:
 the three model arms were swept in an environment whose RDKit parsed 7,830 Tox21 and 41,126 HIV
