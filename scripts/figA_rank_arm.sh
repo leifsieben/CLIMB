@@ -76,17 +76,30 @@ else
 fi
 
 # ---- CBS ------------------------------------------------------------------------------------------
+# There are TWO cbs trees and only one of them is the ranking's. scripts/cbs_run.py writes
+# figure_data/cbs/<arm>/results.csv, but figures/allsuites.py::_cbs_value reads
+# figure_data/cbs_benchmark/<arm>/moleculenet_cv/ -- an eval_v2 CUSTOM-TASK run on the benchmark's
+# OWN provided folds (UMAP-cluster, Tanimoto<0.70 between folds), which is the only scheme whose
+# NEF1% is comparable to Truong et al. 2026. cbs_run.py's numbers are real but land in a tree fig_A
+# never opens. Mirrors scripts/cbs_battery.py's frozen-probe arm exactly.
 cbs=figure_data/cbs_benchmark/$ARM/moleculenet_cv
-if [ ! -s "$cbs/moleculenet_summary.csv" ]; then
-  say "cbs"
-  $PY scripts/cbs_run.py --model "$ARM" --featurizer encoder --encoder "$ENC" \
-      --tokenizer figure_data/_tokenizer --head mlp --seeds 42 117 709 2>&1 | tail -15 | tee -a "$LOG"
-  [ -s "$cbs/moleculenet_summary.csv" ] || abort "cbs produced no moleculenet_summary.csv"
-  grep -qi 'nef1' "$cbs/moleculenet_summary.csv" || abort "cbs summary carries no nef1 rows -- the panel value cannot be read from it"
-  aws s3 cp --recursive "figure_data/cbs_benchmark/$ARM" "$S3/experiments/cbs_benchmark/$ARM" --only-show-errors || abort "cbs upload failed"
+# Completion is ACHIEVED WORK, as cbs_battery.py judges it: the suite carries the NEF1% headline.
+cbs_done () { $PY -c "
+import json,sys
+try: d=json.load(open('$cbs/suite_summary.json'))
+except Exception: sys.exit(1)
+sys.exit(0 if d.get('cbs_nef1_MEAN') is not None else 1)" 2>/dev/null; }
+if ! cbs_done; then
+  say "cbs (provided folds, custom task)"
+  $PY eval_v2.py --encoder "$ENC" --tokenizer figure_data/_tokenizer --output_dir "$cbs" \
+      --head mlp --head_seeds 0 1 2 \
+      --task_csv data/cbs.csv --task_name cbs --task_type classification \
+      --cv_folds 5 --cv_scheme provided 2>&1 | tail -15 | tee -a "$LOG"
+  cbs_done || abort "$ARM: cbs suite_summary.json has no cbs_nef1_MEAN -- the ranking value cannot be read from it"
+  aws s3 cp --recursive "$cbs" "$S3/experiments/cbs_benchmark/$ARM/moleculenet_cv" --only-show-errors || abort "cbs upload failed"
   say "cbs done and uploaded"
 else
-  say "cbs already present -- skipping"
+  say "cbs already complete -- skipping"
 fi
 
 # ---- Wong + FartDB --------------------------------------------------------------------------------
@@ -98,7 +111,7 @@ bash scripts/figA_one_arm.sh "$ARM" 2>&1 | tail -20 | tee -a "$LOG" || abort "wo
 missing=0
 check () { [ -s "$1" ] || { say "MISSING $1"; missing=$((missing+1)); }; }
 check "figure_data/chemeleon_suite/polaris/$ARM/test_predictions.csv"
-check "figure_data/cbs_benchmark/$ARM/moleculenet_cv/moleculenet_summary.csv"
+check "figure_data/cbs_benchmark/$ARM/moleculenet_cv/suite_summary.json"
 check "figure_data/wong_saureus/$ARM/verified.json"
 check "figure_data/fartdb/$ARM/verified.json"
 aws s3 cp "$LOG" "$S3/experiments/figA_clms/logs/figA_rank_${ARM}.log" --only-show-errors
