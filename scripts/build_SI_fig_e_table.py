@@ -15,9 +15,10 @@ Source: analysis/rigor/label_efficiency_fractions_all.csv (5 fractions x 3 subsa
 seeds; 3 cells at 100%, where there is nothing to subsample). Values are the MEAN over those cells.
 
 PANEL SCOPE — 4 of the canonical six. The label-fraction grid was built on MoleculeNet, so
-MoleculeACE and Ames have no fraction sweep for any arm yet; both were launched 2026-08-18 and are
-emitted as empty panels until they land, so the gap stays visible rather than being hidden by
-silently reshaping the figure to the tasks that happen to have data.
+MoleculeACE and Ames DID land (both carry all three model arms; the "emitted as empty" note that
+stood here until 2026-08-29 was stale for months). What is still partial is the ECFP4+desc anchor:
+its sweep covers the four MolNet tasks only, so it is absent from those two panels and its line is
+visibly short there rather than silently absent.
 
 CBS IS SUBSTITUTED BY HIV, and the caption must say so. CBS cannot be swept at all: it has 43
 actives in 10,445 molecules, so an 80% train split at the sweep's fractions leaves ~2 actives at 5%
@@ -52,6 +53,16 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
+# The ECFP4+desc / XGBoost anchor was swept LATER and lands in its own file (Leif 2026-08-29:
+# "add the best XGBoost as part of the subsampling as well ... just to see that XGBoost actually
+# beats the models at any dataset size"). It is a SEPARATE file rather than an append because the
+# sweep is re-runnable on its own; both are read and concatenated below.
+#
+# IT HAD TO BE SCORED IN THIS WAVE, not lifted from the mainline table. The two disagree by up to
+# 8% on the same model through the same code -- Tox21 0.7356 here against 0.7961 mainline -- because
+# this figure is a single hold-out split and the mainline is 5-fold scaffold CV. A reference line
+# from one protocol over points from another measures the wave as much as the model.
+SRC_FPDESC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_fpdesc.csv"
 OUT = ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv"
 
 # canonical panel -> the task name in the label-efficiency source (None = never run)
@@ -67,7 +78,8 @@ PRIMARY = {"BACE": "roc_auc", "Tox21": "roc_auc", "QM7": "rmse", "HIV": "nef1",
 # caught up with it.
 SUBSTITUTED = {}
 # arm key in the source -> the canonical arms.py key whose colour/label the figure must use
-ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup")]
+ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup"),
+        ("fp_desc", "ecfp_desc")]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -154,6 +166,16 @@ def mace_rows(panel: str):
 
 def main() -> None:
     d = pd.read_csv(SRC)
+    if SRC_FPDESC.exists():
+        extra = pd.read_csv(SRC_FPDESC)
+        # Announce what was folded in and on which panels. The anchor covers the four MolNet tasks
+        # only, so it is ABSENT from MoleculeACE and Ames -- a visible short line rather than a
+        # silent one, and the caption must say which panels carry it.
+        print(f"  + {len(extra)} rows from {SRC_FPDESC.name}: "
+              f"{sorted(set(extra.arm))} on {sorted(set(extra.task))}")
+        d = pd.concat([d, extra], ignore_index=True)
+    else:
+        print(f"  {SRC_FPDESC.name} ABSENT -- the XGBoost anchor will be missing from every panel")
     rows = []
     for panel, task in PANEL_TASK.items():
         if task is None:

@@ -38,6 +38,26 @@ margin that expires around a few thousand labels on Tox21, and nothing on QM7. N
 panels where it pays are the two where the label budget is smallest relative to the difficulty of
 the task — BACE tops out at 1.2k labels, and HIV is 3.5% active.
 
+THE XGBoost ANCHOR (added 2026-08-29, Leif: "just to see that XGBoost actually beats the models at
+any dataset size"). It does, on half the plate:
+  QM7 and Tox21   ECFP4+desc is the best line at EVERY budget tested and is never overtaken.
+  BACE            ahead to ~300 labels; both CLMs pass it by 605 (0.79 vs 0.81-0.82 at full data).
+  HIV             ahead to ~8k; supervised passes it at 32.9k (0.62 vs 0.67).
+So the fingerprint is not merely competitive, it is unbeaten on two of four panels at every label
+budget we measured -- and where it loses, it loses only once labels are plentiful, which is the
+opposite of the usual case made for pretraining.
+
+ITS LINE IS SHORT ON TWO PANELS. The anchor sweep covers the four MolNet tasks, so MoleculeACE and
+Ames carry the three model arms only. A visibly short line, not a silently absent one.
+
+X POSITIONS DIFFER BY <0.1% ON Tox21 AND HIV, and the cause is worth recording rather than hiding:
+the three model arms were swept in an environment whose RDKit parsed 7,830 Tox21 and 41,126 HIV
+molecules, the anchor in the pinned one that parses 7,823 and 41,120 -- the same canonicalization
+drift that cost the fig_B eval boxes a re-run. It puts the anchor at n_train 6,258 where the models
+sit at 6,264 (Tox21) and 32,896 against 32,901 (HIV); BACE and QM7 align exactly. Six molecules in
+6,264 is 0.10%, invisible on a log axis and far below the spread between arms, and the model arms
+are NOT re-run for it (Leif: a measured number stands unless the EVALUATION was wrong).
+
 NO error bars (matching Fig B, user decision 2026-08-17). The per-point SD across the seed cells is
 kept in figure_data/figF/figF_crossover.csv if a referee asks.
 
@@ -69,8 +89,14 @@ INK = "#000000"
 DF = pd.read_csv(ROOT / "figure_data" / "SI_fig_e" / "SI_fig_e_crossover.csv")
 
 # same three-line set in every panel; colour comes from arms.py (single source of truth)
-LINES = ["e2e_no_pretrain", "sup_dense", "unsup"]
-MARKER = {"e2e_no_pretrain": "o", "sup_dense": "s", "unsup": "D"}
+# The XGBoost anchor joins as a FOURTH line (Leif 2026-08-29), because the question this figure is
+# usually asked about -- does pretraining pay at small label budgets -- has a second half: does any
+# of it beat a fingerprint at ANY label budget. Its sweep covers the four MolNet tasks, so its line
+# is short on MoleculeACE and Ames rather than absent; the caption must say so.
+LINES = ["e2e_no_pretrain", "sup_dense", "unsup", "ecfp_desc"]
+MARKER = {"e2e_no_pretrain": "o", "sup_dense": "s", "unsup": "D", "ecfp_desc": "^"}
+_unmarked = [a for a in LINES if a not in MARKER]
+assert not _unmarked, f"LINES has {_unmarked} with no marker -- add one to MARKER"
 
 YMARGIN = 0.18
 
