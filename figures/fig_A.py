@@ -6,7 +6,7 @@ Full A4 text-block width, and as short as the content allows: one row per model,
 panel. The six per-dataset panels that used to sit underneath are fig_A2's job; repeating them
 here cost most of a page and said nothing the ranking did not.
 
-WHAT IS RANKED. 14 models, every one of them a FROZEN representation with a trained head. Each is ranked WITHIN every individual dataset (1 = best of the
+WHAT IS RANKED. 15 models, every one of them a FROZEN representation with a trained head. Each is ranked WITHIN every individual dataset (1 = best of the
 field), those per-dataset ranks are averaged within each of four task categories, and the four
 category means are averaged with EQUAL WEIGHT. Ranking per dataset is what makes the pooling
 legal: the metrics are heterogeneous (RMSE, ROC-AUC, PR-AUC, NEF1%, Pearson r, Spearman rho) and
@@ -28,7 +28,7 @@ TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-
      seeds pinned. The two ECFP4 anchors and the three literature CLMs have no pretraining stage
      to vary, and unsup_100M has exactly one pretraining and always will, so those five carry
      three disjoint HEAD-SEED triples inside one directory instead. Do NOT write "three
-     pretraining seeds" as a property of the panel -- it is false for 6 of the 14 rows, and a
+     pretraining seeds" as a property of the panel -- it is false for 7 of the 15 rows, and a
      head-seed bar is TIGHTER than a pretraining-seed bar for a reason that has nothing to do
      with the arm being more stable, so the two must not be read against each other.
   2. The probe head is representation-dependent by design: ECFP4 arms at XGBoost, every CLM at a

@@ -52,6 +52,10 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
+import sys as _sys                                    # noqa: E402
+_sys.path.insert(0, str(ROOT))
+from figures.arms import ARMS as _ARMS_REGISTRY        # noqa: E402  (registry for the assert below)
+
 SRC = ROOT / "analysis" / "rigor" / "label_efficiency_fractions_all.csv"
 # The ECFP4+desc / XGBoost anchor was swept LATER and lands in its own file (Leif 2026-08-29:
 # "add the best XGBoost as part of the subsampling as well ... just to see that XGBoost actually
@@ -89,14 +93,26 @@ ARMS = [("e2e", "e2e_no_pretrain"), ("sup", "sup_dense"), ("unsup", "unsup"),
 # means what a point there means.
 MACE_DIR = ROOT / "figure_data" / "chemeleon_suite" / "moleculeace"
 MACE_DATA = ROOT / "chemeleon_suite" / "data" / "moleculeace"
-MACE_ARMS = {"unsup": "unsup", "sup_dense": "sup", "e2e": "e2e"}   # dir token -> source-arm name
+# le_mace_<dir token>_f<frac> -> the canonical arms.py key. ONE map, not two: mace_rows() used to
+# carry a SECOND hardcoded dict for the same lookup, so adding the anchor here would have raised
+# KeyError('fp_desc') deep in the loop rather than being a one-line registration. Same shape as
+# fig_A1's SUITE_MARKER missing two of allsuites.SUITES. Asserted below instead of hoped.
+#
+# fp_desc is the ECFP4+desc/XGBoost anchor, swept through the SAME runner at the SAME fractions as
+# the model arms (2026-08-29) so all four lines on this panel are one protocol. Leif: "XGBoost is
+# missing on moleculeACE and Ames".
+MACE_ARMS = {"unsup": "unsup", "sup_dense": "sup_dense", "e2e": "e2e_no_pretrain",
+             "fp_desc": "ecfp_desc"}
+_bad = [v for v in MACE_ARMS.values() if v not in _ARMS_REGISTRY]
+assert not _bad, f"MACE_ARMS maps to arm key(s) absent from arms.py: {_bad}"
 
 # Ames arrives pre-scored (Polaris withholds test labels, so scoring is always post-hoc through
 # bench.evaluate() -- an EMPTY results.csv under chemeleon_suite/polaris/ is the normal state for
 # every arm there, not a failed run).
 AMES_SCORES = ROOT / "figure_data" / "label_eff_ames.csv"
 AMES_SPLIT = ROOT / "chemeleon_suite" / "data" / "polaris" / "tdcommons__ames.csv"
-AMES_ARM_KEY = {"unsup": "unsup", "sup_dense": "sup_dense", "e2e": "e2e_no_pretrain"}
+AMES_ARM_KEY = {"unsup": "unsup", "sup_dense": "sup_dense", "e2e": "e2e_no_pretrain",
+                "fp_desc": "ecfp_desc"}
 
 
 def ames_train_total() -> int:
@@ -143,8 +159,7 @@ def mace_rows(panel: str):
     matching the MoleculeACE panel's metric everywhere else in the paper."""
     total = mace_train_total()
     out = []
-    for dir_tok, src_arm in MACE_ARMS.items():
-        arm_key = dict(unsup="unsup", sup_dense="sup_dense", e2e="e2e_no_pretrain")[dir_tok]
+    for dir_tok, arm_key in MACE_ARMS.items():
         for d in sorted(MACE_DIR.glob(f"le_mace_{dir_tok}_f*")):
             frac = float(d.name.rsplit("_f", 1)[1])
             f = d / "results.csv"
