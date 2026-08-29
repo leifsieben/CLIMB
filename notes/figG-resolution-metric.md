@@ -1,4 +1,41 @@
-# fig_G: why the unit is a ratio and not a count
+# fig_G: how the resolution metric was chosen, and why it changed twice
+
+**STATUS, 2026-08-29.** fig_G no longer reports a ratio. It reports HELD-OUT CLASSIFICATION AUC:
+label every parent molecule 0 and its edited partner 1, fit a gradient-boosted tree, report ROC-AUC
+on molecules the model never saw. This note is kept because THE MEASUREMENT BELOW STILL STANDS --
+it is the reason a dimension COUNT was rejected, and it is still the reason. What it got wrong is
+narrower: it treated "not a count" as "therefore the ratio", and a third option existed that
+neither the proposal nor this note considered.
+
+Why the ratio fell, on the same standard of evidence this note demanded of the count:
+
+* **Leif's objection, 2026-08-28.** XGBoost splits on SINGLE dimensions, so a model does not need a
+  large shift, it needs ONE coordinate that separates the pair. A magnitude axis systematically
+  understates a representation whose information is concentrated -- one flipped bit in 2048 is a
+  negligible norm change however decisive it is. That argument is the same one this note quotes
+  approvingly in favour of a ratio over a norm; carried one step further it disqualifies the ratio
+  too.
+* **It changed conclusions, not just presentation.** The HUME figures session measured CheMeleon at
+  0.544 on stereo -- barely above chance -- where the ratio axis had called it strongly
+  stereo-sensitive. The magnitude was real movement in an inconsistent direction.
+* **Measured on our own data.** The random encoder moves FURTHER on para-vs-meta (cosine 0.0127)
+  than on stereo (0.0042), so the ratio axis ranks it more regioisomer-sensitive than
+  stereo-sensitive. Classification says the opposite -- 0.533 against 0.624 -- and is right: the
+  displacement on para-vs-meta is arbitrary in direction and generalises to nothing.
+* **Classification inherits neither defect this note identified in the count.** No threshold, and
+  no degenerate calibration, because it divides by nothing.
+
+The ratio's one real advantage, which the AUC gives up: it was interpretable without a reference
+line, since 1.0 meant "as far as a different molecule". The AUC replaces that with a bound the
+ratio never had -- a character n-gram floor drawn in every panel, so a reader can see what the
+edit hands over for free.
+
+WHAT SURVIVES FROM 2026-08-25, unchanged and still load-bearing: everything below. The count is
+still rejected, for the reasons measured here.
+
+---
+
+# (2026-08-25) why the unit is a ratio and not a count
 
 **2026-08-25.** A rewrite of the fig_G methodology was proposed that replaced the reported unit
 with a **count of representation dimensions displaced by at least half of that dimension's
