@@ -9,16 +9,16 @@ SG=sg-0d11ba7811485655f
 PROF=climb-ec2-s3-profile
 # 1a included: it was missing from every launcher here and capacity errors are per-AZ.
 SUBNETS="subnet-0697512b6a144ff98 subnet-0e07b7ae383dcb680 subnet-011f8d4b0a6f00ab7 subnet-0b0a9a945de9f8648 subnet-0ee6327e8f5b315df"
+# STOP, not terminate, on self-shutdown. The battery only shuts down once every artifact is
+# verified present, so a shutdown is normally success -- but on 2026-08-28 an eval box shut down for
+# a reason never established, and `stop` is what preserved its disk and made that a restart instead
+# of a lost rung. A stopped box costs a few dollars a day and is cleaned up explicitly once the
+# artifacts are checked; a terminated one takes its logs with it.
 ERR=$(mktemp)
 for t in g5.4xlarge g5.2xlarge g6.4xlarge; do
   for sn in $SUBNETS; do
     id=$(aws ec2 run-instances --image-id $AMI --instance-type "$t" --key-name $KEY \
       --security-group-ids $SG --subnet-id "$sn" --iam-instance-profile Name=$PROF \
-      # STOP, not terminate. The script only shuts down once every artifact is verified present,
-      # so a shutdown is normally success -- but on 2026-08-28 an eval box shut down for a reason
-      # never established, and `stop` is what preserved its disk and made that a restart instead of
-      # a lost rung. A stopped box is a few dollars a day and is cleaned up explicitly after the
-      # artifacts are checked; a terminated one takes its logs with it.
       --instance-initiated-shutdown-behavior stop \
       --user-data "#!/bin/bash
 su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux && EVAL_SHUTDOWN=1 setsid nohup bash scripts/figB_eval_run.sh $RUNS > /home/ec2-user/eval_boot.log 2>&1 &'" \
