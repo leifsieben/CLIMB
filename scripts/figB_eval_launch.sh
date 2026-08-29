@@ -20,6 +20,26 @@ SUBNETS="subnet-0697512b6a144ff98 subnet-0e07b7ae383dcb680 subnet-011f8d4b0a6f00
 # of a lost rung. A stopped box costs a few dollars a day and is cleaned up explicitly once the
 # artifacts are checked; a terminated one takes its logs with it.
 ERR=$(mktemp)
+
+# An untagged box is invisible to every `--filters tag:Name` sweep this project uses to reconstruct
+# the fleet, so it bills forever and nothing pages anyone. On 2026-08-29 a broken edit put a comment
+# INSIDE a line continuation, which truncated the run-instances call before its --tag-specifications
+# and --query: AWS launched a perfectly good g5.4xlarge with no tags and no user-data, the captured
+# output was JSON rather than an i-..., the script reported "NOT capacity" and exited, and the box
+# sat idle at ~$39/day until another session noticed it. The lesson is not "write better edits" --
+# it is that the launcher must TEST for the condition rather than assume its own call was well
+# formed. Sweep on every exit path.
+orphan_sweep () {
+  local orphans
+  orphans=$(aws ec2 describe-instances \
+    --filters "Name=instance-state-name,Values=pending,running" \
+              "Name=iam-instance-profile.arn,Values=*${PROF}" \
+    --query 'Reservations[].Instances[?!not_null(Tags[?Key==`Name`].Value)].InstanceId' \
+    --output text 2>/dev/null)
+  [ -n "$orphans" ] && echo "WARNING: UNTAGGED instance(s) on $PROF -- probably a partial launch, terminate or tag them: $orphans" >&2
+  return 0
+}
+trap orphan_sweep EXIT
 for t in g5.4xlarge g5.2xlarge g6.4xlarge; do
   for sn in $SUBNETS; do
     id=$(aws ec2 run-instances --image-id $AMI --instance-type "$t" --key-name $KEY \
