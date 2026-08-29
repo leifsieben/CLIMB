@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Launch one eval box for a space-separated list of run ids.
-# Usage: figB_eval_launch.sh "<run_id> [run_id ...]" <label>
+# Usage: figB_eval_launch.sh "<run_id> [run_id ...]" <label> [script]
+#
+# `script` defaults to the fig_B battery. Pass scripts/figA_rank_arm.sh to run the RANKING suites
+# instead (full Polaris, CBS, Wong, FartDB) -- fig_A needs four suites the fig_B battery does not
+# produce, and it rescales an arm that is short of one rather than dropping it, so the gap moves a
+# rank silently instead of erroring.
 set -u
-RUNS=$1; LABEL=$2
+RUNS=$1; LABEL=$2; SCRIPT=${3:-scripts/figB_eval_run.sh}
 AMI=ami-0578780bc4c87a97a
 KEY=climb-gpu-key
 SG=sg-0d11ba7811485655f
@@ -21,7 +26,7 @@ for t in g5.4xlarge g5.2xlarge g6.4xlarge; do
       --security-group-ids $SG --subnet-id "$sn" --iam-instance-profile Name=$PROF \
       --instance-initiated-shutdown-behavior stop \
       --user-data "#!/bin/bash
-su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux && EVAL_SHUTDOWN=1 setsid nohup bash scripts/figB_eval_run.sh $RUNS > /home/ec2-user/eval_boot.log 2>&1 &'" \
+su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux && EVAL_SHUTDOWN=1 setsid nohup bash $SCRIPT $RUNS > /home/ec2-user/eval_boot.log 2>&1 &'" \
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=climb-figB-eval-${LABEL}}]" \
       --query 'Instances[].InstanceId' --output text 2>"$ERR")
     case "$id" in i-*) echo "LAUNCHED eval-$LABEL -> $id ($t, $sn) for: $RUNS"; exit 0 ;; esac
