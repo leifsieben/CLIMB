@@ -122,9 +122,9 @@ for d in wong_saureus fartdb; do
   check "figure_data/$d/$ARM/results.csv"
   check "figure_data/$d/$ARM/fold_values.csv"
 done
-aws s3 cp "$LOG" "$S3/experiments/figA_clms/logs/figA_rank_${ARM}.log" --only-show-errors
 if [ "$missing" -eq 0 ]; then
   say "ALL RANKING ARTIFACTS PRESENT for $ARM"
+  aws s3 cp "$LOG" "$S3/experiments/figA_clms/logs/figA_rank_${ARM}.log" --only-show-errors
   say "NOTE: Polaris still needs scripts/chemeleon_suite_score_polaris.py OFF-BOX to write polaris_scores.csv"
   [ "${EVAL_SHUTDOWN:-0}" = "1" ] && { say "EVAL_SHUTDOWN=1 -- shutting down"; sudo shutdown -h now; }
   say "EVAL_SHUTDOWN unset -- staying up"

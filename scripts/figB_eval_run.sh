@@ -157,9 +157,9 @@ for run in $RUNS; do
     [ -s "$f" ] || { say "MISSING $f"; missing=$((missing+1)); }
   done
 done
-aws s3 cp "$LOG" "$S3/experiments/climb_v2_phase2/_eval_logs/$(hostname).log" --only-show-errors
 if [ "$missing" -eq 0 ]; then
   say "ALL ARTIFACTS PRESENT for: $RUNS"
+  aws s3 cp "$LOG" "$S3/experiments/climb_v2_phase2/_eval_logs/$(hostname).log" --only-show-errors
   say "NOTE: Polaris Ames still needs scripts/chemeleon_suite_score_polaris.py run OFF-BOX to write polaris_scores.csv"
   [ "${EVAL_SHUTDOWN:-0}" = "1" ] && { say "EVAL_SHUTDOWN=1 -- shutting down"; sudo shutdown -h now; }
   say "EVAL_SHUTDOWN unset -- staying up"
