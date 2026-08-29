@@ -110,10 +110,18 @@ bash scripts/figA_one_arm.sh "$ARM" 2>&1 | tail -20 | tee -a "$LOG" || abort "wo
 # ---- completion is per-artifact -------------------------------------------------------------------
 missing=0
 check () { [ -s "$1" ] || { say "MISSING $1"; missing=$((missing+1)); }; }
+# Per-suite FILES, matching what unsup_100M carries -- the arm this rung pairs with on fig_A.
+# Wong and FartDB need fold_values.csv as well as results.csv: the fold values are what the error
+# bars are built from, so an arm with results.csv alone ranks but cannot carry an interval, and a
+# verified.json beside it would call that complete.
 check "figure_data/chemeleon_suite/polaris/$ARM/test_predictions.csv"
 check "figure_data/cbs_benchmark/$ARM/moleculenet_cv/suite_summary.json"
-check "figure_data/wong_saureus/$ARM/verified.json"
-check "figure_data/fartdb/$ARM/verified.json"
+check "figure_data/cbs_benchmark/$ARM/moleculenet_cv/moleculenet_summary.csv"
+check "figure_data/cbs_benchmark/$ARM/moleculenet_cv/test_predictions.csv"
+for d in wong_saureus fartdb; do
+  check "figure_data/$d/$ARM/results.csv"
+  check "figure_data/$d/$ARM/fold_values.csv"
+done
 aws s3 cp "$LOG" "$S3/experiments/figA_clms/logs/figA_rank_${ARM}.log" --only-show-errors
 if [ "$missing" -eq 0 ]; then
   say "ALL RANKING ARTIFACTS PRESENT for $ARM"
