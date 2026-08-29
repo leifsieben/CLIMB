@@ -12,7 +12,16 @@ Sources, all under figure_data/:
   MoleculeACE  chemeleon_suite/moleculeace/<dir>/results.csv                       (mean over seeds)
   Polaris      chemeleon_suite/polaris/<dir>/polaris_scores.csv, each task scored on its own
                primary metric from chemeleon_suite/data/polaris/polaris_manifest.json
-  CBS          experiment_cbs/cbs_nef1_summary.csv                                 (NEF1%)
+  CBS          cbs_benchmark/<mol dir>/moleculenet_cv/                             (NEF1%)
+  Wong         wong_saureus/<mol dir>/results.csv + fold_values.csv                (NEF1%)
+  FartDB       fartdb/<mol dir>/results.csv + fold_values.csv               (macro OvR AUC)
+
+Wong and FartDB were missing from this table until 2026-08-29 although SUITES has listed
+them for far longer, so a reader checking what a ranked arm owes could count four suites
+and be short by two -- which is how a rung reaches the plate scored on part of the field.
+The CBS line pointed at experiment_cbs/cbs_nef1_summary.csv, which _cbs_value()'s own
+comment calls DEPRECATED and refuses to read: its `arm` list silently omits whole waves.
+SUITES below is the authority; this table is a convenience and has now been wrong twice.
 """
 from __future__ import annotations
 import csv

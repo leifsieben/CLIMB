@@ -124,7 +124,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--roots", default=",".join(DEFAULT_ROOTS))
     ap.add_argument("--dry-run", action="store_true")
+    # SCOPE IT TO THE RUNS THAT NEED IT. This is non-destructive and idempotent, so a
+    # full sweep rewrites ~200 correct directories with identical content -- harmless
+    # except that it moves their mtimes, and audit_figure_consistency then correctly
+    # reports mainline_8M.csv and a2_errorbars.csv as OLDER than data they contain.
+    # That happened on 2026-08-28 and cost a full aggregate + cluster-bootstrap rebuild
+    # to clear a warning about files nothing had actually changed.
+    ap.add_argument("--only", default="",
+                    help="comma-separated run-dir names; default is every run")
     a = ap.parse_args()
+    only = {x for x in a.only.split(',') if x}
     done = moved = skipped = 0
     for root in [r for r in a.roots.split(",") if r]:
         base = FD / root
@@ -132,6 +141,8 @@ def main():
             continue
         print(f"\n=== {root} ===", flush=True)
         for run_dir in sorted(p for p in base.iterdir() if p.is_dir()):
+            if only and run_dir.name not in only:
+                continue
             r = rescore(root, run_dir)
             if r is None:
                 continue
