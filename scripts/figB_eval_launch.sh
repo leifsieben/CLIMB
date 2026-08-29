@@ -40,6 +40,18 @@ orphan_sweep () {
   return 0
 }
 trap orphan_sweep EXIT
+# Do not start a second box for a label that already has one. run-instances can succeed on the
+# server while the client returns nothing usable (timeout, or a truncated call as on 2026-08-29):
+# the id does not match i-*, the loop moves to the next subnet, and a SECOND box launches. That one
+# carries the right tags, so the untagged sweep above cannot see it -- two identical eval boxes both
+# doing the same rung is a duplicate that only shows up on the bill. Test for it directly.
+already () {
+  aws ec2 describe-instances --filters "Name=tag:Name,Values=climb-figB-eval-${LABEL}" \
+    "Name=instance-state-name,Values=pending,running" \
+    --query 'Reservations[].Instances[].InstanceId' --output text 2>/dev/null | grep -q i-
+}
+already && { echo "eval-$LABEL already running -- refusing to launch a duplicate" >&2; exit 0; }
+
 for t in g5.4xlarge g5.2xlarge g6.4xlarge; do
   for sn in $SUBNETS; do
     id=$(aws ec2 run-instances --image-id $AMI --instance-type "$t" --key-name $KEY \
@@ -50,6 +62,8 @@ su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=climb-figB-eval-${LABEL}}]" \
       --query 'Instances[].InstanceId' --output text 2>"$ERR")
     case "$id" in i-*) echo "LAUNCHED eval-$LABEL -> $id ($t, $sn) for: $RUNS"; exit 0 ;; esac
+    # The call did not hand back an id -- but that is not proof it did not launch. Check before retrying.
+    already && { echo "eval-$LABEL: run-instances returned no id but a box for this label IS running -- not retrying" >&2; exit 0; }
     grep -q "InsufficientInstanceCapacity\|Unsupported\|VcpuLimitExceeded" "$ERR" || { echo "NOT capacity:" >&2; cat "$ERR" >&2; exit 2; }
   done
 done
