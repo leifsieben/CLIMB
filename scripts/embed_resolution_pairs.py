@@ -68,6 +68,18 @@ EMBEDDINGS = [
      "figure_data/climb_v2_h1/scaling_canonical_fracfull_s0/encoder"),
     ("random encoder",   "encoder", "figure_data/climb_v2_phase2/random_baseline_00/encoder"),
     ("ECFP4 stereo-blind", "fp",    dict(variant="ecfp4_legacy", desc=False)),
+    # THE FREE-INFORMATION FLOOR (idea from the HUME figures session, 2026-08-28). Character 1-
+    # and 2-gram counts of the SMILES as written: no chemistry whatsoever, scored through the
+    # identical harness. Whatever this reaches on a panel is available to ANY string model for
+    # free, so it bounds what a CLM's score on that panel PROVES -- and it audits every panel at
+    # once rather than one suspicion at a time, which is how the ortho/meta template defect had to
+    # be found by hand.
+    #
+    # READ IT AS A FLOOR FOR STRING MODELS ONLY. It is not a mechanism claim about the fingerprint
+    # arms: ECFP4 resolves stereochemistry without seeing a character, because chirality lives in
+    # the atom invariant. Against the graph arms it ranks panel DIFFICULTY; against the CLMs it
+    # bounds interpretation.
+    ("notation (char n-gram)", "notation", None),
 ]
 
 
@@ -90,6 +102,13 @@ def background_smiles(rng, n, exclude):
 
 
 def featurize(name, kind, spec, smiles):
+    if kind == "notation":
+        from sklearn.feature_extraction.text import CountVectorizer
+        # analyzer="char" on the SMILES string itself. lowercase=False is essential: SMILES case
+        # IS chemistry (c aromatic vs C aliphatic), and folding it would hand this baseline less
+        # than a real tokenizer sees and understate the floor.
+        cv = CountVectorizer(analyzer="char", ngram_range=(1, 2), lowercase=False, min_df=2)
+        return np.asarray(cv.fit_transform(list(smiles)).todense(), dtype=np.float32)
     if kind == "fp":
         os.environ["FP_VARIANT"] = spec["variant"]
         from featurize_v2 import ecfp4_features

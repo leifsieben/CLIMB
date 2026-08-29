@@ -282,12 +282,90 @@ SUBS = ["C", "CC", "CCC", "C(C)C", "C(C)(C)C", "C=C", "C#C",
         "CC(=O)O", "OCC(F)(F)F", "c1ccccc1"]
 
 
+def mode_ch2_homologue(pool, rng, n):
+    """One CH2 INSERTED into an acyclic C-C single bond: the classic homologous series.
+
+    Replaces matched_mw (Leif 2026-08-28). matched_mw asked "are these two unrelated molecules the
+    A or the B of their pair", which has no answer -- the label is arbitrary, so every arm scored
+    ~0.5 whatever it could see, and under a [0.5, 1] axis an empty bar there would have meant
+    "ill-posed" while an empty bar everywhere else means "not resolved". One bar, two meanings.
+    It survives as a reported harness check rather than a panel.
+
+    Homologation is the natural replacement: DIRECTIONAL by construction (A is always the shorter
+    homologue), chemically real, and the edit medicinal chemists actually walk. It is also a
+    sharper question than add_methyl -- a methyl BRANCHES the skeleton, where a CH2 insertion
+    extends it and leaves every functional group intact, so a representation can respond to one
+    and not the other.
+
+    Insertion, not extension at a terminus: a terminal methyl-to-ethyl is a special case of
+    add_methyl, and would measure the same thing twice.
+    """
+    out, seen = [], set()
+    for s in pool:
+        if len(out) >= n:
+            break
+        m = Chem.MolFromSmiles(s)
+        if m is None:
+            continue
+        # Acyclic single bond between two ALIPHATIC carbons. Aromatic or ring bonds cannot take an
+        # insertion without changing ring size, which is a different mode on this same plate.
+        cands = [b for b in m.GetBonds()
+                 if b.GetBondType() == Chem.BondType.SINGLE and not b.IsInRing()
+                 and b.GetBeginAtom().GetAtomicNum() == 6 and b.GetEndAtom().GetAtomicNum() == 6
+                 and not b.GetBeginAtom().GetIsAromatic()
+                 and not b.GetEndAtom().GetIsAromatic()]
+        if not cands:
+            continue
+        # Chosen at random, not cands[0]: the first acyclic C-C bond is almost always the same
+        # terminal alkyl position, so a fixed choice would homologate one structural context 1,000
+        # times and measure that context rather than homologation.
+        bond = rng.choice(cands)
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        rw = Chem.RWMol(m)
+        rw.RemoveBond(i, j)
+        k = rw.AddAtom(Chem.Atom(6))
+        rw.AddBond(i, k, Chem.BondType.SINGLE)
+        rw.AddBond(k, j, Chem.BondType.SINGLE)
+        try:
+            prod = rw.GetMol()
+            Chem.SanitizeMol(prod)
+        except Exception:
+            continue
+        a, b = canon(m), canon(prod)
+        if not a or not b or a == b:
+            continue
+        key = tuple(sorted((a, b)))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((a, b, f"CH2 inserted into acyclic C-C bond {i}-{j}"))
+    return out
+
+
 def mode_regioisomer(pool, rng, n):
-    """ortho / meta / para pairs on a disubstituted benzene.
+    """PARA vs META pairs on a disubstituted benzene.
 
     Built from a template rather than rewired from dataset molecules: rewiring a ring in place
     routinely produces a molecule that sanitizes but is not the intended regioisomer, and this
     mode is only meaningful if the two members differ ONLY in substitution position.
+
+    PARA/META, NOT ORTHO/META (Leif 2026-08-28: "we do just change the structure right, not
+    change the SMILES anymore than is needed"). Canonical SMILES for the three isomers of one
+    molecule:
+
+        ortho   Cc1ccccc1Br      <- second substituent is TERMINAL, no branch at all
+        meta    Cc1cccc(Br)c1    <- branch
+        para    Cc1ccc(Br)cc1    <- branch, one ring position over
+
+    Ortho differs from the other two in WHETHER THE STRING HAS A BRANCH, which is a gross
+    topological difference available to any tokenizer for free -- and it showed: under the
+    separability metric ortho-vs-meta read 1.000 for all seven arms, the untrained random encoder
+    included, so the panel measured the template rather than the chemistry. Para vs meta share
+    their token inventory and differ only in where the branch sits, which is the actual question:
+    is substitution POSITION encoded.
+
+    Direction is fixed (A is always para) so the label means the same thing in every pair, which
+    the separability metric requires.
     """
     out, seen = [], set()
     combos = [(r1, r2) for r1 in SUBS for r2 in SUBS]
@@ -295,7 +373,7 @@ def mode_regioisomer(pool, rng, n):
     for r1, r2 in combos:
         if len(out) >= n:
             break
-        a = f"{r1}c1ccccc1{r2}"          # ortho
+        a = f"{r1}c1ccc({r2})cc1"        # para
         b = f"{r1}c1cccc({r2})c1"        # meta
         ma, mb = valid(a), valid(b)
         if not ma or not mb:
@@ -304,7 +382,7 @@ def mode_regioisomer(pool, rng, n):
         key = tuple(sorted((ca, cb)))
         if ca != cb and key not in seen:
             seen.add(key)
-            out.append((ca, cb, f"ortho vs meta, substituents {r1} / {r2}"))
+            out.append((ca, cb, f"para vs meta, substituents {r1} / {r2}"))
     return out
 
 
@@ -479,8 +557,8 @@ MODES = [
     ("A", "add_fluorine",         mode_add_fluorine,         "+ one fluorine"),
     ("A", "isotope_13c",          mode_isotope,              "12C -> 13C, graph unchanged"),
     ("A", "ring_size",            mode_ring_size,            "cyclopentyl <-> cyclohexyl"),
-    ("A", "regioisomer",          mode_regioisomer,          "ortho vs meta"),
-    ("A", "matched_mw",           mode_matched_mw,           "different molecule, same MW"),
+    ("A", "regioisomer",          mode_regioisomer,          "para vs meta"),
+    ("A", "ch2_homologue",        mode_ch2_homologue,        "+ one CH2 into a C-C bond"),
     ("A", "matched_descriptors",  mode_matched_descriptors,  "different molecule, same 217 descriptors"),
     ("B", "smiles_enumeration",   mode_smiles_enumeration,   "SAME molecule, re-written SMILES"),
     ("B", "kekule",               mode_kekule,               "SAME molecule, Kekule form"),

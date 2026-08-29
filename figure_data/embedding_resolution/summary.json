@@ -53,14 +53,14 @@
   "mode": "regioisomer",
   "n": 1000,
   "rejected": 0,
-  "description": "ortho vs meta"
+  "description": "para vs meta"
  },
  {
   "klass": "A",
-  "mode": "matched_mw",
+  "mode": "ch2_homologue",
   "n": 1000,
   "rejected": 0,
-  "description": "different molecule, same MW"
+  "description": "+ one CH2 into a C-C bond"
  },
  {
   "klass": "A",
