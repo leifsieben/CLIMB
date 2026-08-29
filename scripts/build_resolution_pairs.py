@@ -342,6 +342,56 @@ def mode_ch2_homologue(pool, rng, n):
     return out
 
 
+def mode_halogen_swap(pool, rng, n):
+    """Cl -> F at the SAME position: the canonical bioisosteric substitution.
+
+    Fills the tenth class-A slot on fig_G's grid (Leif 2026-08-29). Chosen against the alternatives
+    because of what it holds FIXED. Heavy-atom count, connectivity, branch structure and every ring
+    are identical between the two members -- exactly one atom's ELEMENT differs -- so it satisfies
+    the rule the regioisomer defect produced (an edit may move a branch, never create one) without
+    needing a template to enforce it.
+
+    It is the natural partner to add_fluorine on the same plate: that panel asks whether a
+    representation notices an atom APPEARING, this one whether it notices which HALOGEN is there
+    when the skeleton is untouched. A representation can plausibly do one and not the other --
+    Morgan invariants carry atomic number, so the fingerprints should manage both, while anything
+    reading a string sees one added token versus one substituted token.
+
+    Directional by construction: A is always the chloride, B always the fluoride, so the label
+    means the same thing in every pair, which the separability metric requires.
+    """
+    out, seen = [], set()
+    for s in pool:
+        if len(out) >= n:
+            break
+        m = Chem.MolFromSmiles(s)
+        if m is None:
+            continue
+        cls = [a.GetIdx() for a in m.GetAtoms() if a.GetAtomicNum() == 17]
+        if not cls:
+            continue
+        # Random rather than the first chlorine: a fixed choice would swap the same positional
+        # context in every polychlorinated molecule and measure that context, the same trap the
+        # CH2 insertion site had.
+        idx = rng.choice(cls)
+        rw = Chem.RWMol(m)
+        rw.GetAtomWithIdx(idx).SetAtomicNum(9)
+        try:
+            prod = rw.GetMol()
+            Chem.SanitizeMol(prod)
+        except Exception:
+            continue
+        a, b = canon(m), canon(prod)
+        if not a or not b or a == b:
+            continue
+        key = tuple(sorted((a, b)))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((a, b, f"Cl -> F at atom {idx}"))
+    return out
+
+
 def mode_regioisomer(pool, rng, n):
     """PARA vs META pairs on a disubstituted benzene.
 
@@ -559,6 +609,7 @@ MODES = [
     ("A", "ring_size",            mode_ring_size,            "cyclopentyl <-> cyclohexyl"),
     ("A", "regioisomer",          mode_regioisomer,          "para vs meta"),
     ("A", "ch2_homologue",        mode_ch2_homologue,        "+ one CH2 into a C-C bond"),
+    ("A", "halogen_swap",         mode_halogen_swap,         "Cl -> F, skeleton unchanged"),
     ("A", "matched_descriptors",  mode_matched_descriptors,  "different molecule, same 217 descriptors"),
     ("B", "smiles_enumeration",   mode_smiles_enumeration,   "SAME molecule, re-written SMILES"),
     ("B", "kekule",               mode_kekule,               "SAME molecule, Kekule form"),

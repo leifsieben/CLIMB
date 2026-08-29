@@ -1,0 +1,30 @@
+\begin{table}[h]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4.5pt}
+\caption{\textbf{How much of the descriptor space each representation encodes.} Median $R^2$ of a
+ridge head fit from the frozen representation to each of 213 RDKit descriptors, on 1,940
+held-out molecules. A head is trained from scratch for every row; the representation is the only
+thing that varies. Targets are $z$-scored with the pretraining corpus statistics and clipped at
+$\pm10$, matching the descriptor objective. Median rather than mean because two descriptors
+(Kappa3, Ipc) are exponential in molecular size and reach large negative $R^2$ after clipping.
+\emph{CLIMB sup, desc was trained on these exact targets} and is included as a manipulation check,
+not as a comparison.}
+\label{tab:descriptor_probe}
+\begin{tabular}{@{}l cccc cccc @{\hspace{6pt}}||@{\hspace{6pt}} c@{}}
+\toprule
+& \multicolumn{4}{c}{\emph{topology and shape}}
+& \multicolumn{4}{c}{\emph{substructure and electronic}} & \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-9}
+\textbf{Representation} & \textbf{Chi} & \textbf{Kappa} & \textbf{BCUT} & \textbf{Ipc/SPS} & \textbf{EState} & \textbf{VSA} & \textbf{fr\_*} & \textbf{Bulk} & \textbf{ALL} \\
+\midrule
+ECFP4 (2048 bit) & 0.73 & 0.69 & 0.66 & 0.69 & 0.65 & 0.69 & 0.61 & 0.72 & 0.69 \\
+CLIMB unsup & 0.86 & 0.79 & 0.73 & 0.75 & 0.56 & 0.62 & 0.33 & 0.70 & 0.59 \\
+CLIMB sup, desc & 0.97 & 0.95 & 0.86 & 0.89 & 0.87 & 0.77 & 0.74 & 0.91 & 0.82 \\
+CLIMB random & 0.42 & 0.34 & 0.53 & 0.42 & 0.31 & 0.34 & 0.16 & 0.41 & 0.34 \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize Molecule pool: downstream eval molecules -- NOT verified absent from the pretraining corpus; see the module docstring.}
+\end{table}

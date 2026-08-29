@@ -120,7 +120,16 @@ SERIES = [("ECFP",      ARMS["ecfp"]["color"],      "ECFP4"),
           ("ECFP+d",    ARMS["ecfp_desc"]["color"], "ECFP4+desc"),
           ("uns-ENUM",  SHADES["unsup"][0],         "CLIMB unsup., augmented"),
           ("uns-CANON", SHADES["unsup"][2],         "CLIMB unsup., canonical"),
-          ("sup",       ARMS["sup_dense"]["color"], "CLIMB supervised")]
+          ("sup",       ARMS["sup_dense"]["color"], "CLIMB supervised"),
+          # THE UNTRAINED CONTROL, added 2026-08-29 (Leif). It belongs on this plate more than on
+          # any other: a random projection preserves whatever the input hands it, so it measures
+          # how much of an edit survives to the embedding BEFORE training has an opinion. Under
+          # the old magnitude axis it was uninformative -- its denominator is large, so the ratio
+          # normalised the effect away -- and it only became worth drawing once the metric stopped
+          # dividing by anything. It reads ABOVE the supervised CLM on stereo (0.624 vs 0.495),
+          # E/Z, C->N and ring size, which is the figure saying that pretraining does not merely
+          # fail to learn these distinctions, it discards ones the input already contained.
+          ("rand",      ARMS["random_encoder"]["color"], "no pretrain, random")]
 
 # (class, mode, two-line panel title). The class blocks are drawn as separate figures.
 # NINE class-A edits and TWO class-B controls. Three panels were REMOVED on 2026-08-28 under a
@@ -141,6 +150,7 @@ MODES = [("A", "stereo_flip",         "Inverted\nstereocentre"),
          ("A", "c_to_n",              "Aromatic C→N\n(benzene→pyridine)"),
          ("A", "add_methyl",          "One methyl\nadded"),
          ("A", "ch2_homologue",       "One CH$_2$ inserted\n(homologue)"),
+         ("A", "halogen_swap",        "Cl→F, skeleton\nunchanged"),
          ("A", "add_fluorine",        "One fluorine\nadded"),
          ("A", "isotope_13c",         "$^{12}$C→$^{13}$C,\ngraph unchanged"),
          ("A", "ring_size",           "Cyclopentyl ↔\ncyclohexyl"),
@@ -307,7 +317,7 @@ def report(R, modes, heading):
     print("   it cannot possibly differ, which is 'not resolved' in its strongest form.")
 
 
-NCOL_A = 5          # nine class-A modes across 2 rows of 5; the tenth slot is left empty
+NCOL_A = 5          # ten class-A modes fill 2 rows of 5 exactly -- no empty cell
 NCOL = NCOL_A + 1   # plus a sixth column carrying the two class-B controls
 
 # The two class-B panels shown here as CONTROLS (user 2026-08-19). They answer the opposite
@@ -321,7 +331,7 @@ CONTROLS = ["smiles_enumeration", "kekule"]
 def main():
     R = compute()
     A = [m for m in MODES if m[0] == "A"]
-    assert len(A) == 9, f"fig_G expects the nine class-A modes, found {[m[1] for m in A]}"
+    assert len(A) == 10, f"fig_G expects the ten class-A modes, found {[m[1] for m in A]}"
     B = [m for m in MODES if m[0] == "B" and m[1] in CONTROLS]
     B.sort(key=lambda m: CONTROLS.index(m[1]))
     assert len(B) == 2, f"fig_G expects the two class-B controls, found {[m[1] for m in B]}"
@@ -329,7 +339,7 @@ def main():
     fig = plt.figure(figsize=(STYLE["col2"], 3.85))
     gs = fig.add_gridspec(2, NCOL, left=0.068, right=0.995, top=0.875, bottom=0.250,
                           wspace=0.38, hspace=0.72)
-    tags = "abcdefghi"
+    tags = "abcdefghij"
     for i, (kl, mode, title) in enumerate(A):
         ax = fig.add_subplot(gs[i // NCOL_A, i % NCOL_A])
         auc, sd, dg, npr = (_row(R[c], kl, mode) for c in
@@ -351,17 +361,17 @@ def main():
         floor = R["auc_mean"].loc[(kl, mode), NOTATION]
         assert np.isfinite(auc).any(), f"fig_G: no data for control {mode}"
         _panel(ax, auc, sd, dg, npr, floor, title, kl)
-        ax.text(0.0, 1.30, "jk"[j], transform=ax.transAxes, fontsize=FS["panel_tag"],
+        ax.text(0.0, 1.30, "kl"[j], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
 
     # NO in-figure label on the control column (user 2026-08-19: it goes in the caption). The
-    # inversion -- in (j) and (k) a HIGH bar is a failure -- is therefore carried by the tinted
+    # inversion -- in (k) and (l) a HIGH bar is a failure -- is therefore carried by the tinted
     # background alone, and the caption MUST state it: a reader who carries the class-A reading
     # across gets both panels backwards. Keep that sentence in the caption if this figure is
     # ever re-cut.
     _h = _legend_handles()
     fig.legend(handles=_h, loc="upper center", bbox_to_anchor=(0.500, 0.212),
-               ncol=row_ncol(_h, rows=1), fontsize=FS["legend"], handletextpad=0.4,
+               ncol=row_ncol(_h, rows=2), fontsize=FS["legend"], handletextpad=0.4,
                columnspacing=1.0, labelspacing=0.35, borderpad=0.30, **LEGEND_BOX)
     save(fig, "fig_G")
     plt.close(fig)

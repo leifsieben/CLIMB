@@ -1,0 +1,11 @@
+--- 2026-08-28T07:51:16Z
+RUNNING  climb-figB-eval-c                          gpu=88% [eval] u2s_dense_from50M: 5-fold scaffold CV over BACE Tox21
+RUNNING  climb-figB-eval-b                          gpu=0% [eval] skip_dense_8M_c124: 5-fold scaffold CV over BACE Tox2
+ABORTED  climb-figB-skip_dense_100M_c124            run=skip_dense_100M_c124     fp=30400000/100000000
+RUNNING  climb-figB-eval-a                          gpu=90% [eval] skip_dense_50M_c124: 5-fold scaffold CV over BACE Tox
+--- 2026-08-28T07:56:50Z
+RUNNING  climb-figB-eval-c                          gpu=11% [eval] u2s_dense_from50M: moleculeace 2026-08-28T07:56:00Z
+RUNNING  climb-figB-eval-b                          gpu=88% [eval] skip_dense_8M_c124: moleculeace 2026-08-28T07:56:17Z
+ABORTED  climb-figB-skip_dense_100M_c124            run=skip_dense_100M_c124     fp=30656000/100000000
+RUNNING  climb-figB-eval-a                          gpu=16% [eval] skip_dense_50M_c124: 5-fold scaffold CV over BACE Tox
+UNHEALTHY -- see above

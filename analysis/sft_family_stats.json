@@ -1,0 +1,46 @@
+{
+  "WONG": {
+    "label_columns": 4,
+    "molecules_with_any_measurement": 38789,
+    "rows_in_parquet": 5382243,
+    "measured_cells": 152831,
+    "possible_cells_over_family_molecules": 155156,
+    "measured_fraction_of_possible": 0.985015,
+    "positive_cells": 5722,
+    "active_rate_over_measured": 0.03744,
+    "active_rate_over_possible": 0.03687901,
+    "per_column": {
+      "WONG__Wong_Hep__Active": {
+        "measured": 38789,
+        "positive": 1501,
+        "active_rate_over_measured": 0.038697
+      },
+      "WONG__Wong_IMR90__Active": {
+        "measured": 38789,
+        "positive": 1435,
+        "active_rate_over_measured": 0.036995
+      },
+      "WONG__Wong_HSkMC__Active": {
+        "measured": 38789,
+        "positive": 989,
+        "active_rate_over_measured": 0.025497
+      },
+      "WONG__Wong_SA__Active": {
+        "measured": 36464,
+        "positive": 1797,
+        "active_rate_over_measured": 0.049281
+      }
+    }
+  },
+  "PCBA": {
+    "label_columns": 1328,
+    "molecules_with_any_measurement": 1563775,
+    "rows_in_parquet": 5382243,
+    "measured_cells": 224377357,
+    "possible_cells_over_family_molecules": 2076693200,
+    "measured_fraction_of_possible": 0.108046,
+    "positive_cells": 2254371,
+    "active_rate_over_measured": 0.010047,
+    "active_rate_over_possible": 0.00108556
+  }
+}
