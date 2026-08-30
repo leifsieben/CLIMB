@@ -23,7 +23,7 @@ objective bought nothing".
       wiki             -- English Wikipedia text: real language, ZERO chemistry
     Reading: the benefit is NOT specific to real chemistry. Shuffled tokens keep most of it and are
     the BEST rung on 3 of 6 panels; Wikipedia -- with no molecules in it at all -- is positive on
-    5 of 6 and actually beats the real corpus on MoleculeACE. Only the unigram rung, which destroys
+    5 of 6, beats the real corpus on MoleculeACE, and posts its LARGEST lift on HIV (+15.6%). Only the unigram rung, which destroys
     all sequential structure, collapses to the floor on every panel (-1.2 to +1.2%). What the MLM
     buys is largely a generic sequence prior, not chemical knowledge.
 
@@ -46,8 +46,17 @@ fold SD, which would not be the same estimand. As of 2026-08-27 NO cell triggers
 are 3-seed. This paragraph previously described `corrupt_mtr_8M` on BACE / Tox21 / QM7 and Ames, an
 arm that is no longer in the table at all, and named CBS, which is not in TASKS -- so it documented
 a state the figure had left. The arms actually drawn are real / targets_permuted (supervised) and
-real / shuffled / bigram / unigram / wiki (unsupervised); wiki has no HIV row and that CELL is blank
-rather than whiskerless, because its value is absent too.
+real / shuffled / bigram / unigram / wiki (unsupervised).
+
+THE WIKI HIV CELL IS NOW FILLED, and how it was empty is worth keeping. It was once published as a
++41% lift -- zero-chemistry Wikipedia as the best arm on HIV, ahead of every fingerprint -- because
+the lookup matched on (arm, dataset) without the metric: expB carries ROC-AUC for HIV, so a 0.7624
+ROC-AUC was subtracted from a 0.5406 NEF1 floor. Adding the metric filter correctly killed that
+number, but the conclusion recorded alongside it -- "expB was never scored on NEF1 for HIV" -- was
+wrong. The SUMMARY does not carry nef1; the run's own moleculenet_cv/ tree does, from the same
+evaluation, and rigor_cell now falls back to it. Verified before trusting: the two sources agree to
+0.0000 on every cell they share (BACE 0.8218, Tox21 0.7734, QM7 199.4371), so this is one wave read
+through a fuller path rather than two waves mixed. HIV NEF1 = 0.6249 +/- 0.0187 over 3 seeds.
 
 Run:  python3 scripts/build_fig_E_table.py && python3 -m figures.fig_E
 """

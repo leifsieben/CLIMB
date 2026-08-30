@@ -76,6 +76,7 @@ import six_panel_aggregate as A                                    # noqa: E402 
 
 PHASE2 = ROOT / "figure_data" / "climb_v2_phase2"
 RIGOR = ROOT / "analysis" / "rigor"
+FD = ROOT / "figure_data"          # run trees, for the CV-tree fallback in rigor_cell
 OUT = ROOT / "figure_data" / "fig_E" / "fig_E_lift.csv"
 
 TASKS = ["MoleculeACE", "HIV", "BACE", "Ames", "Tox21", "QM7"]
@@ -210,6 +211,41 @@ def qm7_consistent(vals: list[float], floor_val: float, label: str) -> list[floa
     return keep
 
 
+# Run-dir prefixes searched for a summary's missing metric. The wiki arm lives in climb_v2_expB;
+# the list is explicit so a new tree has to be added deliberately rather than found by a glob.
+_CV_ROOTS = ["climb_v2_expB", "climb_v2_expA", "climb_v2_phase2"]
+
+
+def _cv_tree_cell(arm: str, task: str, metric: str):
+    """(mean, sd, n_seeds) for one cell read from the RUN'S OWN moleculenet_cv/, or None.
+
+    Pools the three pretraining-seed dirs the same way the summaries do, and reads the PLAIN
+    metric rows (never `<metric>_cell`) -- eval_v2 ensembles the head seeds before scoring, and
+    that ensembled value is the point estimate every other panel here uses.
+    """
+    import csv as _csv
+    import statistics as _st
+    base = {"wiki_real": "wiki_real_8M"}.get(arm, arm)
+    per_seed = []
+    for d in seeds(base):
+        for root in _CV_ROOTS:
+            f = FD / root / d / "moleculenet_cv" / "moleculenet_summary.csv"
+            if not f.exists():
+                continue
+            v = [float(r["main_value"]) for r in _csv.DictReader(f.open())
+                 if r["dataset"] == task and r["main_metric"] == metric
+                 and r["head_seed"] not in ("MEAN", "STD")
+                 and r["main_value"] not in ("", "nan")]
+            if v:
+                per_seed.append(_st.mean(v))
+            break
+    if not per_seed:
+        return None
+    return (_st.mean(per_seed),
+            _st.stdev(per_seed) if len(per_seed) > 1 else 0.0,
+            len(per_seed))
+
+
 def agg(vals: list[float]) -> tuple[float, float, int]:
     v = [x for x in vals if np.isfinite(x)]
     if not v:
@@ -248,11 +284,29 @@ def main() -> None:
         m = METRIC[task]
         r = df[(df.arm == arm) & (df.dataset == task) & (df.metric == m)]
         if not len(r):
+            # FALL BACK TO THE RUN'S OWN CV TREE BEFORE GIVING UP. The summary is a DERIVED view
+            # and can be narrower than its source: expB_wiki_summary.csv carries roc_auc only for
+            # HIV, while climb_v2_expB/<run>/moleculenet_cv/ carries nef1 AND roc_auc, from the
+            # same evaluation. Returning NaN here was right when it stopped a ROC-AUC being
+            # subtracted from a NEF1 floor (+41% "lift" for zero-chemistry Wikipedia), but the
+            # conclusion recorded with that fix -- "expB was never scored on NEF1 for HIV" -- was
+            # wrong: it was scored, the summary just does not carry it.
+            #
+            # SAFE BECAUSE THE TWO SOURCES ARE THE SAME NUMBERS, verified rather than assumed: on
+            # every cell they share, wiki agrees to 0.0000 (BACE 0.8218, Tox21 0.7734, QM7
+            # 199.4371). So this is one wave read through a fuller path, not two waves mixed.
+            fb = _cv_tree_cell(arm, task, m)
+            if fb is not None:
+                print(f"  [rigor_cell] {arm} / {task}: {m!r} absent from the summary, "
+                      f"read from moleculenet_cv/ instead -> {fb[0]:.4f} (n={fb[2]})")
+                return fb
             print(f"  [rigor_cell] {arm} / {task}: no {m!r} row "
                   f"(has {sorted(df[(df.arm == arm) & (df.dataset == task)].metric.unique())}) "
                   f"-- cell dropped")
             return np.nan, np.nan, 0
         return float(r["mean"].iloc[0]), float(r["std"].iloc[0]), int(r["n_seeds"].iloc[0])
+
+    # ---------------- CV-tree fallback ----------------
 
     # ---------------- floors ----------------
     # benchmark panels: one shared random-init frozen control, same wave as the corrupted arms
