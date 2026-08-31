@@ -69,7 +69,7 @@ assert not _bad, f"SI_fig_h.LINES maps to arm key(s) absent from arms.py: {_bad}
 # panel -> (dataset key in the eval output, metric). MoleculeACE is assembled from its 30 targets.
 PANEL_SRC = {"BACE": ("BACE", "roc_auc"), "Tox21": ("Tox21", "roc_auc"),
              "QM7": ("QM7", "rmse"), "HIV": ("HIV", "nef1")}
-AMES_WHY = "Polaris withholds\nthe test labels —\nno re-split possible"
+AMES_NOTE = "train split only —\nnot the Polaris number"
 
 
 def _folds(path: Path, dataset: str, metric: str):
@@ -100,6 +100,15 @@ def cell(arm: str, scheme: str, panel: str):
         if not per:
             return float("nan"), float("nan")
         return st.mean(per), (st.stdev(per) if len(per) > 1 else float("nan"))
+    if panel == "Ames":
+        # The LABELLED TRAINING PORTION only, as a self-contained CV. Not the Polaris benchmark
+        # number: Polaris withholds its 1,457 test labels, so its own split cannot be re-cut. The
+        # LEVEL here is therefore not comparable to Ames anywhere else in the paper; the SLOPE is,
+        # and the slope is what this figure measures.
+        v = _folds(SRC / f"{arm}__{scheme}__ames" / "moleculenet_summary.csv", "Ames", "roc_auc")
+        if not v:
+            return float("nan"), float("nan")
+        return st.mean(v), (st.stdev(v) if len(v) > 1 else float("nan"))
     if panel not in PANEL_SRC:
         return float("nan"), float("nan")
     ds, metric = PANEL_SRC[panel]
@@ -125,8 +134,8 @@ def main():
             # mark_empty() only DECLARES the intent for check_no_empty_panels; it draws nothing.
             # Without the text and the stripped axes below the panel renders as a bare 0-1 grid,
             # which reads as a plotting bug rather than as a statement about the benchmark.
-            mark_empty(ax, AMES_WHY)
-            ax.text(0.5, 0.5, AMES_WHY, transform=ax.transAxes, ha="center", va="center",
+            mark_empty(ax, 'no data')
+            ax.text(0.5, 0.5, 'no data', transform=ax.transAxes, ha="center", va="center",
                     fontsize=FS["annot"], color=INK)
             ax.set_xticks([]); ax.set_yticks([])
             for sp in ax.spines.values():

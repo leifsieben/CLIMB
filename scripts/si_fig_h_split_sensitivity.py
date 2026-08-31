@@ -30,14 +30,19 @@ WHAT IS AND IS NOT COVERED
                             panel value is the macro RMSE over the 30. Its own `split` column is
                             IGNORED -- the whole question is what a random vs a scaffold partition
                             does, so using the provided split would answer neither.
-    Ames                    CANNOT be run at all, and this is structural rather than a cost.
-                            Polaris withholds the TEST labels (scripts/chemeleon_suite_fetch_polaris
-                            .py: "test labels intentionally absent"), so the evaluation set is fixed
-                            and hidden and there is no way to re-split it. Any random-vs-scaffold
-                            comparison would have to happen inside the 5,821 labelled TRAINING
-                            molecules and would not be the Ames number reported anywhere else in
-                            the paper. PANEL_ORDER puts Ames last precisely so dropping it here
-                            costs the layout nothing.
+    Ames                    run here on its 5,821 LABELLED TRAINING molecules (Leif 2026-08-29),
+                            NOT on the Polaris benchmark split. Polaris withholds the 1,457 test
+                            labels ("test labels intentionally absent"), so its own evaluation set
+                            is fixed and hidden and cannot be re-partitioned -- the number reported
+                            for Ames everywhere else in this paper genuinely cannot be produced
+                            under two splits.
+                            THIS PANEL IS THEREFORE NOT COMPARABLE IN ABSOLUTE VALUE to the Ames
+                            elsewhere, and the caption must say so. It is included because the
+                            SLOPE is this figure's message, not the level: a self-contained
+                            random-vs-scaffold CV over 5,821 molecules (3,104 positives) measures
+                            the split penalty exactly as the other five panels do. Refusing the
+                            panel would have withheld a valid measurement because a DIFFERENT
+                            measurement was impossible.
 
 Writes: figure_data/SI_fig_h/<arm>__<scheme>/  (one eval_v2 output tree per cell)
 Run:  python3 scripts/si_fig_h_split_sensitivity.py
@@ -52,6 +57,10 @@ OUT = ROOT / "figure_data" / "SI_fig_h"
 TOK = "figure_data/_tokenizer"
 
 DATASETS = ["BACE", "Tox21", "QM7", "HIV"]
+# Ames goes through the custom-task path, like MoleculeACE: its labelled training portion written
+# out as smiles,y. Built here rather than by hand so the panel cannot silently drift from source.
+AMES_SRC = ROOT / "chemeleon_suite" / "data" / "polaris" / "tdcommons__ames.csv"
+AMES_CSV = ROOT / "figure_data" / "SI_fig_h" / "_ames_train.csv"
 SCHEMES = ["random", "scaffold"]
 
 MACE_DIR = ROOT / "chemeleon_suite" / "data" / "moleculeace"
@@ -100,6 +109,30 @@ def main() -> int:
         if r.returncode != 0:
             print(f"    FAILED rc={r.returncode}", flush=True)
             failed.append((arm, scheme))
+    # ---- Ames: the labelled training portion, as one custom task --------------------------
+    import pandas as _pd
+    if not AMES_CSV.exists():
+        _d = _pd.read_csv(AMES_SRC)
+        _tr = _d[_d.split == "train"][["smiles", "y"]]
+        assert _tr.y.notna().all(), "Ames train rows must all be labelled"
+        AMES_CSV.parent.mkdir(parents=True, exist_ok=True)
+        _tr.to_csv(AMES_CSV, index=False)
+        print(f"  wrote {AMES_CSV.name}: {len(_tr)} labelled molecules", flush=True)
+    for arm in ARMS:
+        for scheme in SCHEMES:
+            dst = OUT / f"{arm}__{scheme}__ames"
+            summ = dst / "moleculenet_summary.csv"
+            if summ.exists() and sum(1 for _ in summ.open()) > 1:
+                continue
+            cmd = [sys.executable, "eval_v2.py", "--output_dir", str(dst),
+                   "--task_csv", str(AMES_CSV), "--task_name", "Ames",
+                   "--task_type", "classification", "--cv_folds", "5", "--cv_scheme", scheme,
+                   "--head_seeds", "0", "1", "2", *ARMS[arm]]
+            print(f"  Ames {arm} / {scheme}", flush=True)
+            r = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if r.returncode != 0:
+                failed.append((arm, scheme, "Ames"))
+
     # ---- MoleculeACE: 30 small regressions per (arm, scheme) ----------------------------
     for arm in ARMS:
         for scheme in SCHEMES:
