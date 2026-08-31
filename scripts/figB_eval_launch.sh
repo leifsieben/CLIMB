@@ -8,6 +8,10 @@
 # rank silently instead of erroring.
 set -u
 RUNS=$1; LABEL=$2; SCRIPT=${3:-scripts/figB_eval_run.sh}
+# Passed through to the battery: which experiment wave the encoders come from and results go
+# to. Exploratory arms (e.g. the weight-matched surgery controls) run under their own wave so
+# they cannot land in a tree a figure reads.
+WAVE=${EVAL_WAVE:-climb_v2_phase2}
 AMI=ami-0578780bc4c87a97a
 KEY=climb-gpu-key
 SG=sg-0d11ba7811485655f
@@ -58,7 +62,7 @@ for t in g5.4xlarge g5.2xlarge g6.4xlarge; do
       --security-group-ids $SG --subnet-id "$sn" --iam-instance-profile Name=$PROF \
       --instance-initiated-shutdown-behavior stop \
       --user-data "#!/bin/bash
-su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux && EVAL_SHUTDOWN=1 setsid nohup bash $SCRIPT $RUNS > /home/ec2-user/eval_boot.log 2>&1 &'" \
+su - ec2-user -c 'cd /home/ec2-user/CLIMB && git fetch -q origin v2-redux && git reset -q --hard origin/v2-redux && EVAL_SHUTDOWN=1 EVAL_WAVE=$WAVE setsid nohup bash $SCRIPT $RUNS > /home/ec2-user/eval_boot.log 2>&1 &'" \
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=climb-figB-eval-${LABEL}}]" \
       --query 'Instances[].InstanceId' --output text 2>"$ERR")
     case "$id" in i-*) echo "LAUNCHED eval-$LABEL -> $id ($t, $sn) for: $RUNS"; exit 0 ;; esac
