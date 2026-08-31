@@ -39,9 +39,20 @@ TWO NON-UNIFORMITIES THE CAPTION ALSO HAS TO CARRY (notes/figA-seed-axis-is-not-
      ablation for now; the exposure is recorded rather than hidden.
 
 MISSING DATA IS DRAWN, NOT OMITTED. Wong (virtual screening) and FartDB (classification) landed
-2026-08-26 and are in the counts; the one arm still short of them is unsup_100M, which is drawn
-with a * and a footnote naming exactly what it is missing rather than being quietly ranked on a
-smaller field. An arm with no results at all gets a labelled empty row, not an absent row:
+2026-08-26 and are in the counts. NO ARM IS SHORT OF THE FIELD ANY MORE -- unsup_100M was completed
+and sup_dense_100M's last two datasets (BBBP, ESOL) were scored on 2026-08-29 rather than declaring
+it provisional -- so the short-arm footnote does not fire. The mechanism stays: an arm that is short
+would be drawn with a * and a footnote naming exactly what it is missing rather than being quietly
+ranked on a smaller field.
+
+THE * ON THE TWO "CLIMB 100M" ROWS MEANS SOMETHING ELSE and is defined in its own footnote: those
+arms have ONE pretraining run, so their three replicates are head seeds inside it. Their intervals
+therefore exclude pretraining variance and read tighter for a reason unrelated to the arm's
+stability. That is the caveat a reader of a 2nd-place finish will want, and it is the reason the
+mark is on the NAME rather than on the interval. The anchors and the three literature CLMs share
+the property for unremarkable reasons -- ECFP has no pretraining stage to replicate, the published
+models ship one set of weights -- so they are not starred; the mark would be spent on rows nobody
+would question. An arm with no results at all gets a labelled empty row, not an absent row:
 dropping it would make the plate look finished and quietly renumber the field, which changes
 every rank on the page.
 
@@ -158,10 +169,29 @@ N = len(RANKED_ARMS)
 HAVE = [a for a in RANKED_ARMS if a in ARMS and a not in AWAITING_DATA]
 
 
+# Arms whose three replicates are HEAD seeds inside ONE pretraining run, not three pretrainings.
+# Derived from the registry rather than listed by hand, so an arm cannot gain or lose the marker
+# without its `pretrain_replicates` flag changing.
+#
+# THE STAR IS ON THE NAME, not on the interval (Leif 2026-08-29: "the name should just be
+# CLIMB 100M* because in the caption I see these have just one seed"). It marks the two large-corpus
+# CLIMB rows, whose single pretraining is the caveat a reader of a 2nd-place finish will want. The
+# anchors and the literature CLMs share the property for a different and unremarkable reason --
+# ECFP has no pretraining stage to replicate, and the published models ship one set of weights --
+# so starring them would spend the mark on rows nobody would question.
+STARRED = {a for a in RANKED_ARMS
+           if a in ARMS and ARMS[a].get("pretrain_replicates") is False
+           and ARMS[a].get("system", "").startswith("CLIMB 100M")}
+
+
 def _meta(a):
     """(bold first line, second line, colour) for one row."""
     if a in ARMS:
-        return system(a), arm_label(a), ARMS[a]["color"]
+        # A PLAIN ASTERISK, not mathtext. "$^{*}$" switches to the math font mid-string, which is
+        # not bold like the rest of the name and sits on a different baseline -- rendered, it drops
+        # below the line and collides with the second line of the two-line row label.
+        name = system(a) + ("*" if a in STARRED else "")
+        return name, arm_label(a), ARMS[a]["color"]
     p = PENDING_ARMS[a]
     return p["system"], p["label"], p["color"]
 
@@ -434,6 +464,11 @@ def main(weighting="dataset", name="fig_A", subdir=None):
                 if weighting == "category" else "a smaller set than its neighbours")
         xlab += (f"\n*  provisional: ranked on {short_prov[a0]} of "
                  f"{int(out['n_datasets'].max())} datasets (no {miss}) \u2014 {tail}")
+    # THE STAR ON A ROW NAME NEEDS ITS ONE LINE, or it is an unexplained symbol on the plate.
+    # Kept short for the same reason as the provisional footnote above: save() trims to drawn
+    # content, so a long footnote sets the plate width and LaTeX then scales every font down.
+    if STARRED:
+        xlab += "\n*  one pretraining run; its three replicates are head seeds"
     ax.set_xlabel(xlab, fontsize=FS["label"])
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
