@@ -75,10 +75,17 @@ than the rest, and the tightest interval on the plate (unsup / BACE / 1,210, +/-
 those. That is a property of the design, not of the arm. Source: the `sd` column of
 figure_data/SI_fig_e/SI_fig_e_crossover.csv.
 
-MoleculeACE'S WHISKERS ARE SUB-PIXEL AND THAT IS HONEST, checked rather than assumed to be a silent
-zero: its value is a macro-mean over 30 targets, so the spread across eval seeds is 0.0004-0.009 on
-an axis spanning 0.67-1.18. Averaging 30 targets crushes the variance. It is NOT the same quantity
-as the fold-level SD on the MolNet panels and must not be compared with it.
+MoleculeACE'S BAND IS 2 PIXELS TALL AND THAT IS THE TRUTH, not a plotting failure. Measured as a
+fraction of each panel's own axis, the +/-1 SD band spans: HIV 23%, BACE 15%, QM7 14%, Tox21 6.8%,
+Ames 3.4%, MoleculeACE 0.81%. At the rendered panel height that is 58, 38, 35, 17, 8 and 2 pixels
+-- so on MoleculeACE the band is narrower than the line drawn over it.
+
+The cause is the estimand, not the arm: MoleculeACE's value is a macro-mean over 30 targets, and
+averaging 30 targets crushes the seed-to-seed variance to 0.0004-0.009 on an axis spanning
+0.67-1.18. A visible band there would require reporting the spread ACROSS TARGETS instead, which is
+a larger and arguably more interesting number -- but a DIFFERENT quantity from the five panels
+beside it, and one panel silently carrying a different estimand is the defect this file has been
+bitten by twice. Left as it is, and stated, rather than made visible by changing what it means.
 
 PANEL SCOPE: all six panels carry all four arms. The note that stood here until 2026-08-29 --
 "MoleculeACE, CBS and hERG are drawn EMPTY" -- was stale in three ways at once: those sweeps landed
@@ -180,10 +187,20 @@ def main():
             #
             # NaN passes through: matplotlib omits it, so a missing spread draws no whisker rather
             # than a zero-length one, which would claim perfect precision.
+            # A SHADED BAND, NOT WHISKERS (Leif 2026-08-29: "MoleculeACE still has no error bars
+            # nor has Tox21 nor has Ames -- let's use shades here instead"). Those three panels
+            # have genuinely small spreads -- MoleculeACE 0.0004-0.009, Ames 0.0003-0.033, Tox21
+            # 0.0013-0.060 -- and a cap that is a fraction of a pixel tall is indistinguishable
+            # from a cap that was never drawn. A filled region is visible at any height, so the
+            # reader can tell "narrow" from "not computed".
             e = g.sd.to_numpy(dtype=float)
-            ax.errorbar(g.n_train, g.value, yerr=e, fmt="none",
-                        ecolor=ARMS[arm]["color"], elinewidth=0.7, capsize=1.6, capthick=0.7,
-                        zorder=2)
+            v = g.value.to_numpy(dtype=float)
+            # NaN spread contributes NO band rather than a zero-width one: a band pinched to the
+            # line would claim perfect precision exactly where we do not have it.
+            ok = np.isfinite(e)
+            if ok.any():
+                ax.fill_between(g.n_train.to_numpy()[ok], (v - e)[ok], (v + e)[ok],
+                                color=ARMS[arm]["color"], alpha=0.16, lw=0, zorder=1)
             # limits follow the WHISKERS, not the points, or the caps clip at the panel edge
             lo = min(lo, np.nanmin(np.where(np.isnan(e), g.value, g.value - e)))
             hi = max(hi, np.nanmax(np.where(np.isnan(e), g.value, g.value + e)))
