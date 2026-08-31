@@ -169,13 +169,29 @@ def mace_rows(panel: str):
             t = t[(t.metric == "rmse") & (t.subset == "overall")]
             if t.empty:
                 continue
-            # macro-mean over targets FIRST, then across eval seeds -- the same order as
-            # scripts/six_panel_aggregate.mace_seed_macros, so this is the same estimand
+            # THE VALUE is the macro-mean over targets first, then across eval seeds -- the same
+            # order as scripts/six_panel_aggregate.mace_seed_macros, so the POINT is the same
+            # estimand this panel carries everywhere else in the paper. Unchanged.
             per_seed = t.groupby("seed").value.mean()
+            value = float(per_seed.mean())
+
+            # THE SPREAD IS ACROSS THE 30 TARGETS, not across the 3 eval seeds (Leif 2026-08-29).
+            # DELIBERATELY A DIFFERENT QUANTITY FROM THE OTHER FIVE PANELS, and the caption says so.
+            #
+            # Why: averaging 30 targets crushes the seed-to-seed spread to 0.0004-0.009 on an axis
+            # spanning 0.67-1.18 -- a band 0.81% of the panel height, 2 rendered pixels, thinner
+            # than the line drawn over it. Every other panel's band is 3-23%. So the seed spread is
+            # real but undrawable here, and an invisible band is indistinguishable from one that
+            # was never computed.
+            #
+            # The across-target spread answers a different and more useful question for this panel:
+            # not "how reproducible is the mean" but "how much do the 30 targets disagree". It is
+            # NOT comparable with the fold/seed SD on the MolNet panels and must never be read as
+            # if it were.
+            per_target = t.groupby("task").value.mean()
+            sd = float(per_target.std(ddof=1)) if len(per_target) > 1 else float("nan")
             out.append((arm_key, int(round(frac * 100)), int(round(frac * total)),
-                        float(per_seed.mean()),
-                        float(per_seed.std(ddof=1)) if len(per_seed) > 1 else float("nan"),
-                        int(len(per_seed))))
+                        value, sd, int(len(per_seed))))
     return out
 
 

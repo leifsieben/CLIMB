@@ -75,17 +75,23 @@ than the rest, and the tightest interval on the plate (unsup / BACE / 1,210, +/-
 those. That is a property of the design, not of the arm. Source: the `sd` column of
 figure_data/SI_fig_e/SI_fig_e_crossover.csv.
 
-MoleculeACE'S BAND IS 2 PIXELS TALL AND THAT IS THE TRUTH, not a plotting failure. Measured as a
-fraction of each panel's own axis, the +/-1 SD band spans: HIV 23%, BACE 15%, QM7 14%, Tox21 6.8%,
-Ames 3.4%, MoleculeACE 0.81%. At the rendered panel height that is 58, 38, 35, 17, 8 and 2 pixels
--- so on MoleculeACE the band is narrower than the line drawn over it.
+*** THE MoleculeACE BAND IS A DIFFERENT QUANTITY FROM EVERY OTHER PANEL'S. CAPTION MUST SAY SO. ***
 
-The cause is the estimand, not the arm: MoleculeACE's value is a macro-mean over 30 targets, and
-averaging 30 targets crushes the seed-to-seed variance to 0.0004-0.009 on an axis spanning
-0.67-1.18. A visible band there would require reporting the spread ACROSS TARGETS instead, which is
-a larger and arguably more interesting number -- but a DIFFERENT quantity from the five panels
-beside it, and one panel silently carrying a different estimand is the defect this file has been
-bitten by twice. Left as it is, and stated, rather than made visible by changing what it means.
+    five MolNet panels   band = +/- 1 SD across the SEED CELLS (reproducibility of the mean)
+    MoleculeACE          band = +/- 1 SD across the 30 TARGETS (how much the targets disagree)
+
+Chosen deliberately (Leif 2026-08-29), because the seed spread there is undrawable: a macro-mean
+over 30 targets crushes it to 0.0004-0.009 on an axis spanning 0.67-1.18 -- 0.81% of the panel
+height, 2 rendered pixels, thinner than the line drawn over it, where every other panel's band is
+3-23%. An invisible band is indistinguishable from one that was never computed, so the choice was
+between showing nothing and showing something else. The across-target spread is 0.073-0.185, i.e.
+30% of the axis, and it answers the more useful question for this panel anyway: not "how
+reproducible is the mean" but "how much do the 30 targets disagree".
+
+THE COST, stated because it is real: MoleculeACE now has the WIDEST band on the plate while meaning
+something else, and band width is the one thing a reader compares across panels without thinking.
+That is why the panel carries its own in-figure label ("band = spread across the 30 targets") and
+does not rely on the caption alone. Do not read MoleculeACE's band against another panel's.
 
 PANEL SCOPE: all six panels carry all four arms. The note that stood here until 2026-08-29 --
 "MoleculeACE, CBS and hERG are drawn EMPTY" -- was stale in three ways at once: those sweeps landed
@@ -163,6 +169,14 @@ def main():
             ax.set_xticks([])
             ax.set_yticks([])
             continue
+
+        # THE BAND ON THIS PANEL IS A DIFFERENT QUANTITY, said in the panel and not only in the
+        # caption. Band width is the one thing a reader compares across panels without thinking,
+        # and MoleculeACE's is the widest on the plate while meaning something else entirely.
+        if p == "MoleculeACE":
+            ax.text(0.98, 0.96, "band = spread across\nthe 30 targets", transform=ax.transAxes,
+                    ha="right", va="top", fontsize=FS["annot"] - 1.5, color=STYLE["mute"],
+                    style="italic", linespacing=1.15)
 
         sub = g_all.substituted_for.iloc[0] if "substituted_for" in g_all else ""
         if isinstance(sub, str) and sub:
