@@ -151,8 +151,24 @@ def main():
                 continue
             ax.plot(g.n_train, g.value, color=ARMS[arm]["color"], ls="-", lw=STYLE["lw"],
                     marker=MARKER[arm], ms=4.6, mec="white", mew=0.6, zorder=3)
-            lo = min(lo, g.value.min())
-            hi = max(hi, g.value.max())
+            # ERROR BARS PER POINT (Leif 2026-08-29): "it looks too much like CLIMB is overtaking
+            # XGBoost where in practice it just is within noise". Without them the lines cross and
+            # a reader reads a crossing as a result. They do overlap: on BACE at 605 labels
+            # unsupervised is 0.814 +/- 0.023 against ECFP4+desc's 0.789 +/- 0.023.
+            #
+            # +/- 1 SD over the seed cells -- 3 subsample seeds x 3 head seeds = 9, dropping to 3
+            # at 100% where there is nothing to subsample, so the LAST point of every line rests on
+            # fewer cells than the rest. That is a property of the design, not of the arm.
+            #
+            # NaN passes through: matplotlib omits it, so a missing spread draws no whisker rather
+            # than a zero-length one, which would claim perfect precision.
+            e = g.sd.to_numpy(dtype=float)
+            ax.errorbar(g.n_train, g.value, yerr=e, fmt="none",
+                        ecolor=ARMS[arm]["color"], elinewidth=0.7, capsize=1.6, capthick=0.7,
+                        zorder=2)
+            # limits follow the WHISKERS, not the points, or the caps clip at the panel edge
+            lo = min(lo, np.nanmin(np.where(np.isnan(e), g.value, g.value - e)))
+            hi = max(hi, np.nanmax(np.where(np.isnan(e), g.value, g.value + e)))
 
         ax.set_xscale("log")
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(_fmt_n))
@@ -177,8 +193,11 @@ def main():
     # near the canvas floor: with loc="upper center" a low anchor hangs the legend body off
     # the canvas, and savefig("tight") then GROWS the image downward to contain it -- which
     # adds exactly the white band it looks like it should remove.
-    fig.tight_layout(rect=(0, 0.13, 1, 1), w_pad=0.35)
-    fig.text(0.5, 0.084, "labelled training molecules", ha="center", va="bottom",
+    # X-LABEL PULLED UP TOWARDS THE PANELS (Leif 2026-08-29: "move the labelled molecules closer
+    # to the pictures"). rect bottom and the label's y move together -- raising the label alone
+    # would drop it into the legend, and lowering the rect alone just reopens the gap lower down.
+    fig.tight_layout(rect=(0, 0.115, 1, 1), w_pad=0.35)
+    fig.text(0.5, 0.096, "labelled training molecules", ha="center", va="bottom",
              fontsize=FS["annot"], color=INK)
     save(fig, "SI_fig_e")
     plt.close(fig)
