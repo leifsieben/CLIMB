@@ -60,12 +60,30 @@ sit at 6,264 (Tox21) and 32,896 against 32,901 (HIV); BACE and QM7 align exactly
 6,264 is 0.10%, invisible on a log axis and far below the spread between arms, and the model arms
 are NOT re-run for it (Leif: a measured number stands unless the EVALUATION was wrong).
 
-NO error bars (matching Fig B, user decision 2026-08-17). The per-point SD across the seed cells is
-kept in figure_data/figF/figF_crossover.csv if a referee asks.
+ERROR BARS ARE DRAWN PER POINT (Leif 2026-08-29, reversing the 2026-08-17 no-error-bars decision
+for this figure): "it looks too much like CLIMB is overtaking XGBoost where it in practice just is
+within noise". He was right. On BACE at 605 labels unsupervised reads 0.814 +/- 0.023 against
+ECFP4+desc's 0.789 +/- 0.023 -- overlapping across most of their range, with the bare lines visibly
+crossing. A crossing drawn without a whisker reads as a result.
 
-PANEL SCOPE: MoleculeACE, CBS and hERG are drawn EMPTY — the label-fraction sweep was only ever run
-on MoleculeNet, so no arm has a fraction curve there. The panels are kept in place rather than
-silently reshaping the figure to the three tasks that have data; the evals are requested.
+Not every crossing dissolves, which is why drawing them beats captioning them: at 1,210 labels on
+the same panel unsupervised is 0.825 +/- 0.006 against 0.784 +/- 0.007, and those do NOT overlap.
+
++/- 1 SD over the seed cells: 3 subsample seeds x 3 head seeds = 9, dropping to 3 at 100% where
+there is nothing left to subsample. THE LAST POINT OF EVERY LINE THEREFORE RESTS ON FEWER CELLS
+than the rest, and the tightest interval on the plate (unsup / BACE / 1,210, +/- 0.0057) is one of
+those. That is a property of the design, not of the arm. Source: the `sd` column of
+figure_data/SI_fig_e/SI_fig_e_crossover.csv.
+
+MoleculeACE'S WHISKERS ARE SUB-PIXEL AND THAT IS HONEST, checked rather than assumed to be a silent
+zero: its value is a macro-mean over 30 targets, so the spread across eval seeds is 0.0004-0.009 on
+an axis spanning 0.67-1.18. Averaging 30 targets crushes the variance. It is NOT the same quantity
+as the fold-level SD on the MolNet panels and must not be compared with it.
+
+PANEL SCOPE: all six panels carry all four arms. The note that stood here until 2026-08-29 --
+"MoleculeACE, CBS and hERG are drawn EMPTY" -- was stale in three ways at once: those sweeps landed
+months ago, CBS and hERG are not panels in this figure any more, and the SD it pointed at lived
+under a figF path this figure has not used since it was renamed.
 
 PROTOCOL NOTE: single hold-out split, NOT the 5-fold scaffold CV of Figs A2/B, so absolute values
 are not comparable across those figures. Internally consistent, which is what the crossing needs.
