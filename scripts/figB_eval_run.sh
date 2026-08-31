@@ -17,9 +17,13 @@ cd /home/ec2-user/CLIMB
 PY=~/venvs/climb/bin/python
 S3=s3://climb-s3-bucket
 LOG=analysis/figB_eval.log
+# Which experiment wave the encoders come from and the results go to. Defaults to the phase-2
+# tree so every existing caller is unchanged; the weight-matched surgery controls run under
+# climb_v2_surgery so an exploratory arm can never land in a tree a figure reads.
+WAVE=${EVAL_WAVE:-climb_v2_phase2}
 mkdir -p analysis figure_data
 say () { echo "[eval] $* $(date -u +%FT%TZ)" | tee -a "$LOG"; }
-abort () { say "ABORT -- $* -- BOX STAYS UP"; aws s3 cp "$LOG" "$S3/experiments/climb_v2_phase2/_eval_logs/$(hostname).log" --only-show-errors; exit 1; }
+abort () { say "ABORT -- $* -- BOX STAYS UP"; aws s3 cp "$LOG" "$S3/experiments/$WAVE/_eval_logs/$(hostname).log" --only-show-errors; exit 1; }
 
 RUNS="$*"
 [ -n "$RUNS" ] || abort "no run ids given"
@@ -89,14 +93,14 @@ have_preds () {  # <file> <dataset...>: file exists and names every dataset
 }
 
 for run in $RUNS; do
-  enc=experiments/climb_v2_phase2/$run/encoder
+  enc=experiments/$WAVE/$run/encoder
   mkdir -p "$enc"
-  aws s3 sync "$S3/experiments/climb_v2_phase2/$run/encoder" "$enc" --only-show-errors || abort "encoder sync failed for $run"
+  aws s3 sync "$S3/experiments/$WAVE/$run/encoder" "$enc" --only-show-errors || abort "encoder sync failed for $run"
   # Test for WEIGHTS: mkdir -p above guarantees the directory, so a directory test proves nothing.
   [ -f "$enc/model.safetensors" ] || abort "$run has no encoder weights -- cannot evaluate"
   say "$run: encoder staged"
 
-  cv=figure_data/climb_v2_phase2/$run/moleculenet_cv
+  cv=figure_data/$WAVE/$run/moleculenet_cv
   if [ ! -f "$cv/moleculenet_summary.csv" ] || ! have_preds "$cv/test_predictions.csv" $CV_DATASETS; then
     say "$run: 5-fold scaffold CV over $CV_DATASETS"
     $PY eval_v2.py --encoder "$enc" --tokenizer figure_data/_tokenizer --output_dir "$cv" \
@@ -111,7 +115,7 @@ for run in $RUNS; do
     [ "$n_tox" = "77864" ] \
       || abort "$run: Tox21 dump has $n_tox rows, need 77864 -- the molecule set is not the ladder's and rescore_tox21.py will refuse it"
     say "$run: Tox21 dump is $n_tox rows -- matches the ladder"
-    aws s3 cp --recursive "$cv" "$S3/experiments/climb_v2_phase2/$run/moleculenet_cv" --only-show-errors \
+    aws s3 cp --recursive "$cv" "$S3/experiments/$WAVE/$run/moleculenet_cv" --only-show-errors \
       || abort "$run: CV upload failed"
     say "$run: CV done and uploaded"
   else
@@ -149,7 +153,7 @@ done
 # ---- completion is per-artifact, across every requested rung -------------------------------------
 missing=0
 for run in $RUNS; do
-  cv=figure_data/climb_v2_phase2/$run/moleculenet_cv
+  cv=figure_data/$WAVE/$run/moleculenet_cv
   have_preds "$cv/test_predictions.csv" $CV_DATASETS || { say "MISSING/INCOMPLETE $cv/test_predictions.csv"; missing=$((missing+1)); }
   for f in "$cv/moleculenet_summary.csv" \
            "figure_data/chemeleon_suite/moleculeace/$run/results.csv" \
@@ -159,7 +163,7 @@ for run in $RUNS; do
 done
 if [ "$missing" -eq 0 ]; then
   say "ALL ARTIFACTS PRESENT for: $RUNS"
-  aws s3 cp "$LOG" "$S3/experiments/climb_v2_phase2/_eval_logs/$(hostname).log" --only-show-errors
+  aws s3 cp "$LOG" "$S3/experiments/$WAVE/_eval_logs/$(hostname).log" --only-show-errors
   say "NOTE: Polaris Ames still needs scripts/chemeleon_suite_score_polaris.py run OFF-BOX to write polaris_scores.csv"
   [ "${EVAL_SHUTDOWN:-0}" = "1" ] && { say "EVAL_SHUTDOWN=1 -- shutting down"; sudo shutdown -h now; }
   say "EVAL_SHUTDOWN unset -- staying up"
