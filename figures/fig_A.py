@@ -45,8 +45,10 @@ it provisional -- so the short-arm footnote does not fire. The mechanism stays: 
 would be drawn with a * and a footnote naming exactly what it is missing rather than being quietly
 ranked on a smaller field.
 
-THE * ON THE TWO "CLIMB 100M" ROWS MEANS SOMETHING ELSE and is defined in its own footnote: those
-arms have ONE pretraining run, so their three replicates are head seeds inside it. Their intervals
+THE * ON THE TWO "CLIMB 100M" ROWS MEANS SOMETHING ELSE, AND THE CAPTION MUST DEFINE IT -- the
+figure no longer does (Leif 2026-09-08: "remove the * note in figure A, I already explain this in
+the caption"). It marks arms with ONE pretraining run, whose three replicates are head seeds inside
+it. Their intervals
 therefore exclude pretraining variance and read tighter for a reason unrelated to the arm's
 stability. That is the caveat a reader of a 2nd-place finish will want, and it is the reason the
 mark is on the NAME rather than on the interval. The anchors and the three literature CLMs share
@@ -464,11 +466,12 @@ def main(weighting="dataset", name="fig_A", subdir=None):
                 if weighting == "category" else "a smaller set than its neighbours")
         xlab += (f"\n*  provisional: ranked on {short_prov[a0]} of "
                  f"{int(out['n_datasets'].max())} datasets (no {miss}) \u2014 {tail}")
-    # THE STAR ON A ROW NAME NEEDS ITS ONE LINE, or it is an unexplained symbol on the plate.
-    # Kept short for the same reason as the provisional footnote above: save() trims to drawn
-    # content, so a long footnote sets the plate width and LaTeX then scales every font down.
-    if STARRED:
-        xlab += "\n*  one pretraining run; its three replicates are head seeds"
+    # NO IN-FIGURE FOOTNOTE FOR THE STAR (Leif 2026-09-08: "remove the * note in figure A, I
+    # already explain this in the caption"). The mark itself stays on the two CLIMB 100M row names;
+    # only the line defining it is gone, because the caption defines it instead. THE CAPTION MUST
+    # THEREFORE SAY WHAT * MEANS -- one pretraining run, so those arms' three replicates are head
+    # seeds and their intervals exclude pretraining variance. An undefined glyph on a plate is
+    # worse than a redundant line, so if the caption sentence ever goes, this one comes back.
     ax.set_xlabel(xlab, fontsize=FS["label"])
     ax.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
@@ -494,11 +497,14 @@ def main(weighting="dataset", name="fig_A", subdir=None):
     # Taken from ax.get_position(), the axes RECTANGLE, rather than get_tightbbox(), which would
     # add the label column back in and put us where we started. Reading it rather than repeating
     # the literal also means it follows the layout if the axes fractions change.
-    leg = fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.004),
+    # LEGEND RAISED (Leif 2026-09-08: "move the legend closer to the figure as a result"). Dropping
+    # the star footnote freed one text line under the axes, and leaving the legend at the old anchor
+    # would have banked that as white space instead of spending it.
+    leg = fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.030),
                      ncol=row_ncol(h, rows=1), fontsize=FS["annot"] - 0.5, handletextpad=0.4,
                      columnspacing=1.4, borderpad=0.3, **LEGEND_BOX)
     bb = ax.get_position()
-    leg.set_bbox_to_anchor((0.5 * (bb.x0 + bb.x1), 0.004), transform=fig.transFigure)
+    leg.set_bbox_to_anchor((0.5 * (bb.x0 + bb.x1), 0.030), transform=fig.transFigure)
 
     save(fig, name, subdir=subdir)
     plt.close(fig)
