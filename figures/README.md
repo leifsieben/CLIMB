@@ -150,3 +150,15 @@ system in **bold** (`XGBoost` / `CLIMB` / `CheMeleon`) over the recipe in regula
 | SI c | featurization cost, descriptors vs transformer | `SI_fig_c.py` | `SI_fig_c.csv/.tex` | built (table) |
 | SI d | canonical vs augmented SMILES | `SI_fig_d.py` | `SI_fig_d` | built; 5/6 panels (Ames pending). Was 2/6 until a WRONG-ROOT fix: climb_v2 is the round-1 wave, climb_v2_h1 is the retrained one. Was SI e |
 | SI e | where end2end overtakes a pretrained frozen encoder | `SI_fig_e.py` | `SI_fig_e` | built; 3/6 panels — label-fraction sweep never run on MoleculeACE/CBS/Ames. Was SI f |
+
+## Citation
+
+```bibtex
+@misc{climb2026,
+  title  = {Does Pretraining Teach Chemical Language Models Chemistry?},
+  author = {Sieben, Leif and Zimmermann, Yoel},
+  year   = {2026},
+  note   = {Preprint, arXiv},
+  url    = {https://github.com/leifsieben/CLIMB}
+}
+```

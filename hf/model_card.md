@@ -11,97 +11,66 @@ tags:
   - masked-language-modeling
 ---
 
-# CLIMB encoders — does unsupervised pretraining help a chemical language model?
+# CLIMB encoders
 
-Frozen-featurizer **ModernBERT encoders (~41M params)** for every run in the CLIMB study, which asks
-**whether, and how much, unsupervised (MLM) pretraining on SMILES improves a chemical language model**
-versus training supervised-from-scratch. Model, tokenizer, optimizer and evaluation are held fixed
-across runs so the only thing that varies is the *pretraining strategy*.
+Frozen encoder weights for every run in CLIMB, a controlled study of whether unsupervised
+pretraining on SMILES teaches a chemical language model chemistry. All arms share one
+architecture, tokenizer and optimizer; they differ only in the pretraining corpus and budget.
 
-- 📄 Paper: preprint in preparation (link via the GitHub repo)
-- 💻 Code + full methods: `https://github.com/leifsieben/CLIMB` (see `REPRODUCE.md`)
-- 📊 Raw results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
-- 🧪 Pre-training data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
+## Architecture
 
-## Repository layout
+ModernBERT, 12 layers, hidden size 512, 8 heads, ~41.4M parameters. Byte-BPE tokenizer, vocab
+1000, maximum sequence length 256.
 
-One subfolder per run, mirroring the experiment waves (each has `model.safetensors` + `config.json`).
-The byte-BPE tokenizer (vocab 1000) is at `tokenizer/`.
+## Layout
 
 ```
-tokenizer/                                  # byte-level BPE, vocab 1000, zero-UNK
-climb_v2_phase2/unsup_8M/                   # MLM-only, 8M forward-pass budget
-climb_v2_phase2/skip_dense_8M/              # supervised-from-scratch (MTR descriptors)
-climb_v2_phase2/u2s_dense_from8M/           # unsup -> sup warm-start
-climb_v2_phase2/unsup_{2M,24M,48M,50M,100M} # the scaling ladder
-climb_v2_ablation_dedup/seq_*/              # SFT-family ablation (leakage-deduped)
-climb_v2_h1/scaling_{canonical,enumerated}_*_s{0,1,2}/   # enumeration study, 3 seeds
-climb_v2_vocab/{bpe,unigram}_*/             # SI vocabulary-size sweep (per-run tokenizer)
-climb_v2_expA/{unigram,bigram}_8M{,_s1,_s2} # SI synthetic-statistics ladder (unigram/bigram arms)
-climb_v2_expA/corrupt_mlm_8M_s{1,2}         #   + the two extra shuffle_tokens seeds
-climb_v2_expB/wiki_real_8M{,_s1,_s2}        # SI Wikipedia-transfer arm (English via SMILES tokenizer)
-...
+<wave>/<run>/config.json
+<wave>/<run>/model.safetensors
+tokenizer/tokenizer.json, tokenizer/tokenizer_config.json, tokenizer/special_tokens_map.json
 ```
 
-The classical Morgan+XGBoost baselines have **no encoder** (they are fingerprints + XGBoost); see the
-results repo. `lsieben/climb-encoders` is checkpoints only — pair it with the results and data repos.
+`<wave>` is the experiment group (`climb_v2_phase2`, `climb_v2_expA`, `climb_v2_expB`, and
+others); `<run>` names the arm. [`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/v2-redux/METHODS.md) in the code repository defines every arm.
 
-## Regimes
-
-| regime | what it is |
-|---|---|
-| `no_pretrain` | randomly-initialised encoder (frozen, or fine-tuned end-to-end) |
-| `unsup_only` | MLM pretraining on SMILES only |
-| `sup_only` | supervised-from-scratch (recipes: dense MTR / sparse assays / combinations) |
-| `unsup→sup` | MLM pretraining then a supervised warm-start |
-
-## How to use
+## Use
 
 ```python
-from transformers import ModernBertModel, PreTrainedTokenizerFast
-import torch
+from transformers import AutoModel, PreTrainedTokenizerFast
+from huggingface_hub import snapshot_download
 
-tok = PreTrainedTokenizerFast.from_pretrained("lsieben/climb-encoders", subfolder="tokenizer")
-enc = ModernBertModel.from_pretrained(
-    "lsieben/climb-encoders", subfolder="climb_v2_phase2/unsup_8M",
-    attn_implementation="sdpa", reference_compile=False).eval()
-
-smiles = ["CCO", "c1ccccc1O"]
-ids = tok(smiles, return_tensors="pt", padding=True, truncation=True, max_length=256)
-with torch.no_grad():
-    h = enc(**ids).last_hidden_state          # [B, L, H]
-mask = ids["attention_mask"].unsqueeze(-1)
-emb = (h * mask).sum(1) / mask.sum(1)         # masked-mean pooling (the paper's featurizer)
+path = snapshot_download("lsieben/climb-encoders",
+                         allow_patterns=["climb_v2_phase2/unsup_8M/*", "tokenizer/*"])
+model = AutoModel.from_pretrained(f"{path}/climb_v2_phase2/unsup_8M")
+tok = PreTrainedTokenizerFast.from_pretrained(f"{path}/tokenizer")
 ```
 
-The paper evaluates these as a **frozen featurizer** (masked-mean pooled → z-scored → small head).
-The exact protocol and per-run eval commands are in `eval_v2.py` and `REPRODUCE.md`.
+Encoders are used frozen, mean-pooled, with a trained head. The evaluation protocol is in
+[`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/v2-redux/METHODS.md).
 
-## Architecture & training
+## What is not here
 
-- ~41M-param ModernBERT encoder; byte-level BPE tokenizer, **vocab 1000** (zero-UNK on SMILES).
-- Objectives across runs: masked-language-modeling (MLM), multi-task descriptor regression (MTR),
-  and supervised assay heads; see the paper §5, §7.
-- Trained on the tokenized PubChem corpus in [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data).
-- `metrics.jsonl` (token counts, loss curves) for each run ships in the results repo.
+Training configurations and trainer metrics logs are not published in this repository.
 
-## Intended use & limitations
+## Related
 
-Research artifact for studying pretraining strategy in molecular property prediction. Not a
-production model. Frozen-featurizer performance is task-dependent; on several MoleculeNet tasks a
-**Morgan+descriptor+XGBoost** baseline remains competitive or better (that comparison is the point of
-the study). Do not use for clinical/safety decisions.
+- Code: [github.com/leifsieben/CLIMB](https://github.com/leifsieben/CLIMB)
+- Encoders: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
+- Results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
+- Pretraining data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
 
 ## Citation
 
 ```bibtex
 @misc{climb2026,
-  title  = {CLIMB: does unsupervised pretraining help a chemical language model?},
-  author = {Sieben, Leif},          % TODO: finalize author list before the preprint
+  title  = {Does Pretraining Teach Chemical Language Models Chemistry?},
+  author = {Sieben, Leif and Zimmermann, Yoel},
   year   = {2026},
-  note   = {Preprint in preparation},
+  note   = {Preprint, arXiv},
   url    = {https://github.com/leifsieben/CLIMB}
 }
 ```
 
-License: **Apache-2.0** (encoder weights).
+## License
+
+Apache-2.0.

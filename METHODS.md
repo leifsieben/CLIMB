@@ -1,0 +1,1178 @@
+# CLIMB — methods
+
+The full methodology: hypotheses, experiments, architecture, data provenance and curation,
+training, and the evaluation protocol. Moved here from `README.md` on 2026-08-29 so the
+top-level README stays short; the content is unchanged apart from removing dated status
+sections that described work already finished.
+
+---
+
+# Part I — The study
+
+## 1. Introduction: the idea
+
+The conventional recipe for a chemical language model is: pretrain a transformer encoder on a huge
+corpus of unlabeled SMILES with a masked-language-modeling (MLM) objective, then use the frozen
+encoder (or fine-tune it) for downstream property prediction. The premise is that unsupervised
+pretraining learns a transferable representation of chemical space.
+
+The original motivating intuition for this project (see the project's founding note, now folded
+into §12) was skeptical: **if you ultimately have supervised data, is the unsupervised phase doing
+anything the supervised phase could not?** The design philosophy has been constant throughout:
+
+- **One encoder, many heads.** A shared encoder trunk feeds task-specific heads; MLM is treated as
+  just one more head. Heads are discarded after pretraining — only the encoder is kept and evaluated.
+- **Isolate the variable of interest.** Fix the architecture, the BPE tokenizer, and (via a single
+  up-front hyperparameter search) the optimizer settings, then vary *only* the pretraining
+  strategy. Any downstream difference is then attributable to pretraining, not confounds.
+- **Measure on a fixed, external benchmark.** Downstream performance is always MoleculeNet, under a
+  frozen-featurizer protocol that mirrors how these models are actually deployed.
+
+Over the project this sharpened into a **three-regime comparison**, evaluated per task at matched
+compute. **Canonical regime vocabulary (used identically in the README and every figure):**
+
+| Regime | Definition | Question it answers |
+|---|---|---|
+| **random** | dumb chance model — 0.5 ROC-AUC / predict-the-mean RMSE (= the target's native standard deviation, e.g. ~2.07 log mol/L on ESOL, since targets are now scored in native units — §8). A reference, not a trained model. | The floor any real model must clear. |
+| **no_pretrain** | random-init ModernBERT, **no pretraining**, **frozen** features → head trained on the eval set. (Formerly the "random floor" — but it is a real ~41M model, often non-trivially above chance.) | What do random encoder features alone give? |
+| **no_pretrain_end_to_end** | random-init ModernBERT **finetuned end-to-end** (encoder unfrozen) on each eval task. The from-scratch finetune baseline. **Run 2026-07-22** (`e2e_random_00/01/02`, both eval schemes, predictions pair 1:1 with `random_baseline_00`). This is now **the baseline lift is measured against** in B2, C1J1 and I1: clearing the *frozen* random encoder is close to automatic, since it cannot adapt to the task at all, so lift over it flatters every arm. Tables A1.a/A1.b report both baselines side by side — the gap between those two columns is how much of an arm's apparent value came from being compared against a model that could not learn. | Does finetuning a random encoder beat freezing it — and does any pretraining beat *it*? |
+| **sup_only** | random init → supervised fine-tune (SFT). Never sees MLM. *(formerly "skip-unsup")* | Can you skip unsupervised pretraining entirely? |
+| **unsup_only** | MLM only, frozen features. *(formerly "pure-unsup")* | What does the unsupervised prior give on its own? |
+| **unsup→sup** | MLM, then SFT. *(formerly "mixed")* | The realistic deployment recipe. |
+| **sup→unsup** | SFT, then MLM (the forgetting direction — H7). | Does post-hoc MLM erase the supervised signal? |
+
+crossed with **what you supervise on** — dense computed labels (RDKit descriptors, à la ChemBERTa-2)
+vs sparse assay labels (PCBA/L1000/PCQM/WONG, à la MiniMol) vs both.
+
+### Evolution from the original design (what changed and why)
+
+The founding design (v1) used a **13M-parameter RoBERTa**, measured a single **aggregate score**
+across all MoleculeNet tasks, budgeted compute in **tokens**, and planned a 3-D
+unsupervised×supervised surface. v2 revised this after early results and reviewer-style scrutiny:
+
+- **Model:** 13M RoBERTa → **~41M ModernBERT** (RoPE, GeGLU, pre-norm), matching MoLFormer-base
+  (44M) / ChemBERTa-2 (46M) so a null result cannot be dismissed as a toy model.
+- **Metric:** single aggregate z-scored score → **absolute per-task metrics** (RMSE/AUC), never
+  aggregated across heterogeneous tasks, because z-scoring across tasks obscured effects and made
+  the number sensitive to the task mix.
+- **Compute axis:** tokens → **forward passes** (molecule-presentations), which is the quantity the
+  scaling ladders actually vary and is comparable across objectives.
+- **Supervised recipe:** rebuilt from a single linear head to **per-dataset MLP heads with Kendall
+  homoscedastic uncertainty weighting**, after diagnosing that the v1 supervised phase was broken
+  (see §6.3, the PCQM-collapse bug).
+- **Leakage:** the v1 README flagged possible PCBA train/eval overlap as an open action item. v2
+  **measured it at the molecule level** and found it material (§6.5), then implemented dedup.
+
+---
+
+## 2. Hypotheses
+
+**Core**
+- **H1 — Does unsupervised pretraining help at all?** Compare sup_only vs unsup_only vs unsup→sup
+  per task at matched compute.
+- **H2 — Which mechanism? (initialization vs regularization vs added information).** If unsup helps,
+  *why*? The earlier "better initialization vs better endpoint" framing silently merged two distinct
+  mechanisms — regularization *also* yields a better endpoint sup_only can't reach — so it misfiled
+  regularization as "adds information." Three testable mechanisms, each with a distinctive signature:
+  - **(a) initialization** — same reachable endpoint, reached faster/cheaper; sup_only catches up
+    given enough SFT compute. *Signature:* a left-shift on the label/compute axis that **closes at
+    full labels / high compute**.
+  - **(b) regularization** — constrains SFT toward a more generalizable endpoint sup_only can't reach;
+    benefit **concentrated in the low-label regime** with a **smaller train–test gap**. *Signature:*
+    gain only at small label fractions + reduced overfitting, vanishing at 100% labels.
+  - **(c) adds information** — injects content sup_only has no access to; benefit **persists as
+    labels grow** and is **content-dependent**. *Signature:* a persistent vertical gap at 100% labels;
+    provable only against a content-free pretraining control (E13 / C10).
+
+  These are separated by the label-efficiency curves (§4/C7) and the corrupted-pretraining control.
+- **H3 — Does the SFT label type decide it?** Dense (RDKit-descriptor MTR) vs sparse (assays) vs
+  both. Sub-question: can dense labels compensate for missing unsup where sparse cannot?
+- **H4 — Plateaus.** Where (in compute / molecules) do the unsup_only and sup_only curves flatten?
+
+**Validity / confounds (must resolve before trusting H1–H4)**
+- **H5 — Is "SFT ≤ MLM base" real or an artifact?** Two suspects: the frozen probe is too
+  low-ceiling to resolve encoder quality; or warm-start SFT at the pretraining LR destroys MLM
+  features. Tested by the finetune eval-ceiling (Fig D) and the SFT-LR sweep.
+- **H6 — Leakage.** Are results inflated by molecule (canonical-SMILES) overlap between eval **test**
+  splits and the pretraining / SFT data? **Measured — material; dedup applied (§6.5).**
+
+**Secondary / bonus**
+- **H7 — Catastrophic forgetting.** Does running MLM *after* SFT erase the supervised signal?
+- **H8 — Beyond one epoch.** Past one pass of the corpus, does SMILES enumeration (fresh
+  augmentation per pass) beat exact canonical repetition?
+- **H9 — Representation vs memorization.** Do novel molecules benefit from pretraining as much as
+  molecules the model has actually *seen during unsupervised pretraining*? Studied **entirely on the
+  production (deduped) models — no un-deduplicated model is trained**, so no leakage is reintroduced.
+  The key is that H9 asks about the **pretraining** corpus, and the SFT dedup (§6.6) only removes eval
+  overlap from the **supervised** data — the pretraining overlap is a *different*, disclosed 0–7%
+  (§10) that is deliberately kept. Two leakage-free handles: (i) that **0–7% pretraining overlap** is a
+  genuine "seen-in-pretraining" group already present in the clean model; (ii) **Tanimoto distance to
+  the nearest training molecule** (ECFP4, binned) gives a continuous interpolation↔extrapolation
+  dose–response that subsumes the binary seen/not-seen split (at distance ≈0 it already probes the
+  near-memorization limit). Exact memorization from *supervised* labels is intentionally **not** tested
+  — that would require reintroducing the leakage we removed.
+
+**Content (added 2026-07-20)**
+- **H10 — Domain-matched transfer.** Transfer from an SFT family to a downstream task is governed by
+  molecular / domain **content** similarity (bioassay families → BBBP/BACE/Tox21/HIV; quantum PCQM →
+  QM7), *not* by label type or label distribution per se. Sub-question: how best to *measure*
+  similarity — molecular content (nearest-neighbor Tanimoto / scaffold overlap) vs label-space
+  similarity. Built from the existing E1 single-family arms (transfer matrix, §4 / C8).
+
+*(No formal scaling-law hypothesis. Model-size and compute-optimal scaling are **out of scope for
+this paper**; a purely descriptive compute/data plot is recycled from runs collected anyway — §4.)*
+
+A hypothesis-resolution matrix (positive vs negative evidence per sub-question) is in §11.
+
+---
+
+## 3. Experiments
+
+All runs use the shared eval protocol (§8): frozen featurizer, scaffold split, absolute per-task
+metrics, lift over a random-encoder floor.
+
+| # | Experiment | Purpose | Status |
+|---|---|---|---|
+| E0 | **Round-1 exploratory** | unsup_only / sup_only / mixed at a fixed budget + a unique-molecule sweep |  done |
+| E1 | **Dense-vs-sparse ablation + transfer-matrix source** | 6 SFT arms warm-started from one MLM base (mtr / pcba / l1000 / sparse_all / dense+sparse / pcqm). **Retain per-task (not just per-arm) metrics** as the source for the H10 task-transfer matrix (Fig, C8) |  done; re-run deduped |
+| E2 | **Phase-2 scaling matrix** | the H1–H4 core: unsup_only ladder + unsup→sup + sup_only ladders × 5 SFT recipes |  done (Figs A1/A2); extended to 100M on the 124M corpus |
+| E3 | **SFT-LR sweep (H5)** | warm-start SFT at LR {2e-4,1e-4,5e-5,2e-5} for dense + sparse | ◐ 8 runs trained + evaluated (`climb_v2_lrsweep`, hold-out); figure not built |
+| E4 | **Leakage audit (H6)** | canonical-SMILES overlap of eval test vs pretrain + each SFT family |  done |
+| E5 | **Eval-ceiling / Fig D (H5)** | frozen probe vs end-to-end finetune per checkpoint + HIV |  done (Fig E1) |
+| E6 | **Headline bars / Fig A** | random · no_pretrain · ECFP4 · sup_only · unsup_only · unsup→sup per recipe |  done (Fig A1); principal 8M arms now have **3 pretraining seeds** (§10) |
+| E7 | **Catastrophic forgetting (H7)** | SFT encoder → continue MLM → re-eval |  not run (Fig G1 is a labelled placeholder) |
+| E8 | **Beyond-one-epoch (H8)** | canonical repetition vs enumerated augmentation past one pass |  done (Fig H1; retrained 3 seeds, CV) |
+| E9 | **Molecule-overlap matrix (H9)** | performance by (seen-in-unsup × seen-in-sup) group |  done (Fig I1) |
+| ~~E10~~ | **Model-size / Chinchilla scaling — DROPPED** | model-size scaling (13M/50M/100M/200M) and any compute-optimal / IsoFLOP scaling-law analysis are **out of scope for this paper**; no new runs. A descriptive compute/data plot is recycled from existing runs (§4) |  dropped |
+| E12 | **Label-efficiency sweep (H2 mechanism)** | retrain the probe on **per-task fractions 5/10/25/50/100%** of each eval **train** split (so every point is a distinct without-replacement subset — no capping/duplicate points on small tasks), per regime + per task; report the train–test gap. Frozen arms cache embeddings (no new pretraining); the `no_pretrain_end_to_end` arm fine-tunes. Regression in **native units**. |  done (Fig B1p1; 5 arms × 7 tasks × 5 fractions; `scripts/label_eff_fractions{,_e2e}.py`) |
+| E13 | **Corrupted-pretraining control (H2c)** | two arms at the 8M matched budget: `corrupt_mlm_8M` (**shuffled-token MLM**) and `corrupt_mtr_8M` (**shuffled-target MTR**) — same objective/compute, zero chemical content. See §7.1. |  **done** — both arms trained and verified 2026-07-22 |
+
+The **5 SFT recipes** used in E2 (each gets a full sup_only + unsup→sup ladder):
+`dense` (RDKit-MTR) · `sparse_all` (PCBA+L1000) · `dense_plus_sparse` · `minimol_full`
+(PCQM+PCBA+L1000+WONG, the faithful MiniMol LargeMix + Wong) · `mixed` (descriptors + minimol_full).
+
+### Compute ladders (E2)
+- **unsup_only base ladder:** MLM from scratch at **2M → 8M → 24M → 48M** forward passes on the
+  **~12M-molecule filtered corpus** (stop-when-flat: extend while Δ > ~2% per doubling).
+- **unsup_only long runs (→100M molecules):** dedicated longer runs at **50M and 100M**
+  molecule-presentations drawn from the **full ~124M-molecule PubChem corpus** (`pubchem_124m_full`),
+  so the high end keeps seeing *new* molecules — still under one epoch — instead of re-reading the 12M
+  set. A matched **8M-FP run on the same 124M corpus** (`unsup_8M_c124`) isolates corpus size from
+  training length.
+- **unsup→sup[recipe]:** warm-start each ladder checkpoint on the recipe with a fixed 2M-FP SFT.
+- **sup_only[recipe]:** random init + SFT at a per-recipe budget ladder; `dense` goes to **96M**
+  (the catch-up candidate for H2), the others to 48M.
+
+**Two corpora, one axis.** The base ladder trains on the ~12M-molecule filtered corpus, so budgets
+≥ 12M there are **multi-epoch** (24M ≈ 2 epochs) — repetition, which is exactly why H8 (repetition vs
+augmentation) is a distinct question. The 50M/100M long runs instead draw from the ~124M-molecule full
+corpus (§6.1b), so at those budgets *molecules seen ≈ unique molecules* (< 1 epoch, no repetition). The
+scaling figures plot against **both** forward passes (A2.a) and **unique molecules seen** (A2.b)
+precisely so the two regimes are never conflated. Which corpus each `unsup_only` rung uses:
+
+| `unsup_only` rung (forward passes) | 2M | 8M | 24M | 48M | **50M** | **100M** |
+|---|---|---|---|---|---|---|
+| corpus | 12M filtered | 12M | 12M | 12M | **124M full** | **124M full** |
+| unique molecules seen | 2M | 8M | ~12M (cap) | ~12M (cap) | **50M** | **100M** |
+
+The 24M/48M rungs re-read the 12M corpus (≈2×, ≈4×); the 50M/100M rungs are the *only* way the study
+sees >12M distinct molecules, so they are what the "does more **data** keep helping?" reading of A2
+rests on. (`sup_only:dense` separately extends to 96M FP on corpus (a) as the H2 catch-up candidate.)
+
+---
+
+## 4. Figures / results produced
+
+**Figure-ID convention.** Each **hypothesis** gets a **letter** (A = H1 … J = H10); each **plot** for
+that hypothesis gets a **number**; `S` = supplementary/descriptive (no single hypothesis); `T` =
+paired-significance **table** (meta-prefix, like `S`). All figures and tables
+are generated by `climb_figures.ipynb` (one global style block → uniform, journal-ready formatting;
+exports 300-dpi PNG + vector PDF to `figures_out/`). The `Data` column is the current collection
+state; -dummy figures are drawn as labelled empty-axis placeholders (legend + "what's missing"), no
+invented data.
+
+| ID | Hyp. | Content | x-axis / form | Data |
+|---|---|---|---|---|
+| **A1.a** | H1 | 11 arms: Morgan+XGBoost · Morgan+desc+XGBoost · no_pretrain (frozen) · no_pretrain (end-to-end) · unsup_only · sup_only ×3 · unsup→sup ×3, on the **single scaffold hold-out** | compute-matched bars (8M FP) |  all arms real |
+| **A1.b** | H1 | same 11 arms on the **pooled 5-fold scaffold CV** — the panel the claims rest on. A1.a's test splits are 113–204 molecules, so 6–14 arms tie on every task; A1.b resolves them | compute-matched bars (8M FP) |  all arms real, all 6 tasks |
+| **A2.a** | H1·H4 | unsup_only · unsup→sup:dense · sup_only ×3 ladders. CV only; **no reference lines** (they are bars in A1) | vs forward passes (log) |  (unsup_only now reaches the 100M rung) |
+| **A2.b** | H1·H4 | the same runs against **unique molecules seen**, which forward passes hide: `sup_only:sparse_all` gains +13.4% while its ladder is *vertical* — its pool caps at 0.52M, so every rung above 2M FP is repetition | vs unique molecules (log) |  (unsup_only now reaches the 100M rung) |
+| **A3** | H1 | round-1 exploratory: no_pretrain · unsup_only · sup_only · unsup→sup · Morgan+XGBoost | grouped bars |  |
+| **B1p1** | H2 | label-efficiency **and** the train–test gap: no_pretrain (frozen) · no_pretrain (end-to-end) · unsup_only · sup_only:dense · unsup→sup:dense vs #labels. Both SFT arms are the *same* `dense` recipe, so they differ only in the MLM stage | vs label count (log), per-task fractions 5/10/25/50/100% |  complete (5 arms × 7 tasks × 5 fractions; frozen+e2e on identical molecule sets; native-unit regression) |
+| **B2** | H2c | four bars per task — real vs corrupted for each objective (MLM vs `unsup_only`; MTR vs `sup_only:dense`). **Zero = no_pretrain (end-to-end)**, not a bar. Separates H2(c) "adds information" from H2(a/b) "init/regularization"; see §7.1 | control bars, 5-fold CV |  real (both control arms verified 2026-07-22) |
+| **C1J1** | H3·H10 | fused: (a) per-arm lift, (b) family→task transfer matrix, (c) the H10 similarity test. 6 unsup→sup arms warm-started from one 2M MLM base, all lifted over **no_pretrain (end-to-end)**. Arms are prefixed `u2s:` — they share recipe names with A1's `sup_only` arms but are a different regime, budget and wave | bars + heatmap + scatter |  deduped, 5-fold CV |
+| **E1** | H5 | eval-ceiling: frozen probe vs end-to-end finetune per checkpoint, **both regimes** (`unsup_only` and `sup_only:dense`), so an ordering flip has something to flip against. Both no_pretrain references drawn | vs compute |  complete |
+| **E2** | H5 | SFT-LR sweep: dense/sparse lift vs unsup_only base at 4 LRs | bars | ⏳ all 8 runs trained **and evaluated** (`figure_data/climb_v2_lrsweep/`, hold-out); the figure is not built in `climb_figures.ipynb` yet |
+| **F1** | H6 | eval-test overlap % with pretrain / L1000 / PCBA / WONG / PCQM | heatmap (§6.5) |  |
+| **G1** | H7 | metric before/after post-hoc MLM (sup→unsup forgetting) | bars |  dummy (no sup→unsup run) |
+| **H1** | H8 | canonical vs enumerated (unsup_only): downstream metric *(MLM val/test loss panel missing — never emitted, §6.1)*. Retrained as `climb_v2_h1` (3 pretraining seeds) and CV-scored | vs unique-mol fraction |  complete (climb_v2_h1, 3 seeds, CV) |
+| **I1** | H9 | (a) lift for the most corpus-similar vs most novel quartile, with corpus-**identical** molecules (ECFP4 Tanimoto = 1.0 to the full 12M corpus) split into their own bar and excluded from the trend; (b) lift vs Tanimoto distance over the non-identical molecules, binned, with bootstrap CIs. Lift is over **no_pretrain (end-to-end)**; the frozen contrast is printed alongside. Regression tasks only (needs a per-molecule error) | 2 panels, 5-fold CV |  complete (de-dup reanalysis, §9.1 `dedup_i1_reanalysis.py`) |
+| **J1** | H10 | *(fused into C1J1 above — panels b and c)* rows = single-family unsup→sup arms, cols = eval task, cell = lift over no_pretrain (end-to-end); domain tags | heatmap |  (ρ = +0.08, p = 0.70 — no evidence transfer tracks similarity) |
+| **CBS** | ext. | **external validation (MAINLINE)**: full A1.a battery on the Truong 2026 CBS-inhibitor VS benchmark, NEF1% on the benchmark's **provided** leakage-controlled 5-fold split (43 actives / 10,402 inactives+decoys). Morgan+desc+XGBoost (0.93) is best — beats every CLM arm **and** Truong's target-trained structure-based models (0.764 ± 0.191) with no docking; MLM (0.74) doesn't beat the frozen encoder (0.76). Reference lines from `cbs_reference_lines.csv` (correctly labelled); retrospective-VS decoy-bias caveat in the caption | horizontal bars + Truong reference lines |  complete (`cbs_benchmark`, cells 41/42; verified: folds == Table 1, no leakage, descriptor baseline reproduced) |
+| **S1** | — | every collected point: metric vs forward passes, coloured by regime/recipe — descriptive, **no fitted law** | scatter |  |
+| **S2** | — | **vocabulary-size scaling (SI, §7.2)**: frozen-probe CV vs tokenizer vocab, byte-BPE vs Unigram, 6 tasks. Result: near-null — vocab size barely matters in the reachable range, character-level (261) already competitive | vs vocab (log) |  (`climb_v2_vocab`, 8 runs; notebook cells 31/32) |
+| **T1** | H1 | CLM vs toughest classical baseline (fp_desc = Morgan+descriptors→XGBoost): `dense` (trained on descriptors) + `unsup_only` (control, never saw descriptors), each with per-task Δ, the **scaffold cluster-bootstrap CI** (headline uncertainty), BH-FDR-corrected molecule-level p (indicative), and fold-t (context) — protocol in §8.1 | paired-significance table |  (8M; 3 pretraining seeds on the principal arms) |
+| **T2** | H1 | `unsup→sup` (MLM→SFT) decomposed at the 8M base: **Q1** vs `sup_only` (does the MLM base help the SFT?) → adds ~0, 0/5 tasks significant, worse on `dense_plus_sparse`; **Q2** vs `unsup_only` (does SFT help on top of MLM?) → significantly helps regression (ESOL/QM7), hurts bioactivity (BBBP/BACE). Reinforces "skip unsupervised pretraining." | paired-significance table |  (8M) |
+
+**Two distinct baselines (do not conflate):** **random** is the dumb chance model — 0.5 ROC-AUC, or
+predict-the-mean RMSE (= the target's native standard deviation now that regression is scored in native
+units, §8, e.g. ~2.07 log mol/L on ESOL); it is a reference line, not a trained
+run. **no_pretrain** is a random-parameter ModernBERT run through the *same* frozen-feature + head
+pipeline as every other arm (neither MLM nor SFT) — a real ~41M model that is often **non-trivially
+above chance** (e.g. BBBP no_pretrain ≈0.695 vs Morgan+XGBoost ≈0.657, both well above the 0.5 random
+line). The separate **no_pretrain_end_to_end** baseline (random encoder **unfrozen**, finetuned
+directly on each eval task) is the eval-ceiling (E1) case — **now run** (`finetune_e2e_v2`; the
+`e2e` arm of the per-task-fraction label-efficiency data in `analysis/rigor/label_efficiency_fractions_*.csv`
+and the E1 eval-ceiling data), so it is a real bar in Figs A1/B1p1/E1, not a placeholder.
+
+Metric conventions: ESOL/QM7/Lipophilicity = RMSE (lower better); BBBP/BACE/Tox21 = ROC-AUC (higher
+better); **HIV = NEF1% (top-1% enrichment, higher better)** as the virtual-screening headline (ROC-AUC
+secondary; see §6.5). In the per-task figures (A1/A2/…) HIV's bar/line uses NEF1%. "Lift" = improvement
+over the **no_pretrain** floor. The bar figures currently plot **single-seed fold bars**; the four
+principal 8M arms do have **3 pretraining seeds** and their across-seed variance is measured and
+reported (§10, `analysis/rigor/`), so plotting seed CIs on the bars is the one remaining step. Each eval
+still averages **3 head seeds**, and scaling curves use the stop-when-flat rule in place of plateau
+error bars.
+
+**Data-collection gaps** (why the -dummy figures exist): the whole **unsup→sup ladder** (A1/A2),
+the **finetune eval-ceiling** (E1), the **SFT-LR evaluation** (E2 — encoders trained but never
+evaluated), the **forgetting** run (G1), the **MLM val/test-loss** readout (H1), and the
+**per-molecule prediction / ECFP4-fingerprint dumps** (I1) were never emitted. Seven phase-2 runs were
+truncated by the old 12h cap and are excluded (`unsup_48M`, `skip_dense_{24M,48M,96M}`,
+`skip_mixed_24M`, `skip_minimol_full_48M`, `skip_dense_plus_sparse_48M`) — note `skip_dense_24M` /
+`skip_mixed_24M` report `status="ok"` but only reached 40% / 37% of budget.
+
+---
+
+# Part II — Methods (exacting detail)
+
+## 5. Model architecture
+
+A **ModernBERT** encoder (HuggingFace `ModernBert*`), constructed in exactly one place
+(`config_v2.build_modernbert_config`) so pretraining, evaluation, and the random baseline
+instantiate an identical architecture.
+
+| Hyperparameter | Value |
+|---|---|
+| Backbone | ModernBERT (RoPE, pre-norm, GeGLU, alternating global/local attention) |
+| hidden_size | 512 |
+| num_hidden_layers | 12 |
+| num_attention_heads | 8 |
+| intermediate_size (GeGLU post-gate) | 1536 |
+| max_position_embeddings (RoPE cap) | 256 |
+| global_attn_every_n_layers | 3 |
+| local_attention window | 128 |
+| dropouts (attention / mlp / embedding) | 0.0 / 0.0 / 0.0 |
+| norm_eps | 1e-5 |
+| vocab_size | 1000 |
+| **Total encoder params** | **~41.4M** (verified empirically) |
+| attention implementation | SDPA (flash-attn unavailable in the build) |
+| reference_compile | False (portable across CPU test boxes + GPU workers; toolchain-safe) |
+
+**Special tokens.** The SMILES tokenizer has no CLS/SEP; position-0 (`<s>`/bos) doubles as the
+pooled "cls". Ids: pad=1, bos=0, eos=2, cls=bos, sep=eos (all < vocab_size). Pooling for evaluation
+is masked-mean, not CLS (see §8).
+
+**Objective heads (discarded after pretraining, only the encoder is kept):**
+- **MLM head** — standard masked token prediction.
+- **MTR head** — a 2-layer MLP regressing 217 normalized RDKit descriptors (dense targets).
+- **Supervised multi-head** — one `Linear→GELU→Linear` head *per dataset family*, with per-family
+  loss type (MAE for regression families, BCE for binary assays) combined by **Kendall
+  homoscedastic uncertainty weighting** (learned per-family log-variance: `exp(-s)·L_f + s`), so
+  near-unlearnable families cannot dominate and no manual loss weights are needed.
+
+**Why this size.** ~41M is deliberately "believable-SOTA but single-GPU": it matches MoLFormer-base
+(44M) and ChemBERTa-2 (46M), trains on one A10G (g5.2xlarge), and keeps a large ablation matrix
+affordable. SMILES are short (median ~30–50 tokens), so token-level modeling does not need large
+capacity. Generalization to larger models is a stated limitation and is **out of scope for this
+paper** (model-size scaling / E10 dropped).
+
+---
+
+## 6. Datasets (provenance, curation, deduplication)
+
+### 6.1 Unsupervised corpora (MLM / MTR source)
+
+**Two** PubChem-derived corpora are used, and **which one a run streams is part of that run's
+definition** (recorded in its `config.yaml` as `unsupervised_raw_smiles_paths`). Both are canonicalized
+with the same RDKit pipeline and read with the same tokenizer, so they differ only in *coverage*.
+
+**(a) Base corpus — ~12M filtered (`pubchem_filtered`).** `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/`
+— **12 parquet shards × 1,000,000 rows = ~12M molecules**, column `SMILES_canonical` (pre-tokenized
+pickle mirror at `.../pubchem_filtered_tokenized_pkl/`). Derived from PubChem by validity/size/element
+filtering. **Every headline run and the whole 2M–48M base ladder trains on this corpus.** One epoch =
+~12M molecules, so forward-pass budgets ≥ 12M on it are **multi-epoch** (24M ≈ 2 epochs, 48M ≈ 4).
+
+**(b) Full superset — ~124M unfiltered (`pubchem_124m_full`).** `s3://climb-s3-bucket/tokenized_sources/pubchem_124m_full/`
+(pickle mirror `..._tokenized_pkl/`) — the full **PubChem-124M** set, i.e. the *superset* the ~12M base
+corpus was subsampled from (upstream
+[`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC),
+re-canonicalized to match the tokenizer; rebuild with `scripts/download_pubchem_full.sh`). **Only the
+long scaling runs use it:** `unsup_50M`, `unsup_100M`, and the `*_c124` same-budget controls. Because
+100M < 124M, these stay **under one epoch** — their extra molecule-presentations are genuinely new
+molecules, not repeats of the 12M set. This is the *only* corpus difference across runs, and it is what
+lets the A2 scaling curve reach **100M *unique* molecules** rather than saturating at the 12M subset.
+
+- Streaming is deterministic given `subset_seed` (worker-sharded, hash-based subset membership), so
+  every run sees the same molecule order and the base ladder points are nested subsets of (a).
+-  **Not implemented: held-out MLM val/test loss.** An earlier plan (C5) called for a hash-based
+  corpus holdout giving per-run MLM validation/test loss, which would have exposed the H8 mechanism
+  directly (canonical repetition overfitting while enumeration keeps generalizing). **No such holdout
+  or loss exists in the code** — the training loop logs train loss only. H8 is therefore adjudicated
+  on downstream lift alone, which the frozen-probe ceiling (§10) may compress.
+
+### 6.2 Tokenizer
+- **Byte-level BPE, vocab 1000**, artifact `s3://climb-s3-bucket/tokenizer_10M/` (`tokenizer.json`).
+- **Fixed across every run** (HPO, pretraining, SFT, evaluation) so vocabulary/segmentation never
+  confounds a comparison. Training sequences are capped at 128 tokens (>99% of SMILES fit; bounds
+  padding memory), separate from the 256 RoPE position cap. Tokenizer training is reproducible via
+  `train_tokenizer.py` (provenance only; the artifact is prebuilt). *The single deliberate exception
+  is the SI vocabulary-size scaling sweep (§7.2), which varies the tokenizer on purpose and is scored
+  separately.*
+
+### 6.3 Supervised corpus (SFT source) — the "wide" parquet
+- **Path:** `s3://climb-s3-bucket/tokenized/supervised_wide_parquet/`.
+- **Shape:** **5,382,243 rows × 3,322 columns**. Columns: `smiles_canon`, `input_ids`,
+  `attention_mask`, and one label column per assay endpoint, prefixed by family.
+- **Families and sizes (molecules present, measured 2026-07-16):**
+
+  | Family | Type | Label cols | Molecules |
+  |---|---|---|---|
+  | PCQM | quantum regression | 31 | 3,810,323 |
+  | PCBA | bioassay (binary) | 1,328 | ~1,517,000 |
+  | WONG | antibiotic screen | 4 | 34,652 |
+  | L1000_MCF7 | gene-expression regression | 978 | 11,718 |
+  | L1000_VCAP | gene-expression regression | 978 | 7,800 |
+
+  This is the MiniMol **LargeMix** (PCQM4M + PCBA_1328 + L1000_VCAP + L1000_MCF7) plus **WONG**.
+- **Layout caveat — multi-family rows.** The wide table is a join, not exclusive per-family blocks:
+  a molecule assayed in several families carries several families' labels in one row (NaN elsewhere).
+  This drove the L1000 loader bug in §6.4.
+- **Family selection rationale.** MiniMol's Table 6 shows PCQM *negatively* transfers as a single
+  fine-tuning source, so v1 dropped it; v2 keeps it inside the multitask mixture (where uncertainty
+  weighting neutralizes it) because that is MiniMol's actual recipe and because QM7 is an eval task.
+
+### 6.4 Supervised loading and the L1000 routing fix
+`data_v2.load_supervised_inram_stratified` builds a family-balanced in-RAM training set:
+- **Stratified per-family caps** (PCBA 500k, L1000 100k each, PCQM 200k, WONG 100k) so no family
+  starves another. (v1 bug: the old loader took the first ~1M rows of a PCQM-first table → 100%
+  PCQM → the head collapsed to ~25 quantum tasks; this is why v1 supervised ≈ random.)
+- **Scarce-family-first routing.** Because rows are multi-family, first-match routing in PCBA-first
+  order let PCBA *steal* L1000's molecules (only ~1.6k of ~11.7k L1000 loaded). Routing smallest-cap
+  families first recovers the full L1000 set. Each retained row keeps its full label vector, so a
+  molecule still contributes to *every* family head it has labels for.
+- **Density filter** drops label columns with < 0.1% coverage within the retained rows.
+- **Leakage dedup** (see 6.5): rows whose `smiles_canon` is on the eval blocklist are dropped.
+
+### 6.5 Downstream evaluation datasets
+MoleculeNet via DeepChem, **scaffold split** (Bemis–Murcko), loaded in `eval_v2._load_moleculenet`.
+Pre-registered 7-task suite, chosen as one dataset per common cheminformatics use case and **not
+revised post-hoc** (`config_v2.MOLECULENET_TASKS_V2`; evaluated by default on every run). Counts below
+are computed from the same loaders (`featurizer="Raw"`, scaffold split), summed over train+val+test:
+
+| Dataset | Type | Metric | Description | Positives / Negatives | Total (molecules) |
+|---|---|---|---|---|---|
+| ESOL | regression | RMSE ↓ | log aqueous solubility (log mol/L) | n.a. | 1,128 |
+| BBBP | classification | ROC-AUC ↑ | binary — does the molecule cross the blood–brain barrier | 1,560 / 479 | 2,039 |
+| BACE | classification | ROC-AUC ↑ | binary — β-secretase 1 (BACE-1) inhibition | 691 / 822 | 1,513 |
+| Tox21 | classification (12 tasks) | ROC-AUC ↑ | 12 binary toxicity assays (nuclear-receptor & stress-response) | 5,858 / 72,006 † | 7,823 |
+| QM7 | regression | RMSE ↓ | atomization energy (quantum, DFT) | n.a. | 6,838 |
+| **HIV** | classification (**virtual screening**) | **NEF1% ↑** (primary), ROC-AUC ↑ (secondary) | binary — inhibits HIV replication; large + **highly imbalanced (3.5% active)** → a genuine early-enrichment / hit-retrieval task | 1,443 / 39,677 | 41,120 |
+| Lipophilicity | regression | RMSE ↓ | octanol/water distribution coefficient (logD 7.4) | n.a. | 4,200 |
+
+† Tox21 positives/negatives are **label counts summed over its 12 binary tasks** (missing labels
+excluded), not molecule counts — hence the total exceeds the 7,823 molecules.
+
+ Counts are **as loaded by the DeepChem/RDKit versions pinned here** (§9.1c) and can vary by a few
+molecules across versions (e.g. HIV was re-scored at 41,127 in a later eval pass). They are reproduced
+exactly by the loaders in `eval_v2._load_moleculenet`, not asserted as canonical dataset sizes.
+
+**HIV as the virtual-screening task (added 2026-07-20).** Virtual screening — ranking a large library
+so true actives surface in the tiny top slice a chemist can actually test — is a primary downstream use
+of molecular foundation models, and none of the small MoleculeNet sets exercises it. HIV does: 41k
+molecules, 3.5% active. Its headline metric is therefore **NEF1%** (normalized enrichment factor of true
+actives in the top 1%), following Truong et al. 2026 (*J. Cheminform.*, s13321-026-01262-x) and the
+LIT-PCBA definition (Tran-Nguyen, Jacquemard & Rognan, *JCIM* 2020):
+
+$$\text{NEF}_{1\%}=\frac{\text{EF}_{1\%}}{\text{EF}_{1\%}^{\max}}=\frac{H_a}{\min(n,\,A)},\qquad n=\lceil 0.01\,N\rceil$$
+
+where *N* = #compounds in the (held-out) test fold, *A* = #actives, *n* = size of the top-1% slice,
+*H_a* = actives found in it. It is precision@top-1%, capped by recall when actives are scarce; range
+[0, 1], with 1 = a perfect ranking that put every retrievable active on top. Computed **per held-out
+fold**, then reported as mean ± std across folds (same protocol as every other metric). ROC-AUC is kept
+as a secondary metric. NEF1% is only *informative* on imbalanced retrieval — on class-balanced sets
+(e.g. BBBP, ~76% positive) the top 1% is trivially all-active and NEF1% saturates at 1.0, which is why
+it is the headline metric for HIV specifically and reported-but-not-headline elsewhere. Implemented in
+`heads_v2.compute_nef` and emitted for every classification task by `eval_v2` (as `main_metric="nef1"`
+rows; the primary metric keeps the bare `<ds>_MEAN` suite key, NEF is namespaced `<ds>_nef1_MEAN`).
+
+### 6.6 Molecule-level leakage audit and dedup (H6)
+`scripts/leakage_audit.py` computes a canonical key for every eval molecule and measures overlap
+with a pretrain sample and each SFT family. **Key = RDKit canonical SMILES of the largest fragment**
+(`MolFromSmiles → keep largest '.'-fragment (salt strip) → MolToSmiles`) — ~100× faster than
+InChIKey and adequate for 2-D structure identity.
+
+**Result (% of each eval TEST split found in each source, 2026-07-16):**
+
+| eval | pretrain | L1000_MCF7 | PCBA | WONG | PCQM |
+|---|---|---|---|---|---|
+| ESOL | 7.1% | 18.6% | 19.5% | 21.2% | 0 |
+| BBBP | 5.9% | **42.6%** | 12.3% | 15.2% | 0 |
+| BACE | 0% | 0 | 0.7% | 0 | 0 |
+| Tox21 | 3.7% | **24.7%** | 10.2% | 11.1% | 0 |
+| QM7 | 0.9% | 0.1% | 2.3% | 1.0% | 0 |
+| HIV | 0.3% | 1.1% | **37.0%** | 1.6% | 0 |
+
+Interpretation: **pretrain overlap is low (0–7%, the standard/disclosed kind that biases *toward*
+"unsup helps"); SFT-assay overlap is large** (BBBP 43% via L1000, HIV 37% via PCBA). Therefore every
+arm that trains on assay labels must be deduped and re-run; unsup_only, dense-MTR (descriptors are
+not eval labels), and random arms are essentially unaffected. PCQM overlaps 0% (training on quantum
+does not leak into QM7); BACE is clean.
+
+**Dedup (`scripts/make_eval_blocklist.py`):** compute canonical keys for **all** eval molecules
+(train+val+test, all 6 tasks) = **58,008 keys**; scan the parquet's `smiles_canon` once and collect
+the exact strings that match = **34,301 leaked rows**; the supervised loader drops these (direct
+string membership, no RDKit in the hot path). Blocklist:
+`s3://climb-s3-bucket/configs/eval_blocklist.json`.
+
+ **The blocklist predates Lipophilicity and does not cover it.** The S3 artifact was built on
+**2026-07-16** over the then-6-task suite; **Lipophilicity was added to the eval suite on 2026-07-18**
+(commit `6f939c0`) and the blocklist has not been rebuilt since (34,301 entries, unchanged). No SFT
+arm is therefore deduplicated against Lipophilicity's eval molecules. Lipophilicity is **not** one of
+the six core tasks any figure plots, but it *is* scored by every 7-task evaluation, so **no
+Lipophilicity number may be reported without first rebuilding the blocklist and re-running the
+affected SFT arms**.
+
+ **The blocklist is applied only to supervised objectives.** `pretrain_v2` loads and applies it
+only when a run's objective mix contains `supervised`, so pure-MLM and pure-MTR runs never consult
+it. That is correct — those objectives never touch the supervised parquet — but it means "deduped"
+describes the SFT stage specifically, not the corpus.
+
+**Two distinct keys — dedup vs "seen" (C17).**  *Corrected against the code:* the two keys differ
+**only** by the largest-fragment (salt-strip) step, **not** by stereochemistry. Both
+`scripts/make_eval_blocklist.py` and the eval-side identity key in `eval_v2.py` call
+`Chem.MolToSmiles(m)` with RDKit's default `isomericSmiles=True`, so **stereochemistry is retained in
+both**; an earlier version of this section claimed the blocklist key "canonicalizes without stereo",
+which the code does not do. The blocklist key additionally salt-strips to the largest fragment
+(selected by *string length*, not heavy-atom count), which conservatively over-removes — the right
+bias for a **safety** dedup. The H9 "seen" axis uses the un-stripped key, so a salt form and its
+parent count as distinct there while the blocklist collapses them. Both keys are recorded per eval
+molecule (§9.5) so a reviewer can see which molecules each classifies as overlapping.
+
+### 6.7 Dense descriptor targets (MTR) and precompute
+- **Targets:** 217 RDKit `Descriptors.descList` values, NaN-safe, **z-normalized** with mean/std fit
+  once on a deterministic 20k-molecule sample (`subset_seed=0`); stats cached to
+  `configs/descriptor_stats.json` (+ S3). Descriptors are structure-invariant, so they are valid
+  under SMILES enumeration.
+- **Precompute (`scripts/precompute_descriptors.py`).** On-the-fly descriptor computation is
+  16 ms/mol → it starved the GPU (dense ran at ~120 vs 748 seq/s). Since the corpus is only ~12M
+  molecules, descriptors are computed **once per shard**, normalized, and written as row-aligned
+  float16 companions (`descriptors_shard_NNNNN.npy`) to
+  `s3://climb-s3-bucket/tokenized_sources/pubchem_descriptors/`. The MTR streaming path reads these
+  instead of calling RDKit, making dense runs GPU-bound. (This also avoids recomputing descriptors
+  every epoch in the multi-epoch ladder points.)
+
+---
+
+## 7. Training methodology
+
+- **Objective sampler.** Each run declares a per-batch objective mix over `{mlm, mtr, supervised}`
+  (e.g. `{mlm:1}`, `{mtr:1}`, `{supervised:1}`, `{mtr:0.5, supervised:0.5}`); one optimizer step per
+  batch, objective sampled by weight (`data_v2.MultiObjectiveBatchIterator`).
+- **MLM:** 30% masking (ModernBERT regime), dense per-token cross-entropy.
+- **MTR:** masked MSE on the 217 normalized descriptors.
+- **Supervised:** per-family MLP heads; MAE (quantum/L1000 regression) or BCE (PCBA/WONG binary);
+  Kendall uncertainty weighting across heads.
+- **Warm-start.** `init_encoder_path` loads a saved MLM encoder → unsup→sup (sequential); absent →
+  sup_only (random init).
+- **Optimizer.** AdamW, LR **2e-4**, warmup ratio **0.05**, weight-decay **0.01**, grad-clip **1.0**,
+  batch **256**, bf16.  The same LR is used for scratch and warm-start; the SFT-LR
+  sweep (E3) tests whether this is fair for the warm-start phase.
+- **Seeding.** The governing seed is `selection.pretraining_seed` (0 for the primary runs; replicates
+  use 1 and 2), which fixes weight init, corpus-subset membership, objective sampling and the
+  corruption RNG. `TrainingConfigV2.seed = 42` is only a fallback and is *not* what the runs used.
+- **MLM corruption detail.** Of the 30% selected positions, the standard **80/10/10** split applies:
+  80% replaced with `[MASK]`, 10% with a random token, 10% left unchanged
+  (`data_v2.mlm_mask_tokens`); loss is computed on the selected positions only.
+- **Supervised label handling.** Every non-binary supervised column is **z-scored** over the loaded
+  subset (mean/std computed on that subset, values clipped to ±10), and a column is treated as
+  **classification iff its unique valid values are a subset of {0,1}** — task type is *inferred*
+  from the labels, not declared (`data_v2.py`). MAE/BCE in the bullet above therefore act on
+  z-scored and inferred-type targets respectively.
+- **Compute accounting.** Everything is measured in **forward passes** (molecule-presentations).
+  Forward passes = #unique molecules only within one epoch of the corpus in use (≤12M for the filtered
+  corpus, ≤~124M for the full corpus of the 50M/100M long runs); beyond that they diverge (repetition).
+  Fig A2.b re-plots against unique molecules so this never confounds the scaling readout.
+- **Canonical vs enumerated.** Primary runs use canonical SMILES (one presentation per molecule);
+  enumeration (on-the-fly RDKit randomization) is the H8 lever for the beyond-one-epoch regime.
+   **Known limitation — the enumeration RNG is not captured, so enumerated runs are not
+  bit-reproducible.** `smiles_augment.randomize_smiles` accepts an `rng` argument but ignores it and
+  calls `Chem.MolToSmiles(mol, doRandom=True)`, which draws atom orderings from RDKit's *global* RNG;
+  the two collators that use it are likewise unseeded on this path (`RawSmilesMLMCollator` builds a
+  bare `random.Random()`, `MTRCollator` passes no rng at all). Re-running an enumerated arm therefore
+  reproduces the *distribution* of randomized SMILES but not the exact sequence. This is accepted
+  rather than fixed: the arms affected are the H8 canonical-vs-enumerated sweep, where the three
+  pretraining seeds still give genuine independent draws, so the reported spread remains a valid
+  measure of run-to-run variability — only exact replay is unavailable. Everything else (weight init,
+  subset membership, objective sampling, corruption) *is* seeded and reproducible.
+- **HPO policy.** A single up-front MLM hyperparameter search fixes the recipe; the same settings are
+  reused for every subsequent run (no per-experiment tuning) so optimization never confounds a
+  comparison. The exception is the deliberate SFT-LR ablation (E3).
+- **Durability.** Periodic encoder checkpoints (`save_every_steps`) plus a 10-minute S3-sync sidecar
+  in the worker script survive spot reclaim (current boxes are on-demand, so this is belt-and-braces).
+
+---
+
+### 7.1 Corrupted-pretraining control (E13 → Fig B2, hypothesis H2c)
+
+The label-efficiency curves (B1) can show *that* pretraining helps but cannot say *why*: a
+gain could come from the chemistry the corpus contains (**information**, H2c) or merely from
+running a self-supervised objective at all — the optimization/regularization effect of the
+task's structure (**initialization/regularization**, H2a/b). The corrupted control separates
+them by holding **everything** fixed except chemical content:
+
+| Held fixed | Destroyed |
+|---|---|
+| objective + loss shape, compute (8M FP), schedule, model, batch size, mask rate, sequence lengths, token / target **distributions** | SMILES grammar & atom ordering (MLM arm); the molecule→descriptor **mapping** (MTR arm) |
+
+Two arms, each matched to its real counterpart at the 8M budget (`scripts/make_e13_manifest.py`):
+
+- **`corrupt_mlm_8M`** — `corruption: shuffle_tokens`. Permutes the *interior* token positions
+  of every sequence (CLS/SEP stay pinned), applying the **same permutation to `input_ids` and
+  `labels`** so each masked slot still asks for its own original token — only the surrounding
+  context is scrambled. Controls for `unsup_only` (real MLM).
+- **`corrupt_mtr_8M`** — `corruption: shuffle_targets`. Permutes the descriptor target *rows*
+  across the batch, so each molecule is regressed onto **another** molecule's descriptors.
+  Controls for `sup_only:dense` (real dense MTR).
+
+Implemented as `data_v2.CorruptedCollator` (wraps any pretraining collator; deterministic per
+seed with a per-dataloader-worker offset), selected via `selection.corruption` in the run config
+and recorded in the run metadata (`corruption` field) so every run is auditable. Invariants are
+regression-tested in `tests/test_data_v2.py` (CLS/SEP pinned, interior is a true permutation,
+input↔label pairing survives, targets permuted and never the identity).
+
+**How to read Fig B2** (three bars per task — `no_pretrain` · corrupted · real):
+
+- corrupted ≈ `no_pretrain`, and real **>** both → the gain is **chemical information** (H2c).
+- corrupted ≈ real, and both **>** `no_pretrain` → the gain is the **objective's structure**
+  (initialization/regularization, H2a/b) — pretraining is not teaching chemistry.
+
+This is the experiment that decides whether the persistent part of B1's `unsup_only` advantage
+(clearest on ESOL/BACE) is real chemistry or an optimization artifact.
+
+### 7.2 Vocabulary-size scaling law (SI, wave `climb_v2_vocab`)
+
+A supplementary sweep asking a single question: **for unsupervised (MLM-only) pretraining, how does
+downstream quality depend on tokenizer vocabulary size, and does the tokenizer *algorithm* matter?**
+Vocabulary is the only thing that varies; corpus, compute, schedule, model depth/width and evaluation
+are all held to the main-run values.
+
+- **Two tokenizer families, matched vocab points** (`scripts/build_vocab_tokenizers.py`):
+  - **Byte-level BPE** — the same family as the main paper (§6.2), min_frequency=1 to reach as high a
+    vocab as the alphabet allows.
+  - **Unigram-LM** — SentencePiece-style unigram, a different sub-word *algorithm* at matched vocab,
+    with a `ByteLevel` pre-tokenizer so its alphabet is closed exactly like BPE's (no molecule ever
+    becomes `<unk>` for one family but not the other).
+  Both are wrapped as `PreTrainedTokenizerFast` with the identical five special tokens, so
+  `pretrain_v2` loads them unchanged.
+- **SMILES tokenization saturates**, so vocab points are the four *reachable, distinct* sizes per
+  family rather than even decades. Trained on an **8M-SMILES sample of the same PubChem corpus**, the
+  achieved vocabularies are **BPE {261, 1000, 3000, 12000}** and **Unigram {261, 700, 876, 3000}**
+  (261 = the byte floor + specials = no merges/pieces; nominal targets above a family's ceiling simply
+  cap there). The **actual** vocab a run reports — not the nominal target — is the x-axis (e.g. the
+  Unigram-1200 target resolves to 876).
+- **One pretraining run per tokenizer** (`scripts/vocab_write_config.py` patches the `unsup_2M`
+  template): MLM-only (`{mlm:1}`), **2M forward passes**, canonical SMILES tokenized on the fly
+  (`augmentation="canonical_raw"`), pretraining seed 0. Everything else is byte-identical to the main
+  `unsup_only` runs. The token embedding and MLM softmax **auto-size to the loaded tokenizer**
+  (`vocab_size = tokenizer.vocab_size`), so **parameter count grows with vocab** (≈41.4M at vocab
+  1000 → ≈47.1M at vocab 12000) — this is the one dimension deliberately allowed to move; all other
+  model dimensions are fixed. Completion is gated the same way as every other run (`verified.json` at
+  ≥98% of the 2M-FP budget).
+- **Evaluation is the identical frozen-probe 5-fold scaffold CV of §8** on the **six core tasks**
+  (ESOL, QM7, BBBP, BACE, Tox21, HIV; Lipophilicity excluded, §6.6), 3 head seeds averaged per fold.
+- **Comparability.** Same pretraining corpus, same 2M-FP budget, same eval for all eight runs, so the
+  only differences between points are (i) vocabulary size and (ii) tokenizer family — with the caveat,
+  stated in the SI, that larger vocab also means more embedding parameters (vocab size and parameter
+  count are confounded by construction; this is inherent to a vocab sweep and is disclosed rather than
+  removed).
+- **Artifacts.** Encoders + evals under `experiments/climb_v2_vocab/<family>_<vocab>/`; the eight
+  tokenizers under `s3://climb-s3-bucket/tokenizers_vocab/`. Driver `scripts/vocab_wave.sh` runs the
+  eight fast-first (high vocab = shorter sequences first) on one box, train → CV → upload per run,
+  self-terminating on completion.
+
+### 7.3 Synthetic-statistics ladder (Experiment A → Fig SA, wave `climb_v2_expA`)
+
+§7.1 shows *that* order-scrambling barely hurts (`shuffle_tokens ≈ real`); this experiment turns that
+one control into a **graded ladder** to localize *which statistic* of the corpus a masked-LM actually
+uses. We pretrain on synthetic corpora that each preserve **less** structure, holding everything else
+byte-identical to `unsup_8M` (8M FP, model, schedule, mask rate, 3 pretraining seeds, frozen-probe eval):
+
+| Arm | What survives | What's destroyed |
+|---|---|---|
+| `real` (unsup_only) | everything | — |
+| `shuffle_tokens` | each molecule's exact token **multiset** | token order → grammar, ring/branch matching, adjacency |
+| `bigram_resample` | corpus token frequencies **+ local adjacency** (a 1st-order Markov chain fit on the corpus) | the per-molecule multiset (composition), long-range structure |
+| `unigram_resample` | only the corpus token **marginal** | per-molecule composition, order, adjacency |
+| `no_pretrain` | nothing (random encoder) | — |
+
+- **Materialized corpora** (`scripts/build_synthetic_corpus.py`): unlike `shuffle_tokens` (on-the-fly
+  in the collator), the unigram/bigram statistics are *corpus-level*, so each is estimated over the full
+  ~12M corpus and a synthetic corpus is emitted **1:1** — one sequence per real molecule, **same length**
+  (so sequence count, length marginal and non-padding token count match by construction). The
+  pre-tokenized corpus stores **pure content tokens** (no BOS/EOS/PAD; min id 7), so the synthetic
+  sequences do too — matching the real convention exactly. Uploaded to
+  `s3://climb-s3-bucket/tokenized_sources/pubchem_filtered_{unigram,bigram}_pkl/` (gen seed 12345).
+  **Corruption is certified before any GPU spend:** token-frequency `KL(real‖synth)` = 7.5e-7 (unigram)
+  / 2.6e-4 (bigram) ≈ 0, and the unigram arm's MLM train loss plateaus at the unigram entropy (3.07
+  nats) while the bigram arm reaches ~1.4 nats (it exploits the Markov structure — a live check that the
+  arms differ as intended). `bag_swap` is **not** run: length-matched multiset-swapping is
+  distribution-identical to `shuffle_tokens` (an MLM sees only token sequences), so it cannot add
+  information beyond it.
+- **Arms & seeds.** `unigram_8M{,_s1,_s2}` and `bigram_8M{,_s1,_s2}` are new; `shuffle_tokens` reuses
+  `corrupt_mlm_8M` (§7.1) plus two new seeds `corrupt_mlm_8M_s{1,2}`; `real`/`no_pretrain` reuse the
+  phase-2 `unsup_8M{,_s1,_s2}` / `random_baseline_0*` encoders. Built by `scripts/build_expA_manifest.py`;
+  driven by `scripts/expA_run.sh` (pretrain + single-split eval + `verified.json`, then 5-fold CV).
+- **Native-unit consistency (load-bearing).** Regression targets in the new arms are in **native units**
+  (current `eval_v2`), but the phase-2 `moleculenet_cv` summaries are **normalized** (QM7 rmse ≈ 0.87 vs
+  native ≈ 200) — mixing them is invalid. The frozen comparators are therefore **re-evaluated native**
+  (`scripts/expA_baselines_native_eval.sh` → `experiments/climb_v2_expA/_baselines/<run>/`, leaving the
+  paper's phase-2 artifacts untouched), so **every rung shares one eval version**.
+  `scripts/build_expA_ladder_summary.py` stitches the tidy ladder (`analysis/rigor/expA_ladder_*.csv`).
+- **Result.** Uniform across the tasks with real spread: `shuffle_tokens ≈ real` and
+  `unigram_resample ≈ no_pretrain`, so token **order** barely matters and the **marginal** buys ~nothing
+  over random init — the benefit lives in the per-molecule **composition**. `bigram_resample` is
+  **intermediate** (recovering ~30–60% of the composition gap on ESOL/BACE/Tox21, at the floor on QM7;
+  BBBP/HIV are saturated), so **local adjacency carries a partial,
+  task-dependent share** on top of composition. The mechanism is graded, not binary — and §3.7's
+  "relative token frequencies" understates it: it is composition first, with a secondary
+  local-co-occurrence contribution.
+- **Artifacts.** Encoders + evals under `experiments/climb_v2_expA/<run>/`; native-unit baselines under
+  `…/_baselines/<run>/`; ladder CSVs `analysis/rigor/expA_ladder_{summary,per_run}.csv`; collaborator
+  bundle via `scripts/package_expA_bundle.py`. Provisional (may be promoted from SI Fig SA to a main
+  result). **Fig SA (cell 38) plots the 6 core tasks (Lipophilicity excluded, as in every other
+  figure) and overlays Experiment B's Wikipedia arm (§7.4) as a red bar** on the far right of each task,
+  with each bar labelled by its lift; the notebook cell also prints the lift + recovery tables.
+
+### 7.4 Wikipedia-transfer test (Experiment B → Fig SA Wikipedia arm, wave `climb_v2_expB`)
+
+A TILT-style test (Papadimitriou & Jurafsky): does a **non-chemical** corpus with rich higher-order
+structure transfer to the chemistry suite? Arm **`wiki_real`** pretrains on **English Wikipedia**
+(`wikimedia/wikipedia`) tokenized with the **frozen SMILES byte-level BPE** (byte-level never OOVs;
+English just fragments into short pieces), chunked to **match the SMILES token-length distribution**
+(chunk lengths sampled from the real corpus — so length is a controlled variable, not confounded with
+structure; `scripts/build_wiki_corpus.py`). 8M FP, 3 seeds, otherwise byte-identical to `unsup_8M`;
+comparators `real`/`no_pretrain` reuse the §7.3 native `_baselines`.
+
+- **Two guards make a null (or a positive) interpretable.** (i) *Coverage* — a wiki-pretrained encoder
+  only trains embeddings for tokens Wikipedia uses. `scripts/wiki_coverage_report.py` reports that
+  **96.9% of the eval molecules' token MASS was trained ≥1×** (88.6% ≥1000×): the shared tokens are the
+  common atoms/bonds that carry most mass, so a null would be a real "no transfer", not undertrained
+  embeddings. (ii) *Corpus divergence* — `scripts/wiki_vs_smiles_stats.py`: same tokenizer, lengths
+  matched (median 37 both), but the token **marginals are near-maximally divergent (JS = 0.93 of 1.0
+  bits)**; SMILES uses 800 token types, Wikipedia 510 (shared 365), and **435 chemistry-only tokens go
+  unfilled** (incl. stereo `@@`/`@` and carbon chains), 145 English-only (byte-level space/newline).
+- **Result.** `wiki_real` **beats `no_pretrain` on 6/7 tasks and matches `real` SMILES on QM7** (which,
+  notably, has the *lowest* coverage yet transfers fully). English — zero chemical content, an orthogonal
+  token marginal — recovers a task-dependent share of the pretraining benefit, so the benefit is
+  substantially **domain-general**, not chemistry-specific (and, per §3.7/§7.3, not the token marginal).
+- **Artifacts.** Encoders + evals `experiments/climb_v2_expB/<run>/`; result
+  `analysis/rigor/expB_wiki_{summary,per_run}.csv` + `wiki_coverage.json` + `wiki_vs_smiles_stats.json`;
+  bundle `scripts/package_expB_bundle.py`. Provisional (SI; plotted as the red **Wikipedia arm in
+  Fig SA**, §7.3 — not a separate Fig SB). Excluded (noted follow-ups):
+  `wiki_shuffled`/`wiki_unigram`/flat-parens controls, 2M/24M budgets, embedding-unfreeze eval.
+
+## 8. Evaluation protocol (frozen featurizer)
+
+The **primary** protocol mirrors real deployment of molecular foundation models: freeze the encoder,
+extract one embedding per molecule, train a small head on those embeddings.
+
+- **Featurizer:** frozen encoder → **masked-mean pooling** over token states (not CLS — v1's
+  CLS-linear-probe was pathological). Encoder features are computed once per run and sliced per fold;
+  there is no persistent on-disk cache (`EvalConfigV2.cache_encoder_forward` is declared but unused).
+- **Standardization:** per-feature **z-score fit on the train split only**, applied to val/test (no
+  standardization leakage). **Exception:** the classical anchors (`ecfp4`, `rdkit_desc`, `fp_desc`)
+  are forced to `std_method="none"` — z-scoring sparse binary fingerprint bits is meaningless and
+  hurts the tree models.
+- **Regression targets (revised 2026-08-05):** loaded in **native units** (`transformers=[]`, no
+  DeepChem `NormalizationTransformer`) and standardized by a **per-split target scaler fit on the train
+  labels only**, with predictions **inverse-transformed before scoring** — so RMSE is reported in
+  physical units (ESOL log mol/L, QM7 native) with no cross-fold normalization leakage. **Tox21
+  missing labels** (`w==0`) are set to NaN at load time so the head/metric NaN-masks actually apply
+  (previously they were scored as inactive). See
+  [`notes/corrections-tox21-regression-2026-08-05.md`](notes/corrections-tox21-regression-2026-08-05.md).
+- **Head:** small **MLP** by default (also `linear`, `xgb`), trained with **3 head seeds**.
+  Full hyperparameters (`heads_v2.HEAD_HPARAMS`) — **MLP:** hidden 256, dropout 0.2, Adam lr 1e-3,
+  weight-decay 1e-4, batch 64, ≤100 epochs, early-stopping patience 15 on val.
+  **XGBoost:** 600 estimators, max_depth 6, lr 0.08, subsample 0.8, colsample_bytree 0.8,
+  min_child_weight 2, early_stopping_rounds 40, one model per output column (sklearn
+  HistGradientBoosting fallback if xgboost is unavailable). **ECFP4** = Morgan radius 2, **2048 bits**.
+-  **How the 3 head seeds enter the number differs by scheme, and the two are not the same
+  quantity.** In the **single-split** path a metric is computed *per seed* and the reported
+  `MEAN`/`STD` are over the 3 seeds. In the **CV** path the 3 seeds' predictions are **averaged into
+  one prediction vector per fold** and a single metric is computed from it, so `MEAN`/`STD` are over
+  the **5 folds** and head-seed variance never enters the error bar.
+- **Train metrics.** `eval_v2` additionally emits a `<metric>_train` row (the same metric evaluated
+  on the head's own training molecules) **in the single-split path only**; the CV path emits no train
+  rows. Fig B1p1's fit-vs-generalize panel reads these, which is why it uses the single-split scheme.
+- **Splits — two schemes, both reported.** Every figure has a **default** readout and an optional
+  **tougher SI variant**, from the same encoder features:
+  1. **Scaffold 5-fold cross-validation — DEFAULT (`--cv_folds 5`).** Partition molecules into **5
+     scaffold-disjoint folds** (each Bemis–Murcko scaffold in exactly one fold; ring-less molecules
+     are singletons so they distribute and keep folds balanced), greedily balanced by size.  **The
+     scaffold→fold assignment is deterministic** — on the RDKit path `_scaffold_kfold_indices` ignores
+     its seed argument, so there is *one* fixed partition, not a random draw; `--subsample_seed`
+     governs only the 10% early-stopping **validation carve-out**, which is molecule-level (**not**
+     scaffold-disjoint from the training folds — a known limitation). Each fold is tested against a head
+     trained on the other four; we plot **mean ± std across the 5 folds**. That std is the *descriptive
+     spread across the 5 fixed folds* (heterogeneity of the subsets), **not** a resampling confidence
+     interval — the inferential uncertainty for model comparisons is the scaffold cluster-bootstrap CI
+     (§8.1). CV is nearly free (encoder features computed once, sliced per fold) and yields a
+     **complete out-of-fold per-molecule prediction set** (feeds H9/mechanism figures, C16).
+  2. **DeepChem single scaffold hold-out — TOUGHER SI VARIANT (default splitter, no `--cv_folds`).**
+     One 80/10/10 split where DeepChem sorts scaffolds by frequency and sends the **rarest** scaffolds
+     to test — a deliberately adversarial "generalize to novel chemistry" stress test. Systematically
+     **lower and noisier** than CV (one draw; its error bar is head-seed spread, not split variance).
+  **Fold pairing.** The scaffold→fold partition is deterministic (identical across runs by
+  construction); only the 10% validation carve-out is drawn from `--subsample_seed` (default **0**).
+  Every run compared molecule-for-molecule — including the end-to-end arm — therefore shares the same
+  partition, so the paired tests in §8.1 align by construction.
+  **Convention.** The **pooled 5-fold scaffold CV is the headline scheme** (Fig A1.b and the tables the
+  claims rest on); the **DeepChem single scaffold hold-out** is reported alongside as a **tougher
+  robustness variant** (rarest scaffolds sent to test). CV is the headline because it is better powered
+  (five test folds vs one draw), its error bar reflects **split variance**, and it is the only scheme
+  yielding a **complete out-of-fold per-molecule prediction set** — required by Fig I1 and by the
+  cluster-bootstrap / FDR significance tests (§8.1), which run on the CV OOF predictions.  **Caveat:**
+  the balanced CV split **saturates on the easiest task** — an *untrained* random encoder reaches
+  ≈0.94 ROC-AUC on BBBP under CV vs ≈0.70 in the literature — so the BBBP-CV panel is marked saturated
+  and read with care, and the hold-out serves as the check that a CV result is not hiding such a
+  collapse. (Implementation note: `eval_v2.py`'s `--cv_folds` *defaults* to `None`, i.e. the code's
+  default splitter is the hold-out; the headline CV numbers are produced by explicit passes —
+  `scripts/cv_eval_local.py`, `scripts/h1_cv_eval.sh`.) The two schemes are stored side by side
+  (`moleculenet_cv/` vs `moleculenet/`) and are **never mixed within one panel**. Absolute numbers
+  differ markedly between them (BBBP ≈0.95 CV vs ≈0.74 hold-out), which is expected and disclosed;
+  model *rankings* are what transfer.
+- **Metrics:** absolute **per task** — RMSE for ESOL/QM7/Lipophilicity, ROC-AUC for BBBP/BACE/Tox21,
+  and **NEF1% (top-1% normalized enrichment) as the headline for HIV** (the virtual-screening task; ROC-AUC
+  kept secondary) — see §6.5 for the NEF1% definition. Never z-scored or averaged across tasks.
+- **Anchors (classical baselines, `--head xgb`, all through the same eval pipeline):** an
+  untrained-encoder **random floor** (3 seeds); **`ecfp4`** = Morgan ECFP4 + XGBoost; **`rdkit_desc`**
+  = 217 RDKit descriptors + XGBoost (the classical control for the dense-MTR arm — *implemented in
+  `eval_v2.py` but never actually run: no wave or script invokes it, so no `rdkit_desc` results
+  exist*); and **`fp_desc`** =
+  **Morgan fingerprints ++ RDKit descriptors concatenated → XGBoost** — the *toughest* classical
+  baseline (both substructure bits and computed physchem), which a CLM must beat to justify itself
+  (e.g. it already gets ESOL ≈0.35 CV-RMSE, ahead of every neural regime at 8M). "Lift" is improvement
+  over the random floor.
+- **Eval-ceiling (H5, Fig E1):** the same encoders are additionally **fine-tuned end-to-end** on
+  BACE/BBBP/ESOL + HIV, to test whether the frozen probe under-resolves encoder quality. Driven by
+  `scripts/run_eval_ceiling.py` (+ `scripts/run_e1_gpu.sh` for the unsup ladder and
+  `scripts/run_e1_sup_gpu.sh` for the sup_only ladder), which fine-tunes via **`finetune_e2e_v2`**
+  (§8.2).  The legacy `finetune_v2.py` is *not* the path used for any current figure: it raises on
+  multi-output tasks, emits no per-molecule predictions, no CV and no NEF1%.
+- **Per-molecule prediction dump (C16, blocking).** `eval_v2` writes **`(canonical_key, y_true,
+  y_pred, task, split)` per eval molecule**, not only aggregate RMSE/AUC. This is required to build
+  both Fig H9 panels (C6) and to bin the label-efficiency curves (C7); without it H9 is unbuildable
+  without re-running eval. *Caveat:* per-cell / per-bin **ROC-AUC is unstable** on small subsets —
+  prefer per-molecule residual/rank, or run the mechanism panels on the RMSE tasks (ESOL, QM7).
+-  **Not implemented: persisted fingerprints (C19).** The plan was to save the ECFP4 fingerprints
+  computed for the anchor. `eval_v2` writes only `test_predictions.csv`, `moleculenet_summary.csv`
+  and `suite_summary.json`; no fingerprints are persisted. The Tanimoto analyses (Figs I1, C1J1)
+  therefore **re-derive** fingerprints from the dumped SMILES in
+  `scripts/compute_tanimoto_novelty.py` and `scripts/compute_family_task_similarity.py`.
+- **Mechanism figures through finetune (C20).** For H9, label-efficiency, and the transfer matrix,
+  report at least a subset **through end-to-end finetune** (`finetune_v2`) as well as the frozen
+  probe — or caveat explicitly with the frozen-probe ceiling (H5 / §10). A ceiling-compressed probe
+  flattens the very differences these figures rely on (Type-II risk), so the mechanism story must not
+  rest solely on the probe H5 says may be under-resolving.
+
+### 8.1 Model-vs-model comparison protocol (headline tables)
+
+Every pairwise claim ("model A beats baseline B") is backed by the same protocol. The comparison
+table (see `scripts/compare_models.py`, reproduced in the notebook) reports:
+
+ **Corrected against the code.** This section previously claimed "3 seeds × 5 scaffold-CV folds =
+15 metric evaluations" with the error bar taken "across the 15 points". That is not what `eval_v2`
+computes: in the CV path the 3 head seeds' predictions are averaged into one prediction per fold
+before the metric is taken, so there are **5 metric values per model**, and the reported std is
+**fold (split) variance only** — head-seed variance is averaged away and never appears. Pretraining-seed
+variance is a *separate* axis, obtained by re-running pretraining under seeds 0/1/2 and aggregating
+across runs (see §9.6); where a figure's error bar uses that axis instead, its caption says so.
+
+| Element | Specification |
+|---|---|
+| Points per model | **5** — one metric per scaffold-CV fold, each computed from the 3-head-seed-averaged prediction |
+| Error bar | mean ± std across the **5 folds** = scaffold-split variance. Head-seed variance is inside the averaged prediction; **pretraining-seed** variance is a separate axis — for the principal 8M arms it is now measured across seeds 0/1/2 (§9.6, §10) and can be material (ESOL ≈ 0.02, comparable to the between-arm gaps), so headline claims must not rest on a single-seed fold band alone |
+| Pairing | all models share one scaffold fold partition per seed → fold- and molecule-paired |
+| Effect | Δ(metric) and relative %, with a **95% scaffold cluster-bootstrap CI** as the headline uncertainty (below) |
+| **Primary uncertainty — scaffold cluster bootstrap** | resample whole Bemis–Murcko **scaffolds** (not molecules), recompute the paired metric difference, report the percentile CI + two-sided bootstrap p (`compare_models.cluster_bootstrap_diff`, `n_boot≥1000`). This respects that scaffold-mates and overlapping-fold OOF predictions are **not** independent, and it applies to any metric — so **NEF1% gets its own CI** rather than borrowing AUC's. A CI spanning 0 = no difference detectable. |
+| Molecule-level point tests (indicative only) | **paired Wilcoxon** on per-molecule squared error (RMSE tasks) / **DeLong paired-AUC** on pooled OOF scores (classification; per Tox21 column, then summarised).  These assume independent molecules; with scaffold clustering + fold overlap they are **anti-conservative** (p too small), so they are indicative, *not* the test of record. The cluster-bootstrap CI is. |
+| **Multiplicity** | many arms × 6 tasks are compared, so p-values are **Benjamini–Hochberg FDR-corrected across the whole family** (`compare_models.bh_fdr` / `compare_many`), reported as `point_q` / `boot_q`. |
+| **HIV** | reported with **both** ROC-AUC and NEF1% (top-1% enrichment), each mean ± std across folds. DeLong tests the AUC endpoint; NEF1% is tested by its own cluster-bootstrap CI (not by AUC — the two can order models differently). |
+| Fold-level test | paired t across folds — reported but **anti-conservative** (CV folds share training data; Bengio & Grandvalet 2004), so it is context only. |
+| "Best" / "on par" | reported as effect size + CI, **not** as failure-to-reject. Non-significance is *not* evidence of equivalence — an arm with a wide CI is labelled "no difference detectable at this power", never "equivalent". |
+| **"Best model" definition (2026-08-05, all A1 tables)** | ONE test everywhere: the scaffold cluster-bootstrap + BH-FDR above (`scripts/best_model_bootstrap.py` → `analysis/rigor/best_model_bootstrap.csv`). **CV (A1.b):** per task, an arm is **"not distinguishable from the leader (FDR<0.05)"** when the leader−arm cluster-bootstrap difference is not significant at `boot_q≥0.05` (leader trivially included); **"beats no_pretrain"** = `boot_q<0.05` in the arm's favour. **Hold-out (A1.a):** the rarest-scaffold split (113–4,112 test molecules, few scaffolds) is underpowered and is **not** used to rank models — each arm is reported as its **point estimate ± cluster-bootstrap 95% CI**, no "best" column. **Best-model matrix (6 headline models):** the same test, with FDR applied within that pre-specified 6-model set, on both schemes. The earlier hold-out **1σ rule is dropped** (it was a permissiveness hack); one rigorous test is used throughout, and the CV — with 10–35× more test molecules — carries the ranking claims. |
+
+> **The error bar and the test answer different questions — overlapping bars do NOT mean "tied".**
+> This trips up every reader who checks a figure against a table, so it is stated here rather than
+> left to be inferred. The **error bar** is the spread of the whole-dataset average across the 5
+> **fixed** scaffold folds — how much the score varies between those particular subsets (driven by
+> which scaffolds sit in each fold), and it hits every model **identically**. It is a *descriptive*
+> spread, **not** a resampling CI (the folds are deterministic); the resampling interval for
+> comparisons is the scaffold cluster-bootstrap (§8.1). The **test** is paired per molecule: it takes the difference in error
+> between two models on the *same* molecule and asks whether those differences sit systematically
+> on one side of zero — so the shared split difficulty cancels exactly, and a molecule that is hard
+> for everyone contributes nothing.
+>
+> Two runners on five courses: their finishing-time distributions across courses can overlap
+> heavily while one still beats the other on every single course. Concretely, on QM7
+> `fp_desc` (0.819) vs `sup_only:dense` (0.851) have visibly overlapping fold error bars and a
+> paired p of 7.7e-17; on BACE, ECFP4 (0.882) vs `unsup_only` (0.866) likewise overlap with
+> p = 0.012.
+>
+> The corollary for anyone tempted to "make the table match the figure": don't. A fold-level test
+> (n = 5) is both underpowered and anti-conservative, as the row above says. Read the error bar for
+> split stability and the table for whether one model actually beats another.
+
+The canonical instance is **"does a CLM beat the toughest classical baseline (`fp_desc`)?"** run for
+each regime; a **non-descriptor CLM (`unsup_only`) is included as a control** so the descriptor-trained
+`dense` CLM's gap to `fp_desc` can be read against a CLM that never saw descriptors (isolates whether
+descriptor pretraining actually transfers descriptor information).
+
+> ** Descriptor-favorable tasks — interpret the `fp_desc` gap with care (ESOL especially).** The
+> physchem/quantum *regressions* are structurally biased toward the classical descriptor baselines.
+> ESOL's canonical model (Delaney) is a near-linear function of LogP / MW / rotatable-bonds /
+> aromatic-fraction — all RDKit descriptors — so `fp_desc` has *near-oracle* features and beating the
+> CLM on ESOL (≈0.35 vs ≈0.43 CV-RMSE) is **expected, not evidence the CLM is weak**. Lipophilicity
+> (logD ≈ LogP) shares this; QM7 partly (atomization energy tracks composition). We **keep ESOL** as a
+> deliberate *descriptor-optimal reference point*, but the CLM-vs-descriptor question is adjudicated
+> primarily on the **bioactivity / virtual-screening** tasks (BACE, Tox21, HIV) where structure→property
+> is not a simple descriptor. The cleanest *positive* signal is internal to the CLMs: the
+> descriptor-trained `dense` CLM closing ESOL's gap over the non-descriptor `unsup_only` control is
+> evidence that descriptor pretraining transferred descriptor-relevant information.
+
+Replication / error bars: the primary error bar is **scaffold k-fold CV** (mean ± std across folds,
+above) — it captures the split variance that dominates on these small tasks and costs no extra
+training. Pretraining-seed replication is a *separate* axis: the principal 8M arms now have 3 seeds and
+their across-seed spread is reported (§10, `analysis/rigor/`); plotting those as CIs on the bar figures
+is the remaining step. A contrast smaller than the seed spread (notably on ESOL) is not claimed on a
+single seed. Each eval also averages **3 head seeds**; scaling curves use stop-when-flat in
+place of plateau error bars.
+
+### 8.2 End-to-end fine-tuning protocol (`finetune_e2e_v2`)
+
+The frozen-probe protocol above is the primary readout. A second, **separate** protocol unfreezes the
+encoder; it produces Fig E1 (eval ceiling) and Fig B1p1's `no_pretrain_end_to_end` series. It is a
+different protocol, not a variant of §8, and its numbers are **not** comparable bar-for-bar with the
+frozen ones.
+
+| Element | Frozen probe (`eval_v2`) | End-to-end (`finetune_e2e_v2`) |
+|---|---|---|
+| Encoder | frozen; features extracted once | **unfrozen**, reloaded fresh per seed/fold |
+| Pooling | masked-mean | masked-mean (same) |
+| Head | MLP 256, dropout 0.2 | **single `Linear(hidden, n_outputs)`** (`linear_e2e`) |
+| Feature standardization | z-score on train | **none** |
+| Target scaling | task-native | DeepChem's own `NormalizationTransformer`; no extra rescaling |
+| Optimizer | Adam 1e-3, wd 1e-4 | AdamW **lr 2e-5**, wd 0.01 |
+| Schedule | ≤100 epochs, patience 15, batch 64 | **20 epochs, patience 5, batch 32**, max_length 256, bf16 autocast |
+| Seeds | 3 head seeds | 3 seeds `[0,1,2]`, each a full re-finetune |
+| Multi-output | supported | supported, per-column masked loss (raw logits, never sigmoided) |
+| Splits | hold-out + CV | hold-out + CV, sharing `_scaffold_kfold_indices` and RNG draw order with `eval_v2` so folds pair molecule-for-molecule |
+| Outputs | `eval_v2` schema | **same schema**, so rows merge for the paired tests of §8.1 |
+
+Because the fine-tuned arm re-randomises the whole encoder optimisation while the frozen arm only
+re-randomises a head, **their error bars are not the same quantity** and the fine-tuned band is
+expected to be wider; figure captions state this explicitly.
+
+The legacy `finetune_v2.py` predates this module, is single-seed, hold-out-only, single-output, and
+emits neither per-molecule predictions nor NEF1%. It is retained for provenance and is not used by
+any current figure.
+
+---
+
+## 9. Reproducibility
+
+### 9.1 Code map (what each module does)
+| File | Role |
+|---|---|
+| `config_v2.py` | single source of truth: `ModelConfigV2`, `build_modernbert_config`, `TrainingConfigV2`, `EvalConfigV2`, task list, supervised families/groups/weights/caps |
+| `data_v2.py` | streaming MLM/raw-SMILES datasets, `MTRCollator` (+ precomputed descriptors), stratified supervised loader (dedup + scarce-first routing), objective iterator |
+| `descriptors_v2.py` | 217 RDKit descriptors, fit/normalize/save stats |
+| `pretrain_v2.py` | `ClimbV2Model` (MLM/MTR/supervised heads), training loop, warm-start, checkpointing |
+| `eval_v2.py` | frozen-featurizer MoleculeNet evaluation, scaffold hold-out + k-fold CV, standardization; **per-molecule prediction dump (C16)**; `<metric>_train` rows (hold-out path only) |
+| `featurize_v2.py` / `heads_v2.py` | pooling + standardizer; downstream heads + metrics.  **head hyperparameters live in `heads_v2.HEAD_HPARAMS`, not `config_v2.py`** |
+| `smiles_augment.py` | randomized-SMILES enumeration (the H8 lever).  unseeded — see §7 |
+| `finetune_e2e_v2.py` | **end-to-end fine-tuning used by every current figure** (Fig E1, Fig B1p1 e2e series) — see §8.2 |
+| `finetune_v2.py` | legacy end-to-end fine-tuning; single-seed, single-output, superseded by `finetune_e2e_v2.py` |
+| `random_baseline_v2.py` | untrained-encoder + ECFP4 anchors |
+| `experiment_v2.py` | manifest generator for every wave (ablation / compute_scaling / phase2) |
+| `data.py`, `storage_utils.py`, `utils.py`, `token_budget.py` | shared streaming base + S3 helpers (dependencies of the above) |
+| `train_tokenizer.py` | tokenizer training (provenance; artifact is prebuilt) |
+| `scripts/` | launch/split/deploy, leakage audit, blocklist + descriptor precompute, report/figure builders (see §9.3) |
+
+**Scripts that produced published numbers** (each is the *only* way to regenerate its artifact):
+
+| Script | Produces |
+|---|---|
+| `scripts/launch_v2_wave.py` + `scripts/phase2_worker.sh` | every pretraining wave |
+| `scripts/unattended_guard.sh` | the runner used for unattended waves: saves to S3 on every exit path, then stops the box; `POST_HOOK` runs a second stage (e.g. CV) before the stop |
+| `scripts/cv_eval_local.py`, `scripts/cv_all_budgets.sh`, `scripts/h1_cv_eval.sh` | all 5-fold CV numbers and the `fp_desc` anchor |
+| `scripts/reeval_7task.py` | the 7-task (incl. HIV NEF1%) re-scoring of existing encoders |
+| `scripts/run_eval_ceiling.py`, `scripts/run_e1_gpu.sh`, `scripts/run_e1_sup_gpu.sh` | Fig E1 |
+| `scripts/label_eff_fractions.py`, `scripts/label_eff_fractions_e2e.py`, `scripts/build_label_eff_combined.py` | **Fig B1p1** (per-task fractions 5/10/25/50/100%) — supersedes the absolute-budget drivers `b1_replicates_v2.sh` / `b1_e2e_v2.sh` / `run_b1_e2e_cell.py` / `run_label_efficiency.py` (kept for provenance only; do **not** re-run — they write the capped `climb_v2_labeleff_v2` data) |
+| `scripts/run_e2e_random.py`, `scripts/run_e2e_wave.sh` | the e2e random-init replicates |
+| `scripts/make_e13_manifest.py` | Fig B2 corrupted controls |
+| `scripts/build_h1_rescale_manifest.py` | Fig H1 (3-seed retrain) |
+| `scripts/compute_tanimoto_novelty.py`, `scripts/compute_family_task_similarity.py` | Figs I1, C1J1 |
+| `scripts/dedup_i1_reanalysis.py` | **Fig I1 de-dup reanalysis** — exact-match + full-12M-corpus max-Tanimoto of ESOL/QM7 (the memorization-vs-interpolation split at Tanimoto=1.0) |
+| `scripts/build_synthetic_corpus.py`, `scripts/build_expA_manifest.py`, `scripts/expA_run.sh`, `scripts/expA_bigram_run.sh`, `scripts/expA_baselines_native_eval.sh`, `scripts/build_expA_ladder_summary.py` | **Fig SA** (Experiment A synthetic-statistics ladder, wave `climb_v2_expA`; §7.3). `scripts/package_expA_bundle.py` builds the collaborator zip |
+| `scripts/build_wiki_corpus.py`, `scripts/build_expB_manifest.py`, `scripts/expB_run.sh` (or `expB_seed.sh` per-seed), `scripts/wiki_coverage_report.py`, `scripts/wiki_vs_smiles_stats.py`, `scripts/build_expB_summary.py` | Experiment B Wikipedia-transfer (wave `climb_v2_expB`; §7.4) — plotted as the Wikipedia arm in **Fig SA**. `scripts/package_expB_bundle.py` builds the collaborator zip |
+| `scripts/compare_models.py`, `scripts/verify_e2e_pairing.py` | §8.1 paired tests and their pairing check |
+| `scripts/backfill_verified.py`, `scripts/reproducibility_audit.py`, `scripts/gen_readme_inventory.py` | completion markers, the audit, and §9.6 |
+
+### 9.1b Completion is proven, never assumed
+
+A truncated run still writes a well-formed summary, so file existence cannot be used to decide
+whether a run finished — doing so is how half-trained encoders reached figures earlier in this
+project. The rule, applied everywhere:
+
+- A run is complete **iff** its achieved forward passes reach **≥98%** of its declared budget
+  (tolerance for the final partial batch). Only then is `verified.json` written
+  (`scripts/launch_v2_wave.py::_write_verified_marker`), recording `budget_fp`, `final_fp`,
+  `fraction` and a UTC timestamp.
+- Every "is this done?" decision — skip logic, downstream consumption, shutdown gating, figure
+  inclusion — reads that marker or recomputes achieved work; precedence is local marker → S3 marker
+  → (for anchors, which have no FP budget) presence of `suite_summary.json` → else the ≥98% check
+  (`scripts/launch_v2_wave.py::_is_complete`).
+- Runs predating the marker system are retro-marked from their `metrics.jsonl` by
+  `scripts/backfill_verified.py`, which refuses to mark anything below 98%.
+- The evaluation side has its own variant: a cell is verified only when every requested task has a
+  finite `MEAN` row for **both** `<metric>` and `<metric>_train`
+  (`scripts/run_b1_e2e_cell.py`, `scripts/run_e2e_random.py`).
+- `scripts/reproducibility_audit.py` reports, per run, which of {checkpoint, training curve,
+  completion proof, each evaluation artifact} exist in S3 and locally; §9.6 is generated from it.
+
+### 9.1c Environment pinning ( load-bearing)
+
+The **RDKit version is part of the experiment definition**, not an implementation detail.
+`descriptors_v2.py` derives the descriptor list from the installed RDKit
+(`len(Descriptors.descList)`), so the version fixes:
+
+- the MTR target dimension (**217** with the RDKit used for these runs, 2025.09.2),
+- the contents of `configs/descriptor_stats.json` and every precomputed descriptor shard,
+- the feature width of the `rdkit_desc` / `fp_desc` classical anchors.
+
+ **Fixed (2026-08-05):** `requirements.txt` now pins `rdkit==2025.9.2` (217 descriptors), the
+version the runs used. The earlier `rdkit-pypi==2022.9.5` pin had a different `descList` length, so a
+reproducer would have silently built a different-width MTR head and different anchors; do not revert it.
+
+### 9.2 Configs
+`configs/v2_phase2.yaml` (the 5-arm scaling matrix), `configs/v2_ablation.yaml` (dense-vs-sparse),
+`configs/v2_compute.yaml`, `configs/v2_headline.yaml`. The whole `configs/` dir is gitignored by
+default; the experiment configs are force-added so definitions stay in git.
+
+### 9.3 How to run a wave
+
+> Reproducing the *published* figures/tables (not training from scratch)? Use **[`REPRODUCE.md`](REPRODUCE.md)** instead — it needs only the released artifacts, no GPU. The commands below re-run the full pipeline end-to-end.
+
+```bash
+# 1. resolve a spec into a manifest
+python experiment_v2.py --spec configs/v2_phase2.yaml --output experiments/climb_v2_phase2/manifest.json
+# 2. split across N workers (stage 1 = ladder+skip, stage 2 = warm-start u2s)
+python scripts/split_manifest.py --manifest .../manifest.json --workers 4 --stages ladder skip --with_anchors --out_dir .../manifests/stage1
+# 3. deploy code to a box and run a worker manifest (self-stops + S3-syncs when done)
+scripts/deploy_to_ec2.sh <ip>
+ssh <box> 'nohup bash scripts/phase2_worker.sh <worker.json> w0 &'
+# one-time prerequisites
+python scripts/make_eval_blocklist.py --out configs/eval_blocklist.json --s3_out s3://climb-s3-bucket/configs/eval_blocklist.json
+python scripts/precompute_descriptors.py --shard_range 0-11 --out_s3 s3://climb-s3-bucket/tokenized_sources/pubchem_descriptors/
+```
+Env on GPU boxes: `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, `TORCHDYNAMO_DISABLE=1`.
+
+### 9.4 Artifacts
+
+On the Hugging Face Hub (three repos, currently **private** with reviewer access; see the availability
+table at the top of this README).
+Each maps onto the working S3 layout `s3://climb-s3-bucket/`:
+
+| Hugging Face repo | Contents | working S3 location |
+|---|---|---|
+| `lsieben/climb-encoders` (model) | per-run `encoder/model.safetensors` + `config.json`; byte-BPE tokenizer (vocab 1000) | `experiments/<wave>/<run>/encoder/`, `tokenizer_10M/` |
+| `lsieben/climb-results` (dataset) | per-run `moleculenet/` + `moleculenet_cv/` (`suite_summary.json`, per-molecule `test_predictions.csv`), `metrics.jsonl` | `experiments/<wave>/<run>/` |
+| `lsieben/climb-pretrain-data` (dataset) | ~12M-SMILES tokenized corpus (12 shards), 217-descriptor companions, 5.38M-row supervised wide table, `eval_blocklist.json` (34,301 leaked molecules), `descriptor_stats.json` | `tokenized_sources/*`, `tokenized/*`, `configs/*` |
+
+Full download + run instructions: **[`REPRODUCE.md`](REPRODUCE.md)**.
+
+### 9.5 Reporting fields for the paper appendix
+exact S3 prefixes; git commit hash; config path(s); tokenizer id; descriptor-stats + blocklist
+hashes; per-run forward-pass budget; head/pretraining seeds; **the enumeration seed (C18)**; the
+frozen-vs-finetune eval flag; **both leakage keys per eval molecule — the fuzzy dedup key and the
+exact-identity "seen" key (C17)**.
+
+---
+
+<!-- BEGIN MODEL INVENTORY (generated by scripts/reproducibility_audit.py) -->
+
+### 9.6 Model inventory (what exists, and what we hold for it)
+
+**168 runs** across the four waves the paper draws on. Regenerate with
+`python scripts/reproducibility_audit.py --listing <s3 listing> --out audit/`; the per-run
+breakdown is `paper_artifacts/INVENTORY.md`.
+
+| Pretraining type | Budgets | Seeds | Runs | ckpt | curve | proof | single-split | 5-fold CV | CV preds |
+|---|---|---|--:|--:|--:|--:|--:|--:|--:|
+| `corrupted control (mlm: content destroyed)` | 8M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `corrupted control (mtr: content destroyed)` | 8M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `no_pretrain (random init, frozen)` | — | 0,1,2 | 6 | 6 | n/a | n/a | 6 | 6 | 6 |
+| `sup_only: dense` | 2M, 8M, 24M, 48M, 96M | 0,1,2 | 7 | 7 | 7 | 7 | 7 | 7 | 7 |
+| `sup_only: dense_plus_sparse` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `sup_only: minimol_full` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `sup_only: mixed` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `sup_only: sparse_all` | 2M, 8M, 24M, 48M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup (ablation): dense_plus_sparse` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): l1000` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): mtr` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): pcba` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): pcqm` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup (ablation): sparse_all` | 2M+2M | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `unsup->sup: dense` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: dense_plus_sparse` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: minimol_full` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: mixed` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup->sup: sparse_all` | 2M+2M, 8M+2M, 24M+2M, 48M+2M | 0,1,2 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `unsup_only (MLM)` | 2M, 8M, 24M, 48M, 50M, 100M | 0,1,2 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| `unsup_only, canonical SMILES` | 2M @ frac0p3, 2M @ fracfull, 2M @ frac0p01, 2M @ frac0p1, 2M @ frac0p001 | 0,1,2 | 15 | 15 | 15 | 15 | 15 | 15 | 15 |
+| `unsup_only, enumerated SMILES` | 2M @ frac0p3, 2M @ fracfull, 2M @ frac0p01, 2M @ frac0p1, 2M @ frac0p001 | 0,1,2 | 15 | 15 | 15 | 15 | 15 | 15 | 15 |
+| `classical: Morgan+XGBoost` | — | 0 | 2 | n/a | n/a | n/a | 2 | 2 | 2 |
+| `classical: Morgan+desc+XGBoost` | — | 0 | 1 | n/a | n/a | n/a | 1 | 1 | 1 |
+| `label-efficiency probe: random` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency probe: sup` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency probe: unsup` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency probe: unsup2sup` | 5/10/25/50/100% per-task frac | 0,1,2 (×3 subsample draws) | frozen | n/a | n/a | n/a | eval | 0 | 0 |
+| `label-efficiency: no_pretrain_end_to_end (e2e)` | 5/10/25/50/100% per-task frac | 0,1,2 (fine-tune) | e2e | n/a | n/a | n/a | eval | 0 | 0 |
+
+**113 encoder checkpoints, 18.8 GB**, indexed in `paper_artifacts/checkpoints.csv`
+with `fetch_checkpoint.sh <run>` to pull one. They are not mirrored to laptops.
+
+**Columns.** `ckpt` = encoder weights in S3 · `curve` = `metrics.jsonl` training curve ·
+`proof` = `verified.json`, written only once achieved forward passes reach ≥98% of budget ·
+`single-split` = DeepChem scaffold hold-out evaluation · `5-fold CV` = scaffold CV ·
+`CV preds` = per-molecule predictions (needed by Fig I1). `n/a` marks a column that cannot
+apply: classical anchors have no encoder, label-efficiency probes are *evaluations* of an
+existing 8M encoder at different label budgets rather than models of their own, and a
+random-init baseline has a checkpoint but no training curve and no forward-pass budget.
+
+**Evaluation.** Every model is scored on the same 7 tasks (ESOL, Lipophilicity, QM7, BBBP,
+BACE, Tox21, HIV) with 3 head seeds, under two schemes: the DeepChem scaffold hold-out
+(headline; rarest scaffolds in test) and 5-fold scaffold CV (split-variance error bars, and
+the only source of per-molecule predictions). Both emit train and test metrics; HIV also
+carries NEF1% (top-1% enrichment).
+
+**Storage.** Working bucket `s3://climb-s3-bucket`; independent versioned backup at
+`s3://climb-paper-backup-<acct>` (no expiry lifecycle, copy-only). The old
+`experiments/robust_matrix` wave (3.7 TB, 98.9% of it per-epoch fine-tuning checkpoints, read
+by no figure) is lifecycled to Glacier Deep Archive: ~$86/month → ~$4/month, data retained.
+
+<!-- END MODEL INVENTORY -->
+
+---
+
+## 10. Limitations and known issues
+- **Leakage (H6):** measured and material for assay-label arms; dedup applied and those arms re-run.
+  Pretrain overlap (0–7%) is disclosed, not removed (standard for the field, and conservative).
+- **SFT-LR confound (H5):** warm-start uses the pretraining LR; the E3 sweep tests whether the
+  "SFT ≤ MLM base" ablation finding is an LR artifact.
+- **Error bars / seeds.** Bar figures carry **scaffold k-fold CV** error bars (fold spread, §8), which
+  capture the split variance that dominates on these small tasks. **Pretraining-seed** replication is a
+  *separate* axis: the four **principal 8M arms** (`unsup_only`, `sup_only:dense`, `sup_only:mixed`,
+  `unsup→sup:dense`) each have **3 independent pretraining seeds** (0/1/2), fully CV'd, and their
+  across-seed spread is reported (§9.6; `scripts/rigor_report.py`). It is small on most tasks but
+  **material on ESOL** (across-seed std ≈ 0.016–0.026 RMSE, on the order of the between-arm gaps) — so a
+  single-seed fold band there understates uncertainty, and no ESOL-scale contrast is claimed on one
+  seed. Arms *outside* the principal set are still single-seed and any sub-band gap on them is not
+  claimed (e.g. the dense-vs-sparse ablation).
+- **Significance testing (§8.1).** The molecule-level Wilcoxon/DeLong tests are **anti-conservative**
+  (scaffold clustering + fold-overlap violate independence), so the headline uncertainty is a
+  **scaffold cluster-bootstrap CI** and p-values are **BH-FDR corrected** across the (arm × task) family.
+  "No difference" claims are made from CIs/effect sizes, never from failure-to-reject (non-significance
+  ≠ equivalence). HIV's NEF1% is tested by its own bootstrap CI, not by the AUC test.
+- **Frozen-probe ceiling:** the probe under-resolves encoder quality (MLM loss 0.14 vs 0.39 → same
+  downstream), so "sup_only ≈ unsup_only" risks a Type-II error; Fig D is the test.
+- **Scale:** the base ladder reaches ≤4 epochs of the ~12M-molecule filtered corpus (48M FP), and the
+  dedicated long runs reach **100M molecules** (≈4B tokens) drawn from the ~124M-molecule full corpus —
+  still well below MoLFormer's token budget, so absolute and "global plateau" claims are scoped to this
+  model/compute. **Model-size scaling is out of scope for this paper** (E10 dropped); the only scaling
+  view is a descriptive recycling plot (§4) from runs collected anyway, which makes no scaling-law claim.
+- **SFT data quality:** PCQM-dominated; L1000 small and near-unlearnable; Kendall weighting can drive
+  L1000 toward zero, so "sparse" is effectively PCBA(+WONG).
+- **Eval breadth:** 5–6 small MoleculeNet tasks with known label noise (esp. BBBP) and high-variance
+  scaffold-test sets; QM7 is quantum and a weak probe for structural pretraining.
+- **Pooling / length:** only masked-mean tested; the 128-token cap drops large molecules from both
+  pretraining and eval.
+- **Fixed unlabeled corpus (C21).** Only the *labeled* side of the "unlabeled × labeled combinations"
+  question is varied; the unlabeled corpus is a single fixed PubChem set. Any claim about *which
+  unlabeled data* matters is out of scope unless a second, domain-shifted unsupervised corpus is added
+  (relates to the corrupted-pretraining control, E13 / C10).
+- **All models are deduped (C22).** There is no un-deduplicated model. H9 (memorization) is answered
+  on the production deduped models using the disclosed 0–7% *pretraining* overlap plus a Tanimoto
+  dose–response (§2 H9), so no leaked artifact is ever trained. Exact memorization from *supervised*
+  labels is deliberately out of scope — testing it would mean reintroducing the leakage the dedup
+  removed, which would contaminate the model set for no proportional insight.
+
+---
+
+## 11. Hypothesis-resolution matrix
+
+| Sub-question | Data source | Positive evidence | Negative evidence |
+|---|---|---|---|
+| Does any unsupervised pretraining help? | Fig A/B vs random | curve above floor CI at some budget | overlaps floor throughout |
+| Does more unsup monotonically help? | Fig B shape | log-linear rise then flatten | flat / non-monotone |
+| Can you skip unsup (SFT-only match)? | sup_only vs unsup→sup lines | sup_only reaches unsup→sup endpoint | sup_only plateaus below |
+| Mechanism (a) initialization? | H2a: label-efficiency + sup_only trained long | left-shift that **closes at 100% labels / high compute** | gap persists at full labels |
+| Mechanism (b) regularization? | H2b: label-efficiency + train–test gap | gain **only at small label fractions** + smaller overfit gap | no low-label-specific gain |
+| Mechanism (c) adds information? | H2c: label-efficiency + corrupted control (E13) | **persistent gap at 100% labels**, absent for content-free pretraining | content-free pretraining helps equally |
+| Does label type decide it? | dense vs sparse sup_only lines | dense compensates, sparse doesn't (or vice versa) | all recipes equal |
+| Domain-matched transfer? (H10) | transfer matrix (E1) + Tanimoto/domain overlay | lift tracks content similarity, not label type | transfer unrelated to content similarity |
+| Robust to training order? | forgetting (H7) | reversed ≈ standard within CI | large degradation |
+| Representation vs memorization? (H9) | deduped model: pretrain-overlap (0–7%) seen axis + Tanimoto dose–response | novel ≈ seen; benefit flat across Tanimoto distance | benefit decays sharply with distance from training data |
+| Is the frozen-probe result real? | Fig D (H5) | finetune agrees with frozen | finetune flips it |
+| Is eval leaked? | leakage audit (H6) | small/uniform overlap | large systematic overlap (→ dedup) |
+
+---
+
+## 12. Appendix — history
+
+- **v1 (RoBERTa-13M, token-budgeted):** archived under `archive/v1/` and `archive/v1_root/`. The
+  founding design note (one-encoder-many-heads, fixed-HPO-and-tokenizer, isolate pretraining,
+  MoleculeNet aggregate score, 3-D unsup×sup surface, Chinchilla Stage 2) is preserved in git
+  history and its enduring ideas are folded into §1, §3, and E9–E10 above.
+- **Operational rules (carried over):** ask before spinning up EC2 (16 vCPU account cap); keep local
+  / git / EC2 code consistent; prefer standard packages (transformers, torch, rdkit, scipy); macOS
+  bash 3.2 has no associative arrays — use `case`, never `declare -A`.
+- **v2 milestones:** exploratory wave → dense-vs-sparse ablation → leakage audit + dedup →
+  descriptor precompute → phase-2 scaling matrix → **12h-cap truncation incident + harness hardening
+  (verified-completion, preflight, SNS alerts)** → recovery + expanded mechanism experiments (v2.1).
+- **v2.1 changes (2026-07-20, from the C1–C22 hand-off + follow-up discussion):** H2 split into
+  init/regularization/added-information; added H10 (domain-matched transfer, from existing E1 data).
+  Reframed H9 to run **on the deduped models** via the disclosed 0–7% pretraining overlap + a Tanimoto
+  dose–response — the earlier proposal to train an un-deduped model (E11) was **dropped** to avoid
+  reintroducing leakage (Tanimoto already supplies the memorization gradient leak-free). New
+  experiments E12 (label-efficiency) and E13 (corrupted control, optional); new figures
+  (label-efficiency, transfer matrix, corrupted control). **Scaling laws dropped:** the proposed H11 /
+  E10 model-size & Chinchilla data×compute analysis is **out of scope**; only a descriptive
+  compute/data recycling plot (existing runs, no new compute, no fitted law) remains. Bar figures plot
+  **single-seed fold bars**; the principal 8M arms have 3 pretraining seeds with across-seed variance
+  reported (§10). Data-collection changes: per-molecule predictions, persisted fingerprints, MLM
+  val/test loss, enumeration seed.
+
+## Citation
+
+```bibtex
+@misc{climb2026,
+  title  = {Does Pretraining Teach Chemical Language Models Chemistry?},
+  author = {Sieben, Leif and Zimmermann, Yoel},
+  year   = {2026},
+  note   = {Preprint, arXiv},
+  url    = {https://github.com/leifsieben/CLIMB}
+}
+```

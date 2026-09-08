@@ -13,70 +13,61 @@ size_categories:
   - 10M<n<100M
 ---
 
-# CLIMB — pre-training data
+# CLIMB pretraining data
 
-Everything needed to (re)train the CLIMB encoders: the tokenized PubChem corpus for masked-language
-modeling, the descriptor targets for multi-task regression, the supervised fine-tuning table, and the
-eval-leakage blocklist. Companion to the checkpoints and results repos.
+The corpora, descriptor targets and auxiliary tables used to pretrain the CLIMB encoders.
 
-- 📄 Paper: preprint in preparation (link via the GitHub repo)
-- 💻 Code (`pretrain_v2.py`, `finetune_v2.py`) + `REPRODUCE.md`: `https://github.com/leifsieben/CLIMB`
-- 🧠 Checkpoints: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
-- 📊 Raw results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
+## Layout
 
-## Components
-
-| Path | Contents |
-|---|---|
-| `tokenized_sources/pubchem_filtered/` | ~12M unique filtered PubChem SMILES for MLM (12 parquet shards) — the base scaling ladder (2M–48M FP) |
-| `tokenized_sources/pubchem_descriptors/` | precomputed 217 RDKit descriptors per molecule (MTR targets) |
-| `tokenized/supervised_wide_parquet/` | ~5.38M-row supervised "wide" table (PCBA, L1000, PCQM, WONG assays) |
-| `tokenizer/` | byte-level BPE tokenizer, **vocab 1000**, zero-UNK on SMILES |
-| `configs/eval_blocklist.json` | 34,301 molecules leaked into eval sets — excluded from all training |
-| `configs/descriptor_stats.json` | descriptor normalization statistics |
-
-## The full ~124M corpus (long scaling runs) — linked, not re-hosted
-
-The 50M/100M scaling runs (and the `*_c124` controls) draw from the **full ~124M-molecule PubChem
-set**, which is **not re-hosted here**. It is a re-canonicalized derivative of the upstream dataset
-[`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC);
-rebuild our exact copy with `scripts/download_pubchem_full.sh` (RDKit re-canonicalization kept on, to
-match the tokenizer). The ~12M `pubchem_filtered/` corpus above — used by every headline run — **is**
-shipped here so those results are self-contained.
-
-## Provenance & curation
-
-- **Source:** PubChem (public), via `hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`. SMILES were
-  filtered (validity, size, element set) and RDKit-canonical normalized; see paper §6.1 and `scripts/`
-  for the exact pipeline.
-- **Leakage control (important):** every downstream eval molecule was removed from the supervised
-  training table by **RDKit canonical SMILES of the largest fragment** (salt-stripped). The
-  `eval_blocklist.json` above is the exact exclusion list; training on it would invalidate the study.
-  (Applied to the supervised objective; pure-MLM/MTR runs never touch the supervised table.) Details in
-  paper §6.6.
-- **Descriptor targets:** 217 RDKit descriptors, standardized with `descriptor_stats.json`, used as the
-  multi-task-regression (MTR / "dense") pretraining signal.
-
-## How to use
-
-```python
-from datasets import load_dataset
-mlm = load_dataset("lsieben/climb-pretrain-data", data_dir="tokenized_sources/pubchem_filtered", split="train")
+```
+tokenized_sources/pubchem_filtered/            source SMILES after filtering
+tokenized_sources/pubchem_filtered_*_pkl/      tokenized pretraining corpora (see below)
+tokenized_sources/pubchem_descriptors/         217 RDKit descriptor targets, sharded
+tokenized/supervised_wide_parquet/             supervised fine-tuning table
+tokenizer/, tokenizers_vocab/                  the vocab-1000 tokenizer and the vocab-sweep variants
+configs/descriptor_stats.json                  descriptor names and normalisation statistics
 ```
 
-To pretrain end-to-end, point `pretrain_v2.py` at these paths (see `REPRODUCE.md` §3 and README §7).
-The tokenizer here is the same one shipped with the checkpoints repo.
+## Pretraining corpora
+
+| Corpus | Contents |
+|---|---|
+| `pubchem_filtered_tokenized_pkl` | the real PubChem SMILES corpus |
+| `pubchem_filtered_bigram_pkl` | sequences resampled from the corpus bigram statistics: local adjacency only |
+| `pubchem_filtered_unigram_pkl` | sequences resampled from the corpus unigram marginal: no sequential structure |
+| `pubchem_filtered_wiki_pkl` | English Wikipedia text, tokenized with the same tokenizer: no chemistry |
+
+The token-shuffled control is applied as a training-time transform of the real corpus and has no
+separate artifact.
+
+The 124M-molecule RDKit-canonical corpus is not re-hosted. It derives from
+[`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC);
+[`scripts/download_pubchem_full.sh`](https://github.com/leifsieben/CLIMB/blob/v2-redux/scripts/download_pubchem_full.sh) rebuilds the exact copy used here.
+
+## Leakage
+
+Molecules overlapping the downstream evaluation sets are recorded in the blocklist and excluded;
+the audit procedure is described in [`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/v2-redux/METHODS.md).
+
+## Related
+
+- Code: [github.com/leifsieben/CLIMB](https://github.com/leifsieben/CLIMB)
+- Encoders: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
+- Results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
+- Pretraining data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
 
 ## Citation
 
 ```bibtex
 @misc{climb2026,
-  title  = {CLIMB: does unsupervised pretraining help a chemical language model?},
-  author = {Sieben, Leif},          % TODO: finalize author list before the preprint
+  title  = {Does Pretraining Teach Chemical Language Models Chemistry?},
+  author = {Sieben, Leif and Zimmermann, Yoel},
   year   = {2026},
-  note   = {Preprint in preparation},
+  note   = {Preprint, arXiv},
   url    = {https://github.com/leifsieben/CLIMB}
 }
 ```
 
-License: **CC-BY-4.0** (derived/tokenized corpus). Source: PubChem (public) + public assay datasets (PCBA/L1000/PCQM/WONG); cite the original sources per their terms.
+## License
+
+CC-BY-4.0.

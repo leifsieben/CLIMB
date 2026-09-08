@@ -12,106 +12,57 @@ tags:
   - moleculenet
 ---
 
-# CLIMB — raw evaluation results
+# CLIMB evaluation results
 
-The exact per-model evaluation outputs behind every figure and table in the CLIMB study (does
-unsupervised SMILES pretraining help a chemical language model?). This is the `figure_data/` snapshot:
-feed it to the figure notebook and you regenerate the paper's figures **byte-for-byte**.
+Per-run evaluation outputs for every arm in CLIMB. Every figure and table in the paper is computed
+from these files; none is stored pre-aggregated, so a reported number can be recomputed from the
+per-molecule predictions.
 
-- 📄 Paper: preprint in preparation (link via the GitHub repo)
-- 💻 Code + `REPRODUCE.md`: `https://github.com/leifsieben/CLIMB`
-- 🧠 Checkpoints: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
-- 🧪 Pre-training data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
-
-## What's inside
-
-One directory per run, per wave, mirroring the checkpoints repo:
+## Layout
 
 ```
-<wave>/<run>/moleculenet/suite_summary.json        # single scaffold hold-out: per-task metrics
-<wave>/<run>/moleculenet/test_predictions.csv      # per-molecule predictions (hold-out)
-<wave>/<run>/moleculenet_cv/suite_summary.json     # pooled 5-fold scaffold CV: per-task metrics
-<wave>/<run>/moleculenet_cv/test_predictions.csv   # per-molecule OOF predictions (CV)
-<wave>/<run>/metrics.jsonl                          # training curve + token counts
+<wave>/<run>/moleculenet_cv/          5-fold scaffold CV on BACE, Tox21, QM7, HIV
+chemeleon_suite/moleculeace/<run>/    30 activity-cliff targets, 3 evaluation seeds
+chemeleon_suite/polaris/<run>/        Polaris tasks, predictions plus scores
+cbs_benchmark/<run>/moleculenet_cv/   CBS rare-actives virtual screen, benchmark's own folds
+wong_saureus/<run>/, fartdb/<run>/    the two additional external suites
+analysis_rigor/                       bootstrap and multiple-testing outputs
 ```
 
-- **Tasks (6):** ESOL, BBBP, BACE, Tox21, QM7, HIV — RMSE for regression, ROC-AUC / NEF1% for
-  classification & virtual screening.
-- **`suite_summary.json`** keys: `<TASK>_MEAN`, `<TASK>_STD` (and `<TASK>_nef1_MEAN` for HIV).
-- **`test_predictions.csv`** columns: `dataset, task_type, mol_index, canonical_key, raw_smiles,
-  output_index, y_true, y_pred` — enough to recompute every metric and every paired significance test.
+## Files
 
-**Label-efficiency (Fig B1p1).** Kept separate because it is a per-task **fraction** sweep, not a
-single run:
-```
-label_efficiency/label_efficiency_fractions_all_summary.csv   # THE figure input: 5 arms × 7 tasks × 5 fractions
-label_efficiency/label_efficiency_fractions_all.csv           # raw per-cell (every subsample × head/ft seed)
-climb_v2_labeleff_v2_frac_e2e/<cell>/moleculenet/...          # raw per-cell eval for the e2e (fine-tuned) arm
-```
-Each task is subsampled at **5/10/25/50/100 % of its own training split** (distinct without-replacement
-subsets — no capping/duplicate points). Arms: `random`, `unsup`, `sup`, `unsup2sup` (frozen probes) +
-`e2e` (end-to-end fine-tuned). Regression is in **native units**. Columns:
-`arm, task, task_type, metric, split, fraction, pct, n_train, mean, std, n_cells`. This **supersedes**
-the old absolute-budget `climb_v2_labeleff_v2` directory (removed from this repo).
+| File | Contents |
+|---|---|
+| `moleculenet_summary.csv` | one row per head seed and fold, all metrics computed for that dataset |
+| `suite_summary.json` | dataset means over folds and seeds |
+| `test_predictions.csv` | per-molecule out-of-fold predictions; the source of every error bar |
+| `polaris_scores.csv` | Polaris scores from the official evaluator against held-out labels |
+| `results.csv` | suite-level long table: task, seed, subset, metric, value |
+| `verified.json` | written only when every task and seed for that cell completed |
 
-**Synthetic-statistics ladder (Fig SA, Experiment A).** A mechanism experiment (SI; may be promoted)
-asking *which statistic of the corpus* an MLM uses — pretrain on corpora that preserve progressively
-less structure, frozen-probe 5-fold CV, 3 seeds. Per-run eval is under `climb_v2_expA/<run>/` in the
-standard layout above; the native-unit re-evals of the frozen comparators are under
-`climb_v2_expA/_baselines/<run>/moleculenet_cv/` (kept separate so the ladder is unit-consistent —
-regression is **native**, never mixed with the normalized phase-2 numbers). The headline result:
-```
-experiment_a/expA_ladder_summary.csv    # per (arm, task): mean±std over 3 seeds  (THE Fig SA input)
-experiment_a/expA_ladder_per_run.csv    # per-run CV metric feeding the summary
-```
-Arms: `real` (unsup_8M), `shuffle_tokens` (corrupt_mlm_8M+seeds), `bigram_resample`, `unigram_resample`,
-`no_pretrain` (random_baseline). Encoders for the new arms are in `lsieben/climb-encoders/climb_v2_expA/`.
+Polaris test labels are held out by the benchmark, so predictions are scored off-box by
+[`scripts/chemeleon_suite_score_polaris.py`](https://github.com/leifsieben/CLIMB/blob/v2-redux/scripts/chemeleon_suite_score_polaris.py). A Polaris `results.csv` therefore carries no scores by
+design, and `polaris_scores.csv` is the scored artifact.
 
-**Wikipedia-transfer (Fig SA Wikipedia arm, Experiment B).** Does a NON-chemical corpus transfer? `wiki_real` = English
-Wikipedia tokenized with the frozen SMILES BPE, chunked to match the SMILES length distribution; frozen
-probe, 3 seeds. Per-run eval under `climb_v2_expB/<run>/`; comparators (`real`, `no_pretrain`) reuse the
-`climb_v2_expA/_baselines` native re-evals. Analysis under `experiment_b/`:
-```
-experiment_b/expB_wiki_summary.csv       # wiki_real vs real vs no_pretrain, native 5-fold CV
-experiment_b/wiki_coverage.json          # confound guard: 96.9% of eval-token MASS trained by wiki
-experiment_b/wiki_vs_smiles_stats.json   # same tokenizer + matched lengths, JS=0.93-bit marginal divergence
-```
-Result: wiki_real beats no_pretrain on 6/7 tasks and matches real SMILES on QM7 — the benefit is
-substantially domain-general. Encoders in `lsieben/climb-encoders/climb_v2_expB/`.
+## Related
 
-## How the figures are regenerated
-
-```bash
-git clone https://github.com/leifsieben/CLIMB && cd CLIMB
-# place this dataset at figure_data/
-python scripts/build_data_manifest.py --check     # confirm your copy == the paper snapshot
-python scripts/build_figure_notebook.py
-jupyter nbconvert --to notebook --execute --inplace climb_figures.ipynb
-python scripts/verify_notebook_sync.py            # all-green = reproduced
-```
-
-`figure_data_manifest.json` in the repo is a content fingerprint of this exact snapshot; the checker
-above names any per-file difference instead of silently producing different numbers. See `REPRODUCE.md`
-for the figure → data → command map.
-
-## Provenance & notes
-
-- Evaluation is a frozen featurizer (masked-mean-pooled CLIMB embeddings → z-score → head), plus
-  Morgan+XGBoost / Morgan+desc+XGBoost classical anchors. Protocol: paper §8, `eval_v2.py`.
-- Downstream tasks are MoleculeNet (DeepChem loaders); all supervised training molecules are
-  deduplicated against the eval sets by **RDKit canonical SMILES of the largest fragment** (salt-stripped;
-  34,301-molecule blocklist, shipped with the pre-training data). Details in paper §6.6.
+- Code: [github.com/leifsieben/CLIMB](https://github.com/leifsieben/CLIMB)
+- Encoders: [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders)
+- Results: [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results)
+- Pretraining data: [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
 
 ## Citation
 
 ```bibtex
 @misc{climb2026,
-  title  = {CLIMB: does unsupervised pretraining help a chemical language model?},
-  author = {Sieben, Leif},          % TODO: finalize author list before the preprint
+  title  = {Does Pretraining Teach Chemical Language Models Chemistry?},
+  author = {Sieben, Leif and Zimmermann, Yoel},
   year   = {2026},
-  note   = {Preprint in preparation},
+  note   = {Preprint, arXiv},
   url    = {https://github.com/leifsieben/CLIMB}
 }
 ```
 
-License: **CC-BY-4.0** (derived results). Downstream label sources are public MoleculeNet / assay datasets; cite the original sources per their terms.
+## License
+
+CC-BY-4.0.
