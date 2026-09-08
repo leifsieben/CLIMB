@@ -64,6 +64,13 @@
  },
  {
   "klass": "A",
+  "mode": "halogen_swap",
+  "n": 1000,
+  "rejected": 0,
+  "description": "Cl -> F, skeleton unchanged"
+ },
+ {
+  "klass": "A",
   "mode": "matched_descriptors",
   "n": 1000,
   "rejected": 0,
