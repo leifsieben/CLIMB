@@ -26,6 +26,13 @@ the _c124 rung is on the line (Leif 2026-08-28); the pair is a caption number, a
 budget the 124M corpus wins on all six panels: MoleculeACE -0.0391, Ames +0.0299, Tox21 +0.0247,
 HIV +0.0169, QM7 -0.64, BACE +0.0012.
 
+CAPTION MUST CARRY THE NO-RE-READ CONSTRAINT. The x-axis label was shortened to plain
+"pretraining tokens" on 2026-08-29 (Leif), dropping the qualifier "every rung samples new
+molecules; none re-reads" that used to sit beside it. That sentence is not decoration: this cut
+DROPS every rung above the 12M corpus cap, so tokens here is a DATA axis, not a compute axis. A
+reader who assumes otherwise mis-reads the whole plate -- skip_dense_96M is 4.12B tokens of the
+same 12M molecules and is deliberately absent. Put it in the caption.
+
 NO error bars (user decision 2026-08-17: they made every panel unreadable — single clean
 variant, no banded variant). The underlying
 spread is sd_total in figure_data/six_panel/scaling_ladders.csv — 5-fold SD at every rung
@@ -282,11 +289,20 @@ def _panels(banded, variant="marked"):
     # near the canvas floor: with loc="upper center" a low anchor hangs the legend body off
     # the canvas, and savefig("tight") then GROWS the image downward to contain it -- which
     # adds exactly the white band it looks like it should remove.
-    fig.tight_layout(rect=(0, 0.112, 1, 1), w_pad=0.35)
+    # LABEL PULLED UP TOWARDS THE PANELS (Leif 2026-08-29). The rect bottom and the label's y move
+    # together: raising the label alone drops it into the legend, lowering the rect alone just
+    # reopens the gap further down.
+    fig.tight_layout(rect=(0, 0.098, 1, 1), w_pad=0.35)
+    # PLAIN "pretraining tokens" ON THE PAPER CUT (Leif 2026-08-29). The parenthetical it replaces
+    # -- "every rung samples new molecules; none re-reads" -- is a REAL CONSTRAINT ON THE READING,
+    # not decoration: this cut drops every rung that re-reads the 12M corpus, so a reader who
+    # assumes the x-axis is compute rather than data would mis-read the whole plate. THAT SENTENCE
+    # MUST NOW APPEAR IN THE CAPTION, because the axis no longer carries it. The other two variants
+    # keep their qualifiers; they are exploratory and are not rendered.
     xlab = {"marked": "pretraining tokens  (hollow = corpus re-read, no new molecules)",
-            "nodup":  "pretraining tokens   (every rung samples new molecules; none re-reads)",
+            "nodup":  "pretraining tokens",
             "unique": "unique molecules seen"}[variant]
-    fig.text(0.5, 0.068, xlab, ha="center", va="bottom", fontsize=FS["annot"], color=INK)
+    fig.text(0.5, 0.082, xlab, ha="center", va="bottom", fontsize=FS["annot"], color=INK)
     return fig
 
 
