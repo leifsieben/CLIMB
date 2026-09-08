@@ -42,12 +42,12 @@ separate artifact.
 
 The 124M-molecule RDKit-canonical corpus is not re-hosted. It derives from
 [`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC);
-[`scripts/download_pubchem_full.sh`](https://github.com/leifsieben/CLIMB/blob/v2-redux/scripts/download_pubchem_full.sh) rebuilds the exact copy used here.
+[`scripts/download_pubchem_full.sh`](https://github.com/leifsieben/CLIMB/blob/main/scripts/download_pubchem_full.sh) rebuilds the exact copy used here.
 
 ## Leakage
 
 Molecules overlapping the downstream evaluation sets are recorded in the blocklist and excluded;
-the audit procedure is described in [`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/v2-redux/METHODS.md).
+the audit procedure is described in [`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/main/METHODS.md).
 
 ## Related
 

@@ -41,7 +41,7 @@ analysis_rigor/                       bootstrap and multiple-testing outputs
 | `verified.json` | written only when every task and seed for that cell completed |
 
 Polaris test labels are held out by the benchmark, so predictions are scored off-box by
-[`scripts/chemeleon_suite_score_polaris.py`](https://github.com/leifsieben/CLIMB/blob/v2-redux/scripts/chemeleon_suite_score_polaris.py). A Polaris `results.csv` therefore carries no scores by
+[`scripts/chemeleon_suite_score_polaris.py`](https://github.com/leifsieben/CLIMB/blob/main/scripts/chemeleon_suite_score_polaris.py). A Polaris `results.csv` therefore carries no scores by
 design, and `polaris_scores.csv` is the scored artifact.
 
 ## Related

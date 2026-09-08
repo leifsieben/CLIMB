@@ -31,7 +31,7 @@ tokenizer/tokenizer.json, tokenizer/tokenizer_config.json, tokenizer/special_tok
 ```
 
 `<wave>` is the experiment group (`climb_v2_phase2`, `climb_v2_expA`, `climb_v2_expB`, and
-others); `<run>` names the arm. [`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/v2-redux/METHODS.md) in the code repository defines every arm.
+others); `<run>` names the arm. [`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/main/METHODS.md) in the code repository defines every arm.
 
 ## Use
 
@@ -46,7 +46,7 @@ tok = PreTrainedTokenizerFast.from_pretrained(f"{path}/tokenizer")
 ```
 
 Encoders are used frozen, mean-pooled, with a trained head. The evaluation protocol is in
-[`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/v2-redux/METHODS.md).
+[`METHODS.md`](https://github.com/leifsieben/CLIMB/blob/main/METHODS.md).
 
 ## What is not here
 
