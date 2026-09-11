@@ -240,7 +240,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
     axB.set_yticklabels([r[0] for r in bar_rows], fontsize=FS["annot"])
     axB.invert_yaxis()
     axB.set_xlim(-xmax, xmax)
-    axB.set_xlabel(f"mean lift over {FLOOR_LABEL} (%)")
+    axB.set_xlabel(f"Mean lift over {FLOOR_LABEL} (%)")
     axB.grid(axis="x", ls=":", lw=0.6, color=STYLE["grid"])
     axB.set_axisbelow(True)
     axB.set_title("Lift by SFT label type",
@@ -266,8 +266,16 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
         for j in range(H.shape[1]):
             v = H.values[i, j]
             if np.isfinite(v):
+                # CONTRAST IS READ OFF THE COLOUR THAT WAS ACTUALLY PAINTED, not off the value.
+                # This was `abs(v) > 14`, a threshold on the LIFT while the darkness comes from
+                # norm(v) through the colormap -- and `vmax` floats with the data, so the value
+                # at which a cell goes dark moves whenever the matrix changes. It was wrong on 6
+                # of 36 cells: sparse all -> MoleculeACE (-12.3) and -> HIV (-11.5) are at
+                # luminance 0.22 and 0.24 and were carrying #222222 text. Asking the colormap
+                # cannot drift, because it is the same object imshow drew with.
+                lum = np.dot(mpl.colormaps["PuOr_r"](norm(v))[:3], (0.2126, 0.7152, 0.0722))
                 axM.text(j, i, f"{v:+.0f}", ha="center", va="center", fontsize=FS["annot"],
-                         color="white" if abs(v) > 14 else "#222222")
+                         color="white" if lum < 0.5 else "#222222")
     # The scale is SYMLOG, so |20| and |30| sit almost on top of each other at the ends. On the
     # old vertical bar there was height to absorb that; horizontally the two labels collided into
     # "-3020". Five ticks, and the symlog knee (+-5) is kept because that is the tick that tells a

@@ -418,7 +418,7 @@ PAIRED_READY = V2_READY and all(f.exists() for f in FOLD_SOURCES)
 PCT_YLABEL = "% of ECFP4+desc"
 # Every panel is a percentage lift over ITS OWN tick reference, so one label serves all six
 # and the number is comparable across panels in a way the raw metrics never were.
-LIFT_YLABEL = "lift over reference (%)"
+LIFT_YLABEL = "Lift over reference (%)"
 PCT_YLIM = (0, 132)
 
 

@@ -907,4 +907,4 @@ def ablation_arms():
 # actually use -- it said "no pretrain, end2end" for a while after the floor moved, which put a
 # wrong comparator name on five panels of fig C+D.
 LIFT_FLOOR_LABEL = ARMS["random_encoder"]["label"]
-LIFT_YLABEL = f"lift over {LIFT_FLOOR_LABEL} (%)"
+LIFT_YLABEL = f"Lift over {LIFT_FLOOR_LABEL} (%)"
