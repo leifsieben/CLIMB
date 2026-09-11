@@ -243,8 +243,12 @@ def draw(ax, data, tag=None, compact=False):
     # of "the model already read this molecule" and therefore over-counts memorization --
     # the conservative direction for a null result. Two questions, two answers (user
     # 2026-08-19: "the tanimoto I'm ok with. but otherwise let's definitely use the stereo").
-    ax.set_xlabel("mean max Tanimoto: task \u2194 SFT family" if compact else
-                  "mean max ECFP4 Tanimoto: eval task \u2194 SFT family   (right = more similar)")
+    # "pretrain <-> downstream" rather than "task <-> SFT family" (Leif 2026-09-11), the same
+    # correction already made to fig_D's matrix title: "SFT family" is internal vocabulary for a
+    # pretraining, and "task" on its own does not say WHICH of the two tasks is meant when the
+    # axis is about the distance between them.
+    ax.set_xlabel("Average max TanSim pretrain \u2194 downstream" if compact else
+                  "Average max ECFP4 TanSim: pretrain \u2194 downstream   (right = more similar)")
     ax.set_ylabel(LIFT_YLABEL)
     ax.grid(ls=":", lw=0.6, color=STYLE["grid"])
     ax.set_axisbelow(True)
@@ -265,7 +269,14 @@ def draw(ax, data, tag=None, compact=False):
     lo, hi = ax.get_ylim()
     span = hi - lo
     ax0, ax1 = X.min(), X.max()
-    BW, BH = (0.62, 0.20) if compact else (0.52, 0.30)   # box footprint as a fraction of each axis
+    # CLEARANCE the legend must find, as a fraction of each axis -- deliberately LARGER than the
+    # legend's drawn footprint (~0.17 of the axes height in compact). At 0.20 the test passed with
+    # the nearest point 2.4 lift-units above the box, which satisfies "no point under the legend"
+    # and still reads as crowding it (Leif 2026-09-11: "make y go a bit lower so legend is not so
+    # blocking"). 0.28 puts the search on the 0.42 rung, and because the legend's height is fixed
+    # in INCHES while the data span grows with the padding, the gap goes to 5.9 units -- growing
+    # the axis buys clearance super-linearly, which is why this is the knob and not the legend size.
+    BW, BH = (0.62, 0.28) if compact else (0.52, 0.30)
     def CORNER_TESTS(ay0, ay1):
         xl = ax0 + BW * (ax1 - ax0); xr = ax1 - BW * (ax1 - ax0)
         yb = ay0 + BH * (ay1 - ay0); yt = ay1 - BH * (ay1 - ay0)
