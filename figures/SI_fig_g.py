@@ -359,7 +359,12 @@ def main():
               f"block -- it, not the axes, will set the plate width and LaTeX will scale every "
               f"font down. Shorten the keys or drop to two rows.")
     leg_in = leg.get_window_extent().height / fig.dpi
-    fig_h = TOP_IN + TITLE_IN + PANEL_H + GAP_IN + NOTE_IN * len(notes) + leg_in + PAD_IN
+    # NOTES ARE NOT DRAWN ON THE PLATE (Leif 2026-10-08: "the text shouldn't be there"). They
+    # reserve no height here and the canvas is sized without them. They are still DERIVED from the
+    # table by _notes() and printed by report(), because the thing they say -- which arm is short
+    # of which panel, which dataset sits off the MAE scale -- changes as runs land and a
+    # hand-typed caption sentence would be wrong within the day. Paste them into the caption.
+    fig_h = TOP_IN + TITLE_IN + PANEL_H + GAP_IN + leg_in + PAD_IN
     fig.set_size_inches(fig_w, fig_h)
 
     # Everything below the axes is now stacked from the canvas floor upward, in inches: legend,
@@ -373,18 +378,18 @@ def main():
     # legend where its top actually is now.
     fig.canvas.draw()
     leg_top_in = leg.get_window_extent().y1 / fig.dpi
-    for i, line in enumerate(notes):
-        y_in = leg_top_in + NOTE_IN * (len(notes) - 1 - i) + 0.035
-        fig.text(0.5, y_in / fig_h, line, ha="center", va="bottom",
-                 fontsize=FS["annot"] - 2.0, color=INK)
     fig.subplots_adjust(
         left=LEFT_IN / fig_w, right=1 - 0.02 / fig_w,
-        bottom=(leg_top_in + NOTE_IN * len(notes) + GAP_IN) / fig_h,
+        bottom=(leg_top_in + GAP_IN) / fig_h,
         top=1 - (TOP_IN + TITLE_IN) / fig_h,
         wspace=WSPACE)
     save(fig, "SI_fig_g")
     plt.close(fig)
     report(res)
+    if notes:
+        print("\n  FOR THE CAPTION -- derived from the table, not drawn on the plate:")
+        for line in notes:
+            print(f"    {line}")
 
 
 def ylab_of(name, metric):
