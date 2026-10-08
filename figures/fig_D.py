@@ -275,7 +275,7 @@ def draw(axB, axM, axS, data, tags=("a", "b", "c"), compact=False):
                 # cannot drift, because it is the same object imshow drew with.
                 lum = np.dot(mpl.colormaps["PuOr_r"](norm(v))[:3], (0.2126, 0.7152, 0.0722))
                 axM.text(j, i, f"{v:+.0f}", ha="center", va="center", fontsize=FS["annot"],
-                         color="white" if lum < 0.5 else "#222222")
+                         color="white" if lum < 0.5 else STYLE["ink"])
     # The scale is SYMLOG, so |20| and |30| sit almost on top of each other at the ends. On the
     # old vertical bar there was height to absorb that; horizontally the two labels collided into
     # "-3020". Five ticks, and the symlog knee (+-5) is kept because that is the tick that tells a

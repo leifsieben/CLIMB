@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.text as mtext
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTDIR = ROOT / "figures_v2"
@@ -168,6 +169,41 @@ def check_no_empty_panels(fig, name):
             f"resolving the wrong key (see the 2026-08-19 HIV panel bugs).")
 
 
+def check_text_is_ink(fig, name):
+    """RAISE if any visible text is drawn in a colour that is neither black nor white.
+
+    STANDING RULE FROM LEIF, restated 2026-10-08 after SI_fig_g shipped two grey strings:
+    NO GREY TEXT, EVER. Grey text is the one typographic choice that degrades in every
+    direction this paper is consumed -- greyscale printing, a projector, a reviewer's
+    low-contrast PDF viewer -- and it degrades into "my renderer is broken" rather than into
+    "this label is de-emphasised". De-emphasis belongs in italics, size or position, all of
+    which survive the trip.
+
+    THE CHECK IS ON THE RENDERED FIGURE, NOT ON THE SOURCE, because that is the only place the
+    rule is actually true or false. Four offenders had already accumulated behind a grep --
+    SI_fig_g #7A7A7A and #4A4A4A, fig_A #7A7A7A twice, fig_F #8A8A8A -- every one of them
+    spelled as a literal hex at a call site, which no central constant could have caught.
+    WHITE IS ALLOWED: fig_D's transfer matrix picks white text for dark cells from the
+    colormap's own luminance, which is contrast, not de-emphasis.
+    """
+    import matplotlib.colors as mcolors
+    bad = []
+    for t in fig.findobj(mtext.Text):
+        if not t.get_visible() or not (t.get_text() or "").strip():
+            continue
+        r, g, b, a = mcolors.to_rgba(t.get_color())
+        if a == 0:
+            continue
+        if (r, g, b) in ((0.0, 0.0, 0.0), (1.0, 1.0, 1.0)):
+            continue
+        bad.append((t.get_text()[:40].replace("\n", " "), mcolors.to_hex((r, g, b))))
+    assert not bad, (
+        f"{name}: text drawn in a non-ink colour -- grey text is forbidden, use INK and "
+        f"carry de-emphasis with italics or size instead. Offenders: "
+        + "; ".join(f"{txt!r} at {hexc}" for txt, hexc in bad[:8])
+        + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else ""))
+
+
 def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
     """Save to figures_v2/<name>.<ext>. Returns the PNG path.
 
@@ -182,6 +218,7 @@ def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
     # they are kept out of figures_v2/ proper -- that folder should hold only what goes in the
     # paper.
     check_no_empty_panels(fig, name)
+    check_text_is_ink(fig, name)
     out = OUTDIR / subdir if subdir else OUTDIR
     out.mkdir(parents=True, exist_ok=True)
     for ext in formats:

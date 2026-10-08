@@ -405,7 +405,7 @@ def main(weighting="dataset", name="fig_A", subdir=None):
             ax.axhspan(yi - 0.5, yi + 0.5, color=BAND, lw=0, zorder=0)
         if pending:
             ax.text(0.5 * (1 + nfield), yi, "awaiting Wong + FartDB", ha="center", va="center",
-                    fontsize=FS["annot"] - 0.5, color="#7A7A7A", style="italic", zorder=3)
+                    fontsize=FS["annot"] - 0.5, color=INK, style="italic", zorder=3)
         else:
             r = out.loc[a]
             for k in T.CATEGORIES:
@@ -433,14 +433,16 @@ def main(weighting="dataset", name="fig_A", subdir=None):
     # between-row whatever the row pitch.
     for yi, a in enumerate(order):
         sysname, sub, _ = _meta(a)
-        grey = "#7A7A7A" if a not in out.index else INK
+        # NO GREY TEXT ANYWHERE (Leif, standing rule). An arm with no data is distinguished by
+        # the italic below, which survives greyscale printing and a projector; grey text does
+        # not, and it reads as a rendering fault rather than as a statement.
         st = "italic" if a not in out.index else "normal"
         if a in short_prov:
             sysname = sysname + " *"
         ax.text(-0.012, yi - 0.21, sysname, transform=ytrans, ha="right", va="center",
-                fontsize=FS["tick"] - 0.4, fontweight="bold", color=grey, style=st)
+                fontsize=FS["tick"] - 0.4, fontweight="bold", color=INK, style=st)
         ax.text(-0.012, yi + 0.21, sub, transform=ytrans, ha="right", va="center",
-                fontsize=FS["tick"] - 1.3, color=grey, style=st)
+                fontsize=FS["tick"] - 1.3, color=INK, style=st)
     ax.set_yticks(range(len(order))); ax.set_yticklabels([])
     ax.tick_params(axis="y", length=0)
     ax.set_ylim(len(order) - 0.42, -0.62)

@@ -799,7 +799,7 @@ def draw_panel(ax, d, p, compact=False, tag=None, fig=None, ylims=None, xrot=Non
             ax.bar([xi_], [y1 - y0], bottom=y0, width=bw, facecolor="none",
                    edgecolor=STYLE["grid"], linewidth=0.7, linestyle=(0, (2, 2)), zorder=2)
             ax.text(xi_, y0 + 0.5 * (y1 - y0), "not run", rotation=90, ha="center", va="center",
-                    fontsize=FS["annot"] - 2, color="#8A8A8A", zorder=4)
+                    fontsize=FS["annot"] - 2, color=INK, style="italic", zorder=4)
 
     # NO per-bar tick labels. Eleven of them do not fit at any panel width in this set, and they
     # would repeat what the colour already says -- the legend names the three embeddings once and

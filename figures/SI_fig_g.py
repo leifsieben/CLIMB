@@ -282,7 +282,7 @@ def main():
             if a not in d.index or not np.isfinite(d.loc[a, "mean"]):
                 ax.text(xi, 0.02, "in flight", transform=ax.get_xaxis_transform(),
                         ha="center", va="bottom", rotation=90,
-                        fontsize=FS["annot"] - 2.5, color="#7A7A7A", style="italic", zorder=4)
+                        fontsize=FS["annot"] - 2.5, color=INK, style="italic", zorder=4)
                 continue
             r = d.loc[a]
             ax.bar(xi, r["mean"], width=0.84, color=c, edgecolor="none", zorder=2)
@@ -376,7 +376,7 @@ def main():
     for i, line in enumerate(notes):
         y_in = leg_top_in + NOTE_IN * (len(notes) - 1 - i) + 0.035
         fig.text(0.5, y_in / fig_h, line, ha="center", va="bottom",
-                 fontsize=FS["annot"] - 2.0, color="#4A4A4A")
+                 fontsize=FS["annot"] - 2.0, color=INK)
     fig.subplots_adjust(
         left=LEFT_IN / fig_w, right=1 - 0.02 / fig_w,
         bottom=(leg_top_in + NOTE_IN * len(notes) + GAP_IN) / fig_h,
