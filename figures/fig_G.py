@@ -40,9 +40,11 @@ HOW TO READ IT
   same harness. A bar below it carries LESS about the edit than counting characters does. It is a
   bound on what a CLM's score PROVES, not a mechanism claim about the fingerprints -- ECFP4
   resolves stereochemistry without seeing a character, because chirality is in the atom invariant.
-* A "0" MARKS A COLLISION-DOMINATED CELL: the arm maps both members of most pairs to the SAME vector,
-  so it cannot possibly differ whatever head is put on top. "Not resolved" in its strongest form,
-  needing no threshold and no metric.
+* COLLISION COUNTS ARE NOT DRAWN (Leif 2026-10-08). They used to appear as a small "0" above the
+  chance line; a reviewer read the glyph as the AUC and objected that identical representations
+  score 0.5, not 0. They were right under that reading, so the glyph is gone. The counts remain in
+  separability_auc.csv and in report() -- ECFP4 maps both members of 952 of 1,000 isotope pairs to
+  the same vector, which is "not resolved" in its strongest form, and it belongs in the caption.
 * PANELS (j) AND (k) INVERT -- same molecule written two ways, so a HIGH bar is a failure. Carried
   by the tinted background; the caption must say it.
 * Whiskers are +/- 1 SD over 5 SPLIT SEEDS. The representations are deterministic and the arms
@@ -221,7 +223,7 @@ YMAX = 1.035
 SUBTICK = 0.006
 
 
-def _panel(ax, vals, sds, degen, npair, floor, title, klass):
+def _panel(ax, vals, sds, floor, title, klass):
     """One edit. Bar height is how well a tree separates the pair on held-out molecules.
 
     THE AXIS STARTS AT CHANCE (Leif 2026-08-28): "a zero bar must always mean not resolved --
@@ -229,10 +231,13 @@ def _panel(ax, vals, sds, degen, npair, floor, title, klass):
     only honest once every panel where an empty bar could mean something else has been removed
     from the plate, which is why three modes are gone (see MODES).
 
-    A COLLISION IS THE SAME STATEMENT, HARDER. Where an arm maps both members of a pair to the
-    same vector it cannot possibly differ, whatever head is put on top -- no threshold, no metric.
-    Cells that are mostly collisions are marked, so the strongest form of "not resolved" is
-    legible rather than being one more short bar: ECFP4 collides on 952 of 1,000 isotope pairs.
+    COLLISIONS ARE NO LONGER MARKED IN THE FIGURE (Leif 2026-10-08). A collision-dominated cell
+    carried a small "0" above the chance line, meaning "this arm maps both members of most pairs
+    to the same vector, so it cannot possibly differ". An external reviewer read that glyph as the
+    AUC VALUE and objected, correctly under that reading, that identical representations give 0.5
+    and not 0 -- the one number on this plate that must not be ambiguous. The counts are not lost:
+    `n_degenerate` / `n_pairs` stay in separability_auc.csv and report() still prints the marker,
+    so the claim (ECFP4 collides on 952 of 1,000 isotope pairs) belongs in the caption or text.
 
     THE DOTTED LINE IS THE FREE-INFORMATION FLOOR -- character n-grams of the SMILES, no
     chemistry. A bar below it carries LESS about the edit than counting characters does.
@@ -262,10 +267,6 @@ def _panel(ax, vals, sds, degen, npair, floor, title, klass):
                     capsize=1.3, capthick=0.55, zorder=5)
     if np.isfinite(floor):
         ax.axhline(floor, color=INK, ls=(0, (2, 1.6)), lw=0.8, zorder=6)
-    for xi, dg, npr in zip(x, degen, npair):
-        if np.isfinite(dg) and np.isfinite(npr) and npr and dg / npr >= 0.5:
-            ax.text(xi, CHANCE + 0.012, "0", ha="center", va="bottom",
-                    fontsize=FS["annot"] - 1.5, color=INK, zorder=7)
     ax.set_ylim(CHANCE, YMAX)
     ax.set_yticks([0.5, 0.75, 1.0])
     ax.set_yticklabels(["0.5", "", "1"])
@@ -342,11 +343,10 @@ def main():
     tags = "abcdefghij"
     for i, (kl, mode, title) in enumerate(A):
         ax = fig.add_subplot(gs[i // NCOL_A, i % NCOL_A])
-        auc, sd, dg, npr = (_row(R[c], kl, mode) for c in
-                            ("auc_mean", "auc_sd", "n_degenerate", "n_pairs"))
+        auc, sd = (_row(R[c], kl, mode) for c in ("auc_mean", "auc_sd"))
         floor = R["auc_mean"].loc[(kl, mode), NOTATION]
         assert np.isfinite(auc).any(), f"fig_G: no data for {mode}"
-        _panel(ax, auc, sd, dg, npr, floor, title, kl)
+        _panel(ax, auc, sd, floor, title, kl)
         ax.text(0.0, 1.30, tags[i], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
         if i % NCOL_A == 0:
@@ -356,11 +356,10 @@ def main():
     # the control column
     for j, (kl, mode, title) in enumerate(B):
         ax = fig.add_subplot(gs[j, NCOL_A])
-        auc, sd, dg, npr = (_row(R[c], kl, mode) for c in
-                            ("auc_mean", "auc_sd", "n_degenerate", "n_pairs"))
+        auc, sd = (_row(R[c], kl, mode) for c in ("auc_mean", "auc_sd"))
         floor = R["auc_mean"].loc[(kl, mode), NOTATION]
         assert np.isfinite(auc).any(), f"fig_G: no data for control {mode}"
-        _panel(ax, auc, sd, dg, npr, floor, title, kl)
+        _panel(ax, auc, sd, floor, title, kl)
         ax.text(0.0, 1.30, "kl"[j], transform=ax.transAxes, fontsize=FS["panel_tag"],
                 fontweight="bold", va="bottom", ha="left", color=INK)
 
