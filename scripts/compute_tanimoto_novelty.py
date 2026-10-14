@@ -1,25 +1,3 @@
-"""Fig I1 / H9 — per-molecule novelty: max ECFP4 Tanimoto to the pretraining corpus.
-
-H9 asks whether downstream gains are representation-learning or partly memorization: do molecules
-UNLIKE anything in the pretraining corpus benefit as much as molecules similar to it? Answering
-it needs, per evaluated molecule, its nearest-neighbour similarity to the pretraining corpus.
-
-The notebook lists this as blocked on "ECFP4 fingerprints absent" plus per-molecule dumps for
-"only ~2 runs". Both are stale: eval_v2 now writes test_predictions.csv with `raw_smiles` for 97
-runs, and fingerprints are derivable from those SMILES on CPU. No GPU and no retraining needed.
-
-Method: ECFP4 (Morgan radius 2, 2048 bits) for every evaluated molecule and for a random sample
-of the pretraining corpus; then max Tanimoto of each molecule against the sample, computed as
-packed-uint64 popcounts (np.bitwise_count) so 60k x 500k stays minutes rather than hours.
-
-The corpus is SAMPLED, so a reported max-similarity is a LOWER BOUND on similarity to the full
-~12M corpus, and the bound loosens as the sample shrinks. The sample size is written into the
-output so the figure caption can state it. Binning molecules by this score stays valid because
-every molecule is scored against the identical reference set.
-
-Usage:
-    python scripts/compute_tanimoto_novelty.py --ref-n 500000 --out figure_data/_tanimoto
-"""
 from __future__ import annotations
 
 import argparse
@@ -31,12 +9,13 @@ import time
 from pathlib import Path
 
 import numpy as np
+from dedup_i1_reanalysis import _popcount_rows
 from rdkit import Chem, RDLogger
 from rdkit.Chem import rdFingerprintGenerator
 
-RDLogger.DisableLog("rdApp.*")          # corpus SMILES include some RDKit-unparseable entries
+RDLogger.DisableLog("rdApp.*")
 
-CORPUS = "s3://climb-s3-bucket/tokenized_sources/pubchem_filtered/"
+CORPUS = "raw_data/pubchem_filtered"
 NBITS = 2048
 
 
@@ -45,13 +24,8 @@ def _log(m: str) -> None:
 
 
 def _fp_gen():
-    # DELIBERATELY STEREO-BLIND, unlike featurize_v2.ecfp4_features (fixed 2026-08-19 to carry
-    # chirality). Different question, different answer. This is a SIMILARITY axis: the "memorized"
-    # group asks "did the model effectively already read this molecule", and a stereo-blind match
-    # is the LOOSER test, so it OVER-counts memorization. The finding is that the memorized group
-    # shows no advantage, so over-counting is the conservative direction -- turning chirality on
-    # would shrink the group and weaken a null result in our own favour. Corpus Tanimoto is also
-    # conventionally computed without chirality. Do not "fix" this to match the featurizer.
+
+
     return rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=NBITS)
 
 
@@ -73,27 +47,18 @@ def _pack(smiles: list[str]) -> tuple[np.ndarray, list[str]]:
 
 def _load_corpus(ref_n: int, cache: Path) -> list[str]:
     cache.mkdir(parents=True, exist_ok=True)
-    local = cache / "shard_00000.parquet"
-    if not local.exists():
-        _log("downloading one corpus shard")
-        subprocess.run(["aws", "s3", "cp", f"{CORPUS}shard_00000.parquet", str(local)],
-                       check=True, capture_output=True)
+    local = Path(CORPUS) / "shard_00000.parquet"
     import pandas as pd
     df = pd.read_parquet(local, columns=["SMILES_canonical"])
     smi = df["SMILES_canonical"].dropna().astype(str).tolist()
     _log(f"corpus shard holds {len(smi):,} molecules")
     if len(smi) > ref_n:
-        rng = np.random.default_rng(0)                 # fixed seed: reference set is reproducible
+        rng = np.random.default_rng(0)
         smi = [smi[i] for i in rng.choice(len(smi), ref_n, replace=False)]
     return smi
 
 
-# The canonical six-panel suite uses a SECOND prediction schema. eval_v2 writes
-# raw_smiles/dataset, but the chemeleon_suite runners (MoleculeACE, Polaris) write task/smiles --
-# so a plain raw_smiles reader silently skipped every MoleculeACE and Ames molecule and this table
-# stayed MoleculeNet-only. That is what left fig_C1/fig_C2 with no x-axis for the canonical panels.
-# Both schemas are read here; unknown files are skipped as before rather than guessed at.
-POLARIS_TASK = "tdcommons/ames"          # the Polaris panel; the track scores 28 tasks, we bin one
+POLARIS_TASK = "tdcommons/ames"
 
 
 def _collect_eval_molecules() -> list[str]:
@@ -110,13 +75,13 @@ def _collect_eval_molecules() -> list[str]:
             with open(p) as fh:
                 rd = csv.DictReader(fh)
                 cols = set(rd.fieldnames or [])
-                if "raw_smiles" in cols:                      # eval_v2 schema (MolNet + CBS)
+                if "raw_smiles" in cols:
                     for row in rd:
                         ds = (row.get("dataset") or "").strip()
                         add(row.get("raw_smiles"), "CBS" if ds.lower() == "cbs" else ds)
-                elif "smiles" in cols:                        # chemeleon_suite schema
+                elif "smiles" in cols:
                     if "moleculeace" in parts:
-                        # pooled over the 30 targets, matching the MoleculeACE PANEL the figures plot
+
                         for row in rd:
                             add(row.get("smiles"), "MoleculeACE")
                     elif "polaris" in parts:
@@ -146,18 +111,18 @@ def main() -> int:
     ref_smi = _load_corpus(a.ref_n, out / "_cache")
     _log(f"fingerprinting {len(ref_smi):,} corpus molecules")
     ref, _ = _pack(ref_smi)
-    ref_pc = np.bitwise_count(ref).sum(axis=1).astype(np.int32)
+    ref_pc = _popcount_rows(ref).sum(axis=1).astype(np.int32)
     _log(f"reference matrix {ref.shape}")
 
     _log("fingerprinting evaluated molecules")
     q, q_kept = _pack(qs)
-    q_pc = np.bitwise_count(q).sum(axis=1).astype(np.int32)
+    q_pc = _popcount_rows(q).sum(axis=1).astype(np.int32)
     _log(f"query matrix {q.shape} ({len(qs) - len(q_kept)} unparseable dropped)")
 
     best = np.zeros(len(q_kept), dtype=np.float32)
     t0 = time.time()
     for i in range(len(q_kept)):
-        inter = np.bitwise_count(ref & q[i]).sum(axis=1).astype(np.int32)
+        inter = _popcount_rows(ref & q[i]).sum(axis=1).astype(np.int32)
         union = ref_pc + q_pc[i] - inter
         np.maximum(best[i], (inter / np.maximum(union, 1)).max(), out=best[i:i + 1])
         if i and i % 5000 == 0:

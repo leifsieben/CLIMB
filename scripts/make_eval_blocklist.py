@@ -1,14 +1,3 @@
-"""Build the eval-molecule blocklist for supervised-training dedup.
-
-Leakage audit showed up to 43% of some eval TEST splits sit in the SFT assay data.
-This computes a canonical key for EVERY eval molecule (all splits, all tasks) and then
-scans the wide parquet's `smiles_canon` once, collecting the RAW smiles_canon strings
-whose canonical key matches an eval molecule. The supervised loader then drops those
-exact strings (fast set membership, no RDKit in the hot path).
-
-    python scripts/make_eval_blocklist.py --out configs/eval_blocklist.json \
-        --s3_out s3://climb-s3-bucket/configs/eval_blocklist.json
-"""
 from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
@@ -30,9 +19,9 @@ def canon_key(smiles: str):
 
 
 def eval_keys():
-    from eval_v2 import _load_moleculenet
-    from config_v2 import MOLECULENET_TASKS_V2
-    tasks = [t[0] for t in MOLECULENET_TASKS_V2] + ["HIV"]
+    from evaluate import _load_moleculenet
+    from config import MOLECULENET_TASKS
+    tasks = [t[0] for t in MOLECULENET_TASKS] + ["HIV"]
     keys = set()
     for t in tasks:
         try:
@@ -50,9 +39,8 @@ def eval_keys():
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--parquet", default="s3://climb-s3-bucket/tokenized/supervised_wide_parquet/")
+    p.add_argument("--parquet", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--s3_out", default=None)
     args = p.parse_args()
 
     keys = eval_keys()
@@ -74,10 +62,6 @@ def main():
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(sorted(blocked_smiles)))
-    if args.s3_out:
-        import subprocess
-        subprocess.run(["aws", "s3", "cp", args.out, args.s3_out], check=True)
-        print(f"[blocklist] uploaded -> {args.s3_out}", flush=True)
 
 
 if __name__ == "__main__":

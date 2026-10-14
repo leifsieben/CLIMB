@@ -1,9 +1,3 @@
-"""Storage helpers for local paths and S3 URIs.
-
-The experiment tooling uses these helpers to keep data access consistent across
-training, validation, and orchestration scripts.
-"""
-
 from __future__ import annotations
 
 import os
@@ -15,7 +9,7 @@ from urllib.parse import urlparse
 
 try:
     import fsspec
-except Exception as exc:  # pragma: no cover - handled at runtime
+except Exception as exc:
     fsspec = None
     _fsspec_import_error = exc
 else:
@@ -24,7 +18,7 @@ else:
 try:
     import pyarrow.dataset as ds
     import pyarrow.fs as pafs
-except Exception as exc:  # pragma: no cover - handled at runtime
+except Exception as exc:
     ds = None
     pafs = None
     _pyarrow_import_error = exc
@@ -80,7 +74,7 @@ def _s3_fsspec():
     _require_fsspec()
     try:
         return fsspec.filesystem("s3")
-    except Exception as exc:  # pragma: no cover - depends on optional s3fs install
+    except Exception as exc:
         raise ImportError(
             "Install s3fs to access S3 through fsspec."
         ) from exc

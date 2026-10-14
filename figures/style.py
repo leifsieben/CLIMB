@@ -1,9 +1,3 @@
-"""Shared matplotlib style + save helper for the CLIMB paper figures.
-
-Every figure script starts with `from figures.style import *` (or imports what it needs) so the
-typography, sizes and output paths are identical across the paper. Figures are written to
-figures_v2/ as both PNG (screen/review) and PDF (vector, for LaTeX).
-"""
 from __future__ import annotations
 from pathlib import Path
 import matplotlib as mpl
@@ -11,35 +5,28 @@ import matplotlib.pyplot as plt
 import matplotlib.text as mtext
 
 ROOT = Path(__file__).resolve().parent.parent
-OUTDIR = ROOT / "figures_v2"
+OUTDIR = ROOT / "plots"
 
-# ---------------------------------------------------------------------------------------------
-# ONE font, ONE size scale. These figures get combined into multi-panel layouts later, so every
-# script must use these exact point sizes -- never a local tweak like `fs_annot - 0.5`, which would
-# make one panel's text a different size from its neighbour's.
-# ---------------------------------------------------------------------------------------------
-FONT = "Arial"                                  # pinned, no silent fallback to a different face
+
+FONT = "Arial"
 FS = dict(
-    title=9,        # panel title / suptitle
-    label=8,        # axis labels
-    tick=8,         # tick labels, model names
-    annot=7,        # in-plot numbers and keys
-    legend=7,       # legend entries
-    caption=6.5,    # figure caption (screen review only; the paper caption is LaTeX)
-    panel_tag=10,   # the "a", "b", "c" panel letters
+    title=9,
+    label=8,
+    tick=8,
+    annot=7,
+    legend=7,
+    caption=6.5,
+    panel_tag=10,
 )
 
-# WIDTHS. The paper is set on A4 (210 mm) with 20 mm margins, so the text block is 170 mm =
-# 6.69 in. `col2` IS that text block: every full-width figure uses it, so figures arrive at 1:1
-# scale in LaTeX (\includegraphics[width=\textwidth]) with no downscaling, and font sizes on the
-# page are exactly the point sizes set in FS below. Do not hard-code a width in a figure script.
-A4_TEXT = 6.69                                  # 170 mm text block on A4
+
+A4_TEXT = 6.69
 STYLE = dict(
-    col1=3.25, col15=4.75, col2=A4_TEXT,       # single, 1.5, and full text-block widths (inches)
+    col1=3.25, col15=4.75, col2=A4_TEXT,
     lw=1.2, lw_thin=0.7, marker_size=5.0, cap_size=2.0,
     dpi_screen=120, dpi_save=300,
     grid="#A6A6A6", ink="#000000", mute="#000000", faint="#E6E6E6",
-    **{f"fs_{k}": v for k, v in FS.items()},   # STYLE["fs_title"] etc. stay available
+    **{f"fs_{k}": v for k, v in FS.items()},
 )
 
 
@@ -67,10 +54,9 @@ def install():
         "text.color": "#000000",
         "xtick.minor.visible": False, "ytick.minor.visible": False,
         "lines.linewidth": STYLE["lw"], "lines.markersize": STYLE["marker_size"],
-        "hatch.linewidth": 0.35,          # fine dots, not fat blobs
-        # grid.alpha was 0.30 on top of a #C8C8C8 grid, i.e. an effective ~#EFEFEF -- the gridlines
-        # were essentially invisible in print. Alpha is now 1.0 and the colour carries the
-        # lightness, so what you set is what you get.
+        "hatch.linewidth": 0.35,
+
+
         "axes.grid": False, "grid.color": STYLE["grid"], "grid.linewidth": 0.6, "grid.alpha": 1.0,
         "axes.axisbelow": True,
         "legend.frameon": False, "legend.handlelength": 1.3,
@@ -87,76 +73,37 @@ def _pdf_width_in(path):
     return (float(m.group(3)) - float(m.group(1))) / 72 if m else None
 
 
-# ONE LEGEND FRAME FOR THE WHOLE SET. A legend that sits ON the data needs an opaque box or the
-# points behind it show through and the labels stop being readable; fig_C2 had one and fig_E did
-# not, so the same object looked like two different conventions across the paper. Defined here and
-# imported rather than restated per figure, because two hand-written copies of "the same" frame is
-# how they drift.
 LEGEND_BOX = dict(frameon=True, framealpha=1.0, edgecolor=STYLE["ink"], facecolor="white")
 
 
 def row_ncol(handles, rows=1):
-    """Column count that lays `handles` out in ONE ROW. The paper's default (user 2026-08-20:
-    "always have this as the default").
 
-    Use it as `ncol=row_ncol(handles)` instead of a literal. A literal cannot know that a legend
-    grew a key -- fig_A1 carried ncol=len(SUITES)=4 while its legend had five entries, so adding
-    the end-to-end marker silently wrapped the legend onto a second row. Deriving the count from
-    the handles themselves means adding a key keeps the row.
-
-    Why one row is the default and not merely a preference: savefig(bbox_inches="tight") grows the
-    canvas to fit whatever hangs off the axes, so a legend that wraps to two rows pushes the plate
-    taller and the panels get scaled DOWN in LaTeX to fit the text block. A one-row legend is the
-    cheapest vertical space in the figure. It costs width, which a full-text-block figure has.
-
-    `rows` is the escape hatch for a legend whose one-row form would genuinely overrun the text
-    block -- pass 2 and it balances across two rows rather than wrapping unevenly. Reach for it
-    only after measuring the rendered width, never pre-emptively.
-    """
     n = len(list(handles))
     if n <= 0:
         return 1
     if rows <= 1:
         return n
-    return -(-n // int(rows))                      # ceil, so `rows` rows is the tallest it gets
+    return -(-n // int(rows))
 
 
 def mark_empty(ax, why="no data for this panel"):
-    """Declare an axes DELIBERATELY empty, so check_no_empty_panels() does not fail on it.
 
-    Use only where the emptiness is the message -- fig_F draws "concatenation test not run" into
-    the axes on purpose. Anywhere else, an empty panel is a bug.
-    """
     ax._climb_intentionally_empty = why
 
 
 def _panel_has_data(ax):
-    """Does this axes draw anything a reader could read a VALUE off?
 
-    Reference lines are excluded on purpose. fig_B's HIV panel rendered with an ECFP+desc dashed
-    line and a random-encoder dotted line and NOTHING ELSE for weeks, and looked like a real panel;
-    counting artists naively would have called it populated. axhline/axvline build a BLENDED
-    transform (data in one axis, axes-fraction in the other), which is exactly the signature of a
-    line that spans the panel rather than describing points in it.
-    """
     from matplotlib.transforms import BlendedGenericTransform
     for ln in ax.lines:
         if isinstance(ln.get_transform(), BlendedGenericTransform):
-            continue                       # axhline / axvline: a reference, not data
+            continue
         if len(ln.get_xdata()):
             return True
     return bool(ax.patches or ax.collections or ax.images or ax.containers)
 
 
 def check_no_empty_panels(fig, name):
-    """RAISE if any axes was handed to the renderer and drew no data.
 
-    The three empty-HIV-panel bugs of 2026-08-19 were all one shape: a hardcoded panel list that
-    did not get HIV when it took CBS's canonical slot. SI b and SI d at least PRINTED "not run".
-    fig_B printed nothing and rendered a panel indistinguishable from a real one. This is the
-    "assert on the value, not the name" rule applied to OUTPUT: a figure that silently draws
-    nothing is worse than one that fails.
-    """
     empty = [ax for ax in fig.axes
              if not getattr(ax, "_climb_intentionally_empty", None)
              and not _panel_has_data(ax)
@@ -170,22 +117,7 @@ def check_no_empty_panels(fig, name):
 
 
 def check_text_is_ink(fig, name):
-    """RAISE if any visible text is drawn in a colour that is neither black nor white.
 
-    STANDING RULE FROM LEIF, restated 2026-10-08 after SI_fig_g shipped two grey strings:
-    NO GREY TEXT, EVER. Grey text is the one typographic choice that degrades in every
-    direction this paper is consumed -- greyscale printing, a projector, a reviewer's
-    low-contrast PDF viewer -- and it degrades into "my renderer is broken" rather than into
-    "this label is de-emphasised". De-emphasis belongs in italics, size or position, all of
-    which survive the trip.
-
-    THE CHECK IS ON THE RENDERED FIGURE, NOT ON THE SOURCE, because that is the only place the
-    rule is actually true or false. Four offenders had already accumulated behind a grep --
-    SI_fig_g #7A7A7A and #4A4A4A, fig_A #7A7A7A twice, fig_F #8A8A8A -- every one of them
-    spelled as a literal hex at a call site, which no central constant could have caught.
-    WHITE IS ALLOWED: fig_D's transfer matrix picks white text for dark cells from the
-    colormap's own luminance, which is contrast, not de-emphasis.
-    """
     import matplotlib.colors as mcolors
     bad = []
     for t in fig.findobj(mtext.Text):
@@ -205,25 +137,15 @@ def check_text_is_ink(fig, name):
 
 
 def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
-    """Save to figures_v2/<name>.<ext>. Returns the PNG path.
 
-    savefig uses bbox_inches="tight", so the width actually written is NOT the figsize width: it
-    shrinks when a figure has slack margins and GROWS when anything (a legend anchored outside the
-    axes, a suptitle above the canvas) sits beyond the canvas. Two figures authored at the same
-    width can therefore land 1.5in apart, and LaTeX then scales them differently at
-    \includegraphics[width=\textwidth] -- so their fonts print at different sizes even though every
-    script sets the same points. This check makes that loud instead of silent."""
-    # `subdir` is for COMPONENT panels that are assembled into another figure (fig_C1/C2/D ->
-    # fig_C+D). They are still rendered standalone for review, but they are not paper figures, so
-    # they are kept out of figures_v2/ proper -- that folder should hold only what goes in the
-    # paper.
+
     check_no_empty_panels(fig, name)
     check_text_is_ink(fig, name)
     out = OUTDIR / subdir if subdir else OUTDIR
     out.mkdir(parents=True, exist_ok=True)
     for ext in formats:
         fig.savefig(out / f"{name}.{ext}")
-    rel = f"figures_v2/{subdir}/{name}" if subdir else f"figures_v2/{name}"
+    rel = f"plots/{subdir}/{name}" if subdir else f"plots/{name}"
     print(f"  saved  {rel}." + "/".join(formats))
     if "pdf" in formats:
         w = _pdf_width_in(out / f"{name}.pdf")
@@ -237,18 +159,12 @@ def save(fig, name, formats=("png", "pdf"), subdir=None, wide=False):
 
 
 def title(target, text, pad=6, **kw):
-    """Title a figure. Pass an Axes for a single-panel figure -- an axes title sits directly above
-    the plot, whereas a suptitle floats at the top of the canvas and leaves a band of white space.
-    Pass a Figure only for multi-panel layouts."""
+
     if hasattr(target, "set_title"):
         target.set_title(text, fontsize=FS["title"], fontweight="bold", color=STYLE["ink"],
                          pad=pad, **kw)
     else:
         target.suptitle(text, fontsize=FS["title"], fontweight="bold", color=STYLE["ink"], **kw)
-
-
-# NOTE: there is deliberately no caption() helper. Captions are NEVER drawn into the figure --
-# they belong in the LaTeX \caption{}. Document a figure in the script's docstring instead.
 
 
 def check_font():

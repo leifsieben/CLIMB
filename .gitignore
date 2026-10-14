@@ -1,99 +1,22 @@
-# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
-build/
-.venv_sanity/
-
-# Virtual environment
-climb/
-venv/
-env/
-
-# Data files
-*.pkl
-*.pickle
+.venv*/
+.pytest_cache/
+.DS_Store
+.env
+*.pem
+raw_data/
+results/
+experiments/
+checkpoints/
+logs/
+*.log
 *.npy
 *.npz
-*.h5
-*.hdf5
-
-# Large model files
-*.bin
+*.pkl
+*.parquet
+*.safetensors
 *.pt
 *.pth
-*.ckpt
-pytorch_model.bin
-
-# Tokenizer vocab files (if large)
-vocab.json
-merges.txt
-tokenizer.json
-
-# Data directories
-local_prototyping_data/
-hp_search_trial_*/
-experiments/
-configs/
-.claude/ 
-preparing_datasets/
-raw_data/
-supervised_wide.parquet
-zinc_SMILES
-canonical_sup/
-climb-key.pem
-AWSCLIV2.pkg
-*.pem
-*.pkg
-
-# Experiment outputs
-experiments/
-results/
-checkpoints/
-runs/
-logs/
-hp_search*/
-models/
-
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Optuna database
-optuna_study.db
-
-# Config with secrets (if any)
-secrets.yaml
-.env
-# staged result data pulled from S3 for figure rendering (multi-GB, reproducible via download_valid_data.sh)
 figure_data/
-
-# Paper artifact bundle: 2 GB of copied results, mirrored to the backup bucket.
-# The scripts that build it are versioned; the bundle itself is not.
-paper_artifacts/
-notebook_backups/
-operational-state.local.md
-
-# HF publish staging (large, transient)
-.hf_staging/
-figures_vocab/
-
-# Polaris scoring virtualenv (772MB) -- an environment, not a result. scripts/*polaris* are run
-# with .venv_polaris/bin/python; recreate it rather than versioning it.
-.venv_polaris/
-
-# Mordred needs a modern numpy; deepchem 2.8.0 pins an old one. Separate venv, recreate rather
-# than version it -- same reasoning as .venv_polaris above.
-.venv_mordred/
+plots/

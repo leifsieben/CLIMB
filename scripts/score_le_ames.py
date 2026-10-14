@@ -1,16 +1,3 @@
-"""Score the Ames label-efficiency sweep (le_ames_*) from its prediction dumps.
-
-Why this script exists: `results.csv` is EMPTY for the le_ames_* dirs -- but it is empty for
-EVERY dir under figure_data/chemeleon_suite/polaris/, including the ones already in fig_A.
-Polaris withholds test labels, so the suite runner cannot score in-process; scoring always
-happens after the fact through the benchmark's own evaluate(). Nothing failed in these runs and
-no int()-on-a-string bug is involved -- the sweep simply had no post-hoc scorer yet.
-
-Emits one row per (arm, fraction, seed) plus the seed mean/std, so the figure session can draw
-error bars from three independent eval seeds rather than a single point.
-
-Run with .venv_polaris/bin/python.
-"""
 from __future__ import annotations
 import csv, re, sys
 from collections import defaultdict

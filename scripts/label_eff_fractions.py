@@ -1,38 +1,3 @@
-"""Label-efficiency, re-run at per-task FRACTIONS instead of shared absolute counts.
-
-Why this exists
----------------
-`b1_replicates_v2.sh` swept a single absolute budget {100,300,1000,3000,full} across all 7
-tasks. On the small tasks that budget caps at the train size, so points *collapse* onto each
-other (ESOL n=1000/3000/full are the identical 902 molecules; BACE/BBBP n=3000==full). The
-figure then plots the same result two or three times, which a reviewer correctly flagged.
-
-Fix: subsample a FRACTION of each task's own single-hold-out train split -- {5,10,25,50,100%}.
-Every point is then a genuine without-replacement subset and lands at that task's own n_train,
-so no two points on a task share a subset (verified distinct for all 7 tasks). This also makes
-the DATA match the Methods text, which already states 5/10/25/50/100%.
-
-Faithfulness
-------------
-The scoring path is a bit-for-bit replica of eval_v2.evaluate's single-hold-out branch
-(lines ~401-459): same _load_moleculenet split, same _subsample_train rng (np.random.default_rng
-+ choice(replace=False)), fit_standardizer('zscore') on the *subsampled* train, _fit_target_scaler
-on the subsampled train, make_head('mlp'), native-unit unscale, compute_metric / compute_nef, and
-the <metric>_train counterpart for the fit-vs-generalise panel. The ONLY change is that the budget
-is per-task (fraction*n_train) rather than a shared integer -- so this output can drop straight in
-for the frozen arms of Fig B1p1.
-
-Efficiency: encoder features for a (arm, task) are identical across fractions and seeds, so we
-featurize ONCE per (arm, task) and slice indices -- HIV (33k mols) is encoded 4 times (once per
-arm), not ~48 times.
-
-Covers the four FROZEN arms only (random, unsup, sup, unsup2sup). The e2e arm needs re-finetuning
-and is handled separately.
-
-Writes:
-  analysis/rigor/label_efficiency_fractions.csv          (tidy long: every cell)
-  analysis/rigor/label_efficiency_fractions_summary.csv  (MEAN/STD over subsample x head seeds)
-"""
 from __future__ import annotations
 import warnings; warnings.filterwarnings("ignore")
 import os, sys, time
@@ -41,59 +6,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np, pandas as pd, torch
 from rdkit import RDLogger; RDLogger.DisableLog("rdApp.*")
 
-import eval_v2 as E
-from eval_v2 import _load_moleculenet, _encoder_features, _fit_target_scaler, _scale_targets, _unscale_preds
-from featurize_v2 import fit_standardizer, apply_standardizer
-from heads_v2 import make_head, compute_metric, compute_nef
-from config_v2 import MOLECULENET_TASKS_V2
+import evaluate as E
+from evaluate import _load_moleculenet, _encoder_features, _fit_target_scaler, _scale_targets, _unscale_preds
+from features import fit_standardizer, apply_standardizer
+from heads import make_head, compute_metric, compute_nef
+from config import MOLECULENET_TASKS
 from transformers import ModernBertModel, PreTrainedTokenizerFast
 
 SRC = "figure_data/climb_v2_phase2"
 TOK = "figure_data/_tokenizer"
 _ALL_ARMS = {"random": "random_baseline_00", "unsup": "unsup_8M",
              "sup": "skip_dense_8M", "unsup2sup": "u2s_dense_from8M",
-             # CLASSICAL arm: not an encoder. SI fig a draws the fp+desc anchor as a reference line
-             # on every panel, but the anchor only existed in the MAINLINE wave while four of the
-             # six panels take their points from THIS one -- and the waves disagree by up to 8%
-             # (Tox21 0.7356 here vs 0.7961 mainline). A line and its points from different
-             # protocols measure the wave as much as the model, so the anchor is scored HERE too.
-             # It carries its own featurizer and head; see CLASSICAL below.
-             "fp_desc": "__classical__",
-             # PRECOMPUTED arm: CheMeleon frozen. Same motivation as the fp_desc anchor above --
-             # SI fig a draws CheMeleon beside the CLIMB lines on BACE/Tox21/QM7 while CheMeleon's
-             # only runs are MAINLINE, and the two waves disagree by up to 8.8 points on the SAME
-             # features through the SAME model. CheMeleon cannot go through the encoder branch:
-             # it is a chemprop D-MPNN, not a ModernBertModel, so its vectors are precomputed in a
-             # py3.12 process and read here. Only the FROZEN half is available this way; the e2e
-             # half needs a chemprop training subprocess per cell and is not runnable in this
-             # driver at all.
-             "chemeleon": "__precomputed__"}
-CLASSICAL = {"fp_desc": ("fp_desc", "xgb")}      # arm -> (featurizer, head)
-PRECOMPUTED = {"chemeleon": ("figure_data/_chemeleon_allmols.npz", "mlp")}   # arm -> (npz, head)
-
-_PRE_TABLE = {}
-def _precomputed_features(npz_path, smiles):
-    """Look vectors up in a precomputed {smiles: vector} table.
-
-    REFUSES to mean-fill a missing molecule, for the same reason the concat runner does: a filled
-    row produces a complete, plausible, fabricated number that no range check downstream can catch.
-    """
-    if npz_path not in _PRE_TABLE:
-        z = np.load(npz_path, allow_pickle=True)
-        X, S = z["X"], z["smiles"]            # hoisted: np.load on .npz is lazy
-        _PRE_TABLE[npz_path] = {str(v): X[i] for i, v in enumerate(S)}
-        print(f"  [precomputed] {len(_PRE_TABLE[npz_path])} vectors from {npz_path}", flush=True)
-    tab = _PRE_TABLE[npz_path]
-    miss = [x for x in smiles if str(x) not in tab]
-    if miss:
-        raise KeyError(f"{len(miss)} SMILES absent from {npz_path}, e.g. {miss[:2]}")
-    return np.asarray([tab[str(x)] for x in smiles], dtype=np.float32)
-# env overrides (LE_ARMS / LE_TASKS / LE_SEEDS / LE_LONG / LE_SUMM) let the "clean 3-task" re-run
-# reuse this proven scorer without editing constants; defaults preserve the original behaviour.
+             "fp_desc": "__classical__"}
+CLASSICAL = {"fp_desc": ("fp_desc", "xgb")}
 _arm_sel = os.environ.get("LE_ARMS", "").split()
 ARMS = {a: _ALL_ARMS[a] for a in _arm_sel} if _arm_sel else _ALL_ARMS
-TASKS = os.environ.get("LE_TASKS", "ESOL Lipophilicity QM7 BBBP BACE Tox21 HIV").split()
-TYPE = dict(MOLECULENET_TASKS_V2)
+TASKS = os.environ.get("LE_TASKS", "QM7 BACE Tox21 HIV").split()
+TYPE = dict(MOLECULENET_TASKS)
 FRACTIONS = [float(x) for x in os.environ.get("LE_FRACTIONS", "0.05 0.10 0.25 0.50 1.00").split()]
 HEAD_SEEDS = list(range(int(os.environ.get("LE_SEEDS", "3"))))
 POOL, ML, STD, HEAD = "mean", 256, "zscore", "mlp"
@@ -110,7 +39,7 @@ tok = PreTrainedTokenizerFast.from_pretrained(TOK)
 
 
 def subsample_idx(n_full: int, frac: float, seed: int) -> np.ndarray:
-    """Identical draw to eval_v2._subsample_train(n=round(frac*n_full), seed)."""
+    """Identical draw to evaluate._subsample_train(n=round(frac*n_full), seed)."""
     n = n_full if frac >= 1.0 else max(1, round(frac * n_full))
     if n >= n_full:
         return np.arange(n_full)
@@ -120,14 +49,7 @@ def subsample_idx(n_full: int, frac: float, seed: int) -> np.ndarray:
 rows = []
 for arm, run in ARMS.items():
     classical = arm in CLASSICAL
-    precomputed = arm in PRECOMPUTED
-    if precomputed:
-        npz_path, head_name = PRECOMPUTED[arm]
-        if not Path(npz_path).exists():
-            print(f"[{arm}] MISSING {npz_path} -- skipping", flush=True); continue
-        print(f"\n===== arm={arm} (precomputed {npz_path} + {head_name}) =====", flush=True)
-        encoder = None
-    elif classical:
+    if classical:
         feat_name, head_name = CLASSICAL[arm]
         print(f"\n===== arm={arm} (classical {feat_name} + {head_name}) =====", flush=True)
         encoder = None
@@ -150,19 +72,15 @@ for arm, run in ARMS.items():
         n_full = len(tr_s)
         n_out = tr_y.shape[1] if tr_y.ndim > 1 else 1
         t0 = time.time()
-        # featurize ONCE (the expensive encoder pass); reuse across fractions/seeds
-        if precomputed:
-            tr_x_full = _precomputed_features(npz_path, tr_s)
-            va_x = _precomputed_features(npz_path, va_s)
-            te_x = _precomputed_features(npz_path, te_s)
-        elif classical:
-            from featurize_v2 import ecfp4_features
-            from descriptors_v2 import rdkit_descriptors
+
+        if classical:
+            from features import ecfp4_features
+            from descriptors import rdkit_descriptors
 
             def _classical(sm):
                 fp = np.asarray(ecfp4_features(list(sm)), dtype=np.float32)
                 d = np.asarray(rdkit_descriptors(list(sm)), dtype=np.float32)
-                d[~np.isfinite(d)] = np.nan          # XGBoost treats NaN as missing, ERRORS on inf
+                d[~np.isfinite(d)] = np.nan
                 return np.concatenate([fp, d], axis=1)
 
             tr_x_full, va_x, te_x = _classical(tr_s), _classical(va_s), _classical(te_s)
@@ -173,14 +91,13 @@ for arm, run in ARMS.items():
         print(f"  [{task}] n_train={n_full} featurized in {time.time()-t0:.0f}s", flush=True)
 
         for frac in FRACTIONS:
-            sub_seeds = [0] if frac >= 1.0 else [0, 1, 2]   # full: subsample is a no-op
+            sub_seeds = [0] if frac >= 1.0 else [0, 1, 2]
             for ss in sub_seeds:
                 idx = subsample_idx(n_full, frac, ss)
                 n_train = len(idx)
                 trx, try_ = tr_x_full[idx], tr_y[idx]
-                # ECFP bits are 0/1 and descriptors carry NaNs: XGBoost is scale-invariant and
-                # wants the NaNs, so the classical arm skips standardization exactly as
-                # eval_v2 does for the same featurizer.
+
+
                 if classical:
                     trx_s, vax_s, tex_s = trx, va_x, te_x
                 else:
@@ -190,11 +107,9 @@ for arm, run in ARMS.items():
                     tex_s = apply_standardizer(te_x, sp)
                 ysc = _fit_target_scaler(try_, tt)
                 for hs in HEAD_SEEDS:
-                    # precomputed CheMeleon vectors are continuous, so they take the SAME zscore
-                    # path as encoder features above (only the classical arm skips it) and the same
-                    # MLP head the CLIMB lines use -- which is the point: the arm must differ from
-                    # them in representation only, not in probe.
-                    hd = make_head(head_name if (classical or precomputed) else HEAD,
+
+
+                    hd = make_head(head_name if classical else HEAD,
                                    tt, n_out, hs).fit(
                         trx_s, _scale_targets(try_, ysc), vax_s, _scale_targets(va_y, ysc))
                     te_pred = _unscale_preds(np.asarray(hd.predict(tex_s), dtype=np.float64), ysc)
@@ -216,12 +131,12 @@ for arm, run in ARMS.items():
             print(f"    {task} {int(frac*100):>3}%  n={done[-1]['n_train']:>5}  "
                   f"{'roc_auc' if tt=='classification' else 'rmse'}="
                   f"{np.nanmean(vals):.4f}±{np.nanstd(vals):.4f}", flush=True)
-        # flush after each (arm, task) so a crash never loses completed work
+
         pd.DataFrame(rows).to_csv(LONG, index=False)
 
 df = pd.DataFrame(rows)
 df.to_csv(LONG, index=False)
-# aggregate over subsample x head seeds -> the plotted point + error bar
+
 g = (df.groupby(["arm", "task", "task_type", "metric", "split", "fraction", "pct"], as_index=False)
        .agg(n_train=("n_train", "max"), mean=("value", "mean"),
             std=("value", "std"), n_cells=("value", "size")))

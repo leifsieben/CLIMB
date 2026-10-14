@@ -1,25 +1,14 @@
-"""Experiment B — stitch the wiki-transfer result into one tidy CSV: wiki_real vs real vs no_pretrain,
-all frozen-probe 5-fold CV in NATIVE units, same eval version. Comparators reuse the Exp A native
-re-evals (climb_v2_expA/_baselines), so the 3 arms are directly comparable.
-
-Writes analysis/rigor/expB_wiki_{per_run,summary}.csv. Reads per-run moleculenet_cv from S3.
-
-Usage:  python scripts/build_expB_summary.py
-"""
 from __future__ import annotations
 
-import io
 import re
-import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-BUCKET = "s3://climb-s3-bucket/experiments"
 FOLD_RE = re.compile(r"^fold\d+$")
 
-# (arm, run_id, seed, wave)
+
 ARMS = [
     ("wiki_real", "wiki_real_8M", 0, "climb_v2_expB"),
     ("wiki_real", "wiki_real_8M_s1", 1, "climb_v2_expB"),
@@ -35,12 +24,11 @@ ARM_ORDER = ["real (unsup_only)", "wiki_real", "no_pretrain (frozen)"]
 
 
 def _read_cv(wave, run_id):
-    uri = f"{BUCKET}/{wave}/{run_id}/moleculenet_cv/moleculenet_summary.csv"
-    r = subprocess.run(["aws", "s3", "cp", uri, "-"], capture_output=True)
-    if r.returncode != 0:
-        print(f"  MISSING {wave}/{run_id}")
+    path = Path(__file__).resolve().parent.parent / "figure_data" / wave / run_id / "moleculenet_cv" / "moleculenet_summary.csv"
+    if not path.exists():
+        print(f"MISSING {path}")
         return None
-    return pd.read_csv(io.StringIO(r.stdout.decode()))
+    return pd.read_csv(path)
 
 
 def main() -> int:
@@ -60,11 +48,10 @@ def main() -> int:
                          "task_type": ttype, "metric": primary, "cv_value": float(gg.main_value.mean())})
     per = pd.DataFrame(rows)
     out = Path("analysis/rigor"); out.mkdir(parents=True, exist_ok=True)
-    per.to_csv(out / "expB_wiki_per_run.csv", index=False)
     summ = (per.groupby(["arm", "dataset", "task_type", "metric"], as_index=False)
             .agg(mean=("cv_value", "mean"), std=("cv_value", "std"), n_seeds=("cv_value", "size")))
     summ.to_csv(out / "expB_wiki_summary.csv", index=False)
-    print(f"\nwrote analysis/rigor/expB_wiki_{{per_run,summary}}.csv ({len(per)} rows)")
+    print(f"\nwrote analysis/rigor/expB_wiki_summary.csv")
     for ds in sorted(per.dataset.unique()):
         d = summ[summ.dataset == ds]; metric = d.metric.iloc[0]
         better = "lower" if metric == "rmse" else "higher"

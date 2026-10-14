@@ -1,0 +1,26 @@
+{
+  "set": "concatenation",
+  "git_commit": "558a04fa172715d5783e3efd5d0437cc4d2c428d",
+  "python": "3.9.25",
+  "packages": {
+    "xgboost": "2.1.4",
+    "numpy": "1.23.5",
+    "deepchem": "2.8.0",
+    "torch": "2.8.0+cu128",
+    "transformers": "4.57.3",
+    "scikit-learn": "1.6.1",
+    "scipy": "1.13.1",
+    "pandas": "2.3.3",
+    "rdkit_EFFECTIVE": "2022.09.5",
+    "rdkit_pip_rdkit": "2025.9.2",
+    "rdkit_pip_rdkit-pypi": "2022.9.5"
+  },
+  "seeds": {
+    "xgboost_seeds": [
+      0
+    ],
+    "fold_seed": 0,
+    "folds": "evaluate._scaffold_kfold_indices(smiles, K, 0), deterministic in the molecule list"
+  },
+  "rdkit_note": "The effective RDKit version for these results was 2022.09.5 (rdkit-pypi), despite rdkit 2025.9.2 also being installed."
+}

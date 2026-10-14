@@ -1,27 +1,3 @@
-"""Build one `e2e_random_XX` run directory: a random-init encoder fine-tuned END-TO-END.
-
-Fig A1 has a `no_pretrain (frozen)` bar (`random_baseline_00/01/02`) and a reserved
-`no_pretrain (end-to-end)` bar that has never had data. This script produces the latter
-so the two differ in EXACTLY one thing — whether the encoder receives gradient.
-
-That is why it does not create a fresh random encoder: it fine-tunes the *same saved
-weights* `random_baseline_XX` was frozen at (`.../random_baseline_XX/encoder`). A newly
-seeded encoder would be a second, uncontrolled difference between the two bars even if
-the seed matched, because the saved weights are what was actually scored.
-
-Both evaluation schemes are produced (`moleculenet/` = DeepChem single scaffold hold-out,
-`moleculenet_cv/` = 5-fold scaffold CV) with the frozen arm's `subsample_seed=0`, so the
-fold partition and molecule ordering pair row-for-row with every existing run.
-
-`verified.json` is written ONLY after the achieved work is checked against the datasets
-themselves (every core task scored, and one prediction row per non-NaN label entry).
-File existence proves nothing — a box killed mid-HIV also leaves a summary behind.
-
-Usage:
-    python scripts/run_e2e_random.py --replicate 0 --encoder <dir> --tokenizer <dir> \
-        --output_root figure_data/climb_v2_phase2 [--s3 s3://.../climb_v2_phase2]
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -36,22 +12,17 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config_v2 import MOLECULENET_TASKS_V2  # noqa: E402
-from finetune_e2e_v2 import FT_HPARAMS, evaluate_finetuned  # noqa: E402
+from config import MOLECULENET_TASKS
+from finetune import FT_HPARAMS, evaluate_finetuned
 
-CORE_TASKS = ["ESOL", "BBBP", "BACE", "Tox21", "QM7", "HIV"]
+CORE_TASKS = ["ESOL", "BACE", "Tox21", "QM7", "HIV"]
 CV_FOLDS = 5
-SUBSAMPLE_SEED = 0          # must equal the frozen runs' value or folds will not pair
+SUBSAMPLE_SEED = 0
 
 
 def _expected_rows(task: str, scheme: str) -> int:
-    """How many prediction rows this task MUST produce.
 
-    `_dump_test_predictions` emits one row per (molecule, output column) with a non-NaN
-    label, so the count is a property of the dataset, not of our run — which makes it a
-    completion check that a truncated job cannot fake.
-    """
-    from eval_v2 import _load_moleculenet, _load_moleculenet_full
+    from evaluate import _load_moleculenet, _load_moleculenet_full
     if scheme == "moleculenet_cv":
         _, y = _load_moleculenet_full(task)
     else:
@@ -103,12 +74,11 @@ def main():
     p.add_argument("--output_root", required=True)
     p.add_argument("--datasets", nargs="+", default=CORE_TASKS)
     p.add_argument("--holdout_seeds", type=int, nargs="+", default=[0, 1, 2],
-                   help="matches eval_v2's head_seeds=[0,1,2]; hold-out STD is over these")
+                   help="matches evaluate's head_seeds=[0,1,2]; hold-out STD is over these")
     p.add_argument("--cv_seeds", type=int, nargs="+", default=[0],
                    help="fine-tune seeds averaged into each fold's prediction; the frozen "
                         "arm uses 3 — 1 here is the documented compute scope-down")
     p.add_argument("--epochs", type=int, default=FT_HPARAMS["epochs"])
-    p.add_argument("--s3", default=None, help="s3://.../climb_v2_phase2 to sync into")
     p.add_argument("--schemes", nargs="+", default=["moleculenet", "moleculenet_cv"])
     p.add_argument("--verify_only", action="store_true")
     args = p.parse_args()
@@ -116,14 +86,10 @@ def main():
     run_id = f"e2e_random_{args.replicate:02d}"
     run_dir = Path(args.output_root) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
-    type_map = dict(MOLECULENET_TASKS_V2)
+    type_map = dict(MOLECULENET_TASKS)
     ds_list = [(n, type_map[n]) for n in args.datasets]
     t_start = time.time()
 
-    def sync():
-        if args.s3:
-            subprocess.run(["aws", "s3", "sync", str(run_dir),
-                            f"{args.s3.rstrip('/')}/{run_id}", "--only-show-errors"], check=False)
 
     if not args.verify_only:
         (run_dir / "run_status.json").write_text(json.dumps(
@@ -138,16 +104,15 @@ def main():
                 cv_folds=cv, subsample_seed=SUBSAMPLE_SEED, epochs=args.epochs,
                 heartbeat_path=str(run_dir / "heartbeat.json"),
             )
-            sync()   # push each scheme as it lands, not only at the end
 
-    # ---- provable completion -------------------------------------------------------
+
     rep = verify(run_dir, tasks=args.datasets)
     (run_dir / "verification_report.json").write_text(json.dumps(rep, indent=2))
 
     (run_dir / "config.yaml").write_text(
         "\n".join([
             f"run_id: {run_id}",
-            "tokenizer_path: s3://climb-s3-bucket/tokenizer_10M",
+            f"tokenizer_path: {json.dumps(args.tokenizer)}",
             "model:", "  hidden_size: 512", "  num_hidden_layers: 12",
             "  num_attention_heads: 8", "  intermediate_size: 1536",
             "  max_position_embeddings: 256", "  vocab_size: 1000",
@@ -170,7 +135,7 @@ def main():
         "encoder_source": args.encoder,
         "encoder_seed": args.replicate,
         "pretraining_forward_passes": 0,
-        "code": {"module": "finetune_e2e_v2", "runner": "scripts/run_e2e_random.py"},
+        "code": {"module": "finetune", "runner": "scripts/run_e2e_random.py"},
         "hyperparameters": {
             "lr": FT_HPARAMS["lr"], "weight_decay": FT_HPARAMS["weight_decay"],
             "max_epochs": args.epochs, "early_stopping_patience": FT_HPARAMS["patience"],
@@ -200,9 +165,8 @@ def main():
     }, indent=2))
 
     if rep["ok"]:
-        # Same shape as the frozen anchors' verified.json. `route: anchor` because there is
-        # no pretraining budget that could have been truncated — the completion criterion is
-        # the eval work itself, which `verify()` just proved against the datasets.
+
+
         (run_dir / "verified.json").write_text(json.dumps({
             "run_id": run_id, "budget_fp": 0, "final_fp": 0, "fraction": 1.0,
             "verified_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -215,7 +179,6 @@ def main():
         (run_dir / "verified.json").unlink(missing_ok=True)
         print(f"[e2e] NOT VERIFIED {run_id}: {json.dumps(rep)}", flush=True)
 
-    sync()
     sys.exit(0 if rep["ok"] else 3)
 
 

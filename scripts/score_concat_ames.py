@@ -1,18 +1,3 @@
-"""Score Fig F's Ames predictions, which use a different dump schema from every other Polaris run.
-
-concat_redundancy_panels.py writes test_predictions.csv with the FEATURE-SET NAME in the `seed`
-column ("fp+desc", "CLM", "desc+CLM", "fp+desc+CLM") -- there are no eval seeds, the four rows per
-molecule are four feature combinations. chemeleon_suite_score_polaris.py does int(r["seed"]) and
-dies with `invalid literal for int(): 'fp+desc'`, which is why Fig F sat at 2/3 panels with the
-Ames predictions already written and unscored.
-
-This scores each feature set separately through the benchmark's own evaluate() (Ames test labels
-are withheld, so that is the only way), then APPENDS the Ames rows to concat_panels_climb.csv.
-Append, not rewrite: the file already holds the MoleculeACE and CBS panels and a rewrite would
-drop them -- the same trap that made this job need re-running in the first place.
-
-Run with .venv_polaris/bin/python.
-"""
 from __future__ import annotations
 import csv, json, sys
 from collections import defaultdict
@@ -32,7 +17,7 @@ def main(model_dir: str, out_csv: str) -> int:
     for r in csv.DictReader((d / "test_predictions.csv").open()):
         if r["task"] != TASK:
             continue
-        preds[r["seed"]][int(r["test_index"])] = float(r["y_pred"])   # seed col = feature set
+        preds[r["seed"]][int(r["test_index"])] = float(r["y_pred"])
     if not preds:
         print(f"no {TASK} rows in {d}/test_predictions.csv", file=sys.stderr)
         return 1
@@ -59,7 +44,7 @@ def main(model_dir: str, out_csv: str) -> int:
         with out.open() as f:
             rd = csv.DictReader(f)
             fields = rd.fieldnames or fields
-            existing = [r for r in rd if r.get("task") != PANEL]   # drop stale Ames, keep the rest
+            existing = [r for r in rd if r.get("task") != PANEL]
     with out.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()

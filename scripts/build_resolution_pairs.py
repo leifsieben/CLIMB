@@ -1,31 +1,9 @@
-"""Construct molecule PAIRS that probe when an embedding can and cannot resolve two molecules.
-
-The question: which chemical differences does a representation destroy? Each mode contributes 100
-pairs, and every pair is emitted as SMILES plus a rendered image so the chemistry can be checked
-BEFORE any embedding is computed -- a pair set nobody has looked at would produce confident numbers
-about the wrong thing.
-
-TWO CLASSES, and they are scored in opposite directions:
-
-  class A -- MUST SEPARATE. The two molecules are genuinely different, so a distance of zero means
-    the representation destroyed the difference. This is where the stereo bug lived: until today
-    our ECFP mapped L- and D-alanine to identical vectors.
-
-  class B -- MUST NOT SEPARATE. The two SMILES denote the SAME molecule. Any nonzero distance is a
-    representation artefact rather than chemistry. Fingerprints pass these by construction; a
-    sequence model need not, which makes class B the mirror image of class A rather than a
-    formality.
-
-Class B carries its own correctness check: for every pair, canonical isomeric SMILES of A and B
-must be EQUAL. A "same molecule" pair that fails that is a construction bug, and the builder
-refuses to emit it.
-"""
 from __future__ import annotations
 import csv, glob, json, os, random, sys
 from pathlib import Path
 
 from rdkit import Chem
-from rdkit.Chem import AllChem, Descriptors, Draw, rdFMCS
+from rdkit.Chem import AllChem, Draw, rdFMCS
 from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem import rdFingerprintGenerator as G
 from rdkit import DataStructs
@@ -55,16 +33,16 @@ def valid(smi):
 def load_pool():
     """Drug-like molecules from the panels the paper actually evaluates on."""
     pool = []
-    for f in sorted(glob.glob("chemeleon_suite/data/moleculeace/*.csv")):
+    for f in sorted(glob.glob("benchmarks/data/moleculeace/*.csv")):
         rows = list(csv.DictReader(open(f)))
         if not rows:
             continue
         sc = [c for c in rows[0] if c.lower() in ("smiles", "canonical_smiles")][0]
         pool += [r[sc] for r in rows]
     try:
-        import eval_v2
+        import evaluate
         for ds in ("BACE", "Tox21"):
-            s, _ = eval_v2._load_moleculenet_full(ds)
+            s, _ = evaluate._load_moleculenet_full(ds)
             pool += list(s)
     except Exception as exc:
         print(f"  [pool] MoleculeNet unavailable ({exc}); MoleculeACE only", flush=True)
@@ -79,7 +57,6 @@ def load_pool():
     return out
 
 
-# ----------------------------------------------------------------- class A: must separate ------
 def mode_stereo_flip(pool, rng, n):
     out = []
     for s in pool:
@@ -189,14 +166,7 @@ def mode_add_fluorine(pool, rng, n):
 
 
 def mode_isotope(pool, rng, n):
-    """TRUE isotope substitution: 12C -> 13C on an existing atom, leaving the graph untouched.
 
-    The first version added an explicit [2H] ATOM, which adds a node to the molecular graph -- so
-    every embedding "passed" by noticing the extra atom rather than the isotope, and the mode
-    measured nothing. Setting the isotope on an atom that is already there is the honest test:
-    aspirin and [13CH3]-aspirin have byte-IDENTICAL ECFP4 vectors, because RDKit's Morgan atom
-    invariants do not include the isotope.
-    """
     out = []
     for s in pool:
         if len(out) >= n:
@@ -213,16 +183,11 @@ def mode_isotope(pool, rng, n):
             continue
         ma, mb = valid(s), valid(b)
         if not b or b == s or ma.GetNumHeavyAtoms() != mb.GetNumHeavyAtoms():
-            continue        # the graph must be IDENTICAL -- only the isotope label may differ
+            continue
         out.append((s, b, f"12C -> 13C at atom {tgt.GetIdx()} (graph unchanged)"))
     return out
 
 
-# Isolated saturated carbocycles only: every ring atom sp3 and in EXACTLY one ring (R1). Matching
-# a bare "C1CCCCC1" also hits rings fused into a steroid or bridged scaffold, and replacing there
-# does not shrink a ring -- it detonates the molecule. The first build turned a morphinan into
-# "CCN([CH]Cc1ccc(O)c(O)c1)CC1CC1.O.O=C(NC1CCCC1)c1ccccc1" -- three fragments -- and labelled it
-# "cyclohexyl -> cyclopentyl". Hence the post-condition below as well as the tighter pattern.
 _RING6 = Chem.MolFromSmarts("[CX4;R1]1[CX4;R1][CX4;R1][CX4;R1][CX4;R1][CX4;R1]1")
 _RING5 = Chem.MolFromSmarts("[CX4;R1]1[CX4;R1][CX4;R1][CX4;R1][CX4;R1]1")
 
@@ -263,15 +228,6 @@ def mode_ring_size(pool, rng, n):
     return out
 
 
-# Monovalent substituents for the regioisomer template. EXPANDED from 16 to 45 (2026-08-25):
-# 16 gives 256 ordered combinations, which cannot reach N_PER_MODE=1000 pairs.
-#
-# The template attaches r1 as a PREFIX and r2 as a SUFFIX, so an asymmetric group attaches through
-# its last atom in one slot and its first atom in the other -- (r1, r2) and (r2, r1) are therefore
-# usually DIFFERENT molecules, not a redundant ordering. Both slots use the same convention in the
-# ortho and the meta string, so each emitted pair is still a genuine ortho/meta pair. Symmetric
-# groups (C, F, Cl, ...) do collapse under the swap, which is why the builder deduplicates on the
-# canonical pair rather than on the substituent set.
 SUBS = ["C", "CC", "CCC", "C(C)C", "C(C)(C)C", "C=C", "C#C",
         "Cl", "Br", "F", "I",
         "O", "OC", "OCC", "OCCC", "OC(F)(F)F", "CO", "CCO",
@@ -283,23 +239,7 @@ SUBS = ["C", "CC", "CCC", "C(C)C", "C(C)(C)C", "C=C", "C#C",
 
 
 def mode_ch2_homologue(pool, rng, n):
-    """One CH2 INSERTED into an acyclic C-C single bond: the classic homologous series.
 
-    Replaces matched_mw (Leif 2026-08-28). matched_mw asked "are these two unrelated molecules the
-    A or the B of their pair", which has no answer -- the label is arbitrary, so every arm scored
-    ~0.5 whatever it could see, and under a [0.5, 1] axis an empty bar there would have meant
-    "ill-posed" while an empty bar everywhere else means "not resolved". One bar, two meanings.
-    It survives as a reported harness check rather than a panel.
-
-    Homologation is the natural replacement: DIRECTIONAL by construction (A is always the shorter
-    homologue), chemically real, and the edit medicinal chemists actually walk. It is also a
-    sharper question than add_methyl -- a methyl BRANCHES the skeleton, where a CH2 insertion
-    extends it and leaves every functional group intact, so a representation can respond to one
-    and not the other.
-
-    Insertion, not extension at a terminus: a terminal methyl-to-ethyl is a special case of
-    add_methyl, and would measure the same thing twice.
-    """
     out, seen = [], set()
     for s in pool:
         if len(out) >= n:
@@ -307,8 +247,8 @@ def mode_ch2_homologue(pool, rng, n):
         m = Chem.MolFromSmiles(s)
         if m is None:
             continue
-        # Acyclic single bond between two ALIPHATIC carbons. Aromatic or ring bonds cannot take an
-        # insertion without changing ring size, which is a different mode on this same plate.
+
+
         cands = [b for b in m.GetBonds()
                  if b.GetBondType() == Chem.BondType.SINGLE and not b.IsInRing()
                  and b.GetBeginAtom().GetAtomicNum() == 6 and b.GetEndAtom().GetAtomicNum() == 6
@@ -316,9 +256,8 @@ def mode_ch2_homologue(pool, rng, n):
                  and not b.GetEndAtom().GetIsAromatic()]
         if not cands:
             continue
-        # Chosen at random, not cands[0]: the first acyclic C-C bond is almost always the same
-        # terminal alkyl position, so a fixed choice would homologate one structural context 1,000
-        # times and measure that context rather than homologation.
+
+
         bond = rng.choice(cands)
         i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
         rw = Chem.RWMol(m)
@@ -343,23 +282,7 @@ def mode_ch2_homologue(pool, rng, n):
 
 
 def mode_halogen_swap(pool, rng, n):
-    """Cl -> F at the SAME position: the canonical bioisosteric substitution.
 
-    Fills the tenth class-A slot on fig_G's grid (Leif 2026-08-29). Chosen against the alternatives
-    because of what it holds FIXED. Heavy-atom count, connectivity, branch structure and every ring
-    are identical between the two members -- exactly one atom's ELEMENT differs -- so it satisfies
-    the rule the regioisomer defect produced (an edit may move a branch, never create one) without
-    needing a template to enforce it.
-
-    It is the natural partner to add_fluorine on the same plate: that panel asks whether a
-    representation notices an atom APPEARING, this one whether it notices which HALOGEN is there
-    when the skeleton is untouched. A representation can plausibly do one and not the other --
-    Morgan invariants carry atomic number, so the fingerprints should manage both, while anything
-    reading a string sees one added token versus one substituted token.
-
-    Directional by construction: A is always the chloride, B always the fluoride, so the label
-    means the same thing in every pair, which the separability metric requires.
-    """
     out, seen = [], set()
     for s in pool:
         if len(out) >= n:
@@ -370,9 +293,8 @@ def mode_halogen_swap(pool, rng, n):
         cls = [a.GetIdx() for a in m.GetAtoms() if a.GetAtomicNum() == 17]
         if not cls:
             continue
-        # Random rather than the first chlorine: a fixed choice would swap the same positional
-        # context in every polychlorinated molecule and measure that context, the same trap the
-        # CH2 insertion site had.
+
+
         idx = rng.choice(cls)
         rw = Chem.RWMol(m)
         rw.GetAtomWithIdx(idx).SetAtomicNum(9)
@@ -393,38 +315,15 @@ def mode_halogen_swap(pool, rng, n):
 
 
 def mode_regioisomer(pool, rng, n):
-    """PARA vs META pairs on a disubstituted benzene.
 
-    Built from a template rather than rewired from dataset molecules: rewiring a ring in place
-    routinely produces a molecule that sanitizes but is not the intended regioisomer, and this
-    mode is only meaningful if the two members differ ONLY in substitution position.
-
-    PARA/META, NOT ORTHO/META (Leif 2026-08-28: "we do just change the structure right, not
-    change the SMILES anymore than is needed"). Canonical SMILES for the three isomers of one
-    molecule:
-
-        ortho   Cc1ccccc1Br      <- second substituent is TERMINAL, no branch at all
-        meta    Cc1cccc(Br)c1    <- branch
-        para    Cc1ccc(Br)cc1    <- branch, one ring position over
-
-    Ortho differs from the other two in WHETHER THE STRING HAS A BRANCH, which is a gross
-    topological difference available to any tokenizer for free -- and it showed: under the
-    separability metric ortho-vs-meta read 1.000 for all seven arms, the untrained random encoder
-    included, so the panel measured the template rather than the chemistry. Para vs meta share
-    their token inventory and differ only in where the branch sits, which is the actual question:
-    is substitution POSITION encoded.
-
-    Direction is fixed (A is always para) so the label means the same thing in every pair, which
-    the separability metric requires.
-    """
     out, seen = [], set()
     combos = [(r1, r2) for r1 in SUBS for r2 in SUBS]
     rng.shuffle(combos)
     for r1, r2 in combos:
         if len(out) >= n:
             break
-        a = f"{r1}c1ccc({r2})cc1"        # para
-        b = f"{r1}c1cccc({r2})c1"        # meta
+        a = f"{r1}c1ccc({r2})cc1"
+        b = f"{r1}c1cccc({r2})c1"
         ma, mb = valid(a), valid(b)
         if not ma or not mb:
             continue
@@ -437,52 +336,27 @@ def mode_regioisomer(pool, rng, n):
 
 
 def _desc_vec(s):
-    from descriptors_v2 import rdkit_descriptors
+    from descriptors import rdkit_descriptors
     import numpy as np
     v = np.asarray(rdkit_descriptors([s]), dtype=float)[0]
     return np.nan_to_num(v, nan=0.0, posinf=0.0, neginf=0.0)
 
 
-def mode_matched_mw(pool, rng, n):
-    """Different molecules, near-identical molecular weight and low structural similarity."""
-    sub = rng.sample(pool, min(20000, len(pool)))
-    rows = sorted(((s, Descriptors.MolWt(Chem.MolFromSmiles(s))) for s in sub), key=lambda x: x[1])
-    out = []
-    for i in range(len(rows) - 1):
-        if len(out) >= n:
-            break
-        (sa, wa), (sb, wb) = rows[i], rows[i + 1]
-        if abs(wa - wb) > 0.5:
-            continue
-        fa = _GEN.GetFingerprint(Chem.MolFromSmiles(sa))
-        fb = _GEN.GetFingerprint(Chem.MolFromSmiles(sb))
-        t = DataStructs.TanimotoSimilarity(fa, fb)
-        if t < 0.30:
-            out.append((sa, sb, f"different molecules, MW {wa:.2f} vs {wb:.2f}, Tanimoto {t:.2f}"))
-    return out
-
-
 def mode_matched_descriptors(pool, rng, n):
-    """Different molecules whose 217-descriptor vectors are nearest neighbours.
 
-    The direct control for ECFP+desc: if the descriptor block dominates, these collapse.
-    """
     import numpy as np
     sub = rng.sample(pool, min(8000, len(pool)))
     X = np.stack([_desc_vec(s) for s in sub])
-    # Ipc overflows float32 for ~0.6% of drug-like molecules and reaches 1.2e32 when it does not
-    # -- 28 orders of magnitude above every other descriptor -- so a plain mean/std leaves that
-    # one column carrying the entire distance and the rest at z ~ 0. Standardize on the finite
-    # entries and clip, the same convention descriptors_v2.normalize() uses (clip=10).
+
+
     X = np.where(np.isfinite(X), X, np.nan)
     mu = np.nanmean(X, axis=0); sd = np.nanstd(X, axis=0)
     mu = np.where(np.isfinite(mu), mu, 0.0)
     sd = np.where(np.isfinite(sd) & (sd > 1e-8), sd, 1.0)
     Z = np.clip((X - mu) / sd, -10.0, 10.0)
     Z = np.nan_to_num(Z, nan=0.0)
-    # Nearest neighbour per row, computed in chunks. The old form materialized an (n, n, 217)
-    # difference tensor -- 28 GB at n=8000 -- so the previous n=1200 was a memory ceiling rather
-    # than a choice, and the `used` set halved it again to at most 600 pairs.
+
+
     sq = (Z ** 2).sum(1)
     cand = []
     for lo in range(0, len(Z), 512):
@@ -504,14 +378,13 @@ def mode_matched_descriptors(pool, rng, n):
         fb = _GEN.GetFingerprint(Chem.MolFromSmiles(sb))
         t = DataStructs.TanimotoSimilarity(fa, fb)
         if t >= 0.40:
-            continue                       # too structurally alike to be an interesting pair
+            continue
         used.add(i); used.add(j)
         out.append((sa, sb, f"nearest neighbours in 217-descriptor space, "
                             f"z-distance {float(np.sqrt(max(dist, 0.0))):.2f}, Tanimoto {t:.2f}"))
     return out
 
 
-# ------------------------------------------------------------- class B: must NOT separate ------
 def mode_smiles_enumeration(pool, rng, n):
     out = []
     for s in pool:
@@ -544,12 +417,7 @@ def mode_kekule(pool, rng, n):
 
 
 def mode_symmetry_equivalent(pool, rng, n):
-    """Substitute a methyl at two TOPOLOGICALLY EQUIVALENT positions -> literally one molecule.
 
-    Equivalence comes from CanonicalRankAtoms(breakTies=False): equal rank means the two positions
-    are indistinguishable, so the two products must have identical canonical SMILES. The emitter
-    asserts that, which makes this mode self-validating.
-    """
     out = []
     for s in pool:
         if len(out) >= n:
@@ -574,28 +442,6 @@ def mode_symmetry_equivalent(pool, rng, n):
                 pass
         if len(prods) == 2 and prods[0] == prods[1]:
             out.append((prods[0], prods[1], f"+CH3 at equivalent positions {eq[0]} / {eq[1]}"))
-    return out
-
-
-def mode_salt_form(pool, rng, n):
-    """DROPPED, and kept here with the reason.
-
-    A free base and its HCl salt are the same ACTIVE SPECIES but not the same molecular graph, so
-    every pair failed class B's own equality check (100/100 rejected on the first build). The check
-    was right and the mode was mis-classified: "should be very close" is a graded question, not the
-    binary must-not-separate one this harness scores. Re-admit it only with a graded metric.
-    """
-    out = []
-    for s in pool:
-        if len(out) >= n:
-            break
-        m = Chem.MolFromSmiles(s)
-        if not any(a.GetSymbol() == "N" and a.GetTotalNumHs() >= 1 and not a.GetIsAromatic()
-                   for a in m.GetAtoms()):
-            continue
-        salt = s + ".Cl"
-        if valid(salt):
-            out.append((s, salt, "free base vs HCl salt (same active species)"))
     return out
 
 
@@ -625,11 +471,8 @@ def main() -> int:
 
     rows, summary = [], []
     for cls, name, fn, blurb in MODES:
-        # Ask for a margin and DEDUPLICATE, rather than taking the first N_PER_MODE and hoping.
-        # ez_flip and ring_size both repeat pairs at n=1000 (1 and 31 respectively) because they
-        # scan the pool for a matching motif and two different source molecules can canonicalize
-        # to the same edited pair. A repeated pair inflates n without adding information and
-        # narrows the reported IQR, so it is a silent precision claim.
+
+
         got = fn(pool, random.Random(SEED), int(N_PER_MODE * 1.30))
         seen_pairs, uniq_got = set(), []
         for a, b, note in got:
@@ -639,12 +482,8 @@ def main() -> int:
             seen_pairs.add(k); uniq_got.append((a, b, note))
         dropped = len(got) - len(uniq_got)
         got = uniq_got
-        # Both classes are checked through a SMILES ROUND-TRIP, not on the mol objects the edit
-        # was applied to. Setting a chiral tag or a bond stereo directly bypasses RDKit's stereo
-        # perception, so an "inverted stereocentre" on a symmetric ring can be a no-op that only
-        # re-parsing reveals: stereo_flip on hexachlorocyclohexane produced a class-A pair whose
-        # two members are the same molecule, which is a class-B pair wearing a class-A label and
-        # would have been scored as a chemical response the CLMs failed to make.
+
+
         bad = 0
         kept = []
         for a, b, note in got:
@@ -685,11 +524,7 @@ def main() -> int:
     (OUT / "summary.json").write_text(json.dumps(summary, indent=1))
     print(f"\nwrote {OUT/'pairs.csv'}: {len(rows)} pairs across {len(MODES)} modes")
 
-    # The CANONICAL twin, emitted here rather than by hand. Class A is a chemistry question and is
-    # measured on canonical strings; class B IS the notation question and is measured as written.
-    # Canonicalizing class B collapses it to a no-op by construction -- that is the point of having
-    # both files, and it is why the two classes must never be read from the same one.
-    # (figures/fig_G.py asserts exactly that, per class, against the `input` column.)
+
     can = []
     for r in rows:
         ca, cb = canon(valid(r["smiles_a"])), canon(valid(r["smiles_b"]))
@@ -713,11 +548,7 @@ def main() -> int:
     print(f"wrote {OUT/'pairs_canonical.csv'}: {len(can)} pairs "
           f"({len(collapsed)} collapse to identical strings = every class-B pair, as required)")
 
-    # ---- visual inspection ---------------------------------------------------------------
-    # B is drawn on A's COORDINATES via their maximum common substructure, and whatever is not in
-    # that core is highlighted. Laying the two out independently -- the obvious way, and the first
-    # thing I did -- gives two unrelated-looking pictures for a one-atom change, so the reviewer
-    # cannot see the edit and the image is worse than no image at all.
+
     for cls, name, _, blurb in MODES:
         sel = [r for r in rows if r["mode"] == name][:6]
         if not sel:

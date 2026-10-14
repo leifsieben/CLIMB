@@ -1,17 +1,3 @@
-"""CBS inhibitor virtual screen -- the dataset's OWN provided folds, NEF1% + ROC-AUC, any fig_A arm.
-
-WHY NOT SCAFFOLD FOLDS HERE, unlike Wong. CBS ships a `fold` column derived from UMAP clustering
-(the `cluster` column is its basis), and that split is part of the benchmark's definition. Replacing
-it with our scaffold folds would make our CBS numbers incomparable to every CBS number already in
-the paper. Wong is the opposite case: it ships no split at all, so it gets ours.
-
-METRIC. 0.41% positives -- the lowest-prevalence set in the universe -- so NEF1% is the informative
-choice and ROC-AUC is reported beside it. For contrast, BBBP sits at 76.5% positives and nef1 pins
-at exactly 1.0 there for every feature block including plain fingerprints, discriminating nothing.
-
-PER-FOLD VALUES ARE EMITTED: the folds are real and given, so pairing is available downstream, and
-they cannot be recovered after the fact.
-"""
 from __future__ import annotations
 import argparse, csv, json, os, sys
 from pathlib import Path
@@ -38,7 +24,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--featurizer", required=True,
-                    choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder", "npz"])
+                    choices=["ecfp4", "fp_desc", "encoder", "hf_encoder", "npz"])
     ap.add_argument("--encoder", default=None)
     ap.add_argument("--tokenizer", default=None)
     ap.add_argument("--hf_model", default=None)
@@ -47,8 +33,8 @@ def main() -> int:
     ap.add_argument("--seeds", type=int, nargs="+", default=[42, 117, 709])
     a = ap.parse_args()
 
-    from heads_v2 import make_head, compute_metric, compute_nef
-    from scripts.chemeleon_suite_run import make_featurizer, prepare_fold, NPZ_META
+    from heads import make_head, compute_metric, compute_nef
+    from scripts.evaluate_benchmarks import make_featurizer, prepare_fold, NPZ_META
 
     smiles, y, fold = load()
     feat, std = make_featurizer(a.featurizer, a.encoder, a.tokenizer,

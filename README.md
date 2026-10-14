@@ -1,56 +1,59 @@
 # CLIMB
 
-A controlled study of whether unsupervised pretraining on SMILES teaches a chemical language model
-chemistry, or whether its benefit comes from something else. Model, tokenizer, optimizer, data
-budget and evaluation are held fixed across arms so that the pretraining corpus is the only thing
-that varies.
+Code for **Does Pretraining Teach Chemical Language Models Chemistry?**
+Leif Sieben and Yoel Zimmermann, 2026.
 
-## Artifacts
+Pretraining, evaluation on 64 molecular property datasets, and paper figures.
 
-| What | Where |
-|---|---|
-| Encoder weights for every run, plus the vocab-1000 byte-BPE tokenizer | [`lsieben/climb-encoders`](https://huggingface.co/lsieben/climb-encoders) |
-| Evaluation results, including the per-molecule test predictions every figure is computed from | [`lsieben/climb-results`](https://huggingface.co/datasets/lsieben/climb-results) |
-| Pretraining corpora, 217-descriptor targets, supervised table, leakage blocklist | [`lsieben/climb-pretrain-data`](https://huggingface.co/datasets/lsieben/climb-pretrain-data) |
+## Setup
 
-The 124M-molecule corpus is not re-hosted; it derives from
-[`hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC`](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC)
-and `scripts/download_pubchem_full.sh` rebuilds the exact copy used here.
-
-## Contents
-
-| Path | Contents |
-|---|---|
-| `METHODS.md` | full methodology: hypotheses, experiments, architecture, data curation, training, evaluation |
-| `REPRODUCE.md` | figure-by-figure reproduction, each mapped to its data and exact command |
-| `figures/` | one script per paper figure; no notebook and no hidden state |
-| `scripts/` | training, evaluation and analysis entry points |
-| `hf/` | the Hugging Face repo cards and how they are published |
-| `notes/` | dated records of corrections and decisions |
-
-## Reproducing a figure
+Use Python 3.9 and run commands from the repository root. Paper-scale pretraining uses a CUDA GPU; figure scripts use Arial.
 
 ```bash
-python3 scripts/six_panel_aggregate.py        # refresh the results tables
-python3 -m figures.fig_A                      # render one figure into figures_v2/
-python3 scripts/audit_figure_consistency.py   # run before shipping any figure
+python3.9 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-`REPRODUCE.md` covers the full path from a fresh clone, including which Hugging Face artifacts to
-download and how to verify them.
+## Data and checkpoints
 
-## Citation
+- [Pretrained encoders and tokenizer](https://huggingface.co/lsieben/climb-encoders)
+- [Evaluation results](https://huggingface.co/datasets/lsieben/climb-results)
+- [Pretraining data](https://huggingface.co/datasets/lsieben/climb-pretrain-data)
 
-```bibtex
-@misc{climb2026,
-  title  = {Does Pretraining Teach Chemical Language Models Chemistry?},
-  author = {Sieben, Leif and Zimmermann, Yoel},
-  year   = {2026},
-  note   = {Preprint, arXiv},
-  url    = {https://github.com/leifsieben/CLIMB}
-}
+Download paths retain the published archive names.
+
+```bash
+hf download lsieben/climb-encoders --local-dir checkpoints \
+  --include 'climb_v2_phase2/unsup_8M/*' 'tokenizer/*'
+hf download lsieben/climb-results --repo-type dataset --local-dir figure_data \
+  --exclude 'embedding_resolution/*'
 ```
 
-## License
+Set local data and tokenizer paths in `configs/*.yaml` before pretraining. The full 124M-molecule corpus comes from [PubChem-124M](https://huggingface.co/datasets/hheiden/PubChem-124M-SMILES-SELFIES-InChI-IUPAC). Polaris scoring uses a separate environment with `requirements-polaris.txt` because its test labels are withheld.
 
-Code Apache-2.0. Weights Apache-2.0. Data CC-BY-4.0.
+## Experiments
+
+```bash
+python pretrain.py --config configs/unsup_8M.yaml --run_dir experiments/unsup_8M
+python evaluate.py --encoder checkpoints/climb_v2_phase2/unsup_8M \
+  --tokenizer checkpoints/tokenizer --output_dir results/unsup_8M --cv_folds 5
+python evaluate.py --featurizer fp_desc --head xgb \
+  --output_dir results/fp_desc --cv_folds 5
+```
+
+`finetune.py` runs end-to-end fine-tuning. `scripts/evaluate_benchmarks.py` runs MoleculeACE and Polaris; `cbs_run.py`, `wong_run.py`, and `fartdb_multiclass.py` cover the remaining benchmarks. Use `--help` for options.
+
+## Paper figures
+
+Main figures are `figures/figure_1.py` through `figure_6.py`; supplementary figures are `figure_C1.py`, `figure_E1.py`, `figure_F1.py`, `figure_G1.py`, `figure_H1.py`, and `figure_I1.py`. Run them as modules; plots are saved to `plots/`:
+
+```bash
+python -m figures.figure_5
+```
+
+Figure 5 uses the bundled tables. For the other figures, rebuild the archived six-panel summaries with `scripts/six_panel_aggregate.py` and `scripts/six_panel_scaling.py`, then run the corresponding `scripts/build_figure_*_table.py` where present.
+
+For Figure 6, set checkpoint paths in `scripts/embed_resolution_pairs.py`, run it once normally and once with `RESOLUTION_INPUT=canonical`, then run `scripts/resolution_separability.py`. These final resolution inputs are not included in the public results archive, whose older pair files are excluded above.
+
+Code: [Apache-2.0](LICENSE). Upstream datasets retain their respective licenses.

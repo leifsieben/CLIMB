@@ -1,19 +1,3 @@
-"""Wong S. aureus antibacterial screen -- 5-fold scaffold CV, NEF1% + ROC-AUC, any fig_A arm.
-
-WHY ITS OWN RUNNER. Wong is not in either suite track and ships NO split column, so it gets our
-scaffold folds like every other dataset in the universe. 39,121 molecules, 503 positives (1.29%).
-At that prevalence NEF1% is the informative metric and plain accuracy is meaningless; ROC-AUC is
-reported beside it. Compare CBS at 0.41% -- the same regime -- and BBBP at 76.5%, where nef1 pins
-at exactly 1.0 for every feature block including plain fingerprints and discriminates nothing.
-
-THE LABELS ARE PRE-BINARISED AND ARE NOT RE-DERIVED. y == (mean_relative < 0.2) was verified
-row-by-row across all 39,121 rows: zero violations. The three sibling wong_* directories are human
-cell-line cytotoxicity counter-screens, not antibacterial targets, and are deliberately untouched.
-
-PER-FOLD VALUES ARE EMITTED. The folds are real here (unlike the suite tracks' fixed splits), and
-they are free at emission and impossible to recover afterwards -- which is exactly what forced the
-fig_F re-run.
-"""
 from __future__ import annotations
 import argparse, csv, json, os, sys
 from pathlib import Path
@@ -24,15 +8,15 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT)); os.chdir(ROOT)
 
 K_FOLDS = 5
-CSV = ROOT / "chemeleon_suite" / "data" / "wong_saureus.csv"
+CSV = ROOT / "benchmarks" / "data" / "wong_saureus.csv"
 
 
 def load() -> tuple[list, np.ndarray]:
     rows = list(csv.DictReader(CSV.open()))
     smiles = [r["smiles"] for r in rows]
     y = np.array([[float(r["y"])] for r in rows], dtype=np.float64)
-    # ASSERT THE LABEL RULE RATHER THAN TRUST THE COLUMN -- cheap, and it caught nothing here
-    # (0 violations of y == mean_relative < 0.2), which is the point: now it is known, not assumed.
+
+
     bad = sum(1 for r in rows if int(r["y"]) != int(float(r["mean_relative"]) < 0.2))
     if bad:
         raise SystemExit(f"{bad} rows violate y == (mean_relative < 0.2); refusing to score a "
@@ -46,7 +30,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--featurizer", required=True,
-                    choices=["ecfp4", "fp_desc", "chemeleon", "encoder", "hf_encoder", "npz"])
+                    choices=["ecfp4", "fp_desc", "encoder", "hf_encoder", "npz"])
     ap.add_argument("--encoder", default=None)
     ap.add_argument("--tokenizer", default=None)
     ap.add_argument("--hf_model", default=None)
@@ -55,9 +39,9 @@ def main() -> int:
     ap.add_argument("--seeds", type=int, nargs="+", default=[42, 117, 709])
     a = ap.parse_args()
 
-    import eval_v2 as E
-    from heads_v2 import make_head, compute_metric, compute_nef
-    from scripts.chemeleon_suite_run import make_featurizer, prepare_fold, NPZ_META
+    import evaluate as E
+    from heads import make_head, compute_metric, compute_nef
+    from scripts.evaluate_benchmarks import make_featurizer, prepare_fold, NPZ_META
 
     smiles, y = load()
     feat, std = make_featurizer(a.featurizer, a.encoder, a.tokenizer,

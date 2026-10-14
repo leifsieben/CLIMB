@@ -1,30 +1,3 @@
-"""Extract frozen embeddings from a CLM that will not run in the pinned CLIMB environment.
-
-WHY THIS EXISTS. Two of the fig_A arms cannot load under transformers 4.57.3, which every CLIMB
-number is pinned to:
-
-  MoLFormer-c3 (DeepChem, 2025)  its remote code imports transformers.masking_utils.create_bidirectional_mask
-  selfies-ted  (IBM, 2024)       takes SELFIES, so it needs the `selfies` package
-
-The tempting fix is to upgrade transformers on the shared venv. That is exactly how the fig_F
-v1/v2 mismatch happened -- an unpinned dependency moved 27 of 30 embedding-free cells by a median
-0.38 fold SD, larger than the effects being plotted, and nothing looked wrong until a
-duplicate-block check caught it. So instead this runs in its OWN venv and hands over an npz keyed
-on SMILES, the same split CheMeleon (chemprop) and Mordred already use: featurize in one
-environment, score in another, and let no library reach across.
-
-The probe itself -- folds, seeds, z-score, MLP -- still runs in the pinned venv on these vectors,
-so these arms go through the identical head as every other arm in the ranking.
-
-    ~/venvs/clm_new/bin/python scripts/extract_clm_embeddings.py \
-        --hf_model DeepChem/MoLFormer-c3-1.1B --tokenizer_from ibm/MoLFormer-XL-both-10pct \
-        --tokenizer_revision 7b12d946c181 --smiles figure_data/_figA_smiles.json \
-        --out figure_data/_molformer_c3.npz
-
-SMILES ARE SAVED AS '<U', NOT object: an object array is pickled, and a pickle written by a modern
-numpy references numpy._core, which the numpy 1.23.5 in the pinned venv cannot import -- so the
-table would become unreadable exactly where it is used.
-"""
 from __future__ import annotations
 import argparse, json, sys, time
 from pathlib import Path
@@ -33,9 +6,7 @@ import numpy as np
 
 
 def to_selfies(smiles: list[str]) -> tuple[list[str], list[str]]:
-    """-> (encodable_smiles, selfies). A molecule selfies cannot encode is DROPPED and reported;
-    the lookup on the other side raises on a miss rather than mean-filling, so a silent absence
-    surfaces as a loud KeyError instead of a fabricated vector."""
+
     import selfies as sf
     keep, out = [], []
     for s in smiles:
@@ -44,12 +15,8 @@ def to_selfies(smiles: list[str]) -> tuple[list[str], list[str]]:
         except Exception:
             continue
         if e:
-            # SPACE-SEPARATE THE TOKENS. selfies-ted's tokenizer expects "[C] [C] [O]", not
-            # "[C][C][O]": fed the unspaced string it emits THREE tokens for any molecule and
-            # every embedding comes out identical -- measured off-diagonal cosine 1.0000 and
-            # per-dimension sd 0.0000. That arm scored 1.2171 macro RMSE on MoleculeACE, which
-            # reads as "selfies-ted is terrible" rather than "the input was destroyed". Spaced,
-            # the same molecules give 26 tokens, sd 0.24, cosine 0.62.
+
+
             keep.append(s); out.append(e.replace("][", "] ["))
     return keep, out
 
@@ -87,7 +54,7 @@ def main() -> int:
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = AutoModel.from_pretrained(a.hf_model, **m_kw).to(dev).eval()
 
-    # RESPECT THE CHECKPOINT'S OWN LIMIT rather than assuming ours applies to someone else's model.
+
     cand = [512]
     for attr in ("max_position_embeddings", "n_positions", "max_len"):
         v = getattr(model.config, attr, None)
@@ -101,18 +68,8 @@ def main() -> int:
           f"max_length={max_len} device={dev}", flush=True)
 
     kept, texts = (to_selfies(smiles) if a.selfies else (list(smiles), list(smiles)))
-    # KEEP THE MOLECULE SET IDENTICAL ACROSS ARMS. 309 of 177,922 molecules cannot be encoded as
-    # SELFIES. Dropping them would give selfies-ted a DIFFERENT molecule set from every other arm
-    # in the ranking -- a worse failure than 0.17% missing, and the same call fig_F made for the 15
-    # organometallics CheMeleon's featurizer rejected. It also makes full coverage unreachable, so
-    # a coverage gate would re-extract this table forever while reporting progress.
-    #
-    # Unencodable molecules get an all-NaN row: present in the table, visibly absent as data, and
-    # imputed at read time rather than silently fabricated here.
-    # HOIST THE SET. Written as `if s not in set(kept)` this rebuilds a 177,613-element set for
-    # every one of 177,922 molecules -- O(n^2), and it turned a 7m37s extraction into one still
-    # running at 34 minutes with the GPU idle at 0% and Python pinned at 100%. Same shape as the
-    # lazy-npz member access that had to be hoisted in compute_mordred.py.
+
+
     _kept = set(kept)
     unencodable = [s for s in smiles if s not in _kept]
     if a.selfies:
@@ -130,8 +87,8 @@ def main() -> int:
             mod = model.encoder if (a.encoder_only and hasattr(model, "encoder")) else model
             out = mod(input_ids=ids, attention_mask=mask)
             h = out.last_hidden_state
-            # MASKED MEAN -- the identical pooling eval_v2._encoder_features applies to the CLIMB
-            # encoders. A different pooling here would make the ranking a pooling comparison.
+
+
             mw = mask.unsqueeze(-1).to(h.dtype)
             pooled = (h * mw).sum(1) / mw.sum(1).clamp(min=1e-9)
             feats.append(pooled.float().cpu().numpy())
@@ -148,10 +105,7 @@ def main() -> int:
         print(f"[extract] added {len(unencodable)} all-NaN rows; listed in "
               f"{a.out}.unencodable.json", flush=True)
 
-    # DEGENERACY TRIPWIRE. A featurizer that returns the SAME vector for every molecule produces a
-    # perfectly well-formed npz, a complete run, and a plausible-looking bad score -- there is no
-    # error anywhere. That is exactly what a mis-tokenised selfies-ted did. So test the condition
-    # rather than trust the pipeline: real embeddings separate molecules.
+
     finite = X[np.isfinite(X).all(axis=1)]
     sd = finite.std(axis=0)
     n = min(512, len(finite))
@@ -170,10 +124,7 @@ def main() -> int:
             f"whether --encoder_only is required. Refusing to write a table that would score as "
             f"a bad model rather than a broken input.")
 
-    # THE TABLE CARRIES ITS OWN PROVENANCE. Routing an arm through --featurizer npz erased the
-    # model identity from verified.json -- it recorded featurizer "npz" and a file path, which is
-    # strictly less than the hf_model/hf_revision the direct path had just been fixed to write.
-    # A vector table that does not say what produced it is the fig_F v1 problem in miniature.
+
     import transformers as _tf
     meta = {
         "hf_model": a.hf_model, "hf_revision": a.revision or "main",
@@ -188,13 +139,8 @@ def main() -> int:
         "sanity_off_diagonal_cosine": round(off, 4),
         "sanity_median_dim_sd": round(float(np.median(sd)), 6),
     }
-    # THE NUMBER IN THE NAME IS PRETRAINING DATA, NOT PARAMETERS -- for BOTH families, and the
-    # gap is not small. Measured here:
-    #     ChemBERTa-77M-MTR      3.4M params   (77M   = pretraining molecules)
-    #     MoLFormer-c3-1.1B     44.4M params   (1.1B  = pretraining molecules)
-    #     selfies-ted          358.1M params   (no number in the name)
-    # So the names imply 77M < 1.1B while the models run 3.4M < 44M < 358M, and a reader taking the
-    # names as parameter counts gets the size ordering of the ranking exactly backwards.
+
+
     import re as _re
     _m = _re.search(r"-(\d+(?:\.\d+)?)([MB])\b", a.hf_model)
     if _m:

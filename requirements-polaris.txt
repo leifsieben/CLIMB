@@ -1,0 +1,2 @@
+polaris-lib>=0.13
+pandas==2.3.3

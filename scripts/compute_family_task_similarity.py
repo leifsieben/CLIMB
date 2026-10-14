@@ -1,31 +1,10 @@
-"""Fig J1 / H10 — chemical similarity between each SFT family and each evaluation task.
-
-J1 shows WHICH SFT family transfers to which eval task. On its own that is a description, not a
-test: H10 claims transfer is governed by molecular/domain content similarity, and testing it
-needs an independent similarity measure to correlate the transfer pattern against.
-
-For each (family, task) pair this computes the mean over eval-test molecules of their MAXIMUM
-ECFP4 Tanimoto to the family's training molecules -- "how close is the typical test molecule to
-something this family actually trained on". Correlating that against J1's lift is the H10 test:
-a positive relation supports content-similarity-driven transfer, a flat one says transfer is
-driven by something else.
-
-Note this is now a cleaner test than it would have been pre-dedup: the deduped ablation removed
-exact eval-test overlap, so any residual similarity signal is genuine near-neighbour transfer
-rather than memorisation of the same molecule.
-
-Families are read from the supervised wide parquet, where membership is indicated by non-null
-values in that family's prefixed columns.
-
-Usage:
-    python scripts/compute_family_task_similarity.py [--family-n 20000] [--out figure_data/_tanimoto]
-"""
 from __future__ import annotations
 
 import argparse, csv, json, subprocess, time
 from pathlib import Path
 
 import numpy as np
+from dedup_i1_reanalysis import _popcount_rows
 import pyarrow.parquet as pq
 from rdkit import Chem, RDLogger
 from rdkit.Chem import rdFingerprintGenerator
@@ -33,20 +12,15 @@ from rdkit.Chem import rdFingerprintGenerator
 RDLogger.DisableLog("rdApp.*")
 NBITS = 2048
 FAMILIES = ["PCBA", "L1000_MCF7", "L1000_VCAP", "PCQM", "WONG"]
-SUP = "s3://climb-s3-bucket/tokenized/supervised_wide_parquet/"
+SUP = "raw_data/supervised_wide_parquet"
 
 
 def log(m): print(f"[famsim {time.strftime('%H:%M:%S')}] {m}", flush=True)
 
 
 def pack(smiles):
-    # DELIBERATELY STEREO-BLIND, unlike featurize_v2.ecfp4_features (fixed 2026-08-19 to carry
-    # chirality). Different question, different answer. This is a SIMILARITY axis: the "memorized"
-    # group asks "did the model effectively already read this molecule", and a stereo-blind match
-    # is the LOOSER test, so it OVER-counts memorization. The finding is that the memorized group
-    # shows no advantage, so over-counting is the conservative direction -- turning chirality on
-    # would shrink the group and weaken a null result in our own favour. Corpus Tanimoto is also
-    # conventionally computed without chirality. Do not "fix" this to match the featurizer.
+
+
     gen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=NBITS)
     rows = []
     for s in smiles:
@@ -69,34 +43,26 @@ def main() -> int:
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     cache = out / "_cache"; cache.mkdir(exist_ok=True)
 
-    # ---- eval-task molecules (already collected for I1) ----
+
     tasks = {}
     with open(out / "corpus_similarity.csv") as fh:
         for r in csv.DictReader(fh):
             tasks.setdefault(r["dataset"], []).append(r["raw_smiles"])
     log("eval tasks: " + ", ".join(f"{k}={len(v)}" for k, v in tasks.items()))
 
-    # ---- family molecules from the supervised wide parquet ----
+
     fam_smiles = {f: [] for f in FAMILIES}
-    # The wide parquet is family-ordered: shard 0 is entirely PCQM. Reading the first N
-    # shards therefore finds ONE family. Spread the probes across the whole range instead.
-    # Shard indices where each family actually HAS data, found by scanning the probe column of
-    # all 55 shards. The parquet is family-ordered and the families are wildly unequal in size
-    # (PCQM spans shards 0-30, PCBA 36-44, while L1000/WONG live in just 36 and 52), so neither
-    # "first N" nor an even spread finds them -- an even spread over 55 shards misses 36/52
-    # entirely, which is why L1000 and WONG came back empty.
+
+
     FAMILY_SHARDS = {"PCQM": [0, 2, 4], "PCBA": [36, 38, 40, 42],
                      "L1000_MCF7": [36, 52], "L1000_VCAP": [36, 52], "WONG": [31, 36, 52]}
     idxs = sorted({i for v in FAMILY_SHARDS.values() for i in v})
     for i in idxs:
-        loc = cache / f"sup_{i:05d}.parquet"
-        if not loc.exists():
-            subprocess.run(["aws", "s3", "cp", f"{SUP}shard_{i:05d}.parquet", str(loc)],
-                           check=True, capture_output=True)
+        loc = Path(SUP) / f"shard_{i:05d}.parquet"
         pf = pq.ParquetFile(loc)
         names = pf.schema_arrow.names
         for fam in FAMILIES:
-            cols = [c for c in names if c.startswith(fam + "__")][:1]  # one probe column is enough
+            cols = [c for c in names if c.startswith(fam + "__")][:1]
             if not cols:
                 continue
             t = pf.read(columns=["smiles_canon"] + cols).to_pydict()
@@ -111,12 +77,8 @@ def main() -> int:
     for f, smi in fam_smiles.items():
         if not smi:
             log(f"{f}: NO molecules found — skipping"); continue
-        # SORTED, not just de-duplicated. `list({...})` iterates a set, and Python randomises str
-        # hashing per process, so the iteration order -- and therefore which family_n molecules
-        # rng.choice lands on -- differed run to run EVEN AT A FIXED SEED. That made this table
-        # irreproducible across processes: nobody could re-derive these numbers, and appending new
-        # rows would silently mix two different family samples. Sorting pins the candidate order so
-        # a fixed seed now yields a fixed sample.
+
+
         s = sorted({x for x in smi})
         if len(s) > a.family_n:
             s = [s[i] for i in rng.choice(len(s), a.family_n, replace=False)]
@@ -126,12 +88,12 @@ def main() -> int:
     rows = []
     for task, smi in tasks.items():
         q = pack(list(dict.fromkeys(smi)))
-        qpc = np.bitwise_count(q).sum(axis=1).astype(np.int32)
+        qpc = _popcount_rows(q).sum(axis=1).astype(np.int32)
         for fam, ref in fam_fp.items():
-            rpc = np.bitwise_count(ref).sum(axis=1).astype(np.int32)
+            rpc = _popcount_rows(ref).sum(axis=1).astype(np.int32)
             best = np.zeros(len(q), dtype=np.float32)
             for i in range(len(q)):
-                inter = np.bitwise_count(ref & q[i]).sum(axis=1).astype(np.int32)
+                inter = _popcount_rows(ref & q[i]).sum(axis=1).astype(np.int32)
                 union = rpc + qpc[i] - inter
                 best[i] = (inter / np.maximum(union, 1)).max()
             rows.append(dict(task=task, family=fam,
